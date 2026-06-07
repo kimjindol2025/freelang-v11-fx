@@ -1,0 +1,4 @@
+stdlib
+data/
+node_modules/
+*.log

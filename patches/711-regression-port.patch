@@ -1,0 +1,96 @@
+diff --git a/src/eval-builtins.ts b/src/eval-builtins.ts
+index dd25788..71d3dfc 100755
+--- a/src/eval-builtins.ts
++++ b/src/eval-builtins.ts
+@@ -896,6 +896,30 @@ function __ensureIoWorker(): void {
+ 
+ // ──────────────────────────────────────────────────────────────────────────────
+ 
++// fx 회귀패치 이식 (2026-06-07): builtin first-class 일반화.
++// evalBuiltin switch 의 case 라벨을 1회 스캔해 "메인 인터프리터가 아는 op" 집합 구축.
++// interpreter.ts symbol resolve 에서 (swap! a update) 처럼 builtin 을 함수인자로
++// 넘길 때, context.functions.has 화이트리스트에 없어도 이 집합으로 허용.
++// 미정의 심볼은 집합에 없으므로 기존 VariableNotFoundError 동작 보존.
++let _FL_KNOWN_BUILTIN_OPS: Set<string> | null = null;
++export function flIsKnownBuiltin(name: string): boolean {
++  if (_FL_KNOWN_BUILTIN_OPS === null) {
++    const set = new Set<string>();
++    try {
++      const re = /case\s+"([^"]+)"/g;
++      let mm: RegExpExecArray | null;
++      const src = evalBuiltin.toString();
++      while ((mm = re.exec(src))) {
++        set.add(mm[1]);
++        set.add(mm[1].replace(/_/g, "-"));
++        set.add(mm[1].replace(/-/g, "_"));
++      }
++    } catch (e) { /* noop */ }
++    _FL_KNOWN_BUILTIN_OPS = set;
++  }
++  if (typeof name !== "string") return false;
++  return _FL_KNOWN_BUILTIN_OPS.has(name) || _FL_KNOWN_BUILTIN_OPS.has(name.replace(/_/g, "-"));
++}
+ export function evalBuiltin(interp: Interpreter, op: string, args: any[], expr: SExpr): any {
+   // AI-First #3: snake_case ↔ kebab-case 양방향 허용
+   // 내부 구현은 kebab-case 기준 — snake_case 입력 시 자동 변환
+@@ -2020,6 +2044,34 @@ sock.setTimeout(r.timeout,()=>{if(!done){sock.destroy();if(resp)process.stdout.w
+     case "%":
+       return args[0] % args[1];
+ 
++    // ── fx 회귀패치 이식 (2026-06-07): flExecOpNative 에만 있고 evalBuiltin
++    //    (메인 인터프리터 경로)에 누락됐던 op 들. INTEGRATION-BASELINE.md 4절.
++    case "mod":
++      return args[0] % args[1];
++    case "inc":
++      return typeof args[0] === "number" ? args[0] + 1 : args[0];
++    case "dec":
++      return typeof args[0] === "number" ? args[0] - 1 : args[0];
++    case "true?":
++      return args[0] === true;
++    case "false?":
++      return args[0] === false;
++    case "strlen":
++      return typeof args[0] === "string" ? args[0].length : 0;
++    case "includes?":
++    case "includes-item":
++      return typeof args[0] === "string" ? args[0].includes(String(args[1])) : Array.isArray(args[0]) ? args[0].includes(args[1]) : false;
++    case "cons":
++      return [args[0], ...(Array.isArray(args[1]) ? args[1] : [args[1]])];
++    case "closure?":
++      return args[0] !== null && args[0] !== undefined && typeof args[0] === "object" && args[0].kind === "closure";
++    case "read-file":
++      try { return require("fs").readFileSync(String(args[0]), "utf-8"); } catch { return null; }
++    case "write-file":
++      try { require("fs").writeFileSync(String(args[0]), String(args[1] ?? "")); return true; } catch { return false; }
++    case "file-exists?":
++      try { return require("fs").existsSync(String(args[0])); } catch { return false; }
++
+     // Comparison
+     case "=":
+       // Phase 후속: list/map 자동 deep-equal (T77 palindrome 발견)
+diff --git a/src/interpreter.ts b/src/interpreter.ts
+index c9e6ad1..26772e2 100755
+--- a/src/interpreter.ts
++++ b/src/interpreter.ts
+@@ -16,7 +16,7 @@ import { FreeLangPromise, resolvedPromise, rejectedPromise } from "./async-runti
+ import { ScopeStack } from "./interpreter-scope"; // Phase A: 렉시컬 스코프
+ import { WebSearchAdapter } from "./web-search-adapter"; // Phase 9a: WebSearch integration
+ import { LearnedFactsStore } from "./learned-facts-store"; // Phase 9b: Learning persistence
+-import { evalBuiltin } from "./eval-builtins";                       // Phase 57: Built-in functions
++import { evalBuiltin, flIsKnownBuiltin } from "./eval-builtins";     // Phase 57: Built-in functions
+ import { evalAiBlock } from "./eval-ai-blocks";                       // Phase 57: AI blocks
+ import { evalInfraBlock } from "./eval-infra-blocks";                 // Phase 58: Infra blocks
+ import { evalStyleBlock } from "./eval-style-blocks";                 // Phase 59: Style blocks
+@@ -1549,6 +1549,12 @@ export class Interpreter {
+       if (this.context.functions.has(varName) || this.context.functions.has("$" + varName)) {
+         return { kind: "builtin-fn", name: varName };
+       }
++      // fx 회귀패치 이식 (2026-06-07): context.functions 화이트리스트에 없어도
++      // evalBuiltin 이 아는 op 면 first-class 허용 — (swap! a update), (map mod xs) 등.
++      // 미정의 심볼은 flIsKnownBuiltin=false → 아래 VariableNotFoundError 로 보존.
++      if (flIsKnownBuiltin(varName)) {
++        return { kind: "builtin-fn", name: varName };
++      }
+       // Phase Y-1: VariableNotFoundError로 변경
+       const scopeVars = this.context.variables.getAllVars();
+       const similar = suggestSimilar(varName, scopeVars);
