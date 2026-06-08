@@ -16,8 +16,14 @@
 - ⇒ 2·6절의 "11.7.11=회귀 보유, 통합 명분=모듈화뿐" 결론은 **a08ae05 에서 무효**.
 - ⇒ **`patches/711-regression-port.patch`(base b76ddf23) 폐기** — 원격이 더 완전히 수정함. (`patches/DEPRECATED.md` 참조)
 - **통합 명분 = 모듈화 + 회귀수정 + 호환성복원 + 신기능 = 전방위 강화. 통합 준비 완료(명분 확실).**
-- **선결 과제**: ① bootstrap 빌드 검증 — **완료**(a08ae05 clone→build OK, 산출물 정합). ② 앱 호환성
-  검수 스크립트 구동 — **진행**(원격 동봉 스크립트 rule셋 확인 + fl-watchdog 등 주요 모듈 시뮬).
+- **선결 과제 (둘 다 완료)**:
+  - ① bootstrap 빌드 검증 — **완료**(a08ae05 clone→npm install esbuild→build OK, 산출물 정합).
+  - ② 앱 호환성 검수 — **완료**. 원격 동봉 `scripts/check-apps-compat.py` rule = 앱 entry 5초
+    `run` 후 ERR_KW(`실행 오류`/`Function not found`/`is not defined`/`cannot find`) 검사. 단 대상
+    경로가 `/home/kimjin/...`(타 작업자 환경) 전용 → **우리 영향 앱으로 적응 구동**: fl-watchdog/
+    fl-truth/fl-discord-claude/square-freelang 4종을 **a08ae05 vs 운영11.5.1** 양쪽 로드 비교 →
+    **a08ae05 ≡ 11.5.1 동일 동작(통합 퇴행 0)**. 2건 실행오류(discord=`fl-require "wsc"` 모듈의존,
+    square=`load "src/state.fl"` 경로)는 **회귀 무관·양쪽 동일**(기존 실행맥락 이슈). ⇒ 통합 호환성 실증.
 - ⚠️ 통합 잔존 주의(불변): bootstrap.js = **빌드 산출물**(git 0바이트) → 운영 단순 `git pull` 금지,
   `pull → npm install → build` 필수.
 
