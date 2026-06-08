@@ -4,6 +4,23 @@
 > 향후 통합을 "재조사"가 아니라 "계획된 이식 작업"으로 만들기 위한 고정 기록이다.
 > 원칙: 기록이 증명이다.
 
+## 0. 2026-06-08 갱신 — 원격 a08ae05 회귀 수정 완료 (이 문서 결론 정정·동결)
+
+⚠️ **아래 1~8절은 b76ddf23 기준 기록(역사 보존). a08ae05 에서 결론이 바뀜.**
+
+- 원격 master 진전: `b76ddf23` → **`a08ae05`** (다른 작업자). 우리가 발견한 회귀를
+  **원격이 자체·더 완전하게 수정**: `KNOWN_ALIASES 40개` + `case "mod"/"inc"/"strlen"` 등 추가,
+  `core 하위호환 복원`(mariadb/mongodb/ws/http-server), `server-start TLS`, `머지 전 앱 호환성 검수 스크립트`.
+- **실측(clone a08ae05 + npm install esbuild + build)**: scenario **15/15 정상**(mod·includes?·strlen·
+  first-class·file 전부), **gateway demo 22/22 PASS** = 회귀 해소 확인.
+- ⇒ 2·6절의 "11.7.11=회귀 보유, 통합 명분=모듈화뿐" 결론은 **a08ae05 에서 무효**.
+- ⇒ **`patches/711-regression-port.patch`(base b76ddf23) 폐기** — 원격이 더 완전히 수정함. (`patches/DEPRECATED.md` 참조)
+- **통합 명분 = 모듈화 + 회귀수정 + 호환성복원 + 신기능 = 전방위 강화. 통합 준비 완료(명분 확실).**
+- **선결 과제**: ① bootstrap 빌드 검증 — **완료**(a08ae05 clone→build OK, 산출물 정합). ② 앱 호환성
+  검수 스크립트 구동 — **진행**(원격 동봉 스크립트 rule셋 확인 + fl-watchdog 등 주요 모듈 시뮬).
+- ⚠️ 통합 잔존 주의(불변): bootstrap.js = **빌드 산출물**(git 0바이트) → 운영 단순 `git pull` 금지,
+  `pull → npm install → build` 필수.
+
 ## 1. Source of Truth
 
 - **원격 `gogs.dclub.kr/kim/freelang-v11` master (`b76ddf23`, v11.7.11)** = 최신 소스 구조.
