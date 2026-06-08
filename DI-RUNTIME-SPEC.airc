@@ -1,6 +1,6 @@
 {
   "$": "airc-spec",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "project": "fl-di-runtime",
   "date": "2026-06-08",
   "cmd": "python3 -c \"import json; d=json.load(open('DI-RUNTIME-SPEC.airc')); print('hot:', d['hot']); print('what:', d['identity']['what']); print('not:', d['identity']['not'])\"",
@@ -12,11 +12,54 @@
     "not": "Spring Clone 아님. Mini-Spring 으로의 성장 경로(Lifecycle 훅 체인 / Scope / Conditional Registration / Profile / Auto Discovery / Proxy Model / Early Reference Exposure)는 의도적 비범위 — graveyard 에 why 와 함께 고정. '복잡성이 없다'가 아니라 '복잡성을 메커니즘 아닌 값으로 표현한다'가 목표."
   },
 
-  "hot": "task-002",
+  "hot": "task-003",
+
+  "research": {
+    "date": "2026-06-08",
+    "method": "deep-research 하니스 — 5각도 fan-out, 소스 20개 fetch → 주장 96 추출 → 25 검증(3표 적대적, 2/3 반증 시 폐기). 확정 24 · 폐기 1. 전 findings primary 소스(공식 README/docs) 기반",
+    "plan": "사용자 확정 우선순위 C→A→B (2026-06-08): C=SPEC 반영(이 노드) → A=메모리 기록 → B=L4 Middleware 리서치 보류(L1.5~L2를 먼저 굳힌다)",
+    "thesis": "업계 DI 패턴은 SPEC 이 이미 고른 축으로 갈라진다 — '데이터-우선 시스템 기술'(Integrant) vs '빌드 타임 검증'(Wire/Dagger). 권고 = Integrant 데이터그래프 평가 + 생명주기(L1/L2/Teardown)를 Wire/Dagger식 빌드타임 검증기(L1.5)로 감싼다. SPEC 의 L1.5-우선 구조가 정확히 이 조합",
+    "precedent_map": {
+      "L1_registry":     "Integrant — 시스템=순수 데이터(EDN config map), '아키텍처를 코드 아닌 데이터로 정의'. FL (service ...) 선언=데이터와 near-1:1. (ref/refset 로 의존성을 데이터 안에 선언 → 검증이 정적 순회 가능)",
+      "L1.5_validation": "Wire + Dagger 2 — 전체 그래프를 빌드 타임 검증. 누락·중복 바인딩 = 컴파일 에러. 런타임 DI 라이브러리 0. Wire 'multiple providers for one type' 거부 = SPEC 의 missing/유일성 검증과 정합",
+      "L2_resolve":      "Integrant init(의존순서로 ref 해결) + Component(start 시 위상정렬). 단 FL 은 키 기반 매칭 유지 — Wire 의 타입-동일성 매칭은 wrapper 타입 강제 마찰(이슈 #207/#257) 때문에 거부",
+      "L4_middleware":   "★ 외부 선례 없음 — 조사한 어떤 시스템도 DI 파이프라인에 명시적 'middleware' 단계를 두지 않음(NestJS interceptor·Dagger @BindsInstance 는 별개 개념). B 보류의 직접 근거: L4 는 가장 근거 약한 영역",
+      "teardown":        "Integrant halt!(역의존순서·부수효과 전용·멱등 필수) + Wire cleanup 클로저(provider 입력보다 먼저 정리). SPEC L4.5 의 생성역순 close 훅과 정합 + 멱등성 교훈 추가"
+    },
+    "key_findings": [
+      "Integrant 는 FL 데이터그래프 평가의 near-1:1 선례 (high) — 'systems are created from a configuration data structure... architecture defined through data, rather than code'. Component 는 system-map 을 코드로 구성하지만 Integrant 는 데이터를 평가 = 데이터-우선의 정전 사례",
+      "★ 결정적: Integrant 는 정적/컴파일 타임 그래프 검사가 전무 — assert-key·unbound-var 가 전부 런타임 init 으로 유예 (high). 이게 FL L1.5 Validation-First 가 메우는 바로 그 갭. FL 의 검증-우선은 데이터-우선 계보에 '없는' 진짜 차별점 = 중복 아님을 외부 선례로 확정 (dec-002 보강)",
+      "순환 거부는 함수형/Lisp DI 계보 전부의 합의 (high) — Component·Integrant·Wire·Dagger 모두 순환을 에러로. Component 원문 '순환=architectural flaw, 재구조화로 제거'. Spring 3-level cache(early-reference) 는 명시적 거부 대상 (dec-005 보강)",
+      "Teardown = 역의존순서 + 멱등 (high) — Integrant 'halt! is entirely side-effectful... halt-key! is idempotent'. Wire cleanup 은 입력 정리보다 먼저. FL L4.5 의 close! 는 멱등 필수 (task-005 보강)",
+      "경계/encapsulation = NestJS private-by-default + 명시적 exports/imports 양방향 (high) — 'module encapsulates providers by default'. Spring Modulith 는 뒤늦게 옵트인으로 추가. 교훈: 경계는 옵트인이 아니라 first-class·필수. ※ 현 락 코어엔 모듈 개념 부재 → core_expansion_proposal 참조 (락 보류)"
+    ],
+    "rejected_from_research": "Spring 플랫 bean graph + 3-level cache 순환 허용 + proxy/AOP pointcut = FL 의 '하지 않을 것'. dec-005 / graveyard(Early Reference Exposure·Proxy·Pointcut) 와 정합 확인",
+    "caveats": [
+      "L4 Middleware 는 이 코퍼스에 외부 선례가 0 — SPEC↔시스템 매핑은 리서치의 해석적 대응이지 프로젝트들의 자기주장 아님",
+      "중복-키(duplicate map KEY) 충돌의 컴파일타임 검출 주장은 0-3 반증 폐기 — Wire/Dagger식 검증기를 써도 중복키 검출이 공짜로 따라오지 않음. FL 이 명시 설계해야 함(현 L1.5 의 missing/cycle 2부류와 별개)",
+      "빌드타임 검증의 구조적 한계: 런타임에만 정해지는 동적 와이어링은 정적 검사를 벗어남(Dagger multibinding 키=컴파일타임 상수 요구). L1.5 는 정적 그래프만 검증 — 동적은 refset식 집합 또는 런타임 검증으로",
+      "소싱: NestJS encapsulation 문장은 JS 렌더링이라 바이트검증 불가(2차출처 다수로 의미 동일 확인). Google Wire repo 는 2025-08 아카이브 — 메커니즘은 유효하나 안정적 역사 사례로 취급"
+    ],
+    "core_expansion_proposal": {
+      "what": "(module ...) 단위 encapsulation — providers private-by-default + 명시적 exports/imports 양방향 경계. NestJS 모델",
+      "status": "PROPOSED — 락 보류. 현 4계층 코어(dec-001)에 모듈 개념 부재 → 코어 경계 확장 = constitution 1 사용자 협의 필수. Claude 단독 락 금지",
+      "why_candidate": "리서치 high-confidence 권고 + 사용자 반영 항목에 'Nest Encapsulation' 포함. graveyard 의 Auto-Discovery(reflection 부재로 거부)와 다름 — 명시적 (module ...) 선언 경계는 reflection 불필요",
+      "open": "별도 계층(L1.7?)인가 L1 Registry 의 확장인가. Validation(L1.5)이 cross-boundary 주입을 정적 거부하는 형태. 락 시 dec-010 신설 + core_layers 갱신 필요",
+      "decision_pending": "사용자 락 확인 대기"
+    },
+    "sources_primary": [
+      "https://github.com/weavejester/integrant (+/blob/master/README.md, /src/integrant/core.cljc)",
+      "https://github.com/stuartsierra/component",
+      "https://github.com/google/wire (+/blob/main/docs/faq.md)",
+      "https://dagger.dev/dev-guide/ (+/multibindings.html)",
+      "https://docs.nestjs.com/modules",
+      "https://docs.spring.io/spring-modulith/reference/fundamentals.html"
+    ]
+  },
 
   "constitution": {
     "1": "코어 = 4계층(L1 Registry / L1.5 Validation / L2 Resolve / L4 Middleware) + L4.5 Teardown 1훅. 이 경계 확장은 사용자 협의 필수. Claude 단독 확대 금지",
-    "2": "검증(L1.5)이 척추. 미정의 dependency·순환·arity 불일치를 전부 부팅 시점에 잡는다. 런타임 폭탄 금지 — '부팅되면 동작한다'",
+    "2": "검증(L1.5)이 척추. 미정의 dependency·순환 2 부류를 전부 부팅 시점에 잡는다(arity 는 FL 한계로 graveyard, dec-002/err-001). 런타임 폭탄 금지 — '부팅되면 동작한다'",
     "3": "hot 이 가리키는 node 가 지금 당장 할 일",
     "4": "middleware 는 호출 스코프 안에서만 자원을 열고 닫는다. 자원 보유(풀·핸들·스레드)는 L5 신호 → 금지 (압박1)",
     "5": "순환 의존은 부팅 실패. Spring 의 early-reference exposure(3-level cache) 모방 금지 (압박2·dec-005)",
@@ -41,7 +84,7 @@
 
   "core_layers": {
     "L1_registry":    "선언 = 데이터. (service name [deps...] factory) → registry 맵 등록. 평가 없음",
-    "L1.5_validation": "척추. 부팅 1회 전수 검사: (a) 미정의 dependency (모든 dep ∈ registry) (b) 순환 (전 노드 DFS, visiting=순서벡터→경로 출력) (c) arity (factory 인자수 = deps 길이). 하나라도 실패 시 부팅 거부 + 그래프 진단. 진단 출력 형식은 error_format(dec-009)에 고정 — 'cycle exists'가 아니라 'auth -> user -> token -> auth' 경로를 출력한다",
+    "L1.5_validation": "척추. 부팅 1회 전수 검사 2 부류: (a) 미정의 dependency (모든 dep ∈ registry) (b) 순환 (전 노드 DFS, visiting=순서벡터→경로 출력). arity 는 FL 한계로 비범위(graveyard, err-001). 하나라도 실패 시 부팅 거부 + 그래프 진단. 진단 출력 형식은 error_format(dec-009)에 고정 — 'cycle exists'가 아니라 'auth -> user -> token -> auth' 경로를 출력한다",
     "L2_resolve":     "post-order DFS. 자식 먼저 완전 해결 → 부모 생성. memoize = singleton cache. visiting 으로 순환 2차 방어. 완료 순서를 teardown 큐에 기록",
     "L4_middleware":  "함수 합성 체인. (wrap service mw1 mw2 ...). 호출 스코프 only(constitution 4). pointcut 없음 — 명시적 wrap만",
     "L4.5_teardown":  "선택. 자원 소유 서비스가 있을 때만. 생성 역순(teardown 큐 reverse) 단일 close 훅"
@@ -72,35 +115,35 @@
 
     "task-002": {
       "t": "task",
-      "v": "L1.5 Validation Pass 먼저 구현 — 척추. 미정의 dep / 순환(경로 출력) / arity 3 부류를 부팅 시 전수 검출",
+      "v": "L1.5 Validation Pass 먼저 구현 — 척추. 미정의 dep / 순환(경로 출력) 2 부류를 부팅 시 전수 검출 (arity 는 FL 한계로 graveyard, err-001)",
       "spec": {
         "fn": {
           "validate-graph": "(registry) → :ok | (error {kind, path?, node})",
-          "check-missing":  "모든 service 의 dep 가 registry 에 존재하는가",
-          "check-cycle":    "전 노드 DFS, visiting=순서벡터(vector, NOT set) → 순환 시 [auth user token auth] 경로 그대로 출력",
-          "check-arity":    "factory arity = deps 길이 (불일치 시 node 지목)"
+          "check-missing":  "모든 service 의 dep 가 registry 에 존재하는가 (contains? 로 키 검사)",
+          "check-cycle":    "전 노드 DFS, visiting=순서벡터(vector, NOT set) → 순환 시 [auth user token auth] 경로 그대로 출력"
         },
         "rationale": "압박3 — Validation 은 추가물이 아니라 척추. resolve 보다 먼저. 리뷰의 visiting 미전파 버그조차 '런타임 폭탄'이 아니라 '부팅 실패 + 명확 메시지'로 강등",
         "error_format": {
           "missing": "missing dependency: <service> -> <unknown-dep>   (어느 service 가 어느 미정의 dep 를 요구하는지)",
           "cycle":   "cycle: <a> -> <b> -> <c> -> <a>   (visiting 순서벡터를 화살표로 join, 시작 노드 재출현으로 폐루프 표시)",
-          "arity":   "arity mismatch: <service> expects <deps_len> args, factory takes <factory_arity>",
           "rule":    "실패 조건뿐 아니라 진단 텍스트 형식까지 SPEC 고정 (dec-009). 'cycle exists' 같은 무정보 메시지 금지 — Trap Checker 철학(진단이 곧 가치)"
-        }
+        },
+        "impl_notes": "fx 실측(2026-06-08): hash-map/get/keys/contains?/conj/reduce/try-catch/join-arrow 전부 PASS. 모든 코드 try-catch 필수(uncaught throw 시 프로그램 재실행, err-001). any? 는 매칭 요소 반환(truthy)이지 boolean 아님 — if 문맥에서만 사용. cycle join = (reduce (fn [acc x] (if (= acc \"\") x (str acc \" -> \" x))) \"\" path)"
       },
       "scope_in": [
         "src/validate.fl",
-        "tests/validate-test.fl — missing/cycle(경로)/arity 3 부류 + 정상 그래프 통과"
+        "tests/validate-test.fl — missing/cycle(경로) 2 부류 + 정상 그래프 통과"
       ],
       "entry": ["src/validate.fl", "tests/validate-test.fl"],
       "check": [
         "미정의 dep → 'missing dependency: <svc> -> <dep>' 형식 (error_format 일치 assert)",
         "순환 A→B→A → 'cycle: a -> b -> a' 경로 출력 (set 아님 검증, error_format 일치 assert)",
-        "arity 불일치 → 'arity mismatch: <svc> expects N ...' node 지목",
         "정상 그래프 → :ok",
         "validate-test.fl PASS"
       ],
-      "verified": false,
+      "verified": true,
+      "verified_at": "2026-06-08",
+      "verified_evidence": "tests/validate-test.fl 7/7 PASS (fx bootstrap 실측). 정상 DAG→ok / missing 형식 'missing dependency: auth-svc -> token-svc' 정확 / cycle2 'auth -> user -> auth' / cycle3 prefix 제외 'a -> b -> a' / self-cycle 's -> s'. throw 미사용=단일 실행. src/validate.fl + tests/validate-test.fl",
       "next": ["task-003"]
     },
 
@@ -162,7 +205,7 @@
       "v": "L4.5 Teardown (선택) — 자원 소유 서비스 있을 때만. 생성 역순 단일 close 훅",
       "spec": {
         "fn": {
-          "shutdown": "(doseq [n (reverse teardown-큐)] (close! n)) — post-order 완료 순서의 역순 = 안전한 종료 순서"
+          "shutdown": "(doseq [n (reverse teardown-큐)] (close! n)) — post-order 완료 순서의 역순 = 안전한 종료 순서. close! 는 멱등 필수 (외부 선례: Integrant 'halt-key! is idempotent', deep-research 2026-06-08) — 부수효과 전용·재호출 안전. 이미 닫힌 자원 재호출이 throw 하면 안 됨(err-002 더블런 회피와도 정합)"
         },
         "boundary": "이 1훅이 경계선. 이 이상(@PostConstruct, init 순서 보장, 조건부 등록)은 Mini-Spring → graveyard"
       },
@@ -181,14 +224,13 @@
       "t": "task",
       "v": "Failure Tests — 3 실패 부류가 전부 부팅 시점에 잡히는지 통합 검증 (성공 기준)",
       "spec": {
-        "success_criterion": "미정의 dep · 순환 · arity 불일치 3종이 모두 부팅에서 실패하고, middleware 합성이 self-invocation 없이 동작하면 PoC 성공"
+        "success_criterion": "미정의 dep · 순환 2종이 모두 부팅에서 실패(error_format 일치)하고, middleware 합성이 self-invocation 없이 동작하면 PoC 성공 (arity 는 FL 한계로 비범위)"
       },
-      "scope_in": ["tests/failure-suite.fl — 3 부류 부팅 거부 + 정상 그래프 부팅+동작 E2E"],
+      "scope_in": ["tests/failure-suite.fl — 2 부류 부팅 거부 + 정상 그래프 부팅+동작 E2E"],
       "entry": ["tests/failure-suite.fl"],
       "check": [
         "미정의 dep 그래프 → 부팅 거부",
         "순환 그래프 → 부팅 거부 + 경로 출력",
-        "arity 불일치 → 부팅 거부",
         "정상 그래프 → 부팅 성공 + resolve + middleware 동작"
       ],
       "verified": false,
@@ -209,11 +251,13 @@
 
     "dec-002": {
       "t": "decision",
-      "v": "Validation(L1.5)은 추가 기능이 아니라 척추. 구현 순서에서 resolve 보다 먼저",
+      "v": "Validation(L1.5)은 추가 기능이 아니라 척추. 구현 순서에서 resolve 보다 먼저. 검증 부류 = missing + cycle 2종 (arity 는 FL 한계로 축소, 사용자 협의 2026-06-08)",
       "why": [
         "압박3 결과 — Trap Checker 를 DI 그래프로 확장하는 메커니즘이 곧 검증 패스. '컴파일/부팅되면 동작한다'(memory project_klar_lang·project_fl_trap_checker)의 직계",
         "Spring 흉내가 아니라 사용자가 오래 밀어온 '검증이 우선·기록이 증명' 철학과 직접 연결",
-        "이 패스가 있으면 resolve 의 visiting 미전파 같은 버그도 런타임 폭탄이 아닌 부팅 실패로 강등 — 안전성 확보"
+        "이 패스가 있으면 resolve 의 visiting 미전파 같은 버그도 런타임 폭탄이 아닌 부팅 실패로 강등 — 안전성 확보",
+        "arity 축소: 리서치 실측(err-001)으로 FL 람다 arity introspection 불가 + arity-lenient 확인. typed-DI 의 arity mismatch 는 FL 에서 탐지 가능한 실패 부류가 아님. 못 하는 검증을 한다고 주장 않음(정직). 사용자 '2클래스 축소' 선택",
+        "★ 외부 선례 확정(deep-research 2026-06-08, research 노드): 데이터-우선 계보의 대표 Integrant 는 정적/컴파일타임 그래프 검사가 전무 — assert-key·unbound-var 가 전부 런타임 init 으로 유예됨. FL L1.5 Validation-First 는 그 계보에 '없는' 진짜 차별점이며 중복이 아님이 1차 소스로 확증. 이 갭을 메우는 주류 사례가 Wire/Dagger = 빌드타임 전체그래프 검증(완전성+유일성). 단 중복-키 검출은 공짜 아님(0-3 반증) — missing/cycle 2부류와 별개로 명시 설계해야"
       ],
       "lock": true
     },
@@ -246,7 +290,8 @@
       "why": [
         "Early Reference Exposure 는 런타임 리플렉션 DI 의 역사적 부채 — 안티패턴(순환) 수용을 위한 봉합. Spring 6.x 도 allow-circular-references=false 기본. Micronaut/Dagger 는 컴파일 에러, Guice 는 금지",
         "FL 은 모방할 이유 없음. all-or-nothing(완성 아니면 없음)이 더 단순하고 정직",
-        "포기하는 것은 '안티패턴 수용 능력'뿐 — 잃는 게 거의 없는 트레이드"
+        "포기하는 것은 '안티패턴 수용 능력'뿐 — 잃는 게 거의 없는 트레이드",
+        "외부 선례 보강(deep-research 2026-06-08): 함수형/Lisp DI 계보 전부(Component·Integrant·Wire·Dagger)가 순환을 에러로 거부. Component README 원문 '순환=architectural flaw, 재구조화로 제거'. 4-시스템 합의가 FL 의 부팅실패 결정을 뒷받침 — Spring 만 3-level cache 로 수용(거부 대상)"
       ],
       "lock": true
     },
@@ -291,6 +336,24 @@
         "형식 고정 = test 가 메시지 문자열을 assert 가능 → '부팅 실패 + 명확 메시지'(dec-002)를 검증 가능한 계약으로 승격"
       ],
       "lock": true
+    },
+
+    "err-001": {
+      "t": "error",
+      "v": "FL v11/fx 람다는 arity introspection 불가 + arity-lenient → check-arity 구현 불가",
+      "cause": "fx bootstrap 실측(2026-06-08): fn-arity/arity/fn-params 전부 미정의(NOT_FOUND). (str f)=<fn:λ> param 비노출. (f 1) 인자부족→nil(에러X), (f 1 2 3) 초과→무시(에러X). 매크로도 단순 $-치환이라 factory param 벡터 캡처 난이",
+      "fix": "check-arity 폐기 → validation = missing+cycle 2클래스 (dec-002 협의 축소). arity 는 graveyard. apply 는 positional 정상((apply f [3 4])=7)이므로 resolve 의 factory 호출은 (apply factory resolved-deps) 로 구현",
+      "repeat_risk": "typed 언어 DI 개념(arity·타입체크)을 FL 에 그대로 이식 시도 시 반복. 동적·lenient 특성 먼저 실측할 것",
+      "date": "2026-06-08"
+    },
+
+    "err-002": {
+      "t": "error",
+      "v": "uncaught throw 시 fx 가 프로그램을 재실행 → 출력 2회",
+      "cause": "fx bootstrap 실측: (try (throw \"boom\")) 처럼 catch 없는 throw 가 top-level 까지 전파되면 전체 프로그램이 한 번 더 실행됨(side-effect 2회). 단일 println top-level 은 1회 — 더블런은 오직 uncaught error 경로",
+      "fix": "모든 코드 (try expr (catch e ...)) 로 감싸 throw 가 top-level 도달 금지. 테스트 assert 도 catch 로 결과화. throw 메시지는 (get e \"message\"), 분류는 (get e \"category\")",
+      "repeat_risk": "side-effect 있는 코드(파일쓰기·카운터)가 uncaught throw 와 함께면 2회 실행되어 중복. validate/test 는 순수+try-catch 유지",
+      "date": "2026-06-08"
     }
   },
 
@@ -313,6 +376,7 @@
     {"idea": "Early Reference Exposure (3-level cache, setter 순환 허용)", "why": "dec-005 — 안티패턴 수용 봉합. Spring 6.x·Micronaut·Dagger 모두 순환 금지 방향. all-or-nothing 이 정직", "final": true},
     {"idea": "Proxy Model (JDK Dynamic Proxy / CGLIB)",                "why": "middleware 함수 합성으로 대체. CGLIB/JDK 분기·final 제약·self-invocation 함정 전부 제거. 클로저 래핑이 곧 프록시", "final": true},
     {"idea": "Pointcut 표현식 (선언적 횡단 매칭)",                        "why": "dec-003 — FL 은 명시적 wrap만. 선언적 pointcut 표현력은 포기(트레이드). 필요 시 registry 순회 일괄 wrap 직접 작성", "final": false},
+    {"idea": "check-arity (factory 인자수 = deps 길이 검증)",            "why": "err-001 — FL 람다 arity introspection 불가 + arity-lenient(틀린 인자수도 에러 안남). typed-DI 개념이 동적 FL 로 전이 안됨. 못 하는 검증 주장 않음. 사용자 협의 축소(2026-06-08)", "final": true},
     {"idea": "Spring Clone (전체 기능 재현)",                           "why": "identity.not — Spring 복잡성의 절반은 엔터프라이즈 요구. 같은 요구 받으면 동일 복잡성 곡선. FL 우위는 '복잡성 없음'이 아니라 '메커니즘 아닌 값으로 표현'", "final": true}
   ],
 

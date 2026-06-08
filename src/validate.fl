@@ -1,0 +1,81 @@
+;; src/validate.fl — DI Runtime L1.5 Graph Validation (척추)
+;; SPEC: DI-RUNTIME-SPEC.airc / task-002 / dec-002 / dec-009
+;; 검증 2 부류: (a) missing dependency  (b) cycle(경로 출력)
+;; FL 제약(err-001/002): arity 검증 불가(비범위). throw 미사용=값 반환(더블런 회피).
+;; registry = 맵 name -> {:deps [..] :factory fn}. 여기선 :deps 만 사용.
+
+;; ["a" "b" "c"] -> "a -> b -> c"  (dec-009 error_format)
+(defn join-arrow [items]
+  (reduce (fn [acc x] (if (= acc "") x (str acc " -> " x))) "" items))
+
+;; path(벡터) 안에 node 가 있는가 → boolean
+;; any? 는 매칭 '요소'를 반환(truthy)이라 boolean 이 필요한 곳엔 직접 reduce (impl_notes)
+(defn in-path? [path node]
+  (reduce (fn [acc x] (if acc acc (= x node))) false path))
+
+;; path 에서 node 첫 출현부터 끝까지 잘라낸다 (순환 구간 추출)
+;; 예: [x a b] node=a → [a b]  (앞 prefix x 제거)
+(defn path-from [path node]
+  (get
+    (reduce
+      (fn [acc x]
+        (if (or (get acc :on) (= x node))
+          {:on true  :out (conj (get acc :out) x)}
+          {:on false :out (get acc :out)}))
+      {:on false :out []}
+      path)
+    :out))
+
+;; 미정의 dep 첫 건 → "missing dependency: <svc> -> <dep>" | nil
+(defn missing-error [registry]
+  (reduce
+    (fn [acc svc]
+      (if (not (nil? acc))
+        acc
+        (reduce
+          (fn [a2 dep]
+            (if (not (nil? a2))
+              a2
+              (if (contains? registry dep)
+                nil
+                (str "missing dependency: " svc " -> " dep))))
+          nil
+          (get (get registry svc) :deps))))
+    nil
+    (keys registry)))
+
+;; 한 시작 노드에서 DFS. 순환 발견 시 "cycle: ..." | nil
+;; missing dep 는 (contains?) 가드로 건너뜀 — missing-error 가 별도 담당
+(defn walk-dfs [registry node path]
+  (if (in-path? path node)
+    (str "cycle: " (join-arrow (conj (path-from path node) node)))
+    (reduce
+      (fn [acc dep]
+        (if (not (nil? acc))
+          acc
+          (if (contains? registry dep)
+            (walk-dfs registry dep (conj path node))
+            nil)))
+      nil
+      (get (get registry node) :deps))))
+
+;; 전 노드 순환 탐색 첫 건 → "cycle: ..." | nil
+(defn find-cycle [registry]
+  (reduce
+    (fn [acc start]
+      (if (not (nil? acc))
+        acc
+        (walk-dfs registry start [])))
+    nil
+    (keys registry)))
+
+;; 통합 진입점: {:ok true} | {:ok false :error "<error_format 문자열>"}
+;; missing 먼저(그래야 cycle DFS 가 미정의 dep 로 헛돌지 않음)
+(defn validate-graph [registry]
+  (let [m (missing-error registry)]
+    (if (not (nil? m))
+      {:ok false :error m}
+      (let [c (find-cycle registry)]
+        (if (not (nil? c))
+          {:ok false :error c}
+          {:ok true})))))
