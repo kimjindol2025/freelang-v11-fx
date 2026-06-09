@@ -1,0 +1,87 @@
+{
+  "$": "airc-spec",
+  "version": "1.0.0",
+  "project": "fx-variadic-rest-patch",
+  "date": "2026-06-09",
+  "cmd": "python3 -c \"import json; d=json.load(open('VARIADIC-PATCH-SPEC.airc')); print('status:', d['status']); print('semantic:', d['decision_semantic']['choice']); print('locations:', d['bug']['patch_sites'])\"",
+
+  "status": "DEFERRED — 기록 보존, 미적용. 언어 연구 노트. fx 전용. 운영 v11 미접촉",
+
+  "identity": {
+    "what": "fx bootstrap.js 의 함수 가변인자 (fn [a b & rest] ...) 미구현 버그(err-005) 수정 명세. 람다 호출 바인딩 경로가 '&'를 평범한 파라미터로 취급 → rest 가 컬렉션으로 안 묶임",
+    "why_defer": "이건 L4 문제가 아니라 언어 버그. 그러나 L4 는 고정-arity 미들웨어(Ring식)로 결정됨 → variadic 은 L4 필수 아님. 로드맵 병목 = Conformance NEEDS-FIX 8 감소이지 variadic 가능성 아님. '고칠 수 있는가?' 답은 분석상 거의 예. 따라서 SPEC 보존 + 보류가 '본질 우선, 유혹 후순위' 원칙과 정합 (사용자 2026-06-09)",
+    "reactivate_when": "이벤트 기반 트리거 — (a) stdlib variadic 3곳(enhanced-errors/debug-tools/type-check)의 오작동이 실사용에서 문제로 표면화 (b) variadic 의존 기능 실수요 발생. 트리거 전 미적용",
+    "scope": "fx(실험 런타임)에서만. 운영 freelang-v11(467MB·67앱) 절대 미접촉. tier L1·L2"
+  },
+
+  "bug": {
+    "symptom": "(fn [& args] args) 에 (f 1 2 3) → 2 ([1 2 3] 아님). params=['&','args'] 를 positional 바인딩: '&'←1, 'args'←2. (fn [a & rest]) 에 (g 10 20 30) → rest=30(마지막 단일값). 고정 arity·apply 는 정상",
+    "root_cause": "_callFunctionValueBody 의 바인딩 루프가 fn.params 를 그대로 positional 순회 — '&' 마커를 특수처리 안 함. 파서/매크로(37792 $&rest)/구조분해엔 rest 처리 있으나 람다 '호출 바인딩' 경로에만 누락",
+    "patch_sites": [
+      "bootstrap.js:22743  _callFunctionValueBody — for(i) bindParam(fn.params[i], args3[i]) ← 정범인",
+      "bootstrap.js:22783  callAsyncFunctionValue — 동일 패턴 복제",
+      "bootstrap.js:22919  callFunctionValueTCO — 동일 패턴 (TCO 경로)",
+      "bootstrap.js:5325   closure 경로 — ctx.variables.set(params[i], callArgs[i] ?? null)"
+    ],
+    "linked_sites": [
+      "bootstrap.js:22716  fn.paramDefaults 루프 — fn.params.length 순회, '&' 마커 skip 필요",
+      "bootstrap.js:22726  fn.paramAnnotations 루프 — 동일, rest 엔 보통 annotation 없음",
+      "bootstrap.js:14995  flGetParamNames — '&' 만나면 break(뒤 버림), 다른 경로 참조용"
+    ],
+    "recommendation": "4 patch_sites 의 동일 바인딩 로직을 공유 헬퍼 bindParamsWithRest(interp2, params, args) 1개로 추출 → 4곳이 호출. 회귀 표면 최소화"
+  },
+
+  "decision_semantic": {
+    "choice": "빈 rest = nil (Clojure 충실). rest 값 자체 = seq(리스트), 비면 nil",
+    "evidence_research": "clojure.org/reference/special_forms 원문: 'If the supplied args do not exceed the positional params, the rest param will be nil.' REPL: (foo 42) on [x & rest] → [42 nil]. rest 값은 항상 seq(원본 컬렉션 타입 아님)",
+    "evidence_fx_probe": "fx 실측(2026-06-09): nil 이미 Clojure식 nil-pun — (count nil)=0·(first nil)=null·(rest nil)=[]·(empty? nil)=true·(apply f nil)=ok·(map f nil)=[]. 그리고 (if nil)=falsy·(if [])=truthy = Clojure 정확 일치",
+    "why_nil_not_emptylist": "① stdlib 연산이 nil 견딤(안 깨짐) ② (if rest-args ...) '추가 인자 있나?' 관용구 작동 — 빈리스트면 항상 truthy라 이 관용구 깨짐 ③ 차용한 Clojure 시맨틱과 일관",
+    "REFUTED_warning": "★ '딱 N개 인자면 rest=빈리스트 ()' 주장은 적대검증 0-3 폐기 — 그건 Scheme/CL이고 Clojure 는 nil. 구현자가 가장 자주 틀리는 지점. fx 는 nil 채택이므로 빈리스트 이식 금지"
+  },
+
+  "algorithm": {
+    "step1_parse": "params 에서 '&' 인덱스 k 탐색",
+    "step2_nomarker": "'&' 없으면 → 기존 positional 루프 그대로 (고정 arity 무손상)",
+    "step3_marker": "'&' 있으면: 고정=params[0..k-1], restName=params[k+1] ('&' 뒤 정확히 1개, 마지막 원소)",
+    "step4_arity": "최소 arity 검사 — args.length >= k 요구(고정 파라미터 수). 부족 시 명확한 에러. 가변이므로 상한 없음",
+    "step5_bind": "고정은 args[0..k-1] positional. rest=args.slice(k). bindParam(restName, rest.length>0 ? rest : null) — 비면 nil",
+    "ref": "Brown CS1260 interpreter handout(최소 arity 규칙) + CL/Kawa slice-remaining 모델. 표준 tree-walking 바인딩"
+  },
+
+  "regression": {
+    "affected_existing": [
+      "stdlib/enhanced-errors.fl:12  (fn [& args] ...)",
+      "stdlib/debug-tools.fl:24,98,107  (fn [& args]), [& vars], [fn-name fn & args]",
+      "stdlib/type-check.fl:103  (defn ~name [& args] ...)"
+    ],
+    "assessment": "전부 args 를 컬렉션으로 의도(apply/순회) = 버그 피해자지 의존자 아님 → 고치면 고쳐짐. defmacro rest(macros.fl)는 별도 경로(37792)라 무영향",
+    "verify_gate": [
+      "1. 프로브: (fn [& a] a)+(f 1 2 3)→[1 2 3], (f)→nil",
+      "2. stdlib 3곳을 conformance 케이스로 → 의도대로 동작 확인",
+      "3. gateway 22/22 PASS 보전 (참조구현 무손상)",
+      "4. langcheck PASS",
+      "5. /tmp 샌드박스 복사본 선행 패치→검증 후 fx 본체"
+    ],
+    "open_risk": "빈 rest=nil 선택이 stdlib 의 특정 count/seq 가정과 충돌하는지 미검증(리서치 open question). verify_gate 2 에서 실측 필요"
+  },
+
+  "scope_decision": {
+    "do": "단일 variadic arity 만 구현 (버그가 이 경로에 한정)",
+    "defer": "multi-arity (fn ([x]..)([x y]..)) — 별도 dispatch 규칙('variadic 오버로드 최대 1개, 고정파라미터 수가 다른 모든 오버로드보다 커야'). 이 패치와 분리. 별도 SPEC 필요 시",
+    "ref": "리서치 (d) high — 단일 variadic = 최소 정확한 수정. multi-arity 는 후속"
+  },
+
+  "research_provenance": {
+    "method": "deep-research 하니스 2026-06-09 — 5각도, 소스16 fetch, 주장71→검증25(3표 적대), 확정23·폐기2",
+    "key_sources": [
+      "https://clojure.org/reference/special_forms (primary, rest=nil 원문)",
+      "https://clojure.org/reference/lisps (nil≠'() 구분)",
+      "https://clojure.org/guides/destructuring (rest=seq)",
+      "https://lisp-docs.github.io/cl-language-reference/chap-3/d-e-lambda-lists (CL &rest)",
+      "https://www.gnu.org/software/kawa/Extended-formals.html (Scheme rest)"
+    ],
+    "refuted_2": "빈 rest=빈리스트 주장 2건 0-3 폐기(Scheme/CL only). multi-arity exactly-N→() 도 Clojure엔 거짓"
+  },
+
+  "relationship_to_l4": "L4 미들웨어는 고정-arity(Ring식)로 결정 → variadic 은 L4 필수 아님(err-005 진짜 결론=Variadic L4 폐기 ≠ L4 폐기). 이 패치는 L4용이 아니라 독립 언어 정확성 수정. 적용 판단 기준 = 'L4 때문에'가 아니라 'stdlib 버그라서'"
+}
