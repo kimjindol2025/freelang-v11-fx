@@ -24,6 +24,15 @@
     fl-truth/fl-discord-claude/square-freelang 4종을 **a08ae05 vs 운영11.5.1** 양쪽 로드 비교 →
     **a08ae05 ≡ 11.5.1 동일 동작(통합 퇴행 0)**. 2건 실행오류(discord=`fl-require "wsc"` 모듈의존,
     square=`load "src/state.fl"` 경로)는 **회귀 무관·양쪽 동일**(기존 실행맥락 이슈). ⇒ 통합 호환성 실증.
+  - **게이트1 보강 (2026-06-08, 소스 전수 grep — 위 런타임비교와 상보적)**: 운영11.5.1→a08ae05
+    에서 evalBuiltin `case` 가 사라진 8 op(`get! get-in! first! last! assert-not-nil or!
+    pattern-match throw`)를 **전 노드 사용처 전수 grep**. 대상=로컬`/root/kim` + **73**(Gateway,
+    FL 2057) + **253**(메인 kimjin-X99, FL 12520). 결과: 운영 서비스 앱 사용 **0건**.
+    `get!/get-in!/first!/last!/or!`=전노드 0. `pattern-match`·`assert-not-nil` 히트는 **전부
+    self-host 컴파일러(`/self`,`/self-evolve`)·백업·테스트**(비운영, 통합 게이트 아님). `throw`=
+    a08ae05 정상동작(73에 139사용)→안전. **⇒ 운영 PB앱 breaking 리스크 0 실증.**
+    🟡 미검증: **노드 25**(nginx upstream 앱 3 `:40860/:39066/:39030`, 73→25 ssh publickey 거부)
+    = **전환 시 개별 확인으로 남김**. 166/26=`:22 down`(현재 비운영, 부활 시 재확인).
 - ⚠️ 통합 잔존 주의(불변): bootstrap.js = **빌드 산출물**(git 0바이트) → 운영 단순 `git pull` 금지,
   `pull → npm install → build` 필수.
 
