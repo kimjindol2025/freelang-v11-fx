@@ -1,0 +1,28 @@
+;; SQLite 인메모리 DB 테스트
+;; 빌드: ../../fl-build.sh test-sqlite.fl test-sqlite
+;; 실행: ./test-sqlite
+
+(define db (sqlite_open ":memory:"))
+(println (str "DB 핸들: " db))
+
+;; 테이블 생성
+(sqlite_exec db "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)")
+
+;; 데이터 삽입
+(let [$r1 (sqlite_exec db "INSERT INTO users (name, age) VALUES ('김진돌', 30)")
+      $r2 (sqlite_exec db "INSERT INTO users (name, age) VALUES ('홍길동', 25)")
+      $r3 (sqlite_exec db "INSERT INTO users (name, age) VALUES ('이순신', 40)")]
+  (println (str "삽입 결과: " (json_stringify $r1))))
+
+;; 전체 조회
+(let [$rows (sqlite_query db "SELECT * FROM users ORDER BY age")]
+  (println (str "사용자 목록 (" (length $rows) "명):"))
+  (println (json_stringify $rows)))
+
+;; 단건 조회
+(let [$row (sqlite_one db "SELECT * FROM users WHERE name='김진돌'")]
+  (println (str "김진돌 나이: " (get $row "age"))))
+
+;; DB 닫기
+(sqlite_close db)
+(println "완료!")

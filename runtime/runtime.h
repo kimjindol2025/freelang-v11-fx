@@ -259,6 +259,88 @@ FLValue server_req_method(FLValue req);
 FLValue server_req_path(FLValue req);
 FLValue server_start(FLValue port);
 
+/* ── aliases.c — cgc-bin 생성 함수 bridge ── */
+/* 환경 */
+FLValue env_get(FLValue key);
+FLValue env_set(FLValue k, FLValue v);
+/* 수학 */
+FLValue math_floor(FLValue x);
+FLValue math_ceil(FLValue x);
+FLValue math_abs(FLValue x);
+FLValue math_sqrt(FLValue x);
+FLValue math_round(FLValue x);
+FLValue math_max(FLValue a, FLValue b);
+FLValue math_min(FLValue a, FLValue b);
+FLValue math_pow(FLValue base, FLValue exp);
+FLValue math_random(void);
+/* 문자열 */
+FLValue str_trim(FLValue s);
+FLValue str_upper(FLValue s);
+FLValue str_lower(FLValue s);
+FLValue str_starts_with(FLValue s, FLValue prefix);
+FLValue str_ends_with(FLValue s, FLValue suffix);
+FLValue str_split(FLValue s, FLValue sep);
+FLValue str_pad_left(FLValue s, FLValue width, FLValue ch);
+FLValue str_pad_right(FLValue s, FLValue width, FLValue ch);
+FLValue str_repeat(FLValue s, FLValue n);
+FLValue str_contains(FLValue s, FLValue sub);
+FLValue parse_int(FLValue s);
+FLValue parse_float(FLValue s);
+FLValue to_string(FLValue v);
+FLValue to_int(FLValue v);
+FLValue to_float(FLValue v);
+FLValue str_to_num(FLValue v);
+/* 컬렉션 */
+FLValue first(FLValue vec);
+FLValue last(FLValue vec);
+FLValue rest(FLValue vec);
+FLValue nth(FLValue vec, FLValue idx);
+FLValue count(FLValue v);
+FLValue take(FLValue n, FLValue vec);
+FLValue drop(FLValue n, FLValue vec);
+FLValue flatten(FLValue vec);
+FLValue sort(FLValue vec);
+FLValue reverse(FLValue vec);
+FLValue zip(FLValue a, FLValue b);
+FLValue some(FLValue fn, FLValue vec);
+FLValue every(FLValue fn, FLValue vec);
+FLValue vec_max(FLValue vec);
+FLValue vec_min(FLValue vec);
+/* 맵 */
+FLValue merge(FLValue a, FLValue b);
+FLValue dissoc(FLValue m, FLValue k);
+FLValue vals(FLValue m);
+FLValue keys(FLValue m);
+FLValue assoc(FLValue m, FLValue k, FLValue v);
+/* atom */
+FLValue atom(FLValue v);
+FLValue deref(FLValue a);
+FLValue swap_bang(FLValue a, FLValue fn);
+FLValue reset_bang(FLValue a, FLValue v);
+/* 타입 */
+FLValue int_p(FLValue v);
+FLValue float_p(FLValue v);
+FLValue bool_p(FLValue v);
+FLValue nil_p(FLValue v);
+FLValue number_p(FLValue v);
+FLValue identity(FLValue v);
+FLValue not_p(FLValue v);
+FLValue even_p(FLValue v);
+FLValue odd_p(FLValue v);
+FLValue inc(FLValue v);
+FLValue dec(FLValue v);
+/* fl_vec_* aliases (cgc-bin 내부 이름) */
+FLValue fl_vec_first(FLValue vec);
+FLValue fl_vec_last(FLValue vec);
+FLValue fl_vec_rest(FLValue vec);
+
+/* ── SQLite (sqlite.c — libsqlite3 직접 링크) ── */
+FLValue sqlite_open(FLValue path);
+FLValue sqlite_query(FLValue conn, FLValue sql);
+FLValue sqlite_exec(FLValue conn, FLValue sql);
+FLValue sqlite_one(FLValue conn, FLValue sql);
+FLValue sqlite_close(FLValue conn);
+
 /* ── MariaDB (mariadb.c — dlopen 방식, 헤더 불필요) ── */
 FLValue mariadb_connect(FLValue host, FLValue port, FLValue user, FLValue pw, FLValue db);
 FLValue mariadb_query(FLValue conn, FLValue sql);
