@@ -170,6 +170,11 @@ FLValue distinct(FLValue vec);
 FLValue js_escape(FLValue s);
 FLValue fl_html_escape(FLValue s);
 
+/* ── RC-Heap GC (gc.c) ── */
+FLValue fl_heap_copy(FLValue v);
+void    fl_heap_retain(FLValue v);
+void    fl_heap_release(FLValue v);
+
 /* ── 추가 alias/구현 (aliases.c) ── */
 FLValue fl_str_to_num(FLValue s);
 FLValue str_to_upper(FLValue s);

@@ -177,11 +177,40 @@ FLValue fl_get_argv(void) {
 }
 
 /* ── S26: atom ── */
-FLValue fl_atom_new(FLValue init) { return fl_vec_from(&init, 1); }
-FLValue fl_atom_deref(FLValue atom) { return fl_vec_get(atom, fl_int(0)); }
+/*
+ * atom — RC-Heap 방식으로 안전하게 관리
+ *
+ * 문제: 기존 fl_vec_from()은 Arena에 할당 → 요청 완료 후 dangling
+ * 해결: atom 벡터 + 보유값을 모두 heap_copy로 heap에 올림
+ *       swap!할 때 이전 값 heap_release → 메모리 누수 방지
+ */
+FLValue fl_atom_new(FLValue init) {
+    /* atom 벡터를 malloc으로 직접 생성 (arena 우회) */
+    FLVector* av = (FLVector*)malloc(sizeof(FLVector));
+    if (!av) return fl_nil();
+    av->base.type = FL_VECTOR;
+    av->base.rc   = 0xFF;   /* 고정: atom 컨테이너는 절대 해제 안 함 */
+    av->len  = 1;
+    av->cap  = 1;
+    av->data = (FLValue*)malloc(sizeof(FLValue));
+    if (!av->data) { free(av); return fl_nil(); }
+    av->data[0] = fl_heap_copy(init);  /* 초기값도 heap으로 */
+    FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)av;
+    return r;
+}
+
+FLValue fl_atom_deref(FLValue atom) {
+    if (atom.tag != FL_VECTOR) return fl_nil();
+    return ((FLVector*)atom.obj)->data[0];
+}
+
 FLValue fl_atom_reset(FLValue atom, FLValue val) {
-    ((FLVector*)atom.obj)->data[0] = val;
-    return val;
+    if (atom.tag != FL_VECTOR) return fl_nil();
+    FLVector* av = (FLVector*)atom.obj;
+    FLValue old = av->data[0];
+    av->data[0] = fl_heap_copy(val);   /* 새 값 heap 복사 */
+    fl_heap_release(old);              /* 이전 값 RC-- */
+    return av->data[0];
 }
 
 FLValue fl_includes_item(FLValue vec, FLValue item) {

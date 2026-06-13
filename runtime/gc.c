@@ -1,16 +1,24 @@
 /*
- * gc.c — FreeLang 요청 범위 Arena 할당자
+ * gc.c — FreeLang Hybrid GC
  *
- * 설계:
- *   - 전역 GC가 아닌 "요청당 아레나" 방식
- *   - 각 요청 처리 시작 시 arena 생성
- *   - 요청 완료 시 arena 전체 해제 (단일 free)
- *   - 장기 객체(DB 연결 등)는 별도 영속 풀
+ * 두 가지 GC 전략을 혼합:
  *
- * 왜 전역 GC 아닌가:
- *   - HTTP 서버 = 요청 단위가 자연스러운 생명주기
- *   - STW(Stop-The-World) 없음 → 지연 없음
- *   - 구현 단순 → 버그 적음
+ * 1. Arena GC (요청 스코프 — 기존 유지)
+ *    - HTTP 요청마다 arena 생성 → 완료 시 bulk free
+ *    - STW 없음, 극도로 빠름
+ *    - 단점: atom/global이 보유한 값은 요청 완료 후 dangling!
+ *
+ * 2. RC-Heap GC (atom 보유값 — 신규)
+ *    - atom.data[0]이 가리키는 값은 반드시 heap에 있어야 함
+ *    - fl_heap_copy(v): FLValue를 재귀적으로 malloc으로 복사
+ *    - fl_heap_release(v): RC--, 0이면 재귀 free
+ *    - swap!: 새값 heap_copy → 이전값 heap_release
+ *
+ * 왜 이 설계인가:
+ *   - atom이 보유하는 값(예: fl-kv의 store 맵)은 요청 사이에 살아있어야 함
+ *   - 기존 코드: atom.data[0] = arena 객체 → arena 리셋 후 dangling (UB!)
+ *   - RC-Heap: atom 전용 heap 영역 → 명시적 생명주기 관리
+ *   - 전체 GC (mark-sweep, tri-color)는 오버킬 — RC로 충분
  */
 
 #define _GNU_SOURCE
@@ -118,18 +126,27 @@ void fl_arena_stats(void) {
 
 /* ── 영속 풀 (DB 연결, 설정 등) ──────────────────────
    요청 생명주기 밖의 객체는 여기서 관리
+   동적 확장 (기존 256 고정 제한 제거)
 */
-#define PERM_POOL_MAX 256
-static void*  g_perm_ptrs[PERM_POOL_MAX];
-static size_t g_perm_count = 0;
-static pthread_mutex_t g_perm_lock = PTHREAD_MUTEX_INITIALIZER;
+typedef struct PermNode {
+    struct PermNode* next;
+    void*            ptr;
+} PermNode;
+
+static PermNode*       g_perm_head  = NULL;
+static size_t          g_perm_count = 0;
+static pthread_mutex_t g_perm_lock  = PTHREAD_MUTEX_INITIALIZER;
 
 void* fl_perm_alloc(size_t size) {
     void* ptr = malloc(size);
     if (!ptr) return NULL;
+    PermNode* node = (PermNode*)malloc(sizeof(PermNode));
+    if (!node) { free(ptr); return NULL; }
+    node->ptr = ptr;
     pthread_mutex_lock(&g_perm_lock);
-    if (g_perm_count < PERM_POOL_MAX)
-        g_perm_ptrs[g_perm_count++] = ptr;
+    node->next = g_perm_head;
+    g_perm_head = node;
+    g_perm_count++;
     pthread_mutex_unlock(&g_perm_lock);
     return ptr;
 }
@@ -137,9 +154,132 @@ void* fl_perm_alloc(size_t size) {
 /* 프로세스 종료 시 전체 해제 (ASAN 호환) */
 void fl_perm_cleanup(void) {
     pthread_mutex_lock(&g_perm_lock);
-    for (size_t i = 0; i < g_perm_count; i++) free(g_perm_ptrs[i]);
+    PermNode* n = g_perm_head;
+    while (n) {
+        PermNode* nx = n->next;
+        free(n->ptr);
+        free(n);
+        n = nx;
+    }
+    g_perm_head  = NULL;
     g_perm_count = 0;
     pthread_mutex_unlock(&g_perm_lock);
+}
+
+/* ── RC-Heap GC — atom 보유값 전용 ──────────────────
+ *
+ * atom.data[0]이 가리키는 FLValue는 반드시 RC-Heap에 있어야 함.
+ * Arena 리셋 후에도 살아있어야 하기 때문.
+ *
+ * FLObject.rc 필드를 활용:
+ *   rc == 0    → heap에 없음 (arena 객체 또는 임시값)
+ *   rc == 1..N → heap 객체, N개 참조
+ *   rc == 0xFF → 고정 (절대 해제 안 함, DB 연결 등)
+ */
+
+/* FLValue를 malloc 힙으로 deep-copy (RC = 1로 설정) */
+FLValue fl_heap_copy(FLValue v) {
+    switch (v.tag) {
+    case FL_INT: case FL_FLOAT: case FL_BOOL: case FL_NIL:
+        return v;  /* 스칼라: 값 복사로 충분 */
+
+    case FL_STRING: {
+        FLString* src = (FLString*)v.obj;
+        FLString* dst = (FLString*)malloc(sizeof(FLString) + src->len + 1);
+        if (!dst) return fl_nil();
+        dst->base.type = FL_STRING;
+        dst->base.rc   = 1;
+        dst->len = src->len;
+        memcpy(dst->data, src->data, src->len + 1);
+        FLValue r; r.tag = FL_STRING; r.obj = (FLObject*)dst;
+        return r;
+    }
+
+    case FL_VECTOR: {
+        FLVector* src = (FLVector*)v.obj;
+        FLVector* dst = (FLVector*)malloc(sizeof(FLVector));
+        if (!dst) return fl_nil();
+        dst->base.type = FL_VECTOR;
+        dst->base.rc   = 1;
+        dst->len = src->len;
+        dst->cap = src->len;  /* 딱 맞게 */
+        dst->data = src->len > 0
+            ? (FLValue*)malloc(src->len * sizeof(FLValue))
+            : NULL;
+        for (uint32_t i = 0; i < src->len; i++)
+            dst->data[i] = fl_heap_copy(src->data[i]);
+        FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)dst;
+        return r;
+    }
+
+    case FL_MAP: {
+        FLMap* src = (FLMap*)v.obj;
+        FLMap* dst = (FLMap*)malloc(sizeof(FLMap));
+        if (!dst) return fl_nil();
+        dst->base.type = FL_MAP;
+        dst->base.rc   = 1;
+        dst->len = src->len;
+        dst->cap = src->len;
+        dst->entries = src->len > 0
+            ? (FLMapEntry*)malloc(src->len * sizeof(FLMapEntry))
+            : NULL;
+        for (uint32_t i = 0; i < src->len; i++) {
+            dst->entries[i].key = fl_heap_copy(src->entries[i].key);
+            dst->entries[i].val = fl_heap_copy(src->entries[i].val);
+        }
+        FLValue r; r.tag = FL_MAP; r.obj = (FLObject*)dst;
+        return r;
+    }
+
+    case FL_FN:
+        /* 함수는 shared — RC++ */
+        if (v.obj && v.obj->rc < 0xFE) v.obj->rc++;
+        return v;
+    }
+    return fl_nil();
+}
+
+/* RC++ (heap 객체에 대한 추가 참조) */
+void fl_heap_retain(FLValue v) {
+    if (v.tag < FL_STRING || !v.obj) return;
+    if (v.obj->rc == 0 || v.obj->rc == 0xFF) return;
+    v.obj->rc++;
+}
+
+/* RC-- → 0이면 재귀 해제 */
+void fl_heap_release(FLValue v) {
+    if (v.tag < FL_STRING || !v.obj) return;
+    if (v.obj->rc == 0 || v.obj->rc == 0xFF) return;
+    if (--v.obj->rc > 0) return;
+
+    /* RC = 0 → 해제 */
+    switch (v.tag) {
+    case FL_STRING:
+        free(v.obj);
+        break;
+    case FL_VECTOR: {
+        FLVector* vp = (FLVector*)v.obj;
+        for (uint32_t i = 0; i < vp->len; i++)
+            fl_heap_release(vp->data[i]);
+        free(vp->data);
+        free(vp);
+        break;
+    }
+    case FL_MAP: {
+        FLMap* mp = (FLMap*)v.obj;
+        for (uint32_t i = 0; i < mp->len; i++) {
+            fl_heap_release(mp->entries[i].key);
+            fl_heap_release(mp->entries[i].val);
+        }
+        free(mp->entries);
+        free(mp);
+        break;
+    }
+    case FL_FN:
+        free(v.obj);
+        break;
+    default: break;
+    }
 }
 
 /* ── 메모리 사용량 통계 ── */
