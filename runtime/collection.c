@@ -1,22 +1,39 @@
+/*
+ * collection.c — FreeLang Vector / Map / Closure 구현
+ *
+ * 메모리 전략:
+ *   - 요청 처리 중 (fl_arena_begin ~ fl_arena_end): Arena에 할당
+ *   - 요청 외부 (전역 define, startup): malloc 폴백 (fl_arena_alloc 내부)
+ *   - 클로저(fl_fn_new): 장기 생존 가능 → 항상 malloc
+ *
+ * copy semantics(불변 스타일)이므로 개별 free 불필요.
+ * 요청 단위로 fl_arena_end()가 전부 일괄 해제.
+ */
+
 #include "runtime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+/* ── Arena 헬퍼 매크로 ──────────────────────────────────────────────
+   fl_arena_alloc: arena 활성 시 bump 할당, 비활성 시 malloc 폴백
+*/
+#define A(size) fl_arena_alloc(size)
+
 /* ── Vector ── */
 
 FLValue fl_vec_new(void) {
-    FLVector* v = malloc(sizeof(FLVector));
+    FLVector* v = A(sizeof(FLVector));
     v->base.type = FL_VECTOR; v->base.rc = 1;
     v->len = 0; v->cap = 0; v->data = NULL;
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
 }
 
 FLValue fl_vec_from(FLValue* items, uint32_t n) {
-    FLVector* v = malloc(sizeof(FLVector));
+    FLVector* v = A(sizeof(FLVector));
     v->base.type = FL_VECTOR; v->base.rc = 1;
     v->len = n; v->cap = n;
-    v->data = n ? malloc(sizeof(FLValue) * n) : NULL;
+    v->data = n ? A(sizeof(FLValue) * n) : NULL;
     if (n) memcpy(v->data, items, sizeof(FLValue) * n);
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
 }
@@ -34,14 +51,14 @@ FLValue fl_vec_len(FLValue vec) {
     return fl_int((int64_t)((FLVector*)vec.obj)->len);
 }
 
-/* copy semantics: 새 vector 반환 */
+/* copy semantics: 새 vector 반환. 구 vector는 Arena에 남아 일괄 해제됨 */
 FLValue fl_vec_push(FLValue vec, FLValue val) {
     FLVector* src = (vec.tag == FL_VECTOR) ? (FLVector*)vec.obj : NULL;
     uint32_t n = src ? src->len : 0;
-    FLVector* v = malloc(sizeof(FLVector));
+    FLVector* v = A(sizeof(FLVector));
     v->base.type = FL_VECTOR; v->base.rc = 1;
     v->len = n + 1; v->cap = n + 1;
-    v->data = malloc(sizeof(FLValue) * (n + 1));
+    v->data = A(sizeof(FLValue) * (n + 1));
     if (n && src->data) memcpy(v->data, src->data, sizeof(FLValue) * n);
     v->data[n] = val;
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
@@ -52,10 +69,10 @@ FLValue fl_vec_set(FLValue vec, FLValue idx, FLValue val) {
     FLVector* src = (FLVector*)vec.obj;
     int64_t i = (idx.tag == FL_FLOAT) ? (int64_t)idx.f : idx.i;
     if (i < 0 || (uint32_t)i >= src->len) return vec;
-    FLVector* v = malloc(sizeof(FLVector));
+    FLVector* v = A(sizeof(FLVector));
     v->base.type = FL_VECTOR; v->base.rc = 1;
     v->len = src->len; v->cap = src->len;
-    v->data = malloc(sizeof(FLValue) * src->len);
+    v->data = A(sizeof(FLValue) * src->len);
     memcpy(v->data, src->data, sizeof(FLValue) * src->len);
     v->data[i] = val;
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
@@ -64,7 +81,7 @@ FLValue fl_vec_set(FLValue vec, FLValue idx, FLValue val) {
 /* ── Map ── */
 
 FLValue fl_map_new(void) {
-    FLMap* m = malloc(sizeof(FLMap));
+    FLMap* m = A(sizeof(FLMap));
     m->base.type = FL_MAP; m->base.rc = 1;
     m->len = 0; m->cap = 0; m->entries = NULL;
     FLValue r; r.tag = FL_MAP; r.obj = (FLObject*)m; return r;
@@ -72,10 +89,10 @@ FLValue fl_map_new(void) {
 
 /* kv: [k0,v0, k1,v1, ...], n = 쌍의 수 */
 FLValue fl_map_from_pairs(FLValue* kv, uint32_t n) {
-    FLMap* m = malloc(sizeof(FLMap));
+    FLMap* m = A(sizeof(FLMap));
     m->base.type = FL_MAP; m->base.rc = 1;
     m->len = n; m->cap = n;
-    m->entries = n ? malloc(sizeof(FLMapEntry) * n) : NULL;
+    m->entries = n ? A(sizeof(FLMapEntry) * n) : NULL;
     for (uint32_t i = 0; i < n; i++) {
         m->entries[i].key = kv[i * 2];
         m->entries[i].val = kv[i * 2 + 1];
@@ -98,34 +115,36 @@ FLValue fl_map_len(FLValue map) {
     return fl_int((int64_t)((FLMap*)map.obj)->len);
 }
 
-/* copy semantics: upsert 후 새 map 반환 */
+/* copy semantics: upsert 후 새 map 반환. 구 map은 Arena에서 일괄 해제됨 */
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val) {
     FLMap* src = (map.tag == FL_MAP) ? (FLMap*)map.obj : NULL;
     uint32_t n = src ? src->len : 0;
     /* 기존 키 탐색 */
     for (uint32_t i = 0; i < n; i++) {
         if (fl_truthy(fl_eq(src->entries[i].key, key))) {
-            FLMap* m = malloc(sizeof(FLMap));
+            FLMap* m = A(sizeof(FLMap));
             m->base.type = FL_MAP; m->base.rc = 1;
             m->len = n; m->cap = n;
-            m->entries = malloc(sizeof(FLMapEntry) * n);
+            m->entries = A(sizeof(FLMapEntry) * n);
             memcpy(m->entries, src->entries, sizeof(FLMapEntry) * n);
             m->entries[i].val = val;
             FLValue r; r.tag = FL_MAP; r.obj = (FLObject*)m; return r;
         }
     }
     /* 새 키 추가 */
-    FLMap* m = malloc(sizeof(FLMap));
+    FLMap* m = A(sizeof(FLMap));
     m->base.type = FL_MAP; m->base.rc = 1;
     m->len = n + 1; m->cap = n + 1;
-    m->entries = malloc(sizeof(FLMapEntry) * (n + 1));
+    m->entries = A(sizeof(FLMapEntry) * (n + 1));
     if (n && src->entries) memcpy(m->entries, src->entries, sizeof(FLMapEntry) * n);
     m->entries[n].key = key; m->entries[n].val = val;
     FLValue r; r.tag = FL_MAP; r.obj = (FLObject*)m; return r;
 }
 
-/* ── S7: Closure ── */
-
+/* ── S7: Closure ──
+   클로저는 전역 핸들러로 등록될 수 있어 요청 수명보다 길게 생존.
+   반드시 malloc 사용 (Arena 비사용).
+*/
 FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
                   uint32_t nenv, FLValue* env) {
     FLClosure* cl = malloc(sizeof(FLClosure) + sizeof(FLValue) * nenv);
@@ -280,4 +299,3 @@ FLValue fl_map_merge(FLValue a, FLValue b) {
         r = fl_map_set(r, mb->entries[i].key, mb->entries[i].val);
     return r;
 }
-
