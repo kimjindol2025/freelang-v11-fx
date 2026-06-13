@@ -680,12 +680,17 @@ static void* handle_connection(void* arg) {
                     fl_try_top--;
                 } else {
                     fl_try_top--;
-                    char errbuf[512];
+                    char errbuf[1024];
                     const char* emsg = (frame->err.tag == FL_STRING)
                         ? strval(frame->err) : "Internal error";
-                    snprintf(errbuf, sizeof(errbuf), "{\"error\":\"%s\"}", emsg);
+                    /* 핸들러 에러 — stderr에 상세 출력 */
+                    fprintf(stderr, "\n[FreeLang 500] %s %s\n  → %s\n",
+                            method, path, emsg);
+                    snprintf(errbuf, sizeof(errbuf),
+                        "{\"error\":\"%s\",\"path\":\"%s\",\"method\":\"%s\"}",
+                        emsg, path, method);
                     resp = make_response(500, "application/json", errbuf);
-                    keep_alive = 0;   /* 500 에러 후 연결 종료 */
+                    keep_alive = 0;
                 }
             } else {
                 resp = matched->fn(req);
