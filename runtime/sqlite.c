@@ -173,6 +173,149 @@ FLValue sqlite_one(FLValue conn_v, FLValue sql_v) {
     return (vec->len > 0) ? vec->data[0] : fl_nil();
 }
 
+/* ── 파라미터 바인딩 헬퍼 ──────────────────────────────────
+   FLVector → sqlite3_stmt 바인딩
+   지원 타입: nil, bool, int, float, string
+   SQL injection 방어: 값은 절대 SQL에 직접 삽입 안 함
+*/
+static int sq_bind_params(sqlite3_stmt* stmt, FLValue params) {
+    if (params.tag != FL_VECTOR) return SQLITE_OK;
+    FLVector* vec = (FLVector*)params.obj;
+    for (uint32_t i = 0; i < vec->len; i++) {
+        int idx = (int)i + 1;   /* SQLite 바인딩은 1-based */
+        FLValue v = vec->data[i];
+        int rc;
+        switch (v.tag) {
+            case FL_NIL:
+                rc = sqlite3_bind_null(stmt, idx);
+                break;
+            case FL_BOOL:
+                rc = sqlite3_bind_int(stmt, idx, v.b ? 1 : 0);
+                break;
+            case FL_INT:
+                rc = sqlite3_bind_int64(stmt, idx, v.i);
+                break;
+            case FL_FLOAT:
+                rc = sqlite3_bind_double(stmt, idx, v.f);
+                break;
+            case FL_STRING:
+                rc = sqlite3_bind_text(stmt, idx,
+                    ((FLString*)v.obj)->data, -1, SQLITE_TRANSIENT);
+                break;
+            default:
+                rc = sqlite3_bind_null(stmt, idx);
+        }
+        if (rc != SQLITE_OK) return rc;
+    }
+    return SQLITE_OK;
+}
+
+/* (sqlite_query_p db sql params) → 벡터 of 맵
+   예: (sqlite_query_p db "SELECT * FROM t WHERE id=? AND name=?"
+                          (list 42 "kim"))
+*/
+FLValue sqlite_query_p(FLValue conn_v, FLValue sql_v, FLValue params) {
+    if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
+        return fl_vec_new();
+
+    const char* id  = ((FLString*)conn_v.obj)->data;
+    const char* sql = ((FLString*)sql_v.obj)->data;
+
+    FLSQLiteConn* c = sq_find(id);
+    if (!c) return fl_str_val("[sqlite] 연결 없음");
+
+    pthread_mutex_lock(&c->lock);
+    fl_log_sql("sqlite", sql);
+
+    sqlite3_stmt* stmt = NULL;
+    int rc = sqlite3_prepare_v2(c->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        char buf[512];
+        snprintf(buf, sizeof(buf), "[sqlite] 준비 실패: %s", sqlite3_errmsg(c->db));
+        pthread_mutex_unlock(&c->lock);
+        return fl_str_val(buf);
+    }
+
+    rc = sq_bind_params(stmt, params);
+    if (rc != SQLITE_OK) {
+        char buf[512];
+        snprintf(buf, sizeof(buf), "[sqlite] 바인딩 실패: %s", sqlite3_errmsg(c->db));
+        sqlite3_finalize(stmt);
+        pthread_mutex_unlock(&c->lock);
+        return fl_str_val(buf);
+    }
+
+    FLValue rows = sq_fetch_rows(stmt);
+    sqlite3_finalize(stmt);
+    pthread_mutex_unlock(&c->lock);
+    return rows;
+}
+
+/* (sqlite_exec_p db sql params) → {"affected": N, "last_id": M}
+   예: (sqlite_exec_p db "INSERT INTO links (code, url) VALUES (?, ?)"
+                         (list $code $url))
+*/
+FLValue sqlite_exec_p(FLValue conn_v, FLValue sql_v, FLValue params) {
+    if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
+        return fl_nil();
+
+    const char* id  = ((FLString*)conn_v.obj)->data;
+    const char* sql = ((FLString*)sql_v.obj)->data;
+
+    FLSQLiteConn* c = sq_find(id);
+    if (!c) return fl_str_val("[sqlite] 연결 없음");
+
+    pthread_mutex_lock(&c->lock);
+    fl_log_sql("sqlite", sql);
+
+    sqlite3_stmt* stmt = NULL;
+    int rc = sqlite3_prepare_v2(c->db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        char buf[512];
+        snprintf(buf, sizeof(buf), "[sqlite] 준비 실패: %s", sqlite3_errmsg(c->db));
+        pthread_mutex_unlock(&c->lock);
+        return fl_str_val(buf);
+    }
+
+    rc = sq_bind_params(stmt, params);
+    if (rc != SQLITE_OK) {
+        char buf[512];
+        snprintf(buf, sizeof(buf), "[sqlite] 바인딩 실패: %s", sqlite3_errmsg(c->db));
+        sqlite3_finalize(stmt);
+        pthread_mutex_unlock(&c->lock);
+        return fl_str_val(buf);
+    }
+
+    rc = sqlite3_step(stmt);
+    int64_t affected = 0, last_id = 0;
+    if (rc == SQLITE_DONE) {
+        affected = (int64_t)sqlite3_changes(c->db);
+        last_id  = (int64_t)sqlite3_last_insert_rowid(c->db);
+    } else {
+        char buf[512];
+        snprintf(buf, sizeof(buf), "[sqlite] 실행 오류: %s", sqlite3_errmsg(c->db));
+        sqlite3_finalize(stmt);
+        pthread_mutex_unlock(&c->lock);
+        return fl_str_val(buf);
+    }
+
+    sqlite3_finalize(stmt);
+    pthread_mutex_unlock(&c->lock);
+
+    FLValue map = fl_map_new();
+    map = fl_map_set(map, fl_str_val("affected"), fl_int(affected));
+    map = fl_map_set(map, fl_str_val("last_id"),  fl_int(last_id));
+    return map;
+}
+
+/* (sqlite_one_p db sql params) → 단일 맵 or nil */
+FLValue sqlite_one_p(FLValue conn_v, FLValue sql_v, FLValue params) {
+    FLValue rows = sqlite_query_p(conn_v, sql_v, params);
+    if (rows.tag != FL_VECTOR) return fl_nil();
+    FLVector* vec = (FLVector*)rows.obj;
+    return (vec->len > 0) ? vec->data[0] : fl_nil();
+}
+
 /* (sqlite_close db) → nil */
 FLValue sqlite_close(FLValue conn_v) {
     if (conn_v.tag != FL_STRING) return fl_nil();

@@ -4,6 +4,10 @@
 #include <string.h>
 #include <setjmp.h>
 
+/* 스레드마다 독립된 try 스택 */
+__thread FLTryFrame fl_try_stack[FL_TRY_MAX];
+__thread int fl_try_top = 0;
+
 void fl_throw(FLValue err) {
     if (fl_try_top <= 0) {
         if (err.tag == FL_STRING && err.obj)

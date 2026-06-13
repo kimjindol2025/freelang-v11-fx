@@ -5,9 +5,7 @@
 #include <math.h>
 #include <time.h>
 
-/* ── Error Handling Global State ── */
-FLTryFrame fl_try_stack[FL_TRY_MAX];
-int fl_try_top = 0;
+/* ── try 스택은 error.c에서 __thread로 정의 ── */
 
 
 /* ── 값 생성 ── */
@@ -20,9 +18,21 @@ FLValue fl_float(double v) {
     FLValue r; r.tag = FL_FLOAT; r.f = v; return r;
 }
 
+/*
+ * fl_str_val: 요청 처리 중에는 Arena에서 할당, 그 외엔 malloc
+ *
+ * Arena 할당은 요청 완료 시 fl_arena_end()로 일괄 해제.
+ * malloc 할당은 GC 없이 OS에 맡김 (시작/종료 시점 객체).
+ *
+ * 둘을 섞어도 안전한 이유: FLString을 직접 free하는 코드가 없음.
+ * Arena 객체는 arena_end 후 재사용되므로 dangling 참조 주의.
+ * → 요청 핸들러 외부(전역 define)는 malloc이 더 안전.
+ */
 FLValue fl_str_val(const char* s) {
     size_t len = strlen(s);
-    FLString* obj = malloc(sizeof(FLString) + len + 1);
+    size_t total = sizeof(FLString) + len + 1;
+    FLString* obj = (FLString*)fl_arena_alloc(total);
+    if (!obj) obj = malloc(total);   /* arena 없을 때 폴백 */
     obj->base.type = FL_STRING;
     obj->base.rc = 1;
     obj->len = (uint32_t)len;

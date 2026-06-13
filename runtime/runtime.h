@@ -381,6 +381,10 @@ FLValue sqlite_open(FLValue path);
 FLValue sqlite_query(FLValue conn, FLValue sql);
 FLValue sqlite_exec(FLValue conn, FLValue sql);
 FLValue sqlite_one(FLValue conn, FLValue sql);
+/* 파라미터 바인딩 (SQL injection 방어) */
+FLValue sqlite_query_p(FLValue conn, FLValue sql, FLValue params);
+FLValue sqlite_exec_p(FLValue conn, FLValue sql, FLValue params);
+FLValue sqlite_one_p(FLValue conn, FLValue sql, FLValue params);
 FLValue sqlite_close(FLValue conn);
 
 /* ── MariaDB (mariadb.c — dlopen 방식, 헤더 불필요) ── */
@@ -414,8 +418,9 @@ void    fl_debug_banner(const char* app_name, int port);
 /* ── try/catch 인프라 ── */
 #define FL_TRY_MAX 64
 typedef struct { jmp_buf buf; FLValue err; } FLTryFrame;
-extern FLTryFrame fl_try_stack[FL_TRY_MAX];
-extern int fl_try_top;
+/* __thread: 각 워커 스레드가 독립된 try 스택을 가짐 */
+extern __thread FLTryFrame fl_try_stack[FL_TRY_MAX];
+extern __thread int fl_try_top;
 void fl_throw(FLValue err);
 FLValue fl_make_error(const char* type, const char* msg);
 

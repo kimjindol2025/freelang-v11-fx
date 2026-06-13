@@ -27,6 +27,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 /* ───────────────────────────────────────────
@@ -368,7 +369,8 @@ static const char* status_text(int code) {
     }
 }
 
-static void send_response(int client_fd, FLValue resp) {
+/* keep_alive=1이면 Connection: keep-alive 헤더 포함 */
+static void send_response(int client_fd, FLValue resp, int keep_alive) {
     int    status  = 200;
     const char* body    = "";
     const char* ctype   = "text/plain";
@@ -407,12 +409,13 @@ static void send_response(int client_fd, FLValue resp) {
         "HTTP/1.1 %d %s\r\n"
         "Content-Type: %s\r\n"
         "Content-Length: %zu\r\n"
-        "Connection: close\r\n"
+        "Connection: %s\r\n"
         "%s"
         "\r\n",
         status, status_text(status),
         ctype,
         blen,
+        keep_alive ? "keep-alive" : "close",
         extra_headers
     );
 
@@ -454,25 +457,23 @@ static FLValue make_req_map(HttpRequest* hr, FLValue params) {
 
 typedef struct { int fd; } ConnArg;
 
-static void* handle_connection(void* arg) {
-    ConnArg* ca = (ConnArg*)arg;
-    int client_fd = ca->fd;
-    free(ca);
+/*
+ * keep-alive 설정:
+ * - HTTP/1.1 기본 keep-alive, HTTP/1.0 기본 close
+ * - 클라이언트 Connection 헤더 우선
+ * - 최대 100 요청 또는 60초 유휴시간 후 자동 close
+ */
+#define KEEPALIVE_MAX_REQUESTS 100
+#define KEEPALIVE_IDLE_SEC     60
 
-    /* 요청 아레나 시작 */
-    fl_arena_begin();
-
-    char* raw = malloc(RECV_BUF);
-    if (!raw) { close(client_fd); return NULL; }
-
+/* 단일 요청 수신 (raw 버퍼에 채움, 반환값: 수신 바이트 or <=0 에러) */
+static int recv_one_request(int fd, char* raw, int buf_size) {
     int total = 0;
     int n;
-    while ((n = recv(client_fd, raw + total, RECV_BUF - total - 1, 0)) > 0) {
+    while ((n = recv(fd, raw + total, buf_size - total - 1, 0)) > 0) {
         total += n;
-        /* 헤더 끝 감지 */
         raw[total] = '\0';
         if (strstr(raw, "\r\n\r\n")) {
-            /* Content-Length 체크 후 바디까지 받기 */
             char* cl_str = strcasestr(raw, "Content-Length:");
             if (cl_str) {
                 int cl = atoi(cl_str + 15);
@@ -485,88 +486,145 @@ static void* handle_connection(void* arg) {
                 break;
             }
         }
-        if (total >= RECV_BUF - 1) break;
+        if (total >= buf_size - 1) break;
     }
-    raw[total] = '\0';
+    return total;
+}
 
-    if (total == 0) { free(raw); close(client_fd); return NULL; }
+/* Connection 헤더에서 keep-alive 여부 파악
+ * HTTP/1.1: 기본 keep-alive (Connection: close 있으면 close)
+ * HTTP/1.0: 기본 close (Connection: keep-alive 있으면 keep-alive)
+ */
+static int check_keep_alive(HttpRequest* hr, const char* raw) {
+    /* HTTP 버전 확인 */
+    int is_11 = (strstr(raw, "HTTP/1.1") != NULL);
+    int want_keepalive = is_11 ? 1 : 0;   /* 1.1: default on, 1.0: default off */
 
-    HttpRequest hr;
-    if (parse_http_request(raw, total, &hr) < 0) {
-        const char* err = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
-        send(client_fd, err, strlen(err), 0);
-        free(raw); close(client_fd); return NULL;
-    }
-    free(raw);
-
-    /* 디버그: 요청 로그 */
-    struct timespec t_start;
-    clock_gettime(CLOCK_MONOTONIC, &t_start);
-    fl_log_request(hr.method, hr.path, hr.body, hr.body_len,
-                   hr.content_type[0] ? hr.content_type : NULL);
-
-    /* 라우트 매칭 */
-    FLValue params = fl_nil();
-    Route* matched = NULL;
-    for (int i = 0; i < g_nroutes; i++) {
-        FLValue p;
-        if (match_route(&g_routes[i], hr.method, hr.path, &p)) {
-            matched = &g_routes[i];
-            params  = p;
+    for (int i = 0; i < hr->nheaders; i++) {
+        if (strcasecmp(hr->headers[i][0], "Connection") == 0) {
+            if (strcasecmp(hr->headers[i][1], "keep-alive") == 0)
+                want_keepalive = 1;
+            else if (strcasecmp(hr->headers[i][1], "close") == 0)
+                want_keepalive = 0;
             break;
         }
     }
+    return want_keepalive;
+}
 
-    if (!matched) {
-        /* 404 */
-        char body[256];
-        snprintf(body, sizeof(body),
-            "{\"error\":\"Not Found\",\"path\":\"%s\"}", hr.path);
-        FLValue resp = make_response(404, "application/json", body);
-        send_response(client_fd, resp);
-        close(client_fd); return NULL;
-    }
+static void* handle_connection(void* arg) {
+    ConnArg* ca = (ConnArg*)arg;
+    int client_fd = ca->fd;
+    free(ca);
 
-    /* 핸들러 호출 */
-    FLValue req  = make_req_map(&hr, params);
-    FLValue resp = fl_nil();
-    /* try/catch */
-    if (fl_try_top < FL_TRY_MAX) {
-        FLTryFrame* frame = &fl_try_stack[fl_try_top++];
-        if (setjmp(frame->buf) == 0) {
-            resp = matched->fn(req);
-            fl_try_top--;
-        } else {
-            fl_try_top--;
-            char errbuf[512];
-            const char* emsg = (frame->err.tag == FL_STRING)
-                ? strval(frame->err) : "Internal error";
-            snprintf(errbuf, sizeof(errbuf),
-                "{\"error\":\"%s\"}", emsg);
-            resp = make_response(500, "application/json", errbuf);
+    /* TCP_NODELAY: Nagle 비활성화
+     * 헤더+바디를 2번 send() 할 때 Nagle+DelayedACK로 40ms 지연 방지
+     * keep-alive 연결에서 특히 중요 */
+    int nodelay = 1;
+    setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+
+    /* keep-alive 유휴 타임아웃 설정 */
+    struct timeval tv = { .tv_sec = KEEPALIVE_IDLE_SEC, .tv_usec = 0 };
+    setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+    char* raw = malloc(RECV_BUF);
+    if (!raw) { close(client_fd); return NULL; }
+
+    int req_count = 0;
+
+    while (req_count < KEEPALIVE_MAX_REQUESTS) {
+
+        /* ── 1. 요청 수신 ── */
+        int total = recv_one_request(client_fd, raw, RECV_BUF);
+        if (total <= 0) break;   /* 연결 종료 or 타임아웃 */
+
+        /* ── 2. 아레나 시작 (요청 단위 메모리 관리) ── */
+        fl_arena_begin();
+
+        /* ── 3. 파싱 ── */
+        HttpRequest hr;
+        if (parse_http_request(raw, total, &hr) < 0) {
+            const char* err = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
+            send(client_fd, err, strlen(err), 0);
+            fl_arena_end();
+            break;
         }
-    } else {
-        resp = matched->fn(req);
-    }
 
-    /* 디버그: 응답 로그 */
-    struct timespec t_end;
-    clock_gettime(CLOCK_MONOTONIC, &t_end);
-    long elapsed_ms = (t_end.tv_sec - t_start.tv_sec) * 1000
-                    + (t_end.tv_nsec - t_start.tv_nsec) / 1000000;
-    int status_code = 200;
-    if (resp.tag == FL_MAP) {
-        FLValue sc = fl_map_get(resp, fl_str_val("__status"));
-        if (sc.tag == FL_INT) status_code = (int)sc.i;
-    }
-    fl_log_response(status_code, hr.path, elapsed_ms);
-    fl_arena_stats();   /* debug level 2에서만 출력 */
+        /* ── 4. keep-alive 결정 ── */
+        int keep_alive = check_keep_alive(&hr, raw);
 
-    send_response(client_fd, resp);
+        /* ── 5. 디버그 로그 ── */
+        struct timespec t_start;
+        clock_gettime(CLOCK_MONOTONIC, &t_start);
+        fl_log_request(hr.method, hr.path, hr.body, hr.body_len,
+                       hr.content_type[0] ? hr.content_type : NULL);
+
+        /* ── 6. 라우트 매칭 ── */
+        FLValue params = fl_nil();
+        Route* matched = NULL;
+        for (int i = 0; i < g_nroutes; i++) {
+            FLValue p;
+            if (match_route(&g_routes[i], hr.method, hr.path, &p)) {
+                matched = &g_routes[i];
+                params  = p;
+                break;
+            }
+        }
+
+        FLValue resp;
+        if (!matched) {
+            char notfound_body[256];
+            snprintf(notfound_body, sizeof(notfound_body),
+                "{\"error\":\"Not Found\",\"path\":\"%s\"}", hr.path);
+            resp = make_response(404, "application/json", notfound_body);
+        } else {
+            /* ── 7. 핸들러 호출 (try/catch 보호) ── */
+            FLValue req = make_req_map(&hr, params);
+            resp = fl_nil();
+            if (fl_try_top < FL_TRY_MAX) {
+                FLTryFrame* frame = &fl_try_stack[fl_try_top++];
+                if (setjmp(frame->buf) == 0) {
+                    resp = matched->fn(req);
+                    fl_try_top--;
+                } else {
+                    fl_try_top--;
+                    char errbuf[512];
+                    const char* emsg = (frame->err.tag == FL_STRING)
+                        ? strval(frame->err) : "Internal error";
+                    snprintf(errbuf, sizeof(errbuf), "{\"error\":\"%s\"}", emsg);
+                    resp = make_response(500, "application/json", errbuf);
+                    keep_alive = 0;   /* 500 에러 후 연결 종료 */
+                }
+            } else {
+                resp = matched->fn(req);
+            }
+        }
+
+        /* ── 8. 응답 전송 ── */
+        struct timespec t_end;
+        clock_gettime(CLOCK_MONOTONIC, &t_end);
+        long elapsed_ms = (t_end.tv_sec - t_start.tv_sec) * 1000
+                        + (t_end.tv_nsec - t_start.tv_nsec) / 1000000;
+        int status_code = 200;
+        if (resp.tag == FL_MAP) {
+            FLValue sc = fl_map_get(resp, fl_str_val("__status"));
+            if (sc.tag == FL_INT) status_code = (int)sc.i;
+        }
+        fl_log_response(status_code, hr.path, elapsed_ms);
+        fl_arena_stats();
+
+        send_response(client_fd, resp, keep_alive);
+
+        /* ── 9. 아레나 종료 ── */
+        fl_arena_end();
+
+        req_count++;
+        if (!keep_alive) break;
+
+    }   /* while keep_alive */
+
+    free(raw);
     close(client_fd);
-
-    /* 요청 아레나 종료 (메모리 재사용 가능 상태로 리셋) */
-    fl_arena_end();
     return NULL;
 }
 

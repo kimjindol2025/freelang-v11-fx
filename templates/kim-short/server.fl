@@ -139,9 +139,9 @@ function copyText(text) {
         $url   (or (get $body "url") "")
         $title (or (get $body "title") "")
         $code  (rand-code)
-        $sql   (str "INSERT OR IGNORE INTO links (code, url, title) VALUES ('"
-                    $code "', '" $url "', '" $title "')")
-        $r     (sqlite_exec db $sql)
+        $r     (sqlite_exec_p db
+                  "INSERT OR IGNORE INTO links (code, url, title) VALUES (?, ?, ?)"
+                  (list $code $url $title))
         $link (str BASE_URL "/" $code)
         $body2 (str "<div class='hero'><h2>✅ 단축 완료</h2></div>
 <div class='card'>
@@ -203,17 +203,23 @@ function copyText(text) {
 ;; GET /:code — 리다이렉트
 (defn handle-redirect [$req]
   (let [$code (server_req_param $req "code")
-        $row  (sqlite_one db (str "SELECT url FROM links WHERE code='" $code "'"))]
+        $row  (sqlite_one_p db
+                 "SELECT url FROM links WHERE code=?"
+                 (list $code))]
     (if $row
       (let [$url (get $row "url")]
-        (sqlite_exec db (str "UPDATE links SET clicks=clicks+1 WHERE code='" $code "'"))
+        (sqlite_exec_p db
+          "UPDATE links SET clicks=clicks+1 WHERE code=?"
+          (list $code))
         (server_redirect $url))
       (server_status 404 "Not Found"))))
 
 ;; POST /delete/:code — 삭제
 (defn handle-delete [$req]
   (let [$code (server_req_param $req "code")]
-    (sqlite_exec db (str "DELETE FROM links WHERE code='" $code "'"))
+    (sqlite_exec_p db
+      "DELETE FROM links WHERE code=?"
+      (list $code))
     (server_redirect "/links")))
 
 ;; GET /api/links — JSON API

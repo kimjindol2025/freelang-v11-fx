@@ -103,6 +103,4 @@ FLValue _fl_process_spawn(FLValue cmd, FLValue args) {
     return fl_int((int64_t)pid);
 }
 
-/* ── try/catch 런타임 ── */
-extern FLTryFrame fl_try_stack[FL_TRY_MAX];
-extern int fl_try_top;
+/* ── try/catch 런타임 ── (runtime.h의 __thread 선언 사용) */
