@@ -214,7 +214,7 @@ typedef struct {
 } HttpRequest;
 
 /* URL 디코드 (%XX → char) */
-static void url_decode(const char* src, char* dst, size_t max) {
+static void http_url_decode_internal(const char* src, char* dst, size_t max) {
     size_t i = 0;
     while (*src && i < max - 1) {
         if (*src == '%' && src[1] && src[2]) {
@@ -242,8 +242,8 @@ static FLValue parse_query(const char* qs) {
         if (eq) {
             *eq = '\0';
             char k[512], v[512];
-            url_decode(pair, k, sizeof(k));
-            url_decode(eq + 1, v, sizeof(v));
+            http_url_decode_internal(pair, k, sizeof(k));
+            http_url_decode_internal(eq + 1, v, sizeof(v));
             map = fl_map_set(map, fl_str_val(k), fl_str_val(v));
         }
         pair = strtok(NULL, "&");
@@ -274,7 +274,7 @@ static int parse_http_request(const char* raw, int raw_len, HttpRequest* req) {
         *q = '\0';
         strncpy(req->query_str, q + 1, sizeof(req->query_str) - 1);
     }
-    url_decode(path_and_query, req->path, sizeof(req->path));
+    http_url_decode_internal(path_and_query, req->path, sizeof(req->path));
 
     /* 헤더 파싱 */
     p = eol + 2;
@@ -430,19 +430,10 @@ static FLValue make_req_map(HttpRequest* hr, FLValue params) {
             fl_str_val(hr->headers[i][1]));
     }
 
-    /* body — JSON이면 파싱 시도 */
-    FLValue body;
-    const char* ct_header = "";
-    for (int i = 0; i < hr->nheaders; i++) {
-        if (strcasecmp(hr->headers[i][0], "Content-Type") == 0) {
-            ct_header = hr->headers[i][1]; break;
-        }
-    }
-    if (hr->body_len > 0 && strstr(ct_header, "application/json")) {
-        body = fl_json_parse(fl_str_val(hr->body));
-    } else {
-        body = fl_str_val(hr->body);
-    }
+    /* body — 항상 문자열로 저장
+     * (FL 코드에서 json_parse(server_req_body(req)) 패턴 사용)
+     * Node.js 방식의 자동 파싱은 이중파싱 버그를 유발하므로 제거 */
+    FLValue body = fl_str_val(hr->body_len > 0 ? hr->body : "");
 
     FLValue req = fl_map_new();
     req = fl_map_set(req, fl_str_val("method"),  fl_str_val(hr->method));

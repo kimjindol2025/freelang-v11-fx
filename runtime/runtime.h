@@ -330,6 +330,8 @@ FLValue reset_bang(FLValue a, FLValue v);
 /* 환경/.env */
 FLValue env_load(FLValue path);
 FLValue num(FLValue v);
+FLValue url_decode(FLValue s);
+FLValue form_parse(FLValue body);
 /* fl_or: 93줄에 이미 선언됨 */
 FLValue server_rate_limit(FLValue max_reqs, FLValue window_ms);
 FLValue mariadb_connect4(FLValue host, FLValue user, FLValue pw, FLValue db);

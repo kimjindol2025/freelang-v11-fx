@@ -1,0 +1,212 @@
+;; kim-notes — FreeLang 네이티브 메모 앱
+;; Node.js 없음. 순수 C 바이너리.
+;; DB: MariaDB akl (notes 테이블)
+;; 빌드: ../../fl-build.sh server.fl kim-notes
+;; 실행: ./kim-notes
+
+;; ── 설정 ────────────────────────────────────────────────────────────
+(define PORT     (num (or (env-get "PORT")    "40910")))
+(define DB_HOST  (or (env-get "DB_HOST") "localhost"))
+(define DB_USER  (or (env-get "DB_USER") "akl"))
+(define DB_PASS  (or (env-get "DB_PASS") "akl_pass_2026"))
+(define DB_NAME  (or (env-get "DB_NAME") "akl"))
+
+;; ── DB 연결 ──────────────────────────────────────────────────────────
+(define db (mariadb_connect DB_HOST 3306 DB_USER DB_PASS DB_NAME))
+
+;; ── DB 초기화 ────────────────────────────────────────────────────────
+(mariadb_exec db
+  "CREATE TABLE IF NOT EXISTS notes (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    title      VARCHAR(200) NOT NULL,
+    content    TEXT,
+    created_at DATETIME DEFAULT NOW(),
+    updated_at DATETIME DEFAULT NOW()
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+
+;; ── HTML 헬퍼 ────────────────────────────────────────────────────────
+(defn html-page [$title $body]
+  (str "<!DOCTYPE html>
+<html lang='ko'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>" $title " — KimNotes</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+     background:#0f1419;color:#e2e8f0;min-height:100vh}
+.nav{background:#1a202c;padding:12px 20px;border-bottom:1px solid #2d3748;
+     display:flex;align-items:center;gap:16px}
+.nav h1{font-size:1.1rem;color:#a78bfa;font-weight:700}
+.nav a{color:#64748b;text-decoration:none;font-size:.85rem}
+.nav a:hover{color:#a78bfa}
+.btn{background:#7c3aed;color:#fff;border:none;padding:8px 16px;
+     border-radius:6px;cursor:pointer;font-size:.85rem;text-decoration:none;
+     display:inline-block}
+.btn:hover{background:#6d28d9}
+.btn-sm{padding:4px 10px;font-size:.78rem}
+.btn-red{background:#dc2626}
+.btn-red:hover{background:#b91c1c}
+.container{max-width:860px;margin:0 auto;padding:24px 16px}
+.card{background:#1e2733;border:1px solid #2d3748;border-radius:10px;
+      padding:16px;margin-bottom:12px}
+.card h2{font-size:1rem;margin-bottom:6px;color:#e2e8f0}
+.card p{font-size:.85rem;color:#94a3b8;line-height:1.5;white-space:pre-wrap}
+.card .meta{font-size:.75rem;color:#4a5568;margin-top:8px}
+.card .actions{margin-top:10px;display:flex;gap:8px}
+form input,form textarea{width:100%;padding:8px 12px;background:#111827;
+  border:1px solid #374151;border-radius:6px;color:#e2e8f0;font-size:.9rem;
+  font-family:inherit;margin-bottom:10px}
+form textarea{min-height:120px;resize:vertical}
+h2.page-title{font-size:1.2rem;margin-bottom:20px;color:#a78bfa}
+.empty{text-align:center;padding:40px;color:#4a5568}
+</style>
+</head>
+<body>
+<nav class='nav'>
+  <h1>📝 KimNotes</h1>
+  <a href='/'>홈</a>
+  <a href='/notes/new'>새 메모</a>
+  <span style='margin-left:auto;font-size:.75rem;color:#2d3748'>Node.js 없음 | C 런타임</span>
+</nav>
+<div class='container'>
+" $body "
+</div>
+</body>
+</html>"))
+
+;; ── 핸들러 ──────────────────────────────────────────────────────────
+
+;; GET / — 메모 목록
+(defn handle-index [$req]
+  (let [$rows (mariadb_query db "SELECT id, title, created_at FROM notes ORDER BY created_at DESC LIMIT 50")
+        $count (length $rows)
+        $items (if (> $count 0)
+          (str (reduce
+            (fn [$acc $row]
+              (let [$id  (get $row "id")
+                    $ttl (get $row "title")
+                    $dt  (get $row "created_at")]
+                (str $acc
+                  "<div class='card'>"
+                  "<h2>" $ttl "</h2>"
+                  "<div class='meta'>" $dt "</div>"
+                  "<div class='actions'>"
+                  "<a class='btn btn-sm' href='/notes/" $id "'>보기</a>"
+                  "<a class='btn btn-sm' href='/notes/" $id "/edit'>수정</a>"
+                  "<form method='POST' action='/notes/" $id "/delete' style='display:inline'>"
+                  "<button class='btn btn-sm btn-red' type='submit'>삭제</button>"
+                  "</form>"
+                  "</div>"
+                  "</div>")))
+            "" $rows))
+          "<div class='empty'>메모가 없습니다. <a href='/notes/new' style='color:#a78bfa'>첫 메모 작성</a></div>")
+        $body (str
+          "<h2 class='page-title'>메모 목록 (" $count "개)</h2>"
+          "<a class='btn' href='/notes/new' style='margin-bottom:20px;display:inline-block'>+ 새 메모</a><br><br>"
+          $items)]
+    (server_html (html-page "목록" $body))))
+
+;; GET /notes/new — 새 메모 폼
+(defn handle-new [$req]
+  (let [$body "<h2 class='page-title'>새 메모</h2>
+<form method='POST' action='/notes'>
+  <input name='title' placeholder='제목' required>
+  <textarea name='content' placeholder='내용 (선택)'></textarea>
+  <button class='btn' type='submit'>저장</button>
+  <a href='/' style='margin-left:12px;color:#64748b;font-size:.85rem'>취소</a>
+</form>"]
+    (server_html (html-page "새 메모" $body))))
+
+;; POST /notes — 생성
+(defn handle-create [$req]
+  (let [$body    (form_parse (server_req_body $req))
+        $title   (or (get $body "title") "")
+        $content (or (get $body "content") "")
+        $sql     (str "INSERT INTO notes (title, content) VALUES ('"
+                      $title "', '" $content "')")
+        $result  (mariadb_exec db $sql)]
+    (server_redirect "/")))
+
+;; GET /notes/:id — 상세
+(defn handle-view [$req]
+  (let [$id  (server_req_param $req "id")
+        $row (mariadb_one db (str "SELECT * FROM notes WHERE id=" $id))]
+    (if $row
+      (let [$title   (get $row "title")
+            $content (get $row "content")
+            $dt      (get $row "created_at")
+            $body    (str
+              "<h2 class='page-title'>" $title "</h2>"
+              "<div class='card'>"
+              "<p>" $content "</p>"
+              "<div class='meta'>작성: " $dt "</div>"
+              "<div class='actions'>"
+              "<a class='btn btn-sm' href='/notes/" $id "/edit'>수정</a>"
+              "<form method='POST' action='/notes/" $id "/delete' style='display:inline'>"
+              "<button class='btn btn-sm btn-red' type='submit'>삭제</button>"
+              "</form>"
+              "<a href='/' style='margin-left:12px;color:#64748b;font-size:.85rem'>목록으로</a>"
+              "</div>"
+              "</div>")]
+        (server_html (html-page $title $body)))
+      (server_status 404 "메모 없음"))))
+
+;; GET /notes/:id/edit — 수정 폼
+(defn handle-edit [$req]
+  (let [$id  (server_req_param $req "id")
+        $row (mariadb_one db (str "SELECT * FROM notes WHERE id=" $id))]
+    (if $row
+      (let [$title   (get $row "title")
+            $content (get $row "content")
+            $body    (str
+              "<h2 class='page-title'>메모 수정</h2>"
+              "<form method='POST' action='/notes/" $id "/update'>"
+              "<input name='title' value='" $title "' required>"
+              "<textarea name='content'>" $content "</textarea>"
+              "<button class='btn' type='submit'>저장</button>"
+              "<a href='/notes/" $id "' style='margin-left:12px;color:#64748b;font-size:.85rem'>취소</a>"
+              "</form>")]
+        (server_html (html-page "수정" $body)))
+      (server_status 404 "메모 없음"))))
+
+;; POST /notes/:id/update — 수정
+(defn handle-update [$req]
+  (let [$id      (server_req_param $req "id")
+        $body    (form_parse (server_req_body $req))
+        $title   (or (get $body "title") "")
+        $content (or (get $body "content") "")
+        $sql     (str "UPDATE notes SET title='" $title "', content='" $content
+                      "', updated_at=NOW() WHERE id=" $id)]
+    (mariadb_exec db $sql)
+    (server_redirect (str "/notes/" $id))))
+
+;; POST /notes/:id/delete — 삭제
+(defn handle-delete [$req]
+  (let [$id (server_req_param $req "id")]
+    (mariadb_exec db (str "DELETE FROM notes WHERE id=" $id))
+    (server_redirect "/")))
+
+;; GET /api/notes — JSON API
+(defn handle-api-list [$req]
+  (let [$rows (mariadb_query db "SELECT * FROM notes ORDER BY created_at DESC")]
+    (server_json (json_stringify $rows))))
+
+;; GET /health
+(defn handle-health [$req]
+  (server_json "{\"status\":\"ok\",\"app\":\"kim-notes\",\"runtime\":\"native-c\"}"))
+
+;; ── 라우트 ──────────────────────────────────────────────────────────
+(server_get  "/"                  "handle-index")
+(server_get  "/notes/new"         "handle-new")
+(server_post "/notes"             "handle-create")
+(server_get  "/notes/:id"         "handle-view")
+(server_get  "/notes/:id/edit"    "handle-edit")
+(server_post "/notes/:id/update"  "handle-update")
+(server_post "/notes/:id/delete"  "handle-delete")
+(server_get  "/api/notes"         "handle-api-list")
+(server_get  "/health"            "handle-health")
+
+;; ── 시작 ────────────────────────────────────────────────────────────
+(server_start PORT)

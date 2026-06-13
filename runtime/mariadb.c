@@ -22,13 +22,7 @@
 typedef void MYSQL;
 typedef void MYSQL_RES;
 typedef char** MYSQL_ROW;
-
-typedef struct {
-    char* name;
-    uint32_t name_length;
-    /* 나머지 필드는 사용 안 함, 바이트 크기 맞추기 위해 padding */
-    char _pad[256 - sizeof(char*) - sizeof(uint32_t)];
-} MYSQL_FIELD;
+typedef void MYSQL_FIELD;  /* opaque — name은 첫 번째 char* 멤버 */
 
 /* ── 함수 포인터 테이블 ── */
 static void* mariadb_lib = NULL;
@@ -41,7 +35,7 @@ typedef MYSQL_RES*   (*fn_mysql_store_result)(MYSQL*);
 typedef MYSQL_ROW    (*fn_mysql_fetch_row)(MYSQL_RES*);
 typedef unsigned long* (*fn_mysql_fetch_lengths)(MYSQL_RES*);
 typedef unsigned int (*fn_mysql_num_fields)(MYSQL_RES*);
-typedef MYSQL_FIELD* (*fn_mysql_fetch_fields)(MYSQL_RES*);
+typedef MYSQL_FIELD* (*fn_mysql_fetch_field_direct)(MYSQL_RES*, unsigned int);
 typedef void         (*fn_mysql_free_result)(MYSQL_RES*);
 typedef void         (*fn_mysql_close)(MYSQL*);
 typedef const char*  (*fn_mysql_error)(MYSQL*);
@@ -54,7 +48,7 @@ static fn_mysql_store_result   p_mysql_store_result   = NULL;
 static fn_mysql_fetch_row      p_mysql_fetch_row      = NULL;
 static fn_mysql_fetch_lengths  p_mysql_fetch_lengths  = NULL;
 static fn_mysql_num_fields     p_mysql_num_fields     = NULL;
-static fn_mysql_fetch_fields   p_mysql_fetch_fields   = NULL;
+static fn_mysql_fetch_field_direct p_mysql_fetch_field_direct = NULL;
 static fn_mysql_free_result    p_mysql_free_result    = NULL;
 static fn_mysql_close          p_mysql_close          = NULL;
 static fn_mysql_error          p_mysql_error          = NULL;
@@ -88,7 +82,7 @@ static void load_mariadb_lib(void) {
     LOAD(mysql_fetch_row)
     LOAD(mysql_fetch_lengths)
     LOAD(mysql_num_fields)
-    LOAD(mysql_fetch_fields)
+    LOAD(mysql_fetch_field_direct)
     LOAD(mysql_free_result)
     LOAD(mysql_close)
     LOAD(mysql_error)
@@ -173,14 +167,17 @@ static FLValue fetch_rows(MYSQL_RES* res) {
     if (!res) return rows;
 
     unsigned int nfields = p_mysql_num_fields(res);
-    MYSQL_FIELD* fields  = p_mysql_fetch_fields(res);
 
     MYSQL_ROW row;
     while ((row = p_mysql_fetch_row(res))) {
         unsigned long* lens = p_mysql_fetch_lengths(res);
         FLValue map = fl_map_new();
         for (unsigned int i = 0; i < nfields; i++) {
-            FLValue key = fl_str_val(fields[i].name);
+            /* fetch_field_direct로 각 필드를 개별 접근 (구조체 크기 불일치 방지) */
+            MYSQL_FIELD* field = p_mysql_fetch_field_direct(res, i);
+            /* name은 항상 첫 번째 char* 멤버 */
+            const char* col_name = *(const char**)field;
+            FLValue key = fl_str_val(col_name ? col_name : "");
             FLValue val;
             if (row[i] == NULL) {
                 val = fl_nil();

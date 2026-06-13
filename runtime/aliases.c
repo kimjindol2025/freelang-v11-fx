@@ -471,3 +471,70 @@ FLValue server_rate_limit(FLValue max_reqs, FLValue window_ms) {
 FLValue mariadb_connect4(FLValue host, FLValue user, FLValue pw, FLValue db) {
     return mariadb_connect(host, fl_int(3306), user, pw, db);
 }
+
+/* ── URL 디코딩 + 폼 파싱 ── */
+
+/* %XX 디코딩 + '+' → 공백 변환 */
+static int hex_val(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return 0;
+}
+
+/* url_decode "hello%20world" → "hello world" */
+FLValue url_decode(FLValue s) {
+    if (s.tag != FL_STRING) return s;
+    const char* src = ((FLString*)s.obj)->data;
+    size_t slen = strlen(src);
+    char* out = (char*)malloc(slen + 1);
+    size_t j = 0;
+    for (size_t i = 0; i < slen; i++) {
+        if (src[i] == '+') {
+            out[j++] = ' ';
+        } else if (src[i] == '%' && i + 2 < slen &&
+                   isxdigit((unsigned char)src[i+1]) &&
+                   isxdigit((unsigned char)src[i+2])) {
+            out[j++] = (char)((hex_val(src[i+1]) << 4) | hex_val(src[i+2]));
+            i += 2;
+        } else {
+            out[j++] = src[i];
+        }
+    }
+    out[j] = '\0';
+    FLValue r = fl_str_val(out);
+    free(out);
+    return r;
+}
+
+/* form_parse "title=hello&content=world" → {"title":"hello","content":"world"} */
+FLValue form_parse(FLValue body) {
+    if (body.tag != FL_STRING) return fl_map_new();
+    const char* src = ((FLString*)body.obj)->data;
+    FLValue map = fl_map_new();
+    if (!src || src[0] == '\0') return map;
+
+    /* 복사본으로 작업 */
+    char* buf = strdup(src);
+    char* pair = buf;
+    while (pair && *pair) {
+        char* next = strchr(pair, '&');
+        if (next) *next = '\0';
+
+        char* eq = strchr(pair, '=');
+        FLValue key, val;
+        if (eq) {
+            *eq = '\0';
+            key = url_decode(fl_str_val(pair));
+            val = url_decode(fl_str_val(eq + 1));
+        } else {
+            key = url_decode(fl_str_val(pair));
+            val = fl_str_val("");
+        }
+        map = fl_map_set(map, key, val);
+
+        pair = next ? next + 1 : NULL;
+    }
+    free(buf);
+    return map;
+}
