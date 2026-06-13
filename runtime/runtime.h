@@ -196,6 +196,9 @@ FLValue fl_parse(FLValue src);
 /* ── JSON ── */
 FLValue fl_json_parse(FLValue src);
 FLValue fl_json_stringify(FLValue val);
+/* cgc-bin이 생성하는 짧은 이름 별칭 */
+FLValue json_parse(FLValue src);
+FLValue json_stringify(FLValue val);
 
 /* ── 비트 연산 ── */
 FLValue fl_bit_xor(FLValue a, FLValue b);
@@ -255,6 +258,13 @@ FLValue server_req_header(FLValue req, FLValue name);
 FLValue server_req_method(FLValue req);
 FLValue server_req_path(FLValue req);
 FLValue server_start(FLValue port);
+
+/* ── MariaDB (mariadb.c — dlopen 방식, 헤더 불필요) ── */
+FLValue mariadb_connect(FLValue host, FLValue port, FLValue user, FLValue pw, FLValue db);
+FLValue mariadb_query(FLValue conn, FLValue sql);
+FLValue mariadb_exec(FLValue conn, FLValue sql);
+FLValue mariadb_one(FLValue conn, FLValue sql);
+FLValue mariadb_close(FLValue conn);
 
 /* ── try/catch 인프라 ── */
 #define FL_TRY_MAX 64

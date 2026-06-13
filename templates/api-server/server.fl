@@ -1,0 +1,54 @@
+;; FreeLang 네이티브 API 서버 템플릿
+;; DB: MariaDB (dlopen — libmariadb-dev 불필요)
+;; 빌드: ../../fl-build.sh server.fl api-server
+;; 실행: ./api-server
+
+;; ── DB 연결 ─────────────────────────────────────────────────────────
+(define DB_HOST "localhost")
+(define DB_PORT 3306)
+(define DB_USER "root")
+(define DB_PASS "")
+(define DB_NAME "myapp")
+
+(define db (mariadb_connect DB_HOST DB_PORT DB_USER DB_PASS DB_NAME))
+
+;; ── 핸들러 ──────────────────────────────────────────────────────────
+
+(defn handle-health [$req]
+  (server_json "{\"status\":\"ok\",\"runtime\":\"native-c\",\"db\":\"mariadb\"}"))
+
+(defn handle-users-list [$req]
+  (let [$rows (mariadb_query db "SELECT id, name, email FROM users LIMIT 100")]
+    (server_json (json_stringify $rows))))
+
+(defn handle-users-get [$req]
+  (let [$id   (server_req_param $req "id")
+        $sql  (str "SELECT id, name, email FROM users WHERE id=" $id)
+        $row  (mariadb_one db $sql)]
+    (if $row
+      (server_json (json_stringify $row))
+      (server_status 404 "{\"error\":\"not found\"}"))))
+
+(defn handle-users-create [$req]
+  (let [$body  (json_parse (server_req_body $req))
+        $name  (get $body "name")
+        $email (get $body "email")
+        $sql   (str "INSERT INTO users (name, email) VALUES ('" $name "', '" $email "')")
+        $result (mariadb_exec db $sql)]
+    (server_json (json_stringify $result))))
+
+(defn handle-users-delete [$req]
+  (let [$id     (server_req_param $req "id")
+        $sql    (str "DELETE FROM users WHERE id=" $id)
+        $result (mariadb_exec db $sql)]
+    (server_json (json_stringify $result))))
+
+;; ── 라우트 등록 ──────────────────────────────────────────────────────
+(server_get  "/health"       "handle-health")
+(server_get  "/api/users"    "handle-users-list")
+(server_get  "/api/users/:id" "handle-users-get")
+(server_post "/api/users"    "handle-users-create")
+(server_delete "/api/users/:id" "handle-users-delete")
+
+;; ── 서버 시작 ────────────────────────────────────────────────────────
+(server_start 40901)

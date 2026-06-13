@@ -1,0 +1,14 @@
+;; MariaDB 연결 테스트
+;; 빌드: ../../fl-build.sh test-db.fl test-db
+;; 실행: ./test-db
+
+(define db (mariadb_connect "localhost" 3306 "root" "" "akl"))
+
+(println (str "DB 연결 핸들: " db))
+
+(let [$rows (mariadb_query db "SHOW TABLES")]
+  (println (str "테이블 수: " (length $rows)))
+  (println (str "결과: " (json_stringify $rows))))
+
+(mariadb_close db)
+(println "완료")

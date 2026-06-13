@@ -151,3 +151,7 @@ FLValue fl_json_stringify(FLValue val) {
 }
 
 /* ── 비트 연산 ── */
+
+/* cgc-bin alias: 짧은 이름 → fl_ 래퍼 */
+FLValue json_parse(FLValue src)      { return fl_json_parse(src); }
+FLValue json_stringify(FLValue val)  { return fl_json_stringify(val); }

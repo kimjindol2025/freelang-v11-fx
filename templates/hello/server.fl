@@ -1,0 +1,20 @@
+;; FreeLang 네이티브 Hello World
+;; 빌드: fl-build.sh server.fl hello-server
+;; 실행: ./hello-server
+
+(defn handle-index [$req]
+  (server_html "<!DOCTYPE html>
+<html>
+<head><meta charset='utf-8'><title>FreeLang Native</title></head>
+<body>
+  <h1>🚀 FreeLang 네이티브 서버</h1>
+  <p>Node.js 없음. 순수 C 바이너리.</p>
+</body>
+</html>"))
+
+(defn handle-health [$req]
+  (server_json "{\"status\":\"ok\",\"runtime\":\"native-c\"}"))
+
+(server_get "/" "handle-index")
+(server_get "/health" "handle-health")
+(server_start 40900)
