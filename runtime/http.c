@@ -39,6 +39,13 @@
 #define RECV_BUF        65536
 #define SEND_BUF        65536
 
+/* ── 보안 한도 ── */
+#define MAX_URI_LEN         8192        /* URI 최대 길이 → 414 */
+#define MAX_HEADER_TOTAL    32768       /* 헤더 총합 최대 → 431 */
+#define MAX_BODY_SIZE       (10*1024*1024) /* Body 최대 10MB → 413 */
+#define HEADER_RECV_TIMEOUT 10          /* 헤더 완성 타임아웃 (초) */
+#define MAX_CONNECTIONS     512         /* 동시 연결 한도 → 503 */
+
 typedef FLValue (*HandlerFn)(FLValue req);
 
 typedef struct {
@@ -466,28 +473,93 @@ typedef struct { int fd; } ConnArg;
 #define KEEPALIVE_MAX_REQUESTS 100
 #define KEEPALIVE_IDLE_SEC     60
 
-/* 단일 요청 수신 (raw 버퍼에 채움, 반환값: 수신 바이트 or <=0 에러) */
+/* 단일 요청 수신
+ *
+ * 반환값:
+ *   >0   : 수신 바이트 수 (정상)
+ *   -408 : 헤더 미완성 timeout (Slowloris) → 408
+ *   -413 : Content-Length 초과 → 413
+ *   -414 : URI 너무 김 → 414
+ *   -431 : 헤더 총합 초과 → 431
+ *   <=0  : 연결 종료 or 기타 오류 → break
+ */
 static int recv_one_request(int fd, char* raw, int buf_size) {
+    /* 헤더 수신 타임아웃 (짧은 값) — Slowloris 방어 */
+    struct timeval hdr_tv = { .tv_sec = HEADER_RECV_TIMEOUT, .tv_usec = 0 };
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &hdr_tv, sizeof(hdr_tv));
+
     int total = 0;
     int n;
+    int headers_done = 0;
+
     while ((n = recv(fd, raw + total, buf_size - total - 1, 0)) > 0) {
         total += n;
         raw[total] = '\0';
-        if (strstr(raw, "\r\n\r\n")) {
-            char* cl_str = strcasestr(raw, "Content-Length:");
-            if (cl_str) {
-                int cl = atoi(cl_str + 15);
-                char* body_start = strstr(raw, "\r\n\r\n");
-                if (body_start) {
-                    int body_recv = total - (int)(body_start + 4 - raw);
-                    if (body_recv >= cl) break;
+
+        if (!headers_done) {
+            /* 헤더 총합 한도 초과 */
+            if (total > MAX_HEADER_TOTAL) {
+                raw[0] = '\0';
+                return -431;
+            }
+
+            char* hdr_end = strstr(raw, "\r\n\r\n");
+            if (hdr_end) {
+                headers_done = 1;
+
+                /* URI 길이 검사 */
+                char* uri_start = strchr(raw, ' ');
+                if (uri_start) {
+                    uri_start++;
+                    char* uri_end = strchr(uri_start, ' ');
+                    if (uri_end && (uri_end - uri_start) > MAX_URI_LEN) {
+                        raw[0] = '\0';
+                        return -414;
+                    }
                 }
-            } else {
-                break;
+
+                /* Content-Length 검사 — 초과 시 즉시 413 */
+                char* cl_str = strcasestr(raw, "Content-Length:");
+                if (cl_str) {
+                    long cl = atol(cl_str + 15);
+                    if (cl > MAX_BODY_SIZE) {
+                        raw[0] = '\0';
+                        return -413;
+                    }
+                    /* 바디 수신 시 더 긴 타임아웃 적용 */
+                    struct timeval body_tv = { .tv_sec = KEEPALIVE_IDLE_SEC, .tv_usec = 0 };
+                    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &body_tv, sizeof(body_tv));
+
+                    int body_recv = total - (int)(hdr_end + 4 - raw);
+                    if (body_recv >= (int)cl) break;
+                } else {
+                    break;   /* 바디 없음 */
+                }
+            }
+        } else {
+            /* 바디 수신 중: Content-Length 충족 여부 확인 */
+            char* cl_str = strcasestr(raw, "Content-Length:");
+            char* body_start = strstr(raw, "\r\n\r\n");
+            if (cl_str && body_start) {
+                int cl = atoi(cl_str + 15);
+                int body_recv = total - (int)(body_start + 4 - raw);
+                if (body_recv >= cl) break;
             }
         }
+
         if (total >= buf_size - 1) break;
     }
+
+    /* recv 실패 — timeout 또는 연결 종료 */
+    if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+        if (!headers_done) {
+            /* 헤더 미완성 timeout = Slowloris 공격 */
+            return -408;
+        }
+        /* 바디 수신 중 timeout */
+        return -408;
+    }
+
     return total;
 }
 
@@ -536,6 +608,26 @@ static void* handle_connection(void* arg) {
 
         /* ── 1. 요청 수신 ── */
         int total = recv_one_request(client_fd, raw, RECV_BUF);
+        if (total == -408) {
+            const char* r = "HTTP/1.1 408 Request Timeout\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            send(client_fd, r, strlen(r), 0);
+            break;
+        }
+        if (total == -413) {
+            const char* r = "HTTP/1.1 413 Payload Too Large\r\nContent-Type: application/json\r\nContent-Length: 34\r\nConnection: close\r\n\r\n{\"error\":\"payload exceeds 10MB\"}";
+            send(client_fd, r, strlen(r), 0);
+            break;
+        }
+        if (total == -414) {
+            const char* r = "HTTP/1.1 414 URI Too Long\r\nContent-Type: application/json\r\nContent-Length: 28\r\nConnection: close\r\n\r\n{\"error\":\"URI exceeds 8192B\"}";
+            send(client_fd, r, strlen(r), 0);
+            break;
+        }
+        if (total == -431) {
+            const char* r = "HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Type: application/json\r\nContent-Length: 32\r\nConnection: close\r\n\r\n{\"error\":\"headers exceed 32KB\"}";
+            send(client_fd, r, strlen(r), 0);
+            break;
+        }
         if (total <= 0) break;   /* 연결 종료 or 타임아웃 */
 
         /* ── 2. 아레나 시작 (요청 단위 메모리 관리) ── */
@@ -847,17 +939,17 @@ FLValue server_start(FLValue port_val) {
             break;   /* shutdown이 server_fd를 닫으면 여기서 탈출 */
         }
 
-        /* 연결 타임아웃 설정 */
+        /* 송신 타임아웃 설정 (SO_RCVTIMEO는 recv_one_request에서 설정) */
         struct timeval tv = { g_pool.conn_timeout, 0 };
-        setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
         setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
-        /* 큐 엔큐 */
+        /* 큐 엔큐 + 연결 수 한도 통합 체크 */
         pthread_mutex_lock(&g_pool.lock);
-        if (g_pool.queue_len >= g_pool.queue_cap) {
-            /* 큐 가득 찼음 → 503 */
+        int total_conns = g_pool.queue_len + g_pool.active;
+        if (total_conns >= MAX_CONNECTIONS || g_pool.queue_len >= g_pool.queue_cap) {
             pthread_mutex_unlock(&g_pool.lock);
-            fl_log_error("http", "큐 가득 참(%d) → 503", g_pool.queue_cap);
+            fl_log_error("http", "연결 한도(%d) 초과(큐=%d,활성=%d) → 503",
+                         MAX_CONNECTIONS, g_pool.queue_len, g_pool.active);
             send_503(client_fd);
             continue;
         }
