@@ -1,0 +1,37 @@
+;; JIT 컴파일러 기초 테스트
+;; P1: 상수, P2: +1, P2: *2, P3: x+y
+
+(define result-add1 (jit-test-add1 41))
+(define result-mul2 (jit-test-mul2 21))
+(define result-addxy (jit-test-add-xy 10 32))
+(define result-const (jit-test-add1 0))
+
+(println "=== JIT 기초 테스트 ===")
+(println (str "add1(41) = " result-add1 " (기대: 42)"))
+(println (str "mul2(21) = " result-mul2 " (기대: 42)"))
+(println (str "addxy(10,32) = " result-addxy " (기대: 42)"))
+(println (str "add1(0) = " result-const " (기대: 1)"))
+
+(println "")
+(println "=== JIT 통계 ===")
+(define stats (jit-stats))
+(println (str "풀 사용량: " (get stats "pool_used_kb") "KB"))
+(println (str "풀 용량: " (get stats "pool_cap_kb") "KB"))
+(println (str "JIT 준비: " (get stats "ready")))
+(println (str "핫 임계값: " (get stats "threshold")))
+
+;; 성능 비교: JIT vs 일반 호출 10,000회
+(define t0 (now-ms))
+(define i 0)
+(define acc 0)
+(define loop
+  (fn []
+    (when (< i 10000)
+      (define acc (+ acc (jit-test-add1 i)))
+      (define i (+ i 1))
+      (loop))))
+(loop)
+(define t1 (now-ms))
+(println "")
+(println (str "10,000회 jit-add1 합산: " acc))
+(println (str "소요 시간: " (- t1 t0) "ms"))

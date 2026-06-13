@@ -154,7 +154,8 @@ typedef struct FLClosure {
     FLObject base;   /* type = FL_FN */
     FLValue (*call)(struct FLClosure* self, int argc, FLValue* argv);
     uint32_t nenv;
-    FLValue  env[];  /* flexible array — captured values */
+    uint32_t hot_count;  /* JIT 핫 카운터 (jit.c) */
+    FLValue  env[];      /* flexible array — captured values */
 } FLClosure;
 
 FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
@@ -174,6 +175,13 @@ FLValue fl_html_escape(FLValue s);
 FLValue fl_heap_copy(FLValue v);
 void    fl_heap_retain(FLValue v);
 void    fl_heap_release(FLValue v);
+
+/* ── JIT 컴파일러 (jit.c) ── */
+FLValue jit_stats(void);
+FLValue jit_test_add1(FLValue x);
+FLValue jit_test_mul2(FLValue x);
+FLValue jit_test_add_xy(FLValue x, FLValue y);
+void    fl_jit_cleanup(void);
 
 /* ── 추가 alias/구현 (aliases.c) ── */
 FLValue fl_str_to_num(FLValue s);

@@ -200,7 +200,7 @@ FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
                   uint32_t nenv, FLValue* env) {
     FLClosure* cl = malloc(sizeof(FLClosure) + sizeof(FLValue) * nenv);
     cl->base.type = FL_FN; cl->base.rc = 1;
-    cl->call = call; cl->nenv = nenv;
+    cl->call = call; cl->nenv = nenv; cl->hot_count = 0;
     for (uint32_t i = 0; i < nenv; i++) cl->env[i] = env[i];
     FLValue r; r.tag = FL_FN; r.obj = (FLObject*)cl; return r;
 }
