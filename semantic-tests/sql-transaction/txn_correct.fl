@@ -1,0 +1,66 @@
+;; BUG-3 올바른 해결 검증 — mariadb-pool-transaction
+
+(define $db (mariadb-connect "localhost" "akl" "akl_pass_2026" "akl"))
+
+(mariadb-exec $db "DROP TABLE IF EXISTS _txn_correct")
+(mariadb-exec $db "CREATE TABLE _txn_correct (id INT AUTO_INCREMENT PRIMARY KEY, val VARCHAR(100)) ENGINE=InnoDB")
+
+;; 시나리오 1: SQL 에러 → 자동 ROLLBACK
+(println "=== 시나리오 1: SQL 에러 → 자동 ROLLBACK ===")
+(try
+  (mariadb-pool-transaction $db
+    (list
+      (hash-map "sql" "INSERT INTO _txn_correct (val) VALUES ('A')")
+      (hash-map "sql" "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced-error'")))
+  (catch $e (println (str "에러 잡힘: " (get $e "message")))))
+
+(define $rows1 (mariadb-query $db "SELECT val FROM _txn_correct"))
+(println (str "rows=" (length $rows1)))
+(if (= (length $rows1) 0)
+  (println "✅ PASS: A 롤백됨")
+  (println "❌ FAIL: 데이터 남음"))
+
+;; 시나리오 2: 정상 COMMIT
+(println "")
+(println "=== 시나리오 2: 정상 COMMIT ===")
+(try
+  (mariadb-pool-transaction $db
+    (list
+      (hash-map "sql" "INSERT INTO _txn_correct (val) VALUES ('C')")
+      (hash-map "sql" "INSERT INTO _txn_correct (val) VALUES ('D')")))
+  (catch $e (println (str "예기치않은에러: " (get $e "message")))))
+
+(define $rows2 (mariadb-query $db "SELECT val FROM _txn_correct"))
+(println (str "rows=" (length $rows2)))
+(if (= (length $rows2) 2)
+  (println "✅ PASS: C, D 존재")
+  (println (str "❌ FAIL: rows=" (length $rows2))))
+
+;; 시나리오 3: 중첩 에러 → E 롤백
+(println "")
+(println "=== 시나리오 3: E 에러 → ROLLBACK, C+D 유지 ===")
+(try
+  (mariadb-pool-transaction $db
+    (list
+      (hash-map "sql" "INSERT INTO _txn_correct (val) VALUES ('E')")
+      (hash-map "sql" "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='e-error'")))
+  (catch $e (println (str "E 롤백: " (get $e "message")))))
+
+(define $rows3 (mariadb-query $db "SELECT val FROM _txn_correct"))
+(println (str "rows=" (length $rows3)))
+(if (= (length $rows3) 2)
+  (println "✅ PASS: E 롤백, C+D 유지")
+  (println (str "❌ FAIL: rows=" (length $rows3))))
+
+;; 시나리오 4: FreeLang throw → ROLLBACK (수동)
+;; pool-transaction은 SQL 에러만 처리 → FL throw는 catch에서 ROLLBACK 필요
+(println "")
+(println "=== 시나리오 4: FL throw → 수동 ROLLBACK 필요 여부 ===")
+;; 현재 아키텍처상 FL throw는 pool-transaction 밖에서 처리해야 함
+;; → with-transaction 래퍼 필요 (미구현 상태)
+(println "⚠️  FL throw + ROLLBACK: with-transaction 래퍼 필요 (현재 gap)")
+
+;; 정리
+(mariadb-exec $db "DROP TABLE _txn_correct")
+(println "")
+(println "=== 완료 ===")

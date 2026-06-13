@@ -1,0 +1,37 @@
+;; Arena Lifetime Bug 탐지
+;; 글로벌 변수에 Arena 객체 저장 → 요청 종료 → Arena reset → dangling pointer
+
+(define PORT 40999)
+(define $captured nil)
+(define $request_count 0)
+
+;; 요청마다 글로벌에 값 저장
+(server_get "/set"
+  (fn [$req]
+    (let [$val (str "arena-string-" $request_count)]
+      (define $captured $val)
+      (define $request_count (+ $request_count 1))
+      (server_json (str "{\"captured\":\"" $val "\"}")))))
+
+;; 이전 요청 Arena의 값을 다음 요청에서 읽기
+;; → Arena가 reset됐다면 use-after-free 발생
+(server_get "/get"
+  (fn [$req]
+    (let [$val $captured]
+      (server_json (str "{\"value\":\"" $val "\",\"count\":" $request_count "}")))))
+
+;; 대량 할당 후 글로벌 참조
+(server_get "/stress"
+  (fn [$req]
+    (let [$big (map (fn [$i] (str "item-" $i)) (list 1 2 3 4 5 6 7 8 9 10))]
+      (define $captured $big)
+      (server_json "{\"ok\":true}"))))
+
+(server_get "/check"
+  (fn [$req]
+    (let [$val $captured]
+      (if (= (type $val) "list")
+        (server_json (str "{\"type\":\"list\",\"len\":" (length $val) "}"))
+        (server_json (str "{\"type\":\"" (type $val) "\",\"val\":\"" $val "\"}"))))))
+
+(server_start PORT)

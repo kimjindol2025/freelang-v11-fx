@@ -1,0 +1,93 @@
+;; BUG-3 Transaction 진단 — 단계별 connection_id + transaction 상태 추적
+
+(define $db (mariadb-connect "localhost" "akl" "akl_pass_2026" "akl"))
+
+;; ─── 헬퍼: 현재 connection_id + autocommit + transaction 상태 출력 ───
+(defn db-state [$label]
+  (let [$cid  (mariadb-one $db "SELECT CONNECTION_ID() AS id")
+        $ac   (mariadb-one $db "SELECT @@autocommit AS ac")]
+    (println (str "[" $label "]"
+      " conn=" (get $cid "id")
+      " autocommit=" (get $ac "ac")))))
+
+;; ─── 준비 ───────────────────────────────────────────────────────────
+(mariadb-exec $db "DROP TABLE IF EXISTS _txn_diag")
+(mariadb-exec $db "CREATE TABLE _txn_diag (id INT AUTO_INCREMENT PRIMARY KEY, val VARCHAR(100)) ENGINE=InnoDB")
+
+(println "=== 진단 시작 ===")
+(db-state "init")
+
+;; ─── Step 1: BEGIN 전 autocommit 상태 확인 ──────────────────────────
+(println "")
+(println "--- Step 1: BEGIN 전 ---")
+(db-state "before-BEGIN")
+
+;; ─── Step 2: BEGIN 발행 ──────────────────────────────────────────────
+(mariadb-exec $db "BEGIN")
+(println "--- Step 2: BEGIN 후 ---")
+(db-state "after-BEGIN")
+
+;; ─── Step 3: INSERT ──────────────────────────────────────────────────
+(mariadb-exec $db "INSERT INTO _txn_diag (val) VALUES ('ROW-A')")
+(println "--- Step 3: INSERT 후 ---")
+(db-state "after-INSERT")
+(let [$r (mariadb-one $db "SELECT COUNT(*) AS cnt FROM _txn_diag")]
+  (println (str "  현재 세션에서 보이는 rows=" (get $r "cnt"))))
+
+;; ─── Step 4: throw 발생 ──────────────────────────────────────────────
+(println "--- Step 4: throw 발생 ---")
+(try
+  (begin
+    (println "  throw 직전")
+    (db-state "before-throw")
+    (throw "test-error")
+    (println "  throw 후 (unreachable)"))
+  (catch $e
+    (begin
+      (println (str "  catch: " (get $e "message")))
+      (db-state "in-catch-before-ROLLBACK")
+      (let [$r2 (mariadb-one $db "SELECT COUNT(*) AS cnt FROM _txn_diag")]
+        (println (str "  catch 안 rows=" (get $r2 "cnt"))))
+      (mariadb-exec $db "ROLLBACK")
+      (println "  ROLLBACK 완료")
+      (db-state "after-ROLLBACK"))))
+
+;; ─── Step 5: ROLLBACK 후 데이터 확인 ────────────────────────────────
+(println "--- Step 5: ROLLBACK 후 ---")
+(db-state "after-catch")
+(let [$rows (mariadb-query $db "SELECT val FROM _txn_diag")]
+  (println (str "  최종 rows=" (length $rows)))
+  (if (= (length $rows) 0)
+    (println "✅ PASS: ROLLBACK 정상")
+    (begin
+      (println "❌ FAIL: 데이터 남음!")
+      (println (str "  남은 데이터: " $rows)))))
+
+;; ─── Step 6: autocommit OFF 명시 후 재시험 ───────────────────────────
+(println "")
+(println "=== Step 6: SET autocommit=0 후 재시험 ===")
+(mariadb-exec $db "SET autocommit=0")
+(db-state "autocommit=0")
+
+(try
+  (begin
+    (mariadb-exec $db "INSERT INTO _txn_diag (val) VALUES ('ROW-B')")
+    (db-state "after-INSERT-B")
+    (throw "test2"))
+  (catch $e2
+    (begin
+      (println (str "  catch: " (get $e2 "message")))
+      (mariadb-exec $db "ROLLBACK")
+      (db-state "after-ROLLBACK-B"))))
+
+(let [$rows2 (mariadb-query $db "SELECT val FROM _txn_diag")]
+  (println (str "  autocommit=0 후 rows=" (length $rows2)))
+  (if (= (length $rows2) 0)
+    (println "✅ PASS: autocommit=0 ROLLBACK 정상")
+    (println "❌ FAIL: autocommit=0 에서도 데이터 남음 — connection 분리 의심")))
+
+;; 복원
+(mariadb-exec $db "SET autocommit=1")
+(mariadb-exec $db "DROP TABLE _txn_diag")
+(println "")
+(println "=== 진단 완료 ===")
