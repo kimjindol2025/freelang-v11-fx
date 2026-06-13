@@ -349,6 +349,7 @@ FLValue fl_jit_probe_const(FLClosure* self, int argc, FLValue* argv) {
 
 /* ── JIT 통계 ── */
 FLValue fl_jit_stats(void) {
+    jit_pool_init();  /* lazy init — 첫 호출 시 풀 할당 */
     FLValue m = fl_map_new();
     m = fl_map_set(m, fl_str_val("pool_used_kb"),
                    fl_int((int64_t)(g_jit_pool.used / 1024)));

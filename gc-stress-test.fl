@@ -1,0 +1,94 @@
+;; gc-stress-test.fl — RC-Heap GC + atom 안정성 검증
+
+(define errors (atom 0))
+
+;; ─── T1: atom 정수 초기화 ───
+(define counter (atom 0))
+(if (= (deref counter) 0)
+  (println "✅ T1: atom 초기화 (0)")
+  (do (println "❌ T1: atom 초기화 실패") (swap! errors + 1)))
+
+;; ─── T2: 정수 누산 100회 ───
+(for-each (fn [$x] (swap! counter + 1)) (range 100))
+(if (= (deref counter) 100)
+  (println "✅ T2: 정수 누산 100회 (100)")
+  (do (println (str "❌ T2: 기대 100, 실제 " (deref counter))) (swap! errors + 1)))
+
+;; ─── T3: 문자열 atom 교체 ───
+(define store (atom "초기값"))
+(swap! store (fn [$s] "두번째값"))
+(swap! store (fn [$s] "세번째값"))
+(if (= (deref store) "세번째값")
+  (println "✅ T3: 문자열 atom 교체")
+  (do (println (str "❌ T3: " (deref store))) (swap! errors + 1)))
+
+;; ─── T4: 맵 atom 업데이트 ───
+(define kv (atom {}))
+(swap! kv assoc "k0" 0)
+(swap! kv assoc "k1" 1)
+(swap! kv assoc "k2" 4)
+(swap! kv assoc "k3" 9)
+(define v3 (get (deref kv) "k3"))
+(if (= v3 9)
+  (println "✅ T4: 맵 atom 업데이트 (k3=9)")
+  (do (println (str "❌ T4: k3=" v3)) (swap! errors + 1)))
+
+;; ─── T5: 중첩 맵 reset! ───
+(define deep (atom {:a {:b {:c 0}}}))
+(reset! deep {:a {:b {:c 42}}})
+(define dv (get (get (get (deref deep) :a) :b) :c))
+(if (= dv 42)
+  (println "✅ T5: 중첩 맵 atom reset! (42)")
+  (do (println (str "❌ T5: " dv)) (swap! errors + 1)))
+
+;; ─── T6: 벡터 atom 누적 ───
+(define va (atom []))
+(for-each (fn [$i] (swap! va push $i)) (range 20))
+(define vlen (length (deref va)))
+(if (= vlen 20)
+  (println (str "✅ T6: 벡터 atom 20회 push (len=" vlen ")"))
+  (do (println (str "❌ T6: len=" vlen)) (swap! errors + 1)))
+
+;; ─── T7: reset! 후 이전 값 사라짐 ───
+(define m (atom {:a 1 :b 2}))
+(swap! m assoc :c 3)
+(reset! m {:x 99})
+(define xv (get (deref m) :x))
+(define av (get (deref m) :a))
+(if (and (= xv 99) (= av nil))
+  (println "✅ T7: reset! 후 이전 키 제거")
+  (do (println (str "❌ T7: x=" xv " a=" av)) (swap! errors + 1)))
+
+;; ─── T8: 다중 atom 독립성 ───
+(define a1 (atom 100))
+(define a2 (atom 200))
+(define a3 (atom 300))
+(swap! a1 + 1)
+(swap! a2 + 2)
+(swap! a3 + 3)
+(define s3 (+ (deref a1) (+ (deref a2) (deref a3))))
+(if (= s3 606)
+  (println "✅ T8: 다중 atom 독립성 (101+202+303=606)")
+  (do (println (str "❌ T8: " s3)) (swap! errors + 1)))
+
+;; ─── T9: 200회 문자열 교체 ───
+(define sv (atom "start"))
+(for-each
+  (fn [$i] (reset! sv (str "v" $i)))
+  (range 200))
+(if (= (deref sv) "v199")
+  (println "✅ T9: 200회 문자열 교체 (v199)")
+  (do (println (str "❌ T9: " (deref sv))) (swap! errors + 1)))
+
+;; ─── T10: JIT 풀 준비 상태 ───
+(define stats (jit-stats))
+(if (get stats "ready")
+  (println (str "✅ T10: JIT 풀 준비 (" (get stats "pool_used_kb") "KB 사용)"))
+  (do (println "❌ T10: JIT 풀 없음") (swap! errors + 1)))
+
+;; ─── 결과 ───
+(println "")
+(define ec (deref errors))
+(if (= ec 0)
+  (println "✅ 전체 PASS: 10/10")
+  (println (str "❌ 실패: " ec "/10")))

@@ -176,6 +176,8 @@ FLValue fl_heap_copy(FLValue v);
 void    fl_heap_retain(FLValue v);
 void    fl_heap_release(FLValue v);
 
+FLValue range2(FLValue start, FLValue end);  /* 직접 C 호출용 */
+
 /* ── JIT 컴파일러 (jit.c) ── */
 FLValue jit_stats(void);
 FLValue jit_test_add1(FLValue x);
@@ -258,7 +260,7 @@ static inline FLValue fl_nil_or_empty_p(FLValue v) { return fl_bool(v.tag == FL_
 FLValue str_replace(FLValue s, FLValue from, FLValue to);
 FLValue split(FLValue s, FLValue sep);
 FLValue join(FLValue vec, FLValue sep);
-FLValue range(FLValue start, FLValue end);
+FLValue range(FLValue n);  /* cgc: (range N) → 0..N-1 */
 FLValue char_code_at(FLValue s, FLValue idx);
 FLValue substring(FLValue s, FLValue start, FLValue end);
 FLValue trim(FLValue s);

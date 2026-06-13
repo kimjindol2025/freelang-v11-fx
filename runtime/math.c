@@ -94,7 +94,15 @@ FLValue join(FLValue vec, FLValue sep) {
 }
 
 /* B-4: Range / String utilities */
-FLValue range(FLValue start, FLValue end) {
+/* cgc-dispatch는 (range N) → range(N) 1인자 호출 */
+FLValue range(FLValue n_or_start) {
+    int64_t e = n_or_start.tag==FL_INT ? n_or_start.i : 0;
+    FLValue vec = fl_vec_new();
+    for (int64_t i = 0; i < e; i++) vec = fl_vec_push(vec, fl_int(i));
+    return vec;
+}
+/* 2인자 버전 (직접 C에서 호출 시) */
+FLValue range2(FLValue start, FLValue end) {
     int64_t s=start.tag==FL_INT?start.i:0, e=end.tag==FL_INT?end.i:0;
     FLValue vec=fl_vec_new();
     for (int64_t i=s;i<e;i++) vec=fl_vec_push(vec,fl_int(i));
