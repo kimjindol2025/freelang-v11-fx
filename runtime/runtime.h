@@ -194,6 +194,22 @@ FLValue list_p(FLValue v);
 FLValue map_p(FLValue v);
 FLValue fn_p(FLValue v);
 FLValue type_of(FLValue v);
+/* cgc-generated predicate aliases */
+static inline FLValue fl_map_p(FLValue v)      { return fl_bool(v.tag == FL_MAP); }
+static inline FLValue fl_array_p(FLValue v)    { return fl_bool(v.tag == FL_VECTOR); }
+static inline FLValue fl_fn_p(FLValue v)       { return fl_bool(v.tag == FL_FN); }
+static inline FLValue fl_number_p(FLValue v)   { return fl_bool(v.tag == FL_INT || v.tag == FL_FLOAT); }
+static inline FLValue fl_boolean_p(FLValue v)  { return fl_bool(v.tag == FL_BOOL); }
+static inline FLValue fl_integer_p(FLValue v)  { return fl_bool(v.tag == FL_INT); }
+static inline FLValue fl_float_p(FLValue v)    { return fl_bool(v.tag == FL_FLOAT); }
+static inline FLValue fl_empty_p(FLValue v)    {
+    if (v.tag == FL_VECTOR) return fl_bool(((FLVector*)v.obj)->len == 0);
+    if (v.tag == FL_MAP)    return fl_bool(((FLMap*)v.obj)->len == 0);
+    if (v.tag == FL_STRING) return fl_bool(((FLString*)v.obj)->len == 0);
+    return fl_bool(v.tag == FL_NIL);
+}
+static inline FLValue fl_not_empty_p(FLValue v)    { return fl_bool(!fl_truthy(fl_empty_p(v))); }
+static inline FLValue fl_nil_or_empty_p(FLValue v) { return fl_bool(v.tag == FL_NIL || fl_truthy(fl_empty_p(v))); }
 FLValue str_replace(FLValue s, FLValue from, FLValue to);
 FLValue split(FLValue s, FLValue sep);
 FLValue join(FLValue vec, FLValue sep);
@@ -203,6 +219,10 @@ FLValue substring(FLValue s, FLValue start, FLValue end);
 FLValue trim(FLValue s);
 FLValue index_of(FLValue vec, FLValue val);
 FLValue str_index_of(FLValue s, FLValue sub);
+
+/* cgc-generated string/predicate aliases */
+#define fl_str_starts_with str_starts_with
+#define fl_str_ends_with   str_ends_with
 
 /* ── S26: atom (mutable cell) ── */
 FLValue fl_atom_new(FLValue init);
@@ -428,6 +448,8 @@ extern __thread FLTryFrame fl_try_stack[FL_TRY_MAX];
 extern __thread int fl_try_top;
 void fl_throw(FLValue err);
 FLValue fl_make_error(const char* type, const char* msg);
+/* throw 시 FL 소스 라인 추적 (cgc-main이 설정, uncaught handler가 출력) */
+extern int __fl_throw_line;
 
 /* ── 연산자 first-class 래퍼 (HOF 인자로 사용 가능, e.g. (map + list)) ── */
 static inline FLValue __fl_op_add_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_add(a[0], a[1]); }

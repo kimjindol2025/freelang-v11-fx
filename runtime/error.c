@@ -8,16 +8,28 @@
 __thread FLTryFrame fl_try_stack[FL_TRY_MAX];
 __thread int fl_try_top = 0;
 
+/* FL 소스 라인 추적 (cgc-main이 throw 직전에 설정) */
+int __fl_throw_line = 0;
+
+static void print_uncaught(FLValue err) {
+    int lineno = __fl_throw_line;
+    const char* loc = lineno > 0 ? "" : "";
+    char locbuf[32] = "";
+    if (lineno > 0) snprintf(locbuf, sizeof(locbuf), " (line %d)", lineno);
+    (void)loc;
+    if (err.tag == FL_STRING && err.obj)
+        fprintf(stderr, "Uncaught error%s: %s\n", locbuf, ((FLString*)err.obj)->data);
+    else if (err.tag == FL_MAP) {
+        FLValue msg = fl_map_get(err, fl_str_val("message"));
+        if (msg.tag == FL_STRING && msg.obj)
+            fprintf(stderr, "Uncaught error%s: %s\n", locbuf, ((FLString*)msg.obj)->data);
+        else fprintf(stderr, "Uncaught error%s\n", locbuf);
+    } else fprintf(stderr, "Uncaught error%s\n", locbuf);
+}
+
 void fl_throw(FLValue err) {
     if (fl_try_top <= 0) {
-        if (err.tag == FL_STRING && err.obj)
-            fprintf(stderr, "Uncaught error: %s\n", ((FLString*)err.obj)->data);
-        else if (err.tag == FL_MAP) {
-            FLValue msg = fl_map_get(err, fl_str_val("message"));
-            if (msg.tag == FL_STRING && msg.obj)
-                fprintf(stderr, "Uncaught error: %s\n", ((FLString*)msg.obj)->data);
-            else fprintf(stderr, "Uncaught error\n");
-        } else fprintf(stderr, "Uncaught error\n");
+        print_uncaught(err);
         exit(1);
     }
     fl_try_stack[fl_try_top - 1].err = err;

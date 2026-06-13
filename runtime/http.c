@@ -684,11 +684,11 @@ static void* handle_connection(void* arg) {
                     const char* emsg = (frame->err.tag == FL_STRING)
                         ? strval(frame->err) : "Internal error";
                     /* 핸들러 에러 — stderr에 상세 출력 */
-                    fprintf(stderr, "\n[FreeLang 500] %s %s\n  → %s\n",
-                            method, path, emsg);
+                    fprintf(stderr, "\n[FreeLang 500] %s %s\n  -> %s\n",
+                            hr.method, hr.path, emsg);
                     snprintf(errbuf, sizeof(errbuf),
                         "{\"error\":\"%s\",\"path\":\"%s\",\"method\":\"%s\"}",
-                        emsg, path, method);
+                        emsg, hr.path, hr.method);
                     resp = make_response(500, "application/json", errbuf);
                     keep_alive = 0;
                 }
