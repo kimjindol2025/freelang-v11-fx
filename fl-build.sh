@@ -5,7 +5,9 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# 심링크 지원: 실제 스크립트 위치 해석
+SCRIPT_REAL="$(readlink -f "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_REAL")" && pwd)"
 RUNTIME_DIR="$SCRIPT_DIR/runtime"
 CGC_BIN="/home/kimjin/freelang-v11/bin/cgc-bin"
 
