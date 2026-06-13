@@ -256,6 +256,26 @@ void fl_for_each(FLValue fn, FLValue vec) {
     }
 }
 
+/* distinct: 중복 제거 (순서 유지, O(n²)) */
+FLValue distinct(FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_vec_new();
+    FLVector* v = (FLVector*)vec.obj;
+    if (v->len == 0) return fl_vec_new();
+    FLValue* tmp = (FLValue*)malloc(sizeof(FLValue) * v->len);
+    if (!tmp) return fl_vec_new();
+    uint32_t len = 0;
+    for (uint32_t i = 0; i < v->len; i++) {
+        int found = 0;
+        for (uint32_t j = 0; j < len; j++) {
+            if (fl_truthy(fl_eq(v->data[i], tmp[j]))) { found = 1; break; }
+        }
+        if (!found) tmp[len++] = v->data[i];
+    }
+    FLValue r = fl_vec_from(tmp, len);
+    free(tmp);
+    return r;
+}
+
 FLValue fl_reduce_fn(FLValue fn, FLValue init, FLValue vec) {
     if (vec.tag != FL_VECTOR) return init;
     FLVector* v = (FLVector*)vec.obj;

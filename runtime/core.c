@@ -371,3 +371,53 @@ FLValue fl_file_write(FLValue path, FLValue content) {
     fclose(f);
     return fl_nil();
 }
+
+/* ── js_escape / fl_html_escape ── */
+FLValue js_escape(FLValue s) {
+    if (s.tag != FL_STRING) return s;
+    const char* src = ((FLString*)s.obj)->data;
+    size_t n = strlen(src);
+    /* 최대 6배 확장 */
+    char* buf = (char*)malloc(n * 6 + 1);
+    if (!buf) return s;
+    char* dst = buf;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char)src[i];
+        switch (c) {
+            case '"':  *dst++ = '\\'; *dst++ = '"';  break;
+            case '\\': *dst++ = '\\'; *dst++ = '\\'; break;
+            case '\n': *dst++ = '\\'; *dst++ = 'n';  break;
+            case '\r': *dst++ = '\\'; *dst++ = 'r';  break;
+            case '\t': *dst++ = '\\'; *dst++ = 't';  break;
+            default:   *dst++ = (char)c;             break;
+        }
+    }
+    *dst = '\0';
+    FLValue r = fl_str_val(buf);
+    free(buf);
+    return r;
+}
+
+FLValue fl_html_escape(FLValue s) {
+    if (s.tag != FL_STRING) return s;
+    const char* src = ((FLString*)s.obj)->data;
+    size_t n = strlen(src);
+    char* buf = (char*)malloc(n * 6 + 1);
+    if (!buf) return s;
+    char* dst = buf;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char)src[i];
+        switch (c) {
+            case '&':  strcpy(dst, "&amp;");  dst += 5; break;
+            case '<':  strcpy(dst, "&lt;");   dst += 4; break;
+            case '>':  strcpy(dst, "&gt;");   dst += 4; break;
+            case '"':  strcpy(dst, "&quot;"); dst += 6; break;
+            case '\'': strcpy(dst, "&#39;");  dst += 5; break;
+            default:   *dst++ = (char)c;               break;
+        }
+    }
+    *dst = '\0';
+    FLValue r = fl_str_val(buf);
+    free(buf);
+    return r;
+}

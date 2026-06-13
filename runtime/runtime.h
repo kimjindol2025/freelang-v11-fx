@@ -166,6 +166,9 @@ FLValue fl_map_fn(FLValue fn, FLValue vec);
 FLValue fl_filter_fn(FLValue fn, FLValue vec);
 FLValue fl_reduce_fn(FLValue fn, FLValue init, FLValue vec);
 void    fl_for_each(FLValue fn, FLValue vec);
+FLValue distinct(FLValue vec);
+FLValue js_escape(FLValue s);
+FLValue fl_html_escape(FLValue s);
 
 /* ── S9: 맵 accessor ── */
 FLValue fl_map_keys(FLValue map);

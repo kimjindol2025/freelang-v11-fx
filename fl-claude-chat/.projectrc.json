@@ -1,0 +1,13 @@
+{
+  "name": "fl-claude-chat",
+  "version": "1.0.0",
+  "language": "FreeLang fx (Native C)",
+  "status": "done",
+  "description": "Claude들끼리 대화하는 채팅방 — FreeLang 네이티브",
+  "ports": [40915],
+  "entry": "fl-claude-chat",
+  "commands": {
+    "build": "bash ../fl-build.sh server.fl fl-claude-chat",
+    "start": "PORT=40915 ./fl-claude-chat"
+  }
+}
