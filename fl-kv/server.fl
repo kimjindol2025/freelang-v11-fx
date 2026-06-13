@@ -4,13 +4,12 @@
 ;; 실행: PORT=40914 ./fl-kv
 
 ;; ── 설정 ────────────────────────────────────────────────────────────
-(define PORT    (parse-int (or (env-get "PORT") "40914")))
-(define VERSION "1.0.0")
+(define PORT    (num (or (env-get "PORT") "40914")))
+(define VERSION "1.1.0")
 (define INIT_KEY "__fl_kv_init__")
 
 ;; ── 스토어 ──────────────────────────────────────────────────────────
 ;; 구조: { key => { "v": value, "ex": expires_ms (-1=영구) } }
-;; Note: atom {} 단독 불가 → assoc {} 더미키로 초기화
 (define $store        (atom (assoc {} INIT_KEY "1")))
 (define $stats-sets   (atom 0))
 (define $stats-gets   (atom 0))
@@ -19,23 +18,7 @@
 (define $stats-dels   (atom 0))
 (define started-at    (now-ms))
 
-;; ── atom 헬퍼 (swap! 클로저캡처 버그 우회: reset! 사용) ─────────────
-(defn store-set! [$key $entry]
-  (reset! $store (assoc (deref $store) $key $entry)))
-
-(defn store-del! [$key]
-  (reset! $store (dissoc (deref $store) $key)))
-
-(defn store-flush! []
-  (reset! $store (assoc {} INIT_KEY "1")))
-
-(defn stat-inc! [$atom]
-  (reset! $atom (+ (deref $atom) 1)))
-
-(defn stat-add! [$atom $n]
-  (reset! $atom (+ (deref $atom) $n)))
-
-;; ── 일반 헬퍼 ───────────────────────────────────────────────────────
+;; ── 헬퍼 ────────────────────────────────────────────────────────────
 (defn entry-expired? [$entry]
   (let [$ex (get $entry "ex")]
     (if (= $ex -1) false (> (now-ms) $ex))))
@@ -65,37 +48,37 @@
         $val   (or (get $body "value") "")
         $ttl   (get $body "ttl")
         $entry (make-entry $val (calc-ex $ttl))]
-    (store-set! $key $entry)
-    (stat-inc! $stats-sets)
+    (swap! $store (fn [$s] (assoc $s $key $entry)))
+    (swap! $stats-sets (fn [$n] (+ $n 1)))
     (server_json (json-ok (str "\"key\":\"" $key "\",\"ttl\":" (or $ttl -1))))))
 
 ;; ── GET ─────────────────────────────────────────────────────────────
 (defn handle-get [$req]
   (let [$key   (server_req_param $req "key")
         $entry (get (deref $store) $key)]
-    (stat-inc! $stats-gets)
-    (if (nil? $entry)
+    (swap! $stats-gets (fn [$n] (+ $n 1)))
+    (if (null? $entry)
       (do
-        (stat-inc! $stats-misses)
+        (swap! $stats-misses (fn [$n] (+ $n 1)))
         (server_json (json-err "not found")))
       (if (entry-alive? $entry)
         (do
-          (stat-inc! $stats-hits)
+          (swap! $stats-hits (fn [$n] (+ $n 1)))
           (server_json (json-ok (str "\"key\":\"" $key "\",\"value\":\"" (get $entry "v") "\""))))
         (do
-          (stat-inc! $stats-misses)
-          (store-del! $key)
+          (swap! $stats-misses (fn [$n] (+ $n 1)))
+          (swap! $store (fn [$s] (dissoc $s $key)))
           (server_json (json-err "expired")))))))
 
 ;; ── DEL ─────────────────────────────────────────────────────────────
 (defn handle-del [$req]
   (let [$key    (server_req_param $req "key")
         $entry  (get (deref $store) $key)
-        $existed (not (nil? $entry))]
+        $existed (not (null? $entry))]
     (if $existed
       (do
-        (store-del! $key)
-        (stat-inc! $stats-dels))
+        (swap! $store (fn [$s] (dissoc $s $key)))
+        (swap! $stats-dels (fn [$n] (+ $n 1))))
       nil)
     (server_json (json-ok (str "\"deleted\":" (if $existed "true" "false"))))))
 
@@ -103,14 +86,14 @@
 (defn handle-exists [$req]
   (let [$key   (server_req_param $req "key")
         $entry (get (deref $store) $key)
-        $alive (if (nil? $entry) false (entry-alive? $entry))]
+        $alive (if (null? $entry) false (entry-alive? $entry))]
     (server_json (json-ok (str "\"exists\":" (if $alive "true" "false"))))))
 
 ;; ── TTL ─────────────────────────────────────────────────────────────
 (defn handle-ttl [$req]
   (let [$key   (server_req_param $req "key")
         $entry (get (deref $store) $key)]
-    (if (nil? $entry)
+    (if (null? $entry)
       (server_json (json-err "not found"))
       (if (entry-alive? $entry)
         (let [$ex  (get $entry "ex")
@@ -126,9 +109,7 @@
         $count (length $alive)
         $arr   (reduce
                  (fn [$acc $k]
-                   (if (= $acc "")
-                     (str "\"" $k "\"")
-                     (str $acc ",\"" $k "\"")))
+                   (if (= $acc "") (str "\"" $k "\"") (str $acc ",\"" $k "\"")))
                  "" $alive)]
     (server_json (json-ok (str "\"count\":" $count ",\"keys\":[" $arr "]")))))
 
@@ -136,16 +117,17 @@
 (defn handle-mset [$req]
   (let [$body  (json_parse (server_req_body $req))
         $pairs (or (get $body "pairs") (list))
-        $count (length $pairs)
-        $new   (reduce
-                 (fn [$acc $pair]
-                   (let [$k (get $pair "key")
-                         $v (get $pair "value")
-                         $t (get $pair "ttl")]
-                     (assoc $acc $k (make-entry $v (calc-ex $t)))))
-                 (deref $store) $pairs)]
-    (reset! $store $new)
-    (stat-add! $stats-sets $count)
+        $count (length $pairs)]
+    (swap! $store
+      (fn [$s]
+        (reduce
+          (fn [$acc $pair]
+            (let [$k (get $pair "key")
+                  $v (get $pair "value")
+                  $t (get $pair "ttl")]
+              (assoc $acc $k (make-entry $v (calc-ex $t)))))
+          $s $pairs)))
+    (swap! $stats-sets (fn [$n] (+ $n $count)))
     (server_json (json-ok (str "\"count\":" $count)))))
 
 ;; ── INCR ────────────────────────────────────────────────────────────
@@ -154,16 +136,16 @@
         $body  (json_parse (server_req_body $req))
         $by    (or (get $body "by") 1)
         $entry (get (deref $store) $key)
-        $cur   (if (nil? $entry) 0
-                 (if (entry-alive? $entry) (parse-int (get $entry "v")) 0))
+        $cur   (if (null? $entry) 0
+                 (if (entry-alive? $entry) (num (get $entry "v")) 0))
         $next  (+ $cur $by)]
-    (store-set! $key (make-entry (str $next) -1))
-    (stat-inc! $stats-sets)
+    (swap! $store (fn [$s] (assoc $s $key (make-entry (str $next) -1))))
+    (swap! $stats-sets (fn [$n] (+ $n 1)))
     (server_json (json-ok (str "\"key\":\"" $key "\",\"value\":" $next)))))
 
 ;; ── FLUSH ────────────────────────────────────────────────────────────
 (defn handle-flush [$req]
-  (store-flush!)
+  (swap! $store (fn [$s] (assoc {} INIT_KEY "1")))
   (server_json (json-ok "\"message\":\"flushed\"")))
 
 ;; ── INFO ─────────────────────────────────────────────────────────────
@@ -289,7 +271,7 @@ tr.exp td{color:#484f58}
   <div style='margin-bottom:6px;font-size:.72rem'>API</div>
   <code>SET &nbsp;&nbsp;POST /set/:key  {\"value\":\"...\", \"ttl\":60}</code>
   <code>GET &nbsp;&nbsp;GET /get/:key</code>
-  <code>DEL &nbsp;&nbsp;DELETE /del/:key | POST /del/:key</code>
+  <code>DEL &nbsp;&nbsp;DELETE /del/:key</code>
   <code>TTL &nbsp;&nbsp;GET /ttl/:key</code>
   <code>INCR &nbsp;POST /incr/:key  {\"by\":1}</code>
   <code>KEYS &nbsp;GET /keys</code>
@@ -297,7 +279,7 @@ tr.exp td{color:#484f58}
   <code>FLUSH POST /flush</code>
   <code>INFO &nbsp;GET /info</code>
 </div>
-<div class='foot'>fl-kv &middot; FreeLang Native C &middot; No Node.js</div>
+<div class='foot'>fl-kv v" VERSION " &middot; FreeLang Native C &middot; No Node.js</div>
 </body>
 </html>"))))
 
