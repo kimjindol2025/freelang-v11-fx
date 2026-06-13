@@ -258,6 +258,15 @@ FLValue server_req_header(FLValue req, FLValue name);
 FLValue server_req_method(FLValue req);
 FLValue server_req_path(FLValue req);
 FLValue server_start(FLValue port);
+/* kebab-case 앱 호환 alias */
+FLValue fl_http_route(FLValue method, FLValue path, FLValue handler);
+FLValue fl_http_start(FLValue port);
+/* kebab-case response alias */
+FLValue fl_resp_html(FLValue html);
+FLValue fl_resp_json(FLValue json);
+FLValue fl_resp_text(FLValue text);
+FLValue fl_resp_status(FLValue code, FLValue body);
+FLValue fl_resp_redirect(FLValue url);
 
 /* ── aliases.c — cgc-bin 생성 함수 bridge ── */
 /* 환경 */
@@ -318,6 +327,12 @@ FLValue deref(FLValue a);
 FLValue swap_bang(FLValue a, FLValue fn);
 FLValue reset_bang(FLValue a, FLValue v);
 /* 타입 */
+/* 환경/.env */
+FLValue env_load(FLValue path);
+FLValue num(FLValue v);
+/* fl_or: 93줄에 이미 선언됨 */
+FLValue server_rate_limit(FLValue max_reqs, FLValue window_ms);
+FLValue mariadb_connect4(FLValue host, FLValue user, FLValue pw, FLValue db);
 FLValue int_p(FLValue v);
 FLValue float_p(FLValue v);
 FLValue bool_p(FLValue v);

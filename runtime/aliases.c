@@ -414,3 +414,60 @@ FLValue fl_concat(FLValue a, FLValue b) {
 
 /* concat alias (짧은 이름) */
 FLValue concat(FLValue a, FLValue b) { return fl_concat(a, b); }
+
+/* ── 환경 변수 / .env ── */
+/* env-load ".env" → env_load(".env") */
+FLValue env_load(FLValue path_v) {
+    if (path_v.tag != FL_STRING) return fl_nil();
+    const char* path = ((FLString*)path_v.obj)->data;
+    FILE* f = fopen(path, "r");
+    if (!f) return fl_nil();  /* .env 없으면 조용히 무시 */
+    char line[512];
+    while (fgets(line, sizeof(line), f)) {
+        /* 앞뒤 공백 제거 */
+        char* p = line;
+        while (*p == ' ' || *p == '\t') p++;
+        /* 주석/빈 줄 무시 */
+        if (*p == '#' || *p == '\n' || *p == '\0') continue;
+        /* KEY=VALUE 파싱 */
+        char* eq = strchr(p, '=');
+        if (!eq) continue;
+        *eq = '\0';
+        char* key = p;
+        char* val = eq + 1;
+        /* 값 끝의 개행 제거 */
+        size_t vlen = strlen(val);
+        while (vlen > 0 && (val[vlen-1] == '\n' || val[vlen-1] == '\r' || val[vlen-1] == '"' || val[vlen-1] == '\''))
+            val[--vlen] = '\0';
+        /* 값 앞의 따옴표 제거 */
+        if (*val == '"' || *val == '\'') val++;
+        setenv(key, val, 1);
+    }
+    fclose(f);
+    return fl_nil();
+}
+
+/* num "42" → 42 or 42.0 */
+FLValue num(FLValue v) {
+    if (v.tag == FL_INT || v.tag == FL_FLOAT) return v;
+    if (v.tag == FL_STRING) {
+        const char* p = ((FLString*)v.obj)->data;
+        /* 소수점 있으면 float */
+        if (strchr(p, '.')) return fl_float(strtod(p, NULL));
+        return fl_int((int64_t)strtoll(p, NULL, 10));
+    }
+    return fl_nil();
+}
+
+/* fl_or: core.c에 이미 구현됨 */
+
+/* server-rate-limit — 현재 no-op (향후 구현 가능) */
+FLValue server_rate_limit(FLValue max_reqs, FLValue window_ms) {
+    (void)max_reqs; (void)window_ms;
+    return fl_nil();
+}
+
+/* mariadb_connect 4인자 버전 (host, user, pass, db → port=3306) */
+FLValue mariadb_connect4(FLValue host, FLValue user, FLValue pw, FLValue db) {
+    return mariadb_connect(host, fl_int(3306), user, pw, db);
+}

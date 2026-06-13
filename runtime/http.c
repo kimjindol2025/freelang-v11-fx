@@ -609,3 +609,32 @@ FLValue server_start(FLValue port_val) {
     close(server_fd);
     return fl_nil();
 }
+
+/* ── fl_http_route / fl_http_start — kebab-case 앱 호환 alias ── */
+/* (server-get "/path" "handler")  → fl_http_route("GET", "/path", "handler") */
+/* (server-post ...)               → fl_http_route("POST", ...) */
+/* (server-start PORT)             → fl_http_start(PORT) */
+
+FLValue fl_http_route(FLValue method_v, FLValue path_v, FLValue handler_v) {
+    if (method_v.tag != FL_STRING) return fl_nil();
+    const char* method = ((FLString*)method_v.obj)->data;
+    if      (strcmp(method, "GET")    == 0) return server_get(path_v, handler_v);
+    else if (strcmp(method, "POST")   == 0) return server_post(path_v, handler_v);
+    else if (strcmp(method, "PUT")    == 0) return server_put(path_v, handler_v);
+    else if (strcmp(method, "PATCH")  == 0) return server_patch(path_v, handler_v);
+    else if (strcmp(method, "DELETE") == 0) return server_delete(path_v, handler_v);
+    return fl_nil();
+}
+
+FLValue fl_http_start(FLValue port) { return server_start(port); }
+
+/* server-json (kebab) → server_json (이미 있음, 하지만 alias 명시) */
+/* server-text, server-html, server-status, server-redirect도 동일 */
+/* cgc-bin이 이미 _ 로 변환하므로 추가 alias 불필요 */
+
+/* ── fl_resp_* alias — kebab-case response 함수 ── */
+FLValue fl_resp_html(FLValue html)              { return server_html(html); }
+FLValue fl_resp_json(FLValue json)              { return server_json(json); }
+FLValue fl_resp_text(FLValue text)              { return server_text(text); }
+FLValue fl_resp_status(FLValue code, FLValue b) { return server_status(code, b); }
+FLValue fl_resp_redirect(FLValue url)           { return server_redirect(url); }

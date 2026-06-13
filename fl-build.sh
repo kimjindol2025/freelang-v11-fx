@@ -62,6 +62,12 @@ def inline_loads(path, visited=None):
     return "\n".join(result)
 
 output = inline_loads("$FL_INPUT")
+
+# (println "[DEBUG] ...") 제거 (노이즈 줄이기)
+lines = output.splitlines()
+cleaned = [l for l in lines if not re.match(r'\s*\(println\s+"?\[DEBUG\]', l)]
+output = "\n".join(cleaned)
+
 open("$PREPROCESSED", "w").write(output)
 print(f"[fl-build] 전처리 완료", file=sys.stderr)
 PYEOF
