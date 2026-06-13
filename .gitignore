@@ -13,3 +13,4 @@ templates/*/hello-server
 *.db
 *.db-shm
 *.db-wal
+dist/

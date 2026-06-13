@@ -211,6 +211,7 @@ typedef struct {
     char body[RECV_BUF];
     int  body_len;
     int  content_length;
+    char content_type[256];
 } HttpRequest;
 
 /* URL 디코드 (%XX → char) */
@@ -293,6 +294,8 @@ static int parse_http_request(const char* raw, int raw_len, HttpRequest* req) {
             strncpy(req->headers[req->nheaders][1], val,  511);
             if (strcasecmp(line, "Content-Length") == 0)
                 req->content_length = atoi(val);
+            if (strcasecmp(line, "Content-Type") == 0)
+                strncpy(req->content_type, val, sizeof(req->content_type) - 1);
             req->nheaders++;
         }
         p = eol + 2;
@@ -493,6 +496,12 @@ static void* handle_connection(void* arg) {
     }
     free(raw);
 
+    /* 디버그: 요청 로그 */
+    struct timespec t_start;
+    clock_gettime(CLOCK_MONOTONIC, &t_start);
+    fl_log_request(hr.method, hr.path, hr.body, hr.body_len,
+                   hr.content_type[0] ? hr.content_type : NULL);
+
     /* 라우트 매칭 */
     FLValue params = fl_nil();
     Route* matched = NULL;
@@ -537,6 +546,18 @@ static void* handle_connection(void* arg) {
         resp = matched->fn(req);
     }
 
+    /* 디버그: 응답 로그 */
+    struct timespec t_end;
+    clock_gettime(CLOCK_MONOTONIC, &t_end);
+    long elapsed_ms = (t_end.tv_sec - t_start.tv_sec) * 1000
+                    + (t_end.tv_nsec - t_start.tv_nsec) / 1000000;
+    int status_code = 200;
+    if (resp.tag == FL_MAP) {
+        FLValue sc = fl_map_get(resp, fl_str_val("__status"));
+        if (sc.tag == FL_INT) status_code = (int)sc.i;
+    }
+    fl_log_response(status_code, hr.path, elapsed_ms);
+
     send_response(client_fd, resp);
     close(client_fd);
     return NULL;
@@ -575,6 +596,7 @@ FLValue server_start(FLValue port_val) {
 
     listen(server_fd, 128);
     fprintf(stderr, "[http] 서버 시작: http://0.0.0.0:%d\n", port);
+    fl_debug_banner("fl-app", port);
 
     while (1) {
         struct sockaddr_in client_addr;

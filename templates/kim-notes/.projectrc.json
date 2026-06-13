@@ -1,0 +1,15 @@
+{
+  "name": "kim-notes",
+  "version": "1.0.0",
+  "language": "FreeLang C Native",
+  "status": "in_progress",
+  "description": "메모 CRUD — MariaDB, REST API",
+  "ports": [40910],
+  "entry": "server.fl",
+  "binary": "kim-notes",
+  "commands": {
+    "build": "fl-build server.fl kim-notes",
+    "start": "pm2 start ./kim-notes --name kim-notes",
+    "deploy": "fl-deploy --build"
+  }
+}

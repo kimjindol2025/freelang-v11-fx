@@ -82,7 +82,8 @@ echo "⚙️  FL → C 컴파일..."
 echo "⚙️  C → 바이너리 컴파일..."
 RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/json.c $RUNTIME_DIR/math.c $RUNTIME_DIR/process.c \
-  $RUNTIME_DIR/error.c $RUNTIME_DIR/http.c $RUNTIME_DIR/aliases.c $RUNTIME_DIR/sqlite.c"
+  $RUNTIME_DIR/error.c $RUNTIME_DIR/http.c $RUNTIME_DIR/aliases.c \
+  $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/debug.c"
 
 # mariadb.c는 dlopen 방식이라 헤더 불필요 — 항상 포함
 if [ -f "$RUNTIME_DIR/mariadb.c" ]; then

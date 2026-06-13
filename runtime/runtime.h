@@ -366,6 +366,18 @@ FLValue mariadb_exec(FLValue conn, FLValue sql);
 FLValue mariadb_one(FLValue conn, FLValue sql);
 FLValue mariadb_close(FLValue conn);
 
+/* ── 디버그 레이어 (debug.c) ── */
+int     fl_debug_level(void);
+void    fl_log(int level, const char* tag, const char* fmt, ...);
+void    fl_log_error(const char* tag, const char* fmt, ...);
+void    fl_log_request(const char* method, const char* path,
+                       const char* body, size_t body_len,
+                       const char* content_type);
+void    fl_log_response(int status, const char* path, long elapsed_ms);
+void    fl_log_sql(const char* driver, const char* sql);
+FLValue fl_debug_dump(FLValue v);
+void    fl_debug_banner(const char* app_name, int port);
+
 /* ── try/catch 인프라 ── */
 #define FL_TRY_MAX 64
 typedef struct { jmp_buf buf; FLValue err; } FLTryFrame;

@@ -1,0 +1,16 @@
+{
+  "name": "kim-short",
+  "version": "1.0.0",
+  "language": "FreeLang C Native",
+  "status": "in_progress",
+  "description": "URL 단축기 — SQLite, 6자 코드, 클릭 트래킹",
+  "ports": [40920],
+  "entry": "server.fl",
+  "binary": "kim-short",
+  "commands": {
+    "build": "fl-build server.fl kim-short",
+    "start": "pm2 start ./kim-short --name kim-short",
+    "deploy": "fl-deploy --build",
+    "pack": "fl-pack --strip --tar"
+  }
+}
