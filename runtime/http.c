@@ -459,6 +459,9 @@ static void* handle_connection(void* arg) {
     int client_fd = ca->fd;
     free(ca);
 
+    /* 요청 아레나 시작 */
+    fl_arena_begin();
+
     char* raw = malloc(RECV_BUF);
     if (!raw) { close(client_fd); return NULL; }
 
@@ -557,27 +560,205 @@ static void* handle_connection(void* arg) {
         if (sc.tag == FL_INT) status_code = (int)sc.i;
     }
     fl_log_response(status_code, hr.path, elapsed_ms);
+    fl_arena_stats();   /* debug level 2에서만 출력 */
 
     send_response(client_fd, resp);
     close(client_fd);
+
+    /* 요청 아레나 종료 (메모리 재사용 가능 상태로 리셋) */
+    fl_arena_end();
     return NULL;
 }
 
+/* ═══════════════════════════════════════════════════════
+   스레드 풀 + Graceful Shutdown
+   ═══════════════════════════════════════════════════════
+
+   환경변수:
+     FL_WORKERS=N    워커 스레드 수 (기본: CPU코어 수, 최대 256)
+     FL_QUEUE=N      작업 큐 크기 (기본: 1024)
+     FL_CONN_TIMEOUT=N  연결 타임아웃 초 (기본: 30)
+     FL_SHUTDOWN_TIMEOUT=N  shutdown 대기 초 (기본: 30)
+*/
+
+#define POOL_MAX_WORKERS 256
+#define POOL_DEFAULT_WORKERS 16
+#define POOL_DEFAULT_QUEUE   1024
+
+/* ── 작업 큐 항목 ── */
+typedef struct QueueItem {
+    int fd;
+    struct QueueItem* next;
+} QueueItem;
+
+/* ── 스레드 풀 상태 ── */
+static struct {
+    pthread_t*      threads;
+    int             n_workers;
+    int             conn_timeout;
+
+    QueueItem*      head;
+    QueueItem*      tail;
+    int             queue_len;
+    int             queue_cap;
+
+    pthread_mutex_t lock;
+    pthread_cond_t  cond_work;   /* 새 작업 */
+    pthread_cond_t  cond_drain;  /* 큐 비어짐 */
+
+    volatile int    shutdown;    /* 1 = graceful shutdown 시작 */
+    volatile int    active;      /* 현재 처리 중인 연결 수 */
+} g_pool;
+
+static volatile int g_server_fd = -1;  /* SIGTERM에서 close용 */
+
+/* ── 503 즉시 반환 ── */
+static void send_503(int fd) {
+    const char* r = "HTTP/1.1 503 Service Unavailable\r\n"
+                    "Content-Type: application/json\r\n"
+                    "Content-Length: 35\r\n"
+                    "Retry-After: 1\r\n\r\n"
+                    "{\"error\":\"server busy, try again\"}";
+    send(fd, r, strlen(r), 0);
+    close(fd);
+}
+
+/* ── 워커 스레드 루프 ── */
+static void* worker_loop(void* arg) {
+    (void)arg;
+    for (;;) {
+        pthread_mutex_lock(&g_pool.lock);
+        while (g_pool.head == NULL && !g_pool.shutdown)
+            pthread_cond_wait(&g_pool.cond_work, &g_pool.lock);
+
+        if (g_pool.head == NULL && g_pool.shutdown) {
+            pthread_mutex_unlock(&g_pool.lock);
+            break;
+        }
+
+        QueueItem* item = g_pool.head;
+        g_pool.head = item->next;
+        if (g_pool.head == NULL) g_pool.tail = NULL;
+        g_pool.queue_len--;
+        g_pool.active++;
+        pthread_mutex_unlock(&g_pool.lock);
+
+        /* 연결 처리 */
+        ConnArg* ca = malloc(sizeof(ConnArg));
+        ca->fd = item->fd;
+        free(item);
+        handle_connection(ca);   /* 내부에서 free(ca), close(fd) */
+
+        pthread_mutex_lock(&g_pool.lock);
+        g_pool.active--;
+        if (g_pool.active == 0 && g_pool.queue_len == 0)
+            pthread_cond_broadcast(&g_pool.cond_drain);
+        pthread_mutex_unlock(&g_pool.lock);
+    }
+    return NULL;
+}
+
+/* ── SIGTERM/SIGINT 핸들러 ── */
+static void handle_shutdown_signal(int sig) {
+    (void)sig;
+    fl_log(1, "http", "shutdown 신호 수신 — graceful 종료 시작");
+    g_pool.shutdown = 1;
+    /* accept 루프 깨우기 */
+    if (g_server_fd >= 0) {
+        shutdown(g_server_fd, SHUT_RDWR);
+        close(g_server_fd);
+        g_server_fd = -1;
+    }
+    /* 워커 깨우기 */
+    pthread_cond_broadcast(&g_pool.cond_work);
+}
+
+/* ── 스레드 풀 초기화 ── */
+static int pool_init(void) {
+    /* 워커 수 결정 */
+    int n = POOL_DEFAULT_WORKERS;
+    const char* env_w = getenv("FL_WORKERS");
+    if (env_w) n = atoi(env_w);
+    if (n <= 0) n = 1;
+    if (n > POOL_MAX_WORKERS) n = POOL_MAX_WORKERS;
+
+    const char* env_q = getenv("FL_QUEUE");
+    g_pool.queue_cap = env_q ? atoi(env_q) : POOL_DEFAULT_QUEUE;
+    if (g_pool.queue_cap < 8) g_pool.queue_cap = 8;
+
+    const char* env_t = getenv("FL_CONN_TIMEOUT");
+    g_pool.conn_timeout = env_t ? atoi(env_t) : 30;
+
+    g_pool.n_workers = n;
+    g_pool.threads   = malloc(n * sizeof(pthread_t));
+    g_pool.head = g_pool.tail = NULL;
+    g_pool.queue_len = 0;
+    g_pool.shutdown  = 0;
+    g_pool.active    = 0;
+
+    pthread_mutex_init(&g_pool.lock, NULL);
+    pthread_cond_init(&g_pool.cond_work, NULL);
+    pthread_cond_init(&g_pool.cond_drain, NULL);
+
+    for (int i = 0; i < n; i++) {
+        if (pthread_create(&g_pool.threads[i], NULL, worker_loop, NULL) != 0) {
+            fprintf(stderr, "[http] 워커 스레드 %d 생성 실패\n", i);
+            g_pool.n_workers = i;
+            break;
+        }
+    }
+
+    fprintf(stderr, "[http] 스레드 풀: %d 워커, 큐 %d, 타임아웃 %ds\n",
+            g_pool.n_workers, g_pool.queue_cap, g_pool.conn_timeout);
+    return 0;
+}
+
+/* ── 스레드 풀 종료 (graceful) ── */
+static void pool_shutdown(int timeout_sec) {
+    fprintf(stderr, "[http] graceful shutdown (최대 %ds 대기)...\n", timeout_sec);
+
+    pthread_mutex_lock(&g_pool.lock);
+    g_pool.shutdown = 1;
+    pthread_cond_broadcast(&g_pool.cond_work);
+
+    /* 진행 중 요청 완료 대기 */
+    if (g_pool.active > 0 || g_pool.queue_len > 0) {
+        struct timespec deadline;
+        clock_gettime(CLOCK_REALTIME, &deadline);
+        deadline.tv_sec += timeout_sec;
+        pthread_cond_timedwait(&g_pool.cond_drain, &g_pool.lock, &deadline);
+    }
+    pthread_mutex_unlock(&g_pool.lock);
+
+    /* 워커 스레드 합류 */
+    pthread_cond_broadcast(&g_pool.cond_work);
+    for (int i = 0; i < g_pool.n_workers; i++)
+        pthread_join(g_pool.threads[i], NULL);
+
+    fprintf(stderr, "[http] 종료 완료 (처리 중 연결: %d)\n", g_pool.active);
+}
+
 /* ───────────────────────────────────────────
-   server_start — 메인 루프
+   server_start — 메인 루프 (스레드 풀)
 ─────────────────────────────────────────── */
 
 FLValue server_start(FLValue port_val) {
     int port = (port_val.tag == FL_INT) ? (int)port_val.i : 8080;
 
-    /* SIGPIPE 무시 */
+    /* 시그널 설정 */
     signal(SIGPIPE, SIG_IGN);
+    signal(SIGTERM, handle_shutdown_signal);
+    signal(SIGINT,  handle_shutdown_signal);
+
+    /* 스레드 풀 초기화 */
+    pool_init();
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         fprintf(stderr, "[http] socket() 실패: %s\n", strerror(errno));
         return fl_nil();
     }
+    g_server_fd = server_fd;
 
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -594,32 +775,52 @@ FLValue server_start(FLValue port_val) {
         return fl_nil();
     }
 
-    listen(server_fd, 128);
+    listen(server_fd, 512);   /* backlog 증가 */
     fprintf(stderr, "[http] 서버 시작: http://0.0.0.0:%d\n", port);
     fl_debug_banner("fl-app", port);
 
-    while (1) {
+    /* ── accept 루프 ── */
+    while (!g_pool.shutdown) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
         if (client_fd < 0) {
             if (errno == EINTR) continue;
-            break;
+            break;   /* shutdown이 server_fd를 닫으면 여기서 탈출 */
         }
 
-        /* 각 연결을 스레드로 처리 */
-        ConnArg* arg = malloc(sizeof(ConnArg));
-        arg->fd = client_fd;
-        pthread_t tid;
-        if (pthread_create(&tid, NULL, handle_connection, arg) != 0) {
-            /* 스레드 생성 실패 시 직접 처리 */
-            handle_connection(arg);
-        } else {
-            pthread_detach(tid);
+        /* 연결 타임아웃 설정 */
+        struct timeval tv = { g_pool.conn_timeout, 0 };
+        setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+
+        /* 큐 엔큐 */
+        pthread_mutex_lock(&g_pool.lock);
+        if (g_pool.queue_len >= g_pool.queue_cap) {
+            /* 큐 가득 찼음 → 503 */
+            pthread_mutex_unlock(&g_pool.lock);
+            fl_log_error("http", "큐 가득 참(%d) → 503", g_pool.queue_cap);
+            send_503(client_fd);
+            continue;
         }
+        QueueItem* item = malloc(sizeof(QueueItem));
+        item->fd   = client_fd;
+        item->next = NULL;
+        if (g_pool.tail) g_pool.tail->next = item;
+        else             g_pool.head = item;
+        g_pool.tail = item;
+        g_pool.queue_len++;
+        pthread_cond_signal(&g_pool.cond_work);
+        pthread_mutex_unlock(&g_pool.lock);
     }
 
-    close(server_fd);
+    /* ── Graceful shutdown ── */
+    if (g_server_fd >= 0) { close(g_server_fd); g_server_fd = -1; }
+
+    const char* env_st = getenv("FL_SHUTDOWN_TIMEOUT");
+    int shutdown_timeout = env_st ? atoi(env_st) : 30;
+    pool_shutdown(shutdown_timeout);
+
     return fl_nil();
 }
 

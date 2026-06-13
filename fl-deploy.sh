@@ -119,6 +119,17 @@ fi
 echo "🚀 배포: $APP_NAME v$APP_VERSION → 포트 $APP_PORT"
 [[ $DRY_RUN -eq 1 ]] && echo "   [dry-run 모드 — 실행 없음]"
 
+# ── 배포 전 자동 백업 (롤백용) ────────────────────────
+if [[ -f "$BIN_PATH" && $DRY_RUN -eq 0 ]]; then
+    BACKUP_DIR="$APP_DIR/.backups"
+    mkdir -p "$BACKUP_DIR"
+    BACKUP_FILE="$BACKUP_DIR/${APP_NAME}.$(date +%Y%m%d-%H%M%S).bak"
+    cp "$BIN_PATH" "$BACKUP_FILE"
+    # 백업 10개 유지
+    ls -t "$BACKUP_DIR/${APP_NAME}."*.bak 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
+    echo "   백업: $(basename "$BACKUP_FILE")"
+fi
+
 # ── 빌드 ─────────────────────────────────────────────
 if [[ $DO_BUILD -eq 1 ]]; then
     echo ""

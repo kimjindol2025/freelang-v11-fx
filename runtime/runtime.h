@@ -1,6 +1,30 @@
 #ifndef FREELANG_RUNTIME_H
 #define FREELANG_RUNTIME_H
 
+/*
+ * FreeLang C 런타임 ABI 버전
+ *
+ * Major: FLValue 구조 변경 (기존 앱 전체 재빌드 필요)
+ * Minor: 새 함수 추가 (하위호환 유지)
+ * Patch: 버그 수정 (재빌드 불필요)
+ *
+ * 빌드된 앱은 자신이 컴파일된 ABI Major를 포함.
+ * runtime.so 로드 시 Major 불일치 → 시작 거부.
+ */
+#define FL_ABI_MAJOR  2
+#define FL_ABI_MINOR  0
+#define FL_ABI_PATCH  0
+#define FL_ABI_VERSION ((FL_ABI_MAJOR << 16) | (FL_ABI_MINOR << 8) | FL_ABI_PATCH)
+#define FL_ABI_STRING "2.0.0"
+
+/* cgc-bin이 생성하는 코드에서 ABI 검사용 */
+static inline void fl_check_abi(int expected_major) {
+    if (expected_major != FL_ABI_MAJOR) {
+        /* 런타임과 컴파일된 앱의 ABI 불일치 */
+        __builtin_trap();   /* 즉시 SIGILL — 조용한 오동작 방지 */
+    }
+}
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -365,6 +389,15 @@ FLValue mariadb_query(FLValue conn, FLValue sql);
 FLValue mariadb_exec(FLValue conn, FLValue sql);
 FLValue mariadb_one(FLValue conn, FLValue sql);
 FLValue mariadb_close(FLValue conn);
+
+/* ── 메모리/GC (gc.c) ── */
+void    fl_arena_begin(void);
+void*   fl_arena_alloc(size_t size);
+void    fl_arena_end(void);
+void    fl_arena_stats(void);
+void*   fl_perm_alloc(size_t size);
+void    fl_perm_cleanup(void);
+FLValue fl_memory_stats(void);
 
 /* ── 디버그 레이어 (debug.c) ── */
 int     fl_debug_level(void);
