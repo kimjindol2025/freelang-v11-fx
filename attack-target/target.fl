@@ -1,0 +1,86 @@
+;; FreeLang 공격 타겟 서버
+;; 시나리오 A: BUG-2 (O(n²) eval) — 재귀 엔드포인트
+;; 시나리오 B: BUG-3 (connection-per-query) — 트랜잭션 엔드포인트
+;; 시나리오 C: Arena Lifetime — 글로벌 쓰기 엔드포인트
+
+(define PORT 40912)
+(define $db (mariadb-connect "localhost" "akl" "akl_pass_2026" "akl"))
+
+;; DB 초기화
+(mariadb-exec $db "CREATE TABLE IF NOT EXISTS _attack_log (id INT AUTO_INCREMENT PRIMARY KEY, val VARCHAR(200), ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB")
+
+;; 글로벌 상태 (Arena 버그 탐지용)
+(define $global_val "init")
+(define $req_count 0)
+
+;; ─── 시나리오 A: 재귀 (BUG-2 노출) ──────────────────────────────
+(defn sum-iter [$n $acc]
+  (if (<= $n 0) $acc
+    (sum-iter (- $n 1) (+ $acc $n))))
+
+(server_get "/recurse/:n"
+  (fn [$req]
+    (let [$n   (num (server_req_param $req "n"))
+          $res  (sum-iter $n 0)]
+      (server_json (str "{\"n\":" $n ",\"result\":" $res "}")))))
+
+;; ─── 시나리오 B: 트랜잭션 (BUG-3 노출) ───────────────────────────
+;; 잘못된 방식: connection-per-query (버그 재현용)
+(server_post "/txn-broken"
+  (fn [$req]
+    (let [$body (server_req_json $req)
+          $val  (or (get $body "val") "?")]
+      (try
+        (begin
+          (mariadb-exec $db "BEGIN")
+          (mariadb-exec $db (str "INSERT INTO _attack_log (val) VALUES ('" $val "')"))
+          (throw "forced-rollback")
+          (mariadb-exec $db "COMMIT"))
+        (catch $e
+          (mariadb-exec $db "ROLLBACK")))
+      (let [$cnt (mariadb-one $db "SELECT COUNT(*) AS c FROM _attack_log")]
+        (server_json (str "{\"val\":\"" $val "\",\"total_rows\":" (get $cnt "c") "}"))))))
+
+;; 올바른 방식: pool-transaction
+(server_post "/txn-correct"
+  (fn [$req]
+    (let [$body (server_req_json $req)
+          $val  (or (get $body "val") "?")]
+      (try
+        (mariadb-pool-transaction $db
+          (list
+            (hash-map "sql" (str "INSERT INTO _attack_log (val) VALUES ('" $val "')"))
+            (hash-map "sql" "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced'")))
+        (catch $e nil))
+      (let [$cnt (mariadb-one $db "SELECT COUNT(*) AS c FROM _attack_log")]
+        (server_json (str "{\"val\":\"" $val "\",\"total_rows\":" (get $cnt "c") "}"))))))
+
+;; ─── 시나리오 C: Arena Lifetime (글로벌 쓰기) ─────────────────────
+(server_get "/arena-write"
+  (fn [$req]
+    (let [$val (str "req-" $req_count "-" (str-length "test"))]
+      (define $global_val $val)
+      (define $req_count (+ $req_count 1))
+      (server_json (str "{\"written\":\"" $val "\"}")))))
+
+(server_get "/arena-read"
+  (fn [$req]
+    (server_json (str "{\"global\":\"" $global_val "\",\"count\":" $req_count "}"))))
+
+;; ─── DB 상태 조회 ───────────────────────────────────────────────
+(server_get "/db-count"
+  (fn [$req]
+    (let [$cnt (mariadb-one $db "SELECT COUNT(*) AS c FROM _attack_log")]
+      (server_json (str "{\"rows\":" (get $cnt "c") "}")))))
+
+(server_post "/db-reset"
+  (fn [$req]
+    (mariadb-exec $db "TRUNCATE TABLE _attack_log")
+    (server_json "{\"ok\":true}")))
+
+;; ─── 헬스 ───────────────────────────────────────────────────────
+(server_get "/health"
+  (fn [$req]
+    (server_json (str "{\"ok\":true,\"port\":" PORT ",\"reqs\":" $req_count "}"))))
+
+(server_start PORT)
