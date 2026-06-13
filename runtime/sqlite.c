@@ -80,8 +80,13 @@ FLValue sqlite_open(FLValue path_v) {
 
 /* 내부: rows → FLValue */
 static FLValue sq_fetch_rows(sqlite3_stmt* stmt) {
-    FLValue rows = fl_vec_new();
     int ncols = sqlite3_column_count(stmt);
+
+    /* O(n) 수집: C 동적 배열 → fl_vec_from 단일 호출 */
+    size_t cap = 16, len = 0;
+    FLValue* arr = (FLValue*)malloc(sizeof(FLValue) * cap);
+    if (!arr) return fl_vec_new();
+
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         FLValue row = fl_map_new();
         for (int i = 0; i < ncols; i++) {
@@ -101,9 +106,18 @@ static FLValue sq_fetch_rows(sqlite3_stmt* stmt) {
             }
             row = fl_map_set(row, key, val);
         }
-        rows = fl_vec_push(rows, row);
+        if (len >= cap) {
+            cap *= 2;
+            FLValue* tmp = (FLValue*)realloc(arr, sizeof(FLValue) * cap);
+            if (!tmp) { free(arr); return fl_vec_new(); }
+            arr = tmp;
+        }
+        arr[len++] = row;
     }
-    return rows;
+
+    FLValue result = fl_vec_from(arr, (uint32_t)len);
+    free(arr);
+    return result;
 }
 
 /* (sqlite_query db sql) → 벡터 of 맵 */

@@ -40,6 +40,7 @@ typedef void         (*fn_mysql_free_result)(MYSQL_RES*);
 typedef void         (*fn_mysql_close)(MYSQL*);
 typedef const char*  (*fn_mysql_error)(MYSQL*);
 typedef uint64_t     (*fn_mysql_affected_rows)(MYSQL*);
+typedef uint64_t     (*fn_mysql_num_rows)(MYSQL_RES*);
 
 static fn_mysql_init           p_mysql_init           = NULL;
 static fn_mysql_real_connect   p_mysql_real_connect   = NULL;
@@ -53,6 +54,7 @@ static fn_mysql_free_result    p_mysql_free_result    = NULL;
 static fn_mysql_close          p_mysql_close          = NULL;
 static fn_mysql_error          p_mysql_error          = NULL;
 static fn_mysql_affected_rows  p_mysql_affected_rows  = NULL;
+static fn_mysql_num_rows       p_mysql_num_rows       = NULL;
 
 static void load_mariadb_lib(void) {
     /* libmariadb.so.3 → libmysqlclient.so.21 순서로 시도 */
@@ -87,6 +89,7 @@ static void load_mariadb_lib(void) {
     LOAD(mysql_close)
     LOAD(mysql_error)
     LOAD(mysql_affected_rows)
+    LOAD(mysql_num_rows)
 #undef LOAD
 }
 
@@ -161,21 +164,25 @@ FLValue mariadb_connect(FLValue host_v, FLValue port_v, FLValue user_v,
     return fl_str_val(id_copy);
 }
 
-/* rows → FLValue vector of maps */
+/* rows → FLValue vector of maps  (O(n), 단일 fl_vec_from 할당) */
 static FLValue fetch_rows(MYSQL_RES* res) {
-    FLValue rows = fl_vec_new();
-    if (!res) return rows;
+    if (!res) return fl_vec_new();
 
     unsigned int nfields = p_mysql_num_fields(res);
+    uint64_t nrows = p_mysql_num_rows ? p_mysql_num_rows(res) : 0;
+
+    /* pre-allocate C 배열 (mysql_store_result 후 행수 확정) */
+    size_t cap = nrows > 0 ? (size_t)nrows : 16;
+    size_t len = 0;
+    FLValue* arr = (FLValue*)malloc(sizeof(FLValue) * cap);
+    if (!arr) { p_mysql_free_result(res); return fl_vec_new(); }
 
     MYSQL_ROW row;
     while ((row = p_mysql_fetch_row(res))) {
         unsigned long* lens = p_mysql_fetch_lengths(res);
         FLValue map = fl_map_new();
         for (unsigned int i = 0; i < nfields; i++) {
-            /* fetch_field_direct로 각 필드를 개별 접근 (구조체 크기 불일치 방지) */
             MYSQL_FIELD* field = p_mysql_fetch_field_direct(res, i);
-            /* name은 항상 첫 번째 char* 멤버 */
             const char* col_name = *(const char**)field;
             FLValue key = fl_str_val(col_name ? col_name : "");
             FLValue val;
@@ -190,10 +197,19 @@ static FLValue fetch_rows(MYSQL_RES* res) {
             }
             map = fl_map_set(map, key, val);
         }
-        rows = fl_vec_push(rows, map);
+        if (len >= cap) {
+            cap *= 2;
+            FLValue* tmp = (FLValue*)realloc(arr, sizeof(FLValue) * cap);
+            if (!tmp) { free(arr); p_mysql_free_result(res); return fl_vec_new(); }
+            arr = tmp;
+        }
+        arr[len++] = map;
     }
     p_mysql_free_result(res);
-    return rows;
+
+    FLValue result = fl_vec_from(arr, (uint32_t)len);
+    free(arr);
+    return result;
 }
 
 /* (mariadb_query conn_id sql) → vector of maps */
