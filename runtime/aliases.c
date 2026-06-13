@@ -467,6 +467,16 @@ FLValue server_rate_limit(FLValue max_reqs, FLValue window_ms) {
     return fl_nil();
 }
 
+/* str_slice — 문자열 슬라이스 (str-slice s start end) */
+FLValue str_slice(FLValue s, FLValue start_v, FLValue end_v) {
+    /* FL_FLOAT이면 정수로 변환 */
+    int64_t st = (start_v.tag == FL_FLOAT) ? (int64_t)start_v.f :
+                 (start_v.tag == FL_INT)   ? start_v.i : 0;
+    int64_t en = (end_v.tag == FL_FLOAT)   ? (int64_t)end_v.f :
+                 (end_v.tag == FL_INT)      ? end_v.i : 0;
+    return substring(s, fl_int(st), fl_int(en));
+}
+
 /* mariadb_connect 4인자 버전 (host, user, pass, db → port=3306) */
 FLValue mariadb_connect4(FLValue host, FLValue user, FLValue pw, FLValue db) {
     return mariadb_connect(host, fl_int(3306), user, pw, db);

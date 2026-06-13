@@ -123,7 +123,11 @@ FLValue substring(FLValue s, FLValue start, FLValue end) {
     if (s.tag!=FL_STRING) return fl_str_val("");
     const char *p=((FLString*)s.obj)->data;
     int64_t len=(int64_t)strlen(p);
-    int64_t a=start.tag==FL_INT?start.i:0, b=end.tag==FL_INT?end.i:len;
+    /* FL_FLOAT 인덱스 지원 (math_floor 결과) */
+    int64_t a = (start.tag==FL_INT) ? start.i :
+                (start.tag==FL_FLOAT) ? (int64_t)start.f : 0;
+    int64_t b = (end.tag==FL_INT)   ? end.i   :
+                (end.tag==FL_FLOAT)   ? (int64_t)end.f   : len;
     if (a<0) a=0;
     if (b>len) b=len;
     if (a>b) a=b;
