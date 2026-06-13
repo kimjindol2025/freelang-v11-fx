@@ -517,6 +517,275 @@ FLValue url_decode(FLValue s) {
     return r;
 }
 
+/* ── P0: 이름 불일치 alias ── */
+
+/* fl_str_to_num, str_to_upper/lower (runtime.h에 없는 것만) */
+FLValue fl_str_to_num(FLValue s)  { return str_to_num(s); }
+FLValue str_to_upper(FLValue s)   { return str_upper(s); }
+FLValue str_to_lower(FLValue s)   { return str_lower(s); }
+
+/* any?/every? fl_ alias */
+FLValue fl_any_p(FLValue fn, FLValue vec)   { return some(fn, vec); }
+FLValue fl_every_p(FLValue fn, FLValue vec) { return every(fn, vec); }
+
+/* ── P0: 미구현 기본 함수 ── */
+
+/* sleep */
+FLValue fl_sleep_ms(FLValue ms_v) {
+    int64_t ms = (ms_v.tag == FL_INT) ? ms_v.i
+               : (ms_v.tag == FL_FLOAT) ? (int64_t)ms_v.f : 0;
+    if (ms > 0) {
+        struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
+        nanosleep(&ts, NULL);
+    }
+    return fl_nil();
+}
+
+/* fl_empty_p, fl_nil_or_empty_p, fl_not_empty_p → runtime.h에 static inline으로 이미 정의됨 */
+
+/* none? — 하나도 true 없어야 */
+FLValue fl_none_p(FLValue fn, FLValue vec) {
+    return fl_not(some(fn, vec));
+}
+
+/* count-if */
+FLValue fl_count_if(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_int(0);
+    FLVector* vp = (FLVector*)vec.obj;
+    int64_t cnt = 0;
+    for (uint32_t i = 0; i < vp->len; i++) {
+        if (fl_truthy(fl_fn_call(fn, 1, &vp->data[i]))) cnt++;
+    }
+    return fl_int(cnt);
+}
+
+/* find-first */
+FLValue fl_find_first(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_nil();
+    FLVector* vp = (FLVector*)vec.obj;
+    for (uint32_t i = 0; i < vp->len; i++) {
+        if (fl_truthy(fl_fn_call(fn, 1, &vp->data[i]))) return vp->data[i];
+    }
+    return fl_nil();
+}
+
+/* ── P1: 컬렉션 함수 ── */
+
+/* entries: 맵 → [[k v] ...] */
+FLValue entries(FLValue m) {
+    if (m.tag != FL_MAP) return fl_vec_new();
+    FLValue ks = fl_map_keys(m);
+    FLVector* kv = (FLVector*)ks.obj;
+    FLValue result = fl_vec_new();
+    for (uint32_t i = 0; i < kv->len; i++) {
+        FLValue k = kv->data[i];
+        FLValue v = fl_map_get(m, k);
+        FLValue pair = fl_vec_new();
+        pair = fl_vec_push(pair, k);
+        pair = fl_vec_push(pair, v);
+        result = fl_vec_push(result, pair);
+    }
+    return result;
+}
+
+/* select-keys: 맵에서 특정 키만 추출 */
+FLValue select_keys(FLValue m, FLValue ks) {
+    if (m.tag != FL_MAP || ks.tag != FL_VECTOR) return fl_map_new();
+    FLVector* kv = (FLVector*)ks.obj;
+    FLValue result = fl_map_new();
+    for (uint32_t i = 0; i < kv->len; i++) {
+        FLValue v = fl_map_get(m, kv->data[i]);
+        if (v.tag != FL_NIL) result = fl_map_set(result, kv->data[i], v);
+    }
+    return result;
+}
+
+/* get-in: 중첩 맵 접근 (get-in m ["a" "b"]) */
+FLValue fl_get_in(FLValue m, FLValue path) {
+    if (path.tag != FL_VECTOR) return fl_nil();
+    FLVector* pv = (FLVector*)path.obj;
+    FLValue cur = m;
+    for (uint32_t i = 0; i < pv->len; i++) {
+        if (cur.tag != FL_MAP) return fl_nil();
+        cur = fl_map_get(cur, pv->data[i]);
+    }
+    return cur;
+}
+
+/* obj-omit: 맵에서 키 제거 */
+FLValue fl_obj_omit(FLValue m, FLValue ks) {
+    if (m.tag != FL_MAP) return m;
+    if (ks.tag != FL_VECTOR) return m;
+    FLVector* kv = (FLVector*)ks.obj;
+    FLValue result = m;
+    for (uint32_t i = 0; i < kv->len; i++)
+        result = fl_map_del(result, kv->data[i]);
+    return result;
+}
+
+/* repeat: n번 값 반복 → 벡터 */
+FLValue fl_repeat(FLValue n_v, FLValue val) {
+    int64_t n = (n_v.tag == FL_INT) ? n_v.i : 0;
+    FLValue result = fl_vec_new();
+    for (int64_t i = 0; i < n; i++) result = fl_vec_push(result, val);
+    return result;
+}
+
+/* sort-by: keyfn으로 정렬 */
+static FLValue _sort_by_fn;
+static int _sort_by_cmp(const void* a, const void* b) {
+    FLValue ka = fl_fn_call(_sort_by_fn, 1, (FLValue*)a);
+    FLValue kb = fl_fn_call(_sort_by_fn, 1, (FLValue*)b);
+    if (ka.tag == FL_INT && kb.tag == FL_INT) return (ka.i < kb.i) ? -1 : (ka.i > kb.i) ? 1 : 0;
+    if (ka.tag == FL_STRING && kb.tag == FL_STRING)
+        return strcmp(((FLString*)ka.obj)->data, ((FLString*)kb.obj)->data);
+    double da = (ka.tag == FL_FLOAT) ? ka.f : (double)ka.i;
+    double db = (kb.tag == FL_FLOAT) ? kb.f : (double)kb.i;
+    return (da < db) ? -1 : (da > db) ? 1 : 0;
+}
+FLValue fl_sort_by(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return vec;
+    FLVector* vp = (FLVector*)vec.obj;
+    FLValue* copy = (FLValue*)malloc(vp->len * sizeof(FLValue));
+    memcpy(copy, vp->data, vp->len * sizeof(FLValue));
+    _sort_by_fn = fn;
+    qsort(copy, vp->len, sizeof(FLValue), _sort_by_cmp);
+    FLValue r = fl_vec_from(copy, vp->len);
+    free(copy);
+    return r;
+}
+
+/* keep: fn 결과가 nil이 아닌 것만 모음 */
+FLValue fl_keep(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_vec_new();
+    FLVector* vp = (FLVector*)vec.obj;
+    FLValue result = fl_vec_new();
+    for (uint32_t i = 0; i < vp->len; i++) {
+        FLValue r = fl_fn_call(fn, 1, &vp->data[i]);
+        if (r.tag != FL_NIL) result = fl_vec_push(result, r);
+    }
+    return result;
+}
+
+/* map-indexed: (fn index elem) */
+FLValue fl_map_indexed(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_vec_new();
+    FLVector* vp = (FLVector*)vec.obj;
+    FLValue result = fl_vec_new();
+    for (uint32_t i = 0; i < vp->len; i++) {
+        FLValue args[2] = { fl_int((int64_t)i), vp->data[i] };
+        result = fl_vec_push(result, fl_fn_call(fn, 2, args));
+    }
+    return result;
+}
+
+/* mapcat: map + flatten 1단계 */
+FLValue fl_mapcat(FLValue fn, FLValue vec) {
+    return flatten(fl_map_fn(fn, vec));
+}
+
+/* into: coll에 항목 추가 */
+FLValue fl_into(FLValue target, FLValue src) {
+    if (src.tag != FL_VECTOR) return target;
+    FLVector* sv = (FLVector*)src.obj;
+    FLValue result = target;
+    if (result.tag != FL_VECTOR) result = fl_vec_new();
+    for (uint32_t i = 0; i < sv->len; i++) result = fl_vec_push(result, sv->data[i]);
+    return result;
+}
+
+/* conj: 컬렉션에 항목 추가 */
+FLValue fl_conj(FLValue coll, FLValue item) {
+    if (coll.tag == FL_VECTOR) return fl_vec_push(coll, item);
+    return fl_vec_push(fl_vec_new(), item);
+}
+
+/* comp: 함수 합성 (comp f g) → (fn [x] (f (g x))) */
+/* comp은 고차함수라 FL 클로저로 래핑이 필요하나 C에서 단순 구현 */
+/* 현재는 2-인자 직접 호출만 지원 */
+FLValue fl_comp(FLValue f, FLValue g) {
+    /* fl_comp(f, g) 자체는 잘 안 쓰임 — 대신 cgc가 직접 emit */
+    /* 여기서는 fl_fn_call로 compose 함수 반환은 불가, 대신 apply */
+    (void)f; (void)g;
+    return fl_nil();  /* TODO: closure 지원 시 개선 */
+}
+
+/* map-vals: 맵의 모든 값에 fn 적용 */
+FLValue fl_map_vals_fn(FLValue fn, FLValue m) {
+    if (m.tag != FL_MAP) return m;
+    FLValue ks = fl_map_keys(m);
+    FLVector* kv = (FLVector*)ks.obj;
+    FLValue result = fl_map_new();
+    for (uint32_t i = 0; i < kv->len; i++) {
+        FLValue k = kv->data[i];
+        FLValue v = fl_map_get(m, k);
+        FLValue nv = fl_fn_call(fn, 1, &v);
+        result = fl_map_set(result, k, nv);
+    }
+    return result;
+}
+
+/* frequencies: 빈도 집계 */
+FLValue frequencies(FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_map_new();
+    FLVector* vp = (FLVector*)vec.obj;
+    FLValue m = fl_map_new();
+    for (uint32_t i = 0; i < vp->len; i++) {
+        FLValue k = vp->data[i];
+        FLValue cur = fl_map_get(m, k);
+        int64_t cnt = (cur.tag == FL_INT) ? cur.i : 0;
+        m = fl_map_set(m, k, fl_int(cnt + 1));
+    }
+    return m;
+}
+
+/* group-by: 키 함수로 그룹핑 */
+FLValue group_by(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_map_new();
+    FLVector* vp = (FLVector*)vec.obj;
+    FLValue m = fl_map_new();
+    for (uint32_t i = 0; i < vp->len; i++) {
+        FLValue k = fl_fn_call(fn, 1, &vp->data[i]);
+        FLValue cur = fl_map_get(m, k);
+        if (cur.tag != FL_VECTOR) cur = fl_vec_new();
+        cur = fl_vec_push(cur, vp->data[i]);
+        m = fl_map_set(m, k, cur);
+    }
+    return m;
+}
+
+/* ── P2: 응답 쿠키 ── */
+FLValue fl_resp_set_cookie(FLValue name, FLValue val, FLValue opts) {
+    /* opts: {"path" "/" "max-age" 3600 "httponly" true} */
+    const char* n = (name.tag == FL_STRING) ? ((FLString*)name.obj)->data : "";
+    const char* v = (val.tag  == FL_STRING) ? ((FLString*)val.obj)->data  : "";
+    char buf[512];
+    int pos = snprintf(buf, sizeof(buf), "%s=%s", n, v);
+    /* path */
+    FLValue path = (opts.tag == FL_MAP) ? fl_map_get(opts, fl_str_val("path")) : fl_nil();
+    if (path.tag == FL_STRING)
+        pos += snprintf(buf+pos, sizeof(buf)-pos, "; Path=%s", ((FLString*)path.obj)->data);
+    else
+        pos += snprintf(buf+pos, sizeof(buf)-pos, "; Path=/");
+    /* max-age */
+    FLValue max_age = (opts.tag == FL_MAP) ? fl_map_get(opts, fl_str_val("max-age")) : fl_nil();
+    if (max_age.tag == FL_INT)
+        pos += snprintf(buf+pos, sizeof(buf)-pos, "; Max-Age=%lld", (long long)max_age.i);
+    /* HttpOnly */
+    FLValue httponly = (opts.tag == FL_MAP) ? fl_map_get(opts, fl_str_val("httponly")) : fl_nil();
+    if (fl_truthy(httponly))
+        pos += snprintf(buf+pos, sizeof(buf)-pos, "; HttpOnly");
+    (void)pos;
+    return fl_str_val(buf);
+}
+FLValue fl_resp_html_cookie(FLValue html, FLValue cookie_hdr) {
+    /* cookie_hdr는 fl_resp_set_cookie가 반환한 헤더 문자열 */
+    /* 현재 server.c는 직접 Set-Cookie 헤더를 넣는 방법이 없음 */
+    /* 임시: html 그대로 반환 (향후 server.c 개선 시 수정) */
+    (void)cookie_hdr;
+    return server_html(html);
+}
+
 /* form_parse "title=hello&content=world" → {"title":"hello","content":"world"} */
 FLValue form_parse(FLValue body) {
     if (body.tag != FL_STRING) return fl_map_new();

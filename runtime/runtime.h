@@ -170,6 +170,34 @@ FLValue distinct(FLValue vec);
 FLValue js_escape(FLValue s);
 FLValue fl_html_escape(FLValue s);
 
+/* ── 추가 alias/구현 (aliases.c) ── */
+FLValue fl_str_to_num(FLValue s);
+FLValue str_to_upper(FLValue s);
+FLValue str_to_lower(FLValue s);
+FLValue fl_any_p(FLValue fn, FLValue vec);
+FLValue fl_every_p(FLValue fn, FLValue vec);
+FLValue fl_sleep_ms(FLValue ms_v);
+FLValue fl_none_p(FLValue fn, FLValue vec);
+FLValue fl_count_if(FLValue fn, FLValue vec);
+FLValue fl_find_first(FLValue fn, FLValue vec);
+FLValue entries(FLValue m);
+FLValue select_keys(FLValue m, FLValue ks);
+FLValue fl_get_in(FLValue m, FLValue path);
+FLValue fl_obj_omit(FLValue m, FLValue ks);
+FLValue fl_repeat(FLValue n_v, FLValue val);
+FLValue fl_sort_by(FLValue fn, FLValue vec);
+FLValue fl_keep(FLValue fn, FLValue vec);
+FLValue fl_map_indexed(FLValue fn, FLValue vec);
+FLValue fl_mapcat(FLValue fn, FLValue vec);
+FLValue fl_into(FLValue target, FLValue src);
+FLValue fl_conj(FLValue coll, FLValue item);
+FLValue fl_comp(FLValue f, FLValue g);
+FLValue fl_map_vals_fn(FLValue fn, FLValue m);
+FLValue frequencies(FLValue vec);
+FLValue group_by(FLValue fn, FLValue vec);
+FLValue fl_resp_set_cookie(FLValue name, FLValue val, FLValue opts);
+FLValue fl_resp_html_cookie(FLValue html, FLValue cookie_hdr);
+
 /* ── S9: 맵 accessor ── */
 FLValue fl_map_keys(FLValue map);
 FLValue fl_map_vals(FLValue map);
