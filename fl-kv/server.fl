@@ -1,0 +1,320 @@
+;; fl-kv — FreeLang 네이티브 KV 캐시 서버 (미니 Redis)
+;; Node.js 없음. 순수 C 바이너리.
+;; 빌드: ../../fl-build.sh server.fl fl-kv
+;; 실행: PORT=40914 ./fl-kv
+
+;; ── 설정 ────────────────────────────────────────────────────────────
+(define PORT    (parse-int (or (env-get "PORT") "40914")))
+(define VERSION "1.0.0")
+(define INIT_KEY "__fl_kv_init__")
+
+;; ── 스토어 ──────────────────────────────────────────────────────────
+;; 구조: { key => { "v": value, "ex": expires_ms (-1=영구) } }
+;; Note: atom {} 단독 불가 → assoc {} 더미키로 초기화
+(define $store        (atom (assoc {} INIT_KEY "1")))
+(define $stats-sets   (atom 0))
+(define $stats-gets   (atom 0))
+(define $stats-hits   (atom 0))
+(define $stats-misses (atom 0))
+(define $stats-dels   (atom 0))
+(define started-at    (now-ms))
+
+;; ── atom 헬퍼 (swap! 클로저캡처 버그 우회: reset! 사용) ─────────────
+(defn store-set! [$key $entry]
+  (reset! $store (assoc (deref $store) $key $entry)))
+
+(defn store-del! [$key]
+  (reset! $store (dissoc (deref $store) $key)))
+
+(defn store-flush! []
+  (reset! $store (assoc {} INIT_KEY "1")))
+
+(defn stat-inc! [$atom]
+  (reset! $atom (+ (deref $atom) 1)))
+
+(defn stat-add! [$atom $n]
+  (reset! $atom (+ (deref $atom) $n)))
+
+;; ── 일반 헬퍼 ───────────────────────────────────────────────────────
+(defn entry-expired? [$entry]
+  (let [$ex (get $entry "ex")]
+    (if (= $ex -1) false (> (now-ms) $ex))))
+
+(defn entry-alive? [$entry]
+  (not (entry-expired? $entry)))
+
+(defn real-keys [$s]
+  (filter (fn [$k] (not (= $k INIT_KEY))) (keys $s)))
+
+(defn make-entry [$val $ex]
+  (assoc (assoc {} "v" $val) "ex" $ex))
+
+(defn calc-ex [$ttl]
+  (if $ttl (+ (now-ms) (* $ttl 1000)) -1))
+
+(defn json-ok [$body]
+  (str "{\"ok\":true," $body "}"))
+
+(defn json-err [$msg]
+  (str "{\"ok\":false,\"error\":\"" $msg "\"}"))
+
+;; ── SET ─────────────────────────────────────────────────────────────
+(defn handle-set [$req]
+  (let [$key   (server_req_param $req "key")
+        $body  (json_parse (server_req_body $req))
+        $val   (or (get $body "value") "")
+        $ttl   (get $body "ttl")
+        $entry (make-entry $val (calc-ex $ttl))]
+    (store-set! $key $entry)
+    (stat-inc! $stats-sets)
+    (server_json (json-ok (str "\"key\":\"" $key "\",\"ttl\":" (or $ttl -1))))))
+
+;; ── GET ─────────────────────────────────────────────────────────────
+(defn handle-get [$req]
+  (let [$key   (server_req_param $req "key")
+        $entry (get (deref $store) $key)]
+    (stat-inc! $stats-gets)
+    (if (nil? $entry)
+      (do
+        (stat-inc! $stats-misses)
+        (server_json (json-err "not found")))
+      (if (entry-alive? $entry)
+        (do
+          (stat-inc! $stats-hits)
+          (server_json (json-ok (str "\"key\":\"" $key "\",\"value\":\"" (get $entry "v") "\""))))
+        (do
+          (stat-inc! $stats-misses)
+          (store-del! $key)
+          (server_json (json-err "expired")))))))
+
+;; ── DEL ─────────────────────────────────────────────────────────────
+(defn handle-del [$req]
+  (let [$key    (server_req_param $req "key")
+        $entry  (get (deref $store) $key)
+        $existed (not (nil? $entry))]
+    (if $existed
+      (do
+        (store-del! $key)
+        (stat-inc! $stats-dels))
+      nil)
+    (server_json (json-ok (str "\"deleted\":" (if $existed "true" "false"))))))
+
+;; ── EXISTS ──────────────────────────────────────────────────────────
+(defn handle-exists [$req]
+  (let [$key   (server_req_param $req "key")
+        $entry (get (deref $store) $key)
+        $alive (if (nil? $entry) false (entry-alive? $entry))]
+    (server_json (json-ok (str "\"exists\":" (if $alive "true" "false"))))))
+
+;; ── TTL ─────────────────────────────────────────────────────────────
+(defn handle-ttl [$req]
+  (let [$key   (server_req_param $req "key")
+        $entry (get (deref $store) $key)]
+    (if (nil? $entry)
+      (server_json (json-err "not found"))
+      (if (entry-alive? $entry)
+        (let [$ex  (get $entry "ex")
+              $rem (if (= $ex -1) -1 (/ (- $ex (now-ms)) 1000))]
+          (server_json (json-ok (str "\"key\":\"" $key "\",\"ttl\":" $rem))))
+        (server_json (json-err "not found"))))))
+
+;; ── KEYS ────────────────────────────────────────────────────────────
+(defn handle-keys [$req]
+  (let [$all   (deref $store)
+        $ks    (real-keys $all)
+        $alive (filter (fn [$k] (entry-alive? (get $all $k))) $ks)
+        $count (length $alive)
+        $arr   (reduce
+                 (fn [$acc $k]
+                   (if (= $acc "")
+                     (str "\"" $k "\"")
+                     (str $acc ",\"" $k "\"")))
+                 "" $alive)]
+    (server_json (json-ok (str "\"count\":" $count ",\"keys\":[" $arr "]")))))
+
+;; ── MSET ────────────────────────────────────────────────────────────
+(defn handle-mset [$req]
+  (let [$body  (json_parse (server_req_body $req))
+        $pairs (or (get $body "pairs") (list))
+        $count (length $pairs)
+        $new   (reduce
+                 (fn [$acc $pair]
+                   (let [$k (get $pair "key")
+                         $v (get $pair "value")
+                         $t (get $pair "ttl")]
+                     (assoc $acc $k (make-entry $v (calc-ex $t)))))
+                 (deref $store) $pairs)]
+    (reset! $store $new)
+    (stat-add! $stats-sets $count)
+    (server_json (json-ok (str "\"count\":" $count)))))
+
+;; ── INCR ────────────────────────────────────────────────────────────
+(defn handle-incr [$req]
+  (let [$key   (server_req_param $req "key")
+        $body  (json_parse (server_req_body $req))
+        $by    (or (get $body "by") 1)
+        $entry (get (deref $store) $key)
+        $cur   (if (nil? $entry) 0
+                 (if (entry-alive? $entry) (parse-int (get $entry "v")) 0))
+        $next  (+ $cur $by)]
+    (store-set! $key (make-entry (str $next) -1))
+    (stat-inc! $stats-sets)
+    (server_json (json-ok (str "\"key\":\"" $key "\",\"value\":" $next)))))
+
+;; ── FLUSH ────────────────────────────────────────────────────────────
+(defn handle-flush [$req]
+  (store-flush!)
+  (server_json (json-ok "\"message\":\"flushed\"")))
+
+;; ── INFO ─────────────────────────────────────────────────────────────
+(defn handle-info [$req]
+  (let [$all    (deref $store)
+        $ks     (real-keys $all)
+        $alive  (filter (fn [$k] (entry-alive? (get $all $k))) $ks)
+        $total  (length $ks)
+        $live   (length $alive)
+        $uptime (/ (- (now-ms) started-at) 1000)
+        $s      (deref $stats-sets)
+        $g      (deref $stats-gets)
+        $h      (deref $stats-hits)
+        $d      (deref $stats-dels)
+        $rate   (if (> $g 0) (/ (* $h 100) $g) 0)]
+    (server_json (str
+      "{\"ok\":true,"
+      "\"version\":\"" VERSION "\","
+      "\"runtime\":\"native-c\","
+      "\"uptime_sec\":" $uptime ","
+      "\"keys_alive\":"  $live  ","
+      "\"keys_total\":"  $total ","
+      "\"stats\":{"
+        "\"sets\":"    $s ","
+        "\"gets\":"    $g ","
+        "\"hits\":"    $h ","
+        "\"misses\":"  (deref $stats-misses) ","
+        "\"dels\":"    $d ","
+        "\"hit_rate\":" $rate
+      "}}"))))
+
+;; ── DASHBOARD ────────────────────────────────────────────────────────
+(defn handle-dashboard [$req]
+  (let [$all    (deref $store)
+        $ks     (real-keys $all)
+        $total  (length $ks)
+        $alive  (filter (fn [$k] (entry-alive? (get $all $k))) $ks)
+        $live   (length $alive)
+        $uptime (/ (- (now-ms) started-at) 1000)
+        $g      (deref $stats-gets)
+        $h      (deref $stats-hits)
+        $rate   (if (> $g 0) (/ (* $h 100) $g) 0)
+        $rows   (reduce
+                  (fn [$acc $k]
+                    (let [$e     (get $all $k)
+                          $v     (get $e "v")
+                          $ex    (get $e "ex")
+                          $live? (entry-alive? $e)
+                          $ttl   (if (= $ex -1) "&infin;" (str (/ (- $ex (now-ms)) 1000) "s"))]
+                      (str $acc
+                        "<tr class='" (if $live? "" "exp") "'>"
+                        "<td class='key'>" $k "</td>"
+                        "<td class='val'>" $v "</td>"
+                        "<td class='ttl'>" $ttl "</td>"
+                        "<td>" (if $live?
+                          "<span class='badge live'>alive</span>"
+                          "<span class='badge dead'>expired</span>") "</td>"
+                        "</tr>")))
+                  "" $ks)]
+    (server_html (str "<!DOCTYPE html>
+<html lang='ko'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<meta http-equiv='refresh' content='3'>
+<title>fl-kv</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',monospace;
+     background:#0d1117;color:#c9d1d9;min-height:100vh}
+.hdr{background:#161b22;border-bottom:1px solid #30363d;
+     padding:14px 24px;display:flex;align-items:center;gap:10px}
+.hdr h1{font-size:1.05rem;color:#58a6ff;letter-spacing:-.02em}
+.tag{font-size:.68rem;background:#21262d;padding:2px 8px;
+     border-radius:10px;color:#8b949e}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:18px 24px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;
+      padding:14px;text-align:center}
+.card .n{font-size:1.9rem;font-weight:700;color:#58a6ff}
+.card .l{font-size:.7rem;color:#8b949e;margin-top:3px}
+.sec{padding:0 24px 20px}
+.sec h2{font-size:.78rem;color:#8b949e;margin-bottom:8px;
+        letter-spacing:.06em;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{text-align:left;padding:7px 12px;background:#161b22;
+   color:#8b949e;border-bottom:1px solid #30363d;font-weight:500}
+td{padding:6px 12px;border-bottom:1px solid #21262d;font-family:monospace}
+tr.exp td{color:#484f58}
+.key{color:#e2e8f0}
+.val{color:#a5d6ff}
+.ttl{color:#d2a8ff}
+.badge{font-size:.65rem;padding:2px 7px;border-radius:10px;font-weight:700}
+.badge.live{background:#0d4429;color:#3fb950}
+.badge.dead{background:#2d1b00;color:#d29922}
+.api{background:#161b22;border:1px solid #30363d;border-radius:8px;
+     padding:14px 18px;margin:0 24px 20px;font-size:.77rem;color:#8b949e}
+.api code{color:#58a6ff;display:block;line-height:1.85;font-family:monospace}
+.foot{text-align:center;padding:10px;font-size:.7rem;color:#30363d}
+</style>
+</head>
+<body>
+<div class='hdr'>
+  <h1>&#x26A1; fl-kv</h1>
+  <span class='tag'>v" VERSION "</span>
+  <span class='tag'>native-c</span>
+  <span class='tag'>:" PORT "</span>
+  <span style='margin-left:auto;font-size:.72rem;color:#30363d'>uptime " $uptime "s &#183; 3s auto-refresh</span>
+</div>
+<div class='grid'>
+  <div class='card'><div class='n'>" $live "</div><div class='l'>keys alive</div></div>
+  <div class='card'><div class='n'>" $h "</div><div class='l'>cache hits</div></div>
+  <div class='card'><div class='n'>" $rate "%</div><div class='l'>hit rate</div></div>
+  <div class='card'><div class='n'>" (deref $stats-sets) "</div><div class='l'>total sets</div></div>
+</div>
+<div class='sec'>
+  <h2>&#x1F5DD; Keys (" $total ")</h2>
+  <table>
+    <tr><th>KEY</th><th>VALUE</th><th>TTL</th><th>STATUS</th></tr>
+    " $rows "
+  </table>
+</div>
+<div class='api'>
+  <div style='margin-bottom:6px;font-size:.72rem'>API</div>
+  <code>SET &nbsp;&nbsp;POST /set/:key  {\"value\":\"...\", \"ttl\":60}</code>
+  <code>GET &nbsp;&nbsp;GET /get/:key</code>
+  <code>DEL &nbsp;&nbsp;DELETE /del/:key | POST /del/:key</code>
+  <code>TTL &nbsp;&nbsp;GET /ttl/:key</code>
+  <code>INCR &nbsp;POST /incr/:key  {\"by\":1}</code>
+  <code>KEYS &nbsp;GET /keys</code>
+  <code>MSET &nbsp;POST /mset  {\"pairs\":[{\"key\":\"k\",\"value\":\"v\",\"ttl\":30}]}</code>
+  <code>FLUSH POST /flush</code>
+  <code>INFO &nbsp;GET /info</code>
+</div>
+<div class='foot'>fl-kv &middot; FreeLang Native C &middot; No Node.js</div>
+</body>
+</html>"))))
+
+;; ── 라우트 ──────────────────────────────────────────────────────────
+(server_get    "/"             "handle-dashboard")
+(server_post   "/set/:key"     "handle-set")
+(server_put    "/set/:key"     "handle-set")
+(server_get    "/get/:key"     "handle-get")
+(server_delete "/del/:key"     "handle-del")
+(server_post   "/del/:key"     "handle-del")
+(server_get    "/exists/:key"  "handle-exists")
+(server_get    "/ttl/:key"     "handle-ttl")
+(server_get    "/keys"         "handle-keys")
+(server_post   "/mset"         "handle-mset")
+(server_post   "/incr/:key"    "handle-incr")
+(server_post   "/flush"        "handle-flush")
+(server_get    "/info"         "handle-info")
+
+;; ── 시작 ────────────────────────────────────────────────────────────
+(server_start PORT)

@@ -1,0 +1,13 @@
+{
+  "name": "fl-kv",
+  "version": "1.0.0",
+  "language": "FreeLang fx (Native C)",
+  "status": "done",
+  "description": "미니 Redis — FreeLang 네이티브 KV 캐시 서버. Node.js 없음. 순수 C 바이너리.",
+  "ports": [40914],
+  "entry": "fl-kv",
+  "commands": {
+    "build": "bash ../fl-build.sh server.fl fl-kv",
+    "start": "PORT=40914 ./fl-kv"
+  }
+}
