@@ -1,0 +1,61 @@
+;; tests/test_jit.fl — FreeLang C Native Runtime JIT 테스트
+;; 검증 역량: JIT Compilation + FreeLang C Native Runtime
+;; 실행: ./jit-test-bin tests/test_jit.fl
+
+(define PASS (atom 0))
+(define FAIL (atom 0))
+
+(defn assert-eq [$label $got $expected]
+  (if (= $got $expected)
+    (do (println (str "  ✅ " $label)) (swap! PASS + 1))
+    (do (println (str "  ❌ " $label " | got=" $got " expected=" $expected)) (swap! FAIL + 1))))
+
+(defn assert-true [$label $val]
+  (assert-eq $label (if $val true false) true))
+
+;; ── T1: JIT 기본 연산 ────────────────────────────────
+(println "\n▶ T1: JIT 기본 — add1 / mul2 / add-xy")
+(assert-eq "add1(41)=42"    (jit-test-add1 41)   42)
+(assert-eq "add1(0)=1"      (jit-test-add1 0)    1)
+(assert-eq "mul2(21)=42"    (jit-test-mul2 21)   42)
+(assert-eq "mul2(0)=0"      (jit-test-mul2 0)    0)
+(assert-eq "addxy(10,32)=42" (jit-test-add-xy 10 32) 42)
+(assert-eq "addxy(0,0)=0"   (jit-test-add-xy 0 0) 0)
+
+;; ── T2: JIT 통계 확인 ────────────────────────────────
+(println "\n▶ T2: JIT 통계 — 메모리 풀 / 준비 상태")
+(let [[$s (jit-stats)]]
+  (assert-eq "ready=true"        (get $s "ready")        true)
+  (assert-true "pool_cap_kb>0"   (> (get $s "pool_cap_kb") 0))
+  (assert-true "threshold>0"     (> (get $s "threshold")  0)))
+
+;; ── T3: 네이티브 C 런타임 기능 ──────────────────────
+(println "\n▶ T3: C 네이티브 런타임 — 기본 연산")
+(assert-eq "산술: 1+2=3"  (+ 1 2)   3)
+(assert-eq "산술: 6*7=42" (* 6 7)   42)
+(assert-eq "비교: 5>3"    (> 5 3)   true)
+(assert-eq "문자열 연결"  (str "hello" " " "world") "hello world")
+
+;; ── T4: 컬렉션 연산 ─────────────────────────────────
+(println "\n▶ T4: C 네이티브 컬렉션")
+(let [[$xs (list 1 2 3 4 5)]]
+  (assert-eq "length=5"  (length $xs) 5)
+  (assert-eq "first=1"   (first $xs)  1)
+  (assert-eq "sum=15"    (reduce + 0 $xs) 15)
+  (assert-eq "map*2"     (reduce + 0 (map (fn [$x] (* $x 2)) $xs)) 30))
+
+;; ── T5: 재귀 / TCO ──────────────────────────────────
+(println "\n▶ T5: TCO 재귀 — 큰 수 스택오버플로 없음")
+(defn sum-iter [$n $acc]
+  (if (= $n 0)
+    $acc
+    (recur (- $n 1) (+ $acc $n))))
+(assert-eq "sum(100)=5050"   (sum-iter 100 0)  5050)
+(assert-eq "sum(1000)=500500" (sum-iter 1000 0) 500500)
+
+;; ── 결과 ─────────────────────────────────────────────
+(println "\n────────────────────────────────")
+(println (str "결과: " (deref PASS) " PASS / " (deref FAIL) " FAIL / " (+ (deref PASS) (deref FAIL)) " 총"))
+(if (= (deref FAIL) 0)
+  (println "🎉 모든 테스트 통과!")
+  (println (str "❌ " (deref FAIL) "개 실패")))
