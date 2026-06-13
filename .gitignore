@@ -2,3 +2,11 @@ stdlib
 data/
 node_modules/
 *.log
+
+# 빌드 산출물 (ELF 바이너리)
+hello-server
+test-db
+api-server
+templates/*/test-db
+templates/*/api-server
+templates/*/hello-server
