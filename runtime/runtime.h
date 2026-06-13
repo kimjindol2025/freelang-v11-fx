@@ -165,6 +165,7 @@ FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv);
 FLValue fl_map_fn(FLValue fn, FLValue vec);
 FLValue fl_filter_fn(FLValue fn, FLValue vec);
 FLValue fl_reduce_fn(FLValue fn, FLValue init, FLValue vec);
+void    fl_for_each(FLValue fn, FLValue vec);
 
 /* ── S9: 맵 accessor ── */
 FLValue fl_map_keys(FLValue map);

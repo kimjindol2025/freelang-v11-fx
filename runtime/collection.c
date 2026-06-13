@@ -246,6 +246,16 @@ FLValue fl_filter_fn(FLValue fn, FLValue vec) {
     return r;
 }
 
+/* for-each: 부작용 전용 반복, nil 반환 */
+void fl_for_each(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return;
+    FLVector* v = (FLVector*)vec.obj;
+    for (uint32_t i = 0; i < v->len; i++) {
+        FLValue elem = v->data[i];
+        fl_fn_call(fn, 1, &elem);
+    }
+}
+
 FLValue fl_reduce_fn(FLValue fn, FLValue init, FLValue vec) {
     if (vec.tag != FL_VECTOR) return init;
     FLVector* v = (FLVector*)vec.obj;
