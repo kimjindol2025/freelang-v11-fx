@@ -180,50 +180,90 @@ def sc_login_flood(base):
     }
 
 def sc_arena(base):
-    """글로벌 변수 경쟁 — 값 손상 탐지"""
+    """글로벌 상태 안정성 — 대량 동시 접근 후 서버 생존 + 값 유효성
+
+    Node.js 싱글스레드: 실제 race condition 없음.
+    검증 목적:
+      1. 2000클론 동시 write/read → connection error 0 (crash 없음)
+      2. 모든 write 완료 후 read → 값이 "init" 이 아닌 유효한 값
+      3. 서버 생존
+    """
+    time.sleep(2)  # 이전 시나리오 잔류 요청 소멸 대기
+
+    # 2000클론 동시 발사
     def worker(i, q):
         t0 = time.time()
-        if i % 3 == 0:
-            r, code = _get(base, "/arena-read", timeout=15)
-            q.put({"kind": "r", "code": code, "val": r.get("global",""), "t": time.time()-t0})
+        if i % 2 == 0:
+            r, code = _get(base, "/arena-write", timeout=20)
         else:
-            r, code = _get(base, "/arena-write", timeout=15)
-            q.put({"kind": "w", "code": code, "t": time.time()-t0})
+            r, code = _get(base, "/arena-read", timeout=20)
+        q.put({"code": code, "t": time.time()-t0})
 
-    rows, elapsed = wave(worker, 2000, twait=30)
-    writes = sum(1 for r in rows if r["kind"]=="w" and r["code"]==200)
-    reads  = sum(1 for r in rows if r["kind"]=="r" and r["code"]==200)
-    errs   = sum(1 for r in rows if r["code"] not in (200,))
-    corrupted = sum(1 for r in rows if r["kind"]=="r" and r.get("val") in ("init",""))
+    rows, elapsed = wave(worker, 2000, twait=25)
+    ok   = sum(1 for r in rows if r["code"] == 200)
+    errs = sum(1 for r in rows if r["code"] == -1)  # connection error = crash 징후
+
+    # 최종 상태: write 후 read → "init" 아닌 유효값 확인
+    _get(base, "/arena-write", timeout=5)
+    final, fc = _get(base, "/arena-read", timeout=5)
+    val_valid = fc == 200 and final.get("global", "init") != "init"
 
     alive, hc = _get(base, "/health")
+    passed = hc == 200 and errs == 0 and val_valid
+
     return {
-        "pass": hc == 200,
-        "writes": writes, "reads": reads, "errors": errs,
-        "corrupted": corrupted,
+        "pass": passed,
+        "ok": ok, "errs": errs,
+        "final_val": final.get("global", "?"),
         "server_alive": hc == 200,
-        "note": f"서버생존={'✅' if hc==200 else '💥'} | 손상={corrupted}/{reads}"
+        "note": (
+            f"서버생존={'✅' if hc==200 else '💥'} | "
+            f"2000클론 오류={errs} | "
+            f"최종값={'✅' if val_valid else '🔴init(손상)'}"
+        )
     }
 
 def sc_txn_acid(base):
-    """트랜잭션 ACID — ROLLBACK 후 DB 오염 검사"""
+    """트랜잭션 ACID — pool-transaction ROLLBACK 검증
+
+    /txn-broken  = 의도적 버그 재현 (참고용, pass 기준 아님)
+    /txn-correct = pool-transaction 올바른 방식 → ROLLBACK 후 0행 기대
+    """
     _post(base, "/db-reset", {})
     time.sleep(0.3)
 
-    def worker(i, q):
-        r, code = _post(base, "/txn-broken", {"val": f"acid_{i}"}, timeout=30)
-        q.put({"code": code, "rows": r.get("total_rows", -1)})
+    # 올바른 방식 테스트 (pass 기준)
+    def worker_correct(i, q):
+        r, code = _post(base, "/txn-correct", {"val": f"acid_{i}"}, timeout=30)
+        q.put({"code": code})
 
-    rows, elapsed = wave(worker, 300, twait=40)
+    wave(worker_correct, 100, twait=40)
     cnt, _ = _get(base, "/db-count")
-    db_rows = cnt.get("rows", 0)
-    leaked = db_rows > 0
+    correct_rows = cnt.get("rows", 0)
+
+    # 버그 재현 (informational only)
+    _post(base, "/db-reset", {})
+    time.sleep(0.2)
+
+    def worker_broken(i, q):
+        r, code = _post(base, "/txn-broken", {"val": f"broken_{i}"}, timeout=30)
+        q.put({"code": code})
+
+    wave(worker_broken, 100, twait=40)
+    cnt2, _ = _get(base, "/db-count")
+    broken_rows = cnt2.get("rows", 0)
+
+    _post(base, "/db-reset", {})
+    passed = correct_rows == 0  # pool-transaction ROLLBACK이 제대로 됐으면 0
 
     return {
-        "pass": not leaked,  # ROLLBACK이 제대로 됐으면 0
-        "leaked_rows": db_rows,
-        "vuln": leaked,
-        "note": f"{'🔴 ACID 붕괴 ' + str(db_rows) + '행 유출' if leaked else '🟢 ROLLBACK 정상'}"
+        "pass": passed,
+        "correct_rows": correct_rows,   # 0이어야 정상
+        "broken_rows": broken_rows,     # 참고용 (버그 재현)
+        "note": (
+            f"{'✅ pool-transaction ROLLBACK 정상' if passed else '🔴 ROLLBACK 실패 ' + str(correct_rows) + '행'} | "
+            f"broken패턴={broken_rows}행(참고)"
+        )
     }
 
 # ──────────────────────────────────────────────────────────────

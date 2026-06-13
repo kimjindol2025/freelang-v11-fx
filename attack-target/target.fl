@@ -1,19 +1,26 @@
-;; FreeLang 공격 타겟 서버
-;; 시나리오 A: BUG-2 (O(n²) eval) — 재귀 엔드포인트
-;; 시나리오 B: BUG-3 (connection-per-query) — 트랜잭션 엔드포인트
-;; 시나리오 C: Arena Lifetime — 글로벌 쓰기 엔드포인트
+;; FreeLang 공격 타겟 서버 v2
+;; 시나리오 A: 재귀 (BUG-2) — /recurse/:n
+;; 시나리오 B: 트랜잭션 ACID — /txn-broken, /txn-correct
+;; 시나리오 C: Arena 일관성 — /arena-write, /arena-read
+;; 시나리오 D: DB flood — /db-insert, /db-count, /db-reset
+;; 시나리오 E: 로그인 (SQL 인젝션 방어) — /login
 
 (define PORT 40912)
 (define $db (mariadb-connect "localhost" "akl" "akl_pass_2026" "akl"))
 
+;; rate limit 완전 해제 (스트레스 테스트용)
+(server_rate_limit 999999 1000)
+
 ;; DB 초기화
 (mariadb-exec $db "CREATE TABLE IF NOT EXISTS _attack_log (id INT AUTO_INCREMENT PRIMARY KEY, val VARCHAR(200), ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB")
+(mariadb-exec $db "CREATE TABLE IF NOT EXISTS _users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) UNIQUE, password VARCHAR(100)) ENGINE=InnoDB")
+(mariadb-exec $db "INSERT IGNORE INTO _users (username, password) VALUES ('admin', 'secret123'), ('user1', 'pw1'), ('user2', 'pw2')")
 
-;; 글로벌 상태 (Arena 버그 탐지용)
-(define $global_val "init")
-(define $req_count 0)
+;; 글로벌 가변 상태 (atom — 핸들러 내부에서 실제 변경 가능)
+(define $global_val (atom "init"))
+(define $req_count  (atom 0))
 
-;; ─── 시나리오 A: 재귀 (BUG-2 노출) ──────────────────────────────
+;; ─── A: 재귀 (BUG-2 내성) ────────────────────────────────────────
 (defn sum-iter [$n $acc]
   (if (<= $n 0) $acc
     (sum-iter (- $n 1) (+ $acc $n))))
@@ -24,8 +31,7 @@
           $res  (sum-iter $n 0)]
       (server_json (str "{\"n\":" $n ",\"result\":" $res "}")))))
 
-;; ─── 시나리오 B: 트랜잭션 (BUG-3 노출) ───────────────────────────
-;; 잘못된 방식: connection-per-query (버그 재현용)
+;; ─── B: 트랜잭션 ACID ─────────────────────────────────────────────
 (server_post "/txn-broken"
   (fn [$req]
     (let [$body (server_req_json $req)
@@ -39,9 +45,8 @@
         (catch $e
           (mariadb-exec $db "ROLLBACK")))
       (let [$cnt (mariadb-one $db "SELECT COUNT(*) AS c FROM _attack_log")]
-        (server_json (str "{\"val\":\"" $val "\",\"total_rows\":" (get $cnt "c") "}"))))))
+        (server_json (str "{\"total_rows\":" (get $cnt "c") "}"))))))
 
-;; 올바른 방식: pool-transaction
 (server_post "/txn-correct"
   (fn [$req]
     (let [$body (server_req_json $req)
@@ -49,25 +54,33 @@
       (try
         (mariadb-pool-transaction $db
           (list
-            (hash-map "sql" (str "INSERT INTO _attack_log (val) VALUES ('" $val "')"))
+            (hash-map "sql" "INSERT INTO _attack_log (val) VALUES (?)" "params" (list $val))
             (hash-map "sql" "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced'")))
         (catch $e nil))
       (let [$cnt (mariadb-one $db "SELECT COUNT(*) AS c FROM _attack_log")]
-        (server_json (str "{\"val\":\"" $val "\",\"total_rows\":" (get $cnt "c") "}"))))))
+        (server_json (str "{\"total_rows\":" (get $cnt "c") "}"))))))
 
-;; ─── 시나리오 C: Arena Lifetime (글로벌 쓰기) ─────────────────────
+;; ─── C: Arena 글로벌 상태 (atom 기반 가변) ──────────────────────────
 (server_get "/arena-write"
   (fn [$req]
-    (let [$val (str "req-" $req_count "-" (str-length "test"))]
-      (define $global_val $val)
-      (define $req_count (+ $req_count 1))
+    (let [$cnt (deref $req_count)
+          $val (str "req-" $cnt)]
+      (reset! $global_val $val)
+      (swap! $req_count (fn [$v] (+ $v 1)))
       (server_json (str "{\"written\":\"" $val "\"}")))))
 
 (server_get "/arena-read"
   (fn [$req]
-    (server_json (str "{\"global\":\"" $global_val "\",\"count\":" $req_count "}"))))
+    (server_json (str "{\"global\":\"" (deref $global_val) "\",\"count\":" (deref $req_count) "}"))))
 
-;; ─── DB 상태 조회 ───────────────────────────────────────────────
+;; ─── D: DB flood ─────────────────────────────────────────────────
+(server_post "/db-insert"
+  (fn [$req]
+    (let [$body (server_req_json $req)
+          $val  (or (get $body "val") "?")]
+      (mariadb-exec $db "INSERT INTO _attack_log (val) VALUES (?)" (list $val))
+      (server_json "{\"ok\":true}"))))
+
 (server_get "/db-count"
   (fn [$req]
     (let [$cnt (mariadb-one $db "SELECT COUNT(*) AS c FROM _attack_log")]
@@ -78,9 +91,22 @@
     (mariadb-exec $db "TRUNCATE TABLE _attack_log")
     (server_json "{\"ok\":true}")))
 
-;; ─── 헬스 ───────────────────────────────────────────────────────
+;; ─── E: 로그인 — 파라미터 바인딩 (SQL 인젝션 방어) ───────────────
+(server_post "/login"
+  (fn [$req]
+    (let [$body (server_req_json $req)
+          $user (or (get $body "username") "")
+          $pw   (or (get $body "password") "")
+          $row  (mariadb-one $db
+                  "SELECT id FROM _users WHERE username=? AND password=? LIMIT 1"
+                  (list $user $pw))]
+      (if $row
+        (server_json (str "{\"ok\":true,\"user\":\"" $user "\"}"))
+        (server_json "{\"ok\":false,\"reason\":\"invalid\"}")))))
+
+;; ─── 헬스 ────────────────────────────────────────────────────────
 (server_get "/health"
   (fn [$req]
-    (server_json (str "{\"ok\":true,\"port\":" PORT ",\"reqs\":" $req_count "}"))))
+    (server_json (str "{\"ok\":true,\"port\":" PORT ",\"reqs\":" (deref $req_count) "}"))))
 
 (server_start PORT)
