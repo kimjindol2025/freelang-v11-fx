@@ -114,19 +114,19 @@
     (server_json (json-ok (str "\"count\":" $count ",\"keys\":[" $arr "]")))))
 
 ;; ── MSET ────────────────────────────────────────────────────────────
-;; 중첩 lambda → cgc 익명 번호 충돌 우회: reduce로 새 상태 계산 후 reset!
 (defn handle-mset [$req]
   (let [$body  (json_parse (server_req_body $req))
         $pairs (or (get $body "pairs") (list))
-        $count (length $pairs)
-        $new   (reduce
-                 (fn [$acc $pair]
-                   (let [$k (get $pair "key")
-                         $v (get $pair "value")
-                         $t (get $pair "ttl")]
-                     (assoc $acc $k (make-entry $v (calc-ex $t)))))
-                 (deref $store) $pairs)]
-    (reset! $store $new)
+        $count (length $pairs)]
+    (swap! $store
+      (fn [$s]
+        (reduce
+          (fn [$acc $pair]
+            (let [$k (get $pair "key")
+                  $v (get $pair "value")
+                  $t (get $pair "ttl")]
+              (assoc $acc $k (make-entry $v (calc-ex $t)))))
+          $s $pairs)))
     (swap! $stats-sets (fn [$n] (+ $n $count)))
     (server_json (json-ok (str "\"count\":" $count)))))
 
