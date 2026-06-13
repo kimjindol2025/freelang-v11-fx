@@ -137,6 +137,11 @@ FLValue fl_vec_set(FLValue vec, FLValue idx, FLValue val);
 FLValue fl_vec_push(FLValue vec, FLValue val);
 FLValue fl_vec_len(FLValue vec);
 
+/* ── 가변 빌더 (rc=0xFE, heap-allocated) ── */
+FLValue fl_vec_builder_new(void);
+void    fl_vec_builder_push(FLValue b, FLValue val);
+FLValue fl_vec_builder_freeze(FLValue b);
+
 /* ── Map ── */
 FLValue fl_map_new(void);
 FLValue fl_map_from_pairs(FLValue* kv, uint32_t n); /* n = 쌍의 수 */

@@ -5,9 +5,11 @@
  *   - 요청 처리 중 (fl_arena_begin ~ fl_arena_end): Arena에 할당
  *   - 요청 외부 (전역 define, startup): malloc 폴백 (fl_arena_alloc 내부)
  *   - 클로저(fl_fn_new): 장기 생존 가능 → 항상 malloc
+ *   - 빌더(fl_vec_builder_new): heap malloc, rc=0xFE 표시, freeze로 arena 변환
  *
  * copy semantics(불변 스타일)이므로 개별 free 불필요.
  * 요청 단위로 fl_arena_end()가 전부 일괄 해제.
+ * 예외: rc==0xFE 빌더는 fl_vec_builder_freeze 시 heap free.
  */
 
 #include "runtime.h"
@@ -51,9 +53,58 @@ FLValue fl_vec_len(FLValue vec) {
     return fl_int((int64_t)((FLVector*)vec.obj)->len);
 }
 
-/* copy semantics: 새 vector 반환. 구 vector는 Arena에 남아 일괄 해제됨 */
+/* ── 가변 빌더 (heap-allocated, rc=0xFE) ─────────────────────────────
+ * fl_vec_builder_new  → heap FLVector, cap=16, rc=0xFE
+ * fl_vec_builder_push → O(1) amortized (realloc+doubling)
+ * fl_vec_builder_freeze → arena FLVector (불변) 반환 후 heap free
+ *
+ * 사용 패턴:
+ *   FLValue b = fl_vec_builder_new();
+ *   for (...) fl_vec_builder_push(b, elem);
+ *   FLValue result = fl_vec_builder_freeze(b);
+ */
+FLValue fl_vec_builder_new(void) {
+    FLVector* v = (FLVector*)malloc(sizeof(FLVector));
+    v->base.type = FL_VECTOR;
+    v->base.rc   = 0xFE;   /* mutable builder 표시 */
+    v->len = 0; v->cap = 16;
+    v->data = (FLValue*)malloc(sizeof(FLValue) * 16);
+    FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
+}
+
+void fl_vec_builder_push(FLValue b, FLValue val) {
+    if (b.tag != FL_VECTOR) return;
+    FLVector* v = (FLVector*)b.obj;
+    if (v->base.rc != 0xFE) return;
+    if (v->len >= v->cap) {
+        v->cap = v->cap ? v->cap * 2 : 16;
+        v->data = (FLValue*)realloc(v->data, sizeof(FLValue) * v->cap);
+    }
+    v->data[v->len++] = val;
+}
+
+FLValue fl_vec_builder_freeze(FLValue b) {
+    if (b.tag != FL_VECTOR) return fl_vec_new();
+    FLVector* src = (FLVector*)b.obj;
+    if (src->base.rc != 0xFE) return b;   /* 이미 불변 */
+    FLValue result = fl_vec_from(src->data, src->len);
+    free(src->data);
+    free(src);
+    return result;
+}
+
+/* copy semantics: 새 vector 반환. 구 vector는 Arena에 남아 일괄 해제됨.
+ * 빌더(rc==0xFE) 입력이면 O(1) amortized 경로로 mutate. */
 FLValue fl_vec_push(FLValue vec, FLValue val) {
     FLVector* src = (vec.tag == FL_VECTOR) ? (FLVector*)vec.obj : NULL;
+
+    /* 빌더 fast-path: O(1) amortized */
+    if (src && src->base.rc == 0xFE) {
+        fl_vec_builder_push(vec, val);
+        return vec;
+    }
+
+    /* 불변 copy-semantics */
     uint32_t n = src ? src->len : 0;
     FLVector* v = A(sizeof(FLVector));
     v->base.type = FL_VECTOR; v->base.rc = 1;
@@ -165,23 +216,33 @@ FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv) {
 FLValue fl_map_fn(FLValue fn, FLValue vec) {
     if (vec.tag != FL_VECTOR) return fl_vec_new();
     FLVector* v = (FLVector*)vec.obj;
-    FLValue r = fl_vec_new();
+    if (v->len == 0) return fl_vec_new();
+    /* O(n): 결과 크기 확정(입력 동일) → 단일 arena 배열 */
+    FLValue* tmp = (FLValue*)malloc(sizeof(FLValue) * v->len);
+    if (!tmp) return fl_vec_new();
     for (uint32_t i = 0; i < v->len; i++) {
         FLValue elem = v->data[i];
-        FLValue out = fl_fn_call(fn, 1, &elem);
-        r = fl_vec_push(r, out);
+        tmp[i] = fl_fn_call(fn, 1, &elem);
     }
+    FLValue r = fl_vec_from(tmp, v->len);
+    free(tmp);
     return r;
 }
 
 FLValue fl_filter_fn(FLValue fn, FLValue vec) {
     if (vec.tag != FL_VECTOR) return fl_vec_new();
     FLVector* v = (FLVector*)vec.obj;
-    FLValue r = fl_vec_new();
+    if (v->len == 0) return fl_vec_new();
+    /* O(n): 최대 n개 → C 배열 수집 후 fl_vec_from */
+    FLValue* tmp = (FLValue*)malloc(sizeof(FLValue) * v->len);
+    if (!tmp) return fl_vec_new();
+    uint32_t len = 0;
     for (uint32_t i = 0; i < v->len; i++) {
         FLValue elem = v->data[i];
-        if (fl_truthy(fl_fn_call(fn, 1, &elem))) r = fl_vec_push(r, elem);
+        if (fl_truthy(fl_fn_call(fn, 1, &elem))) tmp[len++] = elem;
     }
+    FLValue r = fl_vec_from(tmp, len);
+    free(tmp);
     return r;
 }
 
@@ -201,28 +262,34 @@ FLValue fl_reduce_fn(FLValue fn, FLValue init, FLValue vec) {
 FLValue fl_map_keys(FLValue map) {
     if (map.tag != FL_MAP) return fl_vec_new();
     FLMap* m = (FLMap*)map.obj;
-    FLValue r = fl_vec_new();
-    for (uint32_t i = 0; i < m->len; i++) r = fl_vec_push(r, m->entries[i].key);
-    return r;
+    if (m->len == 0) return fl_vec_new();
+    FLValue* tmp = (FLValue*)malloc(sizeof(FLValue) * m->len);
+    if (!tmp) return fl_vec_new();
+    for (uint32_t i = 0; i < m->len; i++) tmp[i] = m->entries[i].key;
+    FLValue r = fl_vec_from(tmp, m->len); free(tmp); return r;
 }
 
 FLValue fl_map_vals(FLValue map) {
     if (map.tag != FL_MAP) return fl_vec_new();
     FLMap* m = (FLMap*)map.obj;
-    FLValue r = fl_vec_new();
-    for (uint32_t i = 0; i < m->len; i++) r = fl_vec_push(r, m->entries[i].val);
-    return r;
+    if (m->len == 0) return fl_vec_new();
+    FLValue* tmp = (FLValue*)malloc(sizeof(FLValue) * m->len);
+    if (!tmp) return fl_vec_new();
+    for (uint32_t i = 0; i < m->len; i++) tmp[i] = m->entries[i].val;
+    FLValue r = fl_vec_from(tmp, m->len); free(tmp); return r;
 }
 
 FLValue fl_map_entries(FLValue map) {
     if (map.tag != FL_MAP) return fl_vec_new();
     FLMap* m = (FLMap*)map.obj;
-    FLValue r = fl_vec_new();
+    if (m->len == 0) return fl_vec_new();
+    FLValue* tmp = (FLValue*)malloc(sizeof(FLValue) * m->len);
+    if (!tmp) return fl_vec_new();
     for (uint32_t i = 0; i < m->len; i++) {
         FLValue pair[2] = { m->entries[i].key, m->entries[i].val };
-        r = fl_vec_push(r, fl_vec_from(pair, 2));
+        tmp[i] = fl_vec_from(pair, 2);
     }
-    return r;
+    FLValue r = fl_vec_from(tmp, m->len); free(tmp); return r;
 }
 
 /* ── S12: bridge builtins ── */
@@ -269,9 +336,9 @@ FLValue fl_vec_slice(FLValue vec, FLValue start, FLValue end) {
     int64_t e = end.tag == FL_INT ? (end.i < 0 ? (int64_t)v->len + end.i + 1 : end.i) : (int64_t)v->len;
     if (s < 0) s = 0;
     if (e > (int64_t)v->len) e = (int64_t)v->len;
-    FLValue r = fl_vec_new();
-    for (int64_t i = s; i < e; i++) r = fl_vec_push(r, v->data[i]);
-    return r;
+    if (s >= e) return fl_vec_new();
+    /* O(n): fl_vec_from으로 단일 alloc */
+    return fl_vec_from(v->data + s, (uint32_t)(e - s));
 }
 
 FLValue fl_vec_last(FLValue vec) {

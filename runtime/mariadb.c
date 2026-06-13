@@ -98,11 +98,12 @@ static int ensure_lib(void) {
     return mariadb_lib != NULL;
 }
 
-/* ── 연결 풀 (단순 단일 연결, 추후 풀로 확장 가능) ── */
+/* ── 연결 풀 (idempotent key 기반, Connection-Per-Query 방지) ── */
 #define MAX_CONNECTIONS 32
 
 typedef struct {
     char     id[32];
+    char     key[256];   /* "host:port/db/user" — 연결 식별 키 */
     MYSQL*   conn;
     pthread_mutex_t lock;
     int      used;
@@ -120,9 +121,19 @@ static FLMariaConn* find_conn(const char* id) {
     return NULL;
 }
 
+/* 동일 key(host+port+db+user)로 이미 연결 존재 → 재사용 (Connection-Per-Query 방지) */
+static FLMariaConn* find_conn_by_key(const char* key) {
+    for (int i = 0; i < conn_count; i++) {
+        if (conn_pool[i].used && strcmp(conn_pool[i].key, key) == 0)
+            return &conn_pool[i];
+    }
+    return NULL;
+}
+
 /* ── FL 인터페이스 ── */
 
-/* (mariadb_connect "localhost" 3306 "user" "pass" "dbname") → "conn:0" */
+/* (mariadb_connect "localhost" 3306 "user" "pass" "dbname") → "conn:N"
+ * 동일 파라미터로 재호출 시 기존 연결 ID 반환 (연결 재사용) */
 FLValue mariadb_connect(FLValue host_v, FLValue port_v, FLValue user_v,
                         FLValue pw_v, FLValue db_v) {
     if (!ensure_lib())
@@ -133,6 +144,21 @@ FLValue mariadb_connect(FLValue host_v, FLValue port_v, FLValue user_v,
     const char* user = (user_v.tag == FL_STRING) ? ((FLString*)user_v.obj)->data : "root";
     const char* pw   = (pw_v.tag  == FL_STRING)  ? ((FLString*)pw_v.obj)->data  : "";
     const char* db   = (db_v.tag  == FL_STRING)  ? ((FLString*)db_v.obj)->data  : NULL;
+
+    /* 연결 키: "host:port/db/user" */
+    char key[256];
+    snprintf(key, sizeof(key), "%s:%d/%s/%s", host, port, db ? db : "", user);
+
+    pthread_mutex_lock(&pool_lock);
+    /* 이미 동일 파라미터 연결 존재 → 기존 ID 반환 */
+    FLMariaConn* existing = find_conn_by_key(key);
+    if (existing) {
+        char id_copy[32];
+        strncpy(id_copy, existing->id, 32);
+        pthread_mutex_unlock(&pool_lock);
+        return fl_str_val(id_copy);
+    }
+    pthread_mutex_unlock(&pool_lock);
 
     MYSQL* conn = p_mysql_init(NULL);
     if (!conn) return fl_str_val("[mariadb] mysql_init 실패");
@@ -147,6 +173,15 @@ FLValue mariadb_connect(FLValue host_v, FLValue port_v, FLValue user_v,
     }
 
     pthread_mutex_lock(&pool_lock);
+    /* double-check: 다른 스레드가 먼저 연결했을 수 있음 */
+    existing = find_conn_by_key(key);
+    if (existing) {
+        char id_copy[32];
+        strncpy(id_copy, existing->id, 32);
+        pthread_mutex_unlock(&pool_lock);
+        p_mysql_close(conn);
+        return fl_str_val(id_copy);
+    }
     if (conn_count >= MAX_CONNECTIONS) {
         pthread_mutex_unlock(&pool_lock);
         p_mysql_close(conn);
@@ -154,6 +189,7 @@ FLValue mariadb_connect(FLValue host_v, FLValue port_v, FLValue user_v,
     }
     int idx = conn_count++;
     snprintf(conn_pool[idx].id, sizeof(conn_pool[idx].id), "conn:%d", idx);
+    strncpy(conn_pool[idx].key, key, sizeof(conn_pool[idx].key));
     conn_pool[idx].conn = conn;
     conn_pool[idx].used = 1;
     pthread_mutex_init(&conn_pool[idx].lock, NULL);

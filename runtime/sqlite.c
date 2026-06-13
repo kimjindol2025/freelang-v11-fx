@@ -19,11 +19,12 @@
 /* SQLite3 헤더 직접 포함 (설치되어 있음) */
 #include <sqlite3.h>
 
-/* ── 연결 풀 ── */
+/* ── 연결 풀 (path-based 재사용, Connection-Per-Query 방지) ── */
 #define MAX_SQLITE_CONN 32
 
 typedef struct {
     char      id[32];
+    char      path[512];  /* DB 경로 키 */
     sqlite3*  db;
     pthread_mutex_t lock;
     int       used;
@@ -39,13 +40,31 @@ static FLSQLiteConn* sq_find(const char* id) {
     return NULL;
 }
 
+/* 동일 경로로 이미 열린 DB 존재 → 재사용 */
+static FLSQLiteConn* sq_find_by_path(const char* path) {
+    for (int i = 0; i < sq_count; i++)
+        if (sq_pool[i].used && strcmp(sq_pool[i].path, path) == 0) return &sq_pool[i];
+    return NULL;
+}
+
 /* ── FL 인터페이스 ── */
 
-/* (sqlite_open "/path/to/db.sqlite") → "db:0" */
+/* (sqlite_open "/path/to/db.sqlite") → "db:N"
+ * 동일 경로로 재호출 시 기존 연결 ID 반환 (연결 재사용) */
 FLValue sqlite_open(FLValue path_v) {
     const char* path = (path_v.tag == FL_STRING)
         ? ((FLString*)path_v.obj)->data
         : ":memory:";
+
+    pthread_mutex_lock(&sq_pool_lock);
+    FLSQLiteConn* existing = sq_find_by_path(path);
+    if (existing) {
+        char id_copy[32];
+        strncpy(id_copy, existing->id, 32);
+        pthread_mutex_unlock(&sq_pool_lock);
+        return fl_str_val(id_copy);
+    }
+    pthread_mutex_unlock(&sq_pool_lock);
 
     sqlite3* db = NULL;
     int rc = sqlite3_open(path, &db);
@@ -61,6 +80,15 @@ FLValue sqlite_open(FLValue path_v) {
     sqlite3_exec(db, "PRAGMA foreign_keys=ON",  NULL, NULL, NULL);
 
     pthread_mutex_lock(&sq_pool_lock);
+    /* double-check */
+    existing = sq_find_by_path(path);
+    if (existing) {
+        char id_copy[32];
+        strncpy(id_copy, existing->id, 32);
+        pthread_mutex_unlock(&sq_pool_lock);
+        sqlite3_close(db);
+        return fl_str_val(id_copy);
+    }
     if (sq_count >= MAX_SQLITE_CONN) {
         pthread_mutex_unlock(&sq_pool_lock);
         sqlite3_close(db);
@@ -68,6 +96,7 @@ FLValue sqlite_open(FLValue path_v) {
     }
     int idx = sq_count++;
     snprintf(sq_pool[idx].id, sizeof(sq_pool[idx].id), "db:%d", idx);
+    strncpy(sq_pool[idx].path, path, sizeof(sq_pool[idx].path));
     sq_pool[idx].db   = db;
     sq_pool[idx].used = 1;
     pthread_mutex_init(&sq_pool[idx].lock, NULL);
