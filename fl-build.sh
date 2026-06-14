@@ -95,7 +95,7 @@ fi
 gcc -O2 -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
   -I "$RUNTIME_DIR" \
   -rdynamic -lpthread -lm -ldl -lsqlite3 \
-  2>&1
+  -w 2>&1 | grep -E "^.*error" | grep -v '"error"' | head -5 || true
 
 # ─── 4. 정리 ─────────────────────────────────────────────────────
 rm -f "$C_FILE" "$PREPROCESSED"
