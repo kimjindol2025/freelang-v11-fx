@@ -202,6 +202,8 @@ FLValue get_in(FLValue m, FLValue path);
 FLValue assoc_in(FLValue m, FLValue path, FLValue v);
 FLValue update_in(FLValue m, FLValue path, FLValue fn);
 FLValue str_format(FLValue fmt_v, FLValue args);
+FLValue concat(FLValue a, FLValue b) ;
+FLValue list_new0(void)                    ;
 FLValue fl_obj_omit(FLValue m, FLValue ks);
 FLValue fl_repeat(FLValue n_v, FLValue val);
 FLValue fl_sort_by(FLValue fn, FLValue vec);
