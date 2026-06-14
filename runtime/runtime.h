@@ -363,6 +363,7 @@ FLValue server_start(FLValue port);
 /* kebab-case 앱 호환 alias */
 FLValue fl_http_route(FLValue method, FLValue path, FLValue handler);
 FLValue fl_http_start(FLValue port);
+FLValue fl_http_get(FLValue url);   /* outbound HTTP 클라이언트 (경로 A PoC) */
 /* kebab-case response alias */
 FLValue fl_resp_html(FLValue html);
 FLValue fl_resp_json(FLValue json);
