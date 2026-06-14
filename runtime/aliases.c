@@ -13,6 +13,11 @@
 #include <time.h>
 #include <math.h>
 
+/* ── 내부 헬퍼: fn에 인자 1개 전달 ── */
+static FLValue fl_apply_fn(FLValue fn, FLValue arg) {
+    return fl_fn_call(fn, 1, &arg);
+}
+
 /* ── 환경 ── */
 FLValue env_get(FLValue key)        { return _fl_env_get(key); }
 FLValue env_set(FLValue k, FLValue v) { return _fl_env_set(k, v); }
@@ -1095,3 +1100,260 @@ FLValue fl_future_done(FLValue handle) {
     pthread_mutex_unlock(&f->mu);
     return fl_bool(done);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   stdlib 확장 — v11 동등 함수 (2026-06-15)
+   ═══════════════════════════════════════════════════════════════ */
+
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+/* ── 날짜/시간 ── */
+
+/* (date_format timestamp fmt)
+   timestamp = Unix 초 (fl_now 반환값)
+   fmt = strftime 포맷 문자열 e.g. "%Y-%m-%d %H:%M:%S"
+   반환: 포맷된 문자열 */
+FLValue date_format(FLValue ts, FLValue fmt) {
+    time_t t = (time_t)((ts.tag == FL_INT) ? ts.i : (int64_t)ts.f);
+    const char* f = (fmt.tag == FL_STRING) ? ((FLString*)fmt.obj)->data : "%Y-%m-%d %H:%M:%S";
+    struct tm tm_info;
+    localtime_r(&t, &tm_info);
+    char buf[256];
+    strftime(buf, sizeof(buf), f, &tm_info);
+    return fl_str_val(buf);
+}
+
+/* (date_now_str) → "2026-06-15 12:34:56" */
+FLValue date_now_str(void) {
+    time_t t = time(NULL);
+    struct tm tm_info;
+    localtime_r(&t, &tm_info);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_info);
+    return fl_str_val(buf);
+}
+
+/* (date_parse str fmt) → Unix 타임스탬프 (정수) */
+FLValue date_parse(FLValue str_v, FLValue fmt_v) {
+    const char* s = (str_v.tag == FL_STRING) ? ((FLString*)str_v.obj)->data : "";
+    const char* f = (fmt_v.tag == FL_STRING) ? ((FLString*)fmt_v.obj)->data : "%Y-%m-%d %H:%M:%S";
+    struct tm tm_info = {0};
+    if (!strptime(s, f, &tm_info)) return fl_nil();
+    return fl_int((int64_t)mktime(&tm_info));
+}
+
+/* (date_add timestamp seconds) → 새 타임스탬프 */
+FLValue date_add(FLValue ts, FLValue secs) {
+    int64_t t = (ts.tag == FL_INT) ? ts.i : (int64_t)ts.f;
+    int64_t s = (secs.tag == FL_INT) ? secs.i : (int64_t)secs.f;
+    return fl_int(t + s);
+}
+
+/* (date_diff ts1 ts2) → 초 차이 (ts1 - ts2) */
+FLValue date_diff(FLValue ts1, FLValue ts2) {
+    int64_t t1 = (ts1.tag == FL_INT) ? ts1.i : (int64_t)ts1.f;
+    int64_t t2 = (ts2.tag == FL_INT) ? ts2.i : (int64_t)ts2.f;
+    return fl_int(t1 - t2);
+}
+
+/* ── UUID v4 ── */
+
+/* (uuid4) → "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" */
+FLValue uuid4(void) {
+    unsigned char rnd[16];
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0) return fl_str_val("00000000-0000-4000-8000-000000000000");
+    ssize_t got = read(fd, rnd, 16);
+    close(fd);
+    if (got != 16) return fl_nil();
+
+    /* RFC 4122 버전4 비트 설정 */
+    rnd[6] = (rnd[6] & 0x0f) | 0x40;   /* version 4 */
+    rnd[8] = (rnd[8] & 0x3f) | 0x80;   /* variant 10xx */
+
+    char buf[37];
+    snprintf(buf, sizeof(buf),
+        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+        rnd[0],  rnd[1],  rnd[2],  rnd[3],
+        rnd[4],  rnd[5],  rnd[6],  rnd[7],
+        rnd[8],  rnd[9],  rnd[10], rnd[11],
+        rnd[12], rnd[13], rnd[14], rnd[15]);
+    return fl_str_val(buf);
+}
+
+/* ── 컬렉션 유틸 ── */
+
+/* (sum vec) → 합계 */
+FLValue fl_sum(FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_int(0);
+    FLVector* v = (FLVector*)vec.obj;
+    double total = 0;
+    int has_float = 0;
+    for (uint32_t i = 0; i < v->len; i++) {
+        FLValue x = v->data[i];
+        if      (x.tag == FL_INT)   total += (double)x.i;
+        else if (x.tag == FL_FLOAT) { total += x.f; has_float = 1; }
+    }
+    return has_float ? fl_float(total) : fl_int((int64_t)total);
+}
+
+/* (average vec) → 평균 (float) */
+FLValue fl_average(FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_float(0.0);
+    FLVector* v = (FLVector*)vec.obj;
+    if (v->len == 0) return fl_float(0.0);
+    FLValue s = fl_sum(vec);
+    double total = (s.tag == FL_INT) ? (double)s.i : s.f;
+    return fl_float(total / v->len);
+}
+
+/* (distinct vec) → 중복 제거 벡터 */
+FLValue fl_distinct(FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_vec_new();
+    FLVector* v = (FLVector*)vec.obj;
+    FLValue result = fl_vec_new();
+    for (uint32_t i = 0; i < v->len; i++) {
+        FLValue item = v->data[i];
+        int found = 0;
+        FLVector* r = (FLVector*)result.obj;
+        for (uint32_t j = 0; j < r->len; j++) {
+            if (fl_truthy(fl_eq(r->data[j], item))) { found = 1; break; }
+        }
+        if (!found) result = fl_vec_push(result, item);
+    }
+    return result;
+}
+
+/* (max-by fn vec) → fn 결과가 최대인 원소 */
+FLValue fl_max_by(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_nil();
+    FLVector* v = (FLVector*)vec.obj;
+    if (v->len == 0) return fl_nil();
+    FLValue best = v->data[0];
+    FLValue best_score = fl_apply_fn(fn,best);
+    for (uint32_t i = 1; i < v->len; i++) {
+        FLValue score = fl_apply_fn(fn,v->data[i]);
+        if (fl_truthy(fl_gt(score, best_score))) {
+            best = v->data[i]; best_score = score;
+        }
+    }
+    return best;
+}
+
+/* (min-by fn vec) → fn 결과가 최소인 원소 */
+FLValue fl_min_by(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_nil();
+    FLVector* v = (FLVector*)vec.obj;
+    if (v->len == 0) return fl_nil();
+    FLValue best = v->data[0];
+    FLValue best_score = fl_apply_fn(fn,best);
+    for (uint32_t i = 1; i < v->len; i++) {
+        FLValue score = fl_apply_fn(fn,v->data[i]);
+        if (fl_truthy(fl_lt(score, best_score))) {
+            best = v->data[i]; best_score = score;
+        }
+    }
+    return best;
+}
+
+/* (partition n vec) → n개씩 묶은 벡터의 벡터 */
+FLValue fl_partition(FLValue n_v, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_vec_new();
+    int n = (n_v.tag == FL_INT) ? (int)n_v.i : 1;
+    if (n <= 0) n = 1;
+    FLVector* v = (FLVector*)vec.obj;
+    FLValue result = fl_vec_new();
+    FLValue chunk = fl_vec_new();
+    for (uint32_t i = 0; i < v->len; i++) {
+        chunk = fl_vec_push(chunk, v->data[i]);
+        if ((int)((FLVector*)chunk.obj)->len == n) {
+            result = fl_vec_push(result, chunk);
+            chunk  = fl_vec_new();
+        }
+    }
+    if (((FLVector*)chunk.obj)->len > 0)
+        result = fl_vec_push(result, chunk);
+    return result;
+}
+
+/* (index-where fn vec) → 조건에 맞는 첫 인덱스 (없으면 -1) */
+FLValue fl_index_where(FLValue fn, FLValue vec) {
+    if (vec.tag != FL_VECTOR) return fl_int(-1);
+    FLVector* v = (FLVector*)vec.obj;
+    for (uint32_t i = 0; i < v->len; i++) {
+        if (fl_truthy(fl_apply_fn(fn,v->data[i]))) return fl_int((int64_t)i);
+    }
+    return fl_int(-1);
+}
+
+/* (zip-map keys vals) → 맵 생성 */
+FLValue fl_zip_map(FLValue keys, FLValue vals) {
+    if (keys.tag != FL_VECTOR || vals.tag != FL_VECTOR) return fl_map_new();
+    FLVector* ks = (FLVector*)keys.obj;
+    FLVector* vs = (FLVector*)vals.obj;
+    uint32_t len = ks->len < vs->len ? ks->len : vs->len;
+    FLValue m = fl_map_new();
+    for (uint32_t i = 0; i < len; i++)
+        m = fl_map_set(m, ks->data[i], vs->data[i]);
+    return m;
+}
+
+/* ── 문자열 유틸 ── */
+
+/* (str-char-at s idx) → 1글자 문자열 */
+FLValue str_char_at(FLValue s, FLValue idx_v) {
+    if (s.tag != FL_STRING) return fl_str_val("");
+    const char* data = ((FLString*)s.obj)->data;
+    int idx = (int)((idx_v.tag == FL_INT) ? idx_v.i : (int64_t)idx_v.f);
+    int len = (int)((FLString*)s.obj)->len;
+    if (idx < 0 || idx >= len) return fl_str_val("");
+    char buf[2] = {data[idx], '\0'};
+    return fl_str_val(buf);
+}
+
+/* (str-length s) → 바이트 길이 (정수) */
+FLValue str_length(FLValue s) {
+    if (s.tag != FL_STRING) return fl_int(0);
+    return fl_int((int64_t)((FLString*)s.obj)->len);
+}
+
+/* (str-reverse s) → 역순 문자열 */
+FLValue str_reverse(FLValue s) {
+    if (s.tag != FL_STRING) return fl_str_val("");
+    const char* data = ((FLString*)s.obj)->data;
+    int len = (int)((FLString*)s.obj)->len;
+    char* buf = malloc(len + 1);
+    for (int i = 0; i < len; i++) buf[i] = data[len - 1 - i];
+    buf[len] = '\0';
+    FLValue r = fl_str_val(buf);
+    free(buf);
+    return r;
+}
+
+/* (num-to-str n) → 숫자 → 문자열 (alias) */
+FLValue num_to_str(FLValue n) { return to_string(n); }
+
+/* (pad-zero n width) → "007", "042" */
+FLValue pad_zero(FLValue n, FLValue width_v) {
+    long long val = (n.tag == FL_INT) ? n.i : (long long)n.f;
+    int width = (width_v.tag == FL_INT) ? (int)width_v.i : 1;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%0*lld", width, val);
+    return fl_str_val(buf);
+}
+
+/* ── 수학 유틸 ── */
+
+/* (clamp val min max) → min ≤ val ≤ max */
+FLValue fl_clamp(FLValue val, FLValue lo, FLValue hi) {
+    double v = (val.tag == FL_INT) ? (double)val.i : val.f;
+    double l = (lo.tag  == FL_INT) ? (double)lo.i  : lo.f;
+    double h = (hi.tag  == FL_INT) ? (double)hi.i  : hi.f;
+    if (v < l) v = l;
+    if (v > h) v = h;
+    return (val.tag == FL_INT && lo.tag == FL_INT && hi.tag == FL_INT)
+           ? fl_int((int64_t)v) : fl_float(v);
+}
+

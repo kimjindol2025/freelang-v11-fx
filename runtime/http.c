@@ -587,6 +587,10 @@ static int check_keep_alive(HttpRequest* hr, const char* raw) {
     return want_keepalive;
 }
 
+/* websocket.c에서 선언 */
+extern int ws_is_upgrade_request(const char* raw);
+extern int ws_handle_upgrade(int fd, const char* raw, int raw_len);
+
 static void* handle_connection(void* arg) {
     ConnArg* ca = (ConnArg*)arg;
     int client_fd = ca->fd;
@@ -633,10 +637,16 @@ static void* handle_connection(void* arg) {
         }
         if (total <= 0) break;   /* 연결 종료 or 타임아웃 */
 
-        /* ── 2. 아레나 시작 (요청 단위 메모리 관리) ── */
+        /* ── 2. WebSocket 업그레이드 감지 (파싱 전에 체크) ── */
+        if (ws_is_upgrade_request(raw)) {
+            ws_handle_upgrade(client_fd, raw, total);
+            break;  /* WS는 keep-alive 루프 탈출 (핸들러가 fd 관리) */
+        }
+
+        /* ── 3. 아레나 시작 (요청 단위 메모리 관리) ── */
         fl_arena_begin();
 
-        /* ── 3. 파싱 ── */
+        /* ── 4. 파싱 ── */
         HttpRequest hr;
         if (parse_http_request(raw, total, &hr) < 0) {
             const char* err = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
@@ -645,10 +655,10 @@ static void* handle_connection(void* arg) {
             break;
         }
 
-        /* ── 4. keep-alive 결정 ── */
+        /* ── 5. keep-alive 결정 ── */
         int keep_alive = check_keep_alive(&hr, raw);
 
-        /* ── 5. 디버그 로그 ── */
+        /* ── 6. 디버그 로그 ── */
         struct timespec t_start;
         clock_gettime(CLOCK_MONOTONIC, &t_start);
         fl_log_request(hr.method, hr.path, hr.body, hr.body_len,
@@ -1159,4 +1169,189 @@ FLValue fl_http_get(FLValue url_v) {
     FLValue out = fl_str_val(body);
     free(buf);
     return out;
+}
+
+/* ───────────────────────────────────────────
+   HTTPS 서버 (server_start_tls)
+   server_start_tls(port, "/path/to/cert.pem", "/path/to/key.pem")
+   → HTTP와 동일한 라우트 + SSL 래핑
+─────────────────────────────────────────── */
+
+/* SSL 연결 래퍼 — recv/send 대신 SSL_read/SSL_write */
+typedef struct {
+    int   fd;
+    SSL*  ssl;
+} TLSConn;
+
+static __thread TLSConn* g_tls_conn = NULL;
+
+/* handle_connection에서 사용하는 recv/send를 TLS로 오버라이드하기 위한
+ * 별도 핸들러 — SSL_read/SSL_write 직접 사용 */
+static void* handle_tls_connection(void* arg) {
+    TLSConn* tc = (TLSConn*)arg;
+    int client_fd  = tc->fd;
+    SSL* ssl       = tc->ssl;
+    free(tc);
+
+    /* SSL 핸드셰이크 */
+    if (SSL_accept(ssl) <= 0) {
+        SSL_free(ssl);
+        close(client_fd);
+        return NULL;
+    }
+
+    int nodelay = 1;
+    setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+
+    char* raw = malloc(RECV_BUF);
+    if (!raw) { SSL_free(ssl); close(client_fd); return NULL; }
+
+    /* 단순 1-요청 처리 (TLS에서 keep-alive는 복잡도 증가) */
+    ssize_t total = SSL_read(ssl, raw, RECV_BUF - 1);
+    if (total <= 0) { free(raw); SSL_free(ssl); close(client_fd); return NULL; }
+    raw[total] = '\0';
+
+    fl_arena_begin();
+
+    HttpRequest hr;
+    if (parse_http_request(raw, (int)total, &hr) < 0) {
+        const char* err = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
+        SSL_write(ssl, err, (int)strlen(err));
+        fl_arena_end();
+        free(raw); SSL_free(ssl); close(client_fd);
+        return NULL;
+    }
+
+    FLValue params = fl_nil();
+    Route* matched = NULL;
+    for (int i = 0; i < g_nroutes; i++) {
+        FLValue p;
+        if (match_route(&g_routes[i], hr.method, hr.path, &p)) {
+            matched = &g_routes[i]; params = p; break;
+        }
+    }
+
+    FLValue resp;
+    if (!matched) {
+        char nb[256];
+        snprintf(nb, sizeof(nb), "{\"error\":\"Not Found\",\"path\":\"%s\"}", hr.path);
+        resp = make_response(404, "application/json", nb);
+    } else {
+        FLValue req = make_req_map(&hr, params);
+        resp = fl_nil();
+        if (fl_try_top < FL_TRY_MAX) {
+            FLTryFrame* frame = &fl_try_stack[fl_try_top++];
+            if (setjmp(frame->buf) == 0) {
+                resp = matched->fn(req); fl_try_top--;
+            } else {
+                fl_try_top--;
+                const char* emsg = frame->err.tag == FL_STRING ? strval(frame->err) : "error";
+                char eb[512]; snprintf(eb, sizeof(eb), "{\"error\":\"%s\"}", emsg);
+                resp = make_response(500, "application/json", eb);
+            }
+        } else {
+            resp = matched->fn(req);
+        }
+    }
+
+    /* 응답 직렬화 + SSL_write */
+    FLValue status_v  = fl_map_get(resp, fl_str_val(K_STATUS));
+    FLValue body_v    = fl_map_get(resp, fl_str_val(K_BODY));
+    FLValue headers_v = fl_map_get(resp, fl_str_val(K_HEADERS));
+    int status_code   = (status_v.tag == FL_INT) ? (int)status_v.i : 200;
+    const char* body  = (body_v.tag == FL_STRING) ? strval(body_v) : "";
+    size_t body_len   = strlen(body);
+
+    const char* ctype = "text/plain";
+    if (headers_v.tag == FL_MAP) {
+        FLValue ct = fl_map_get(headers_v, fl_str_val("Content-Type"));
+        if (ct.tag == FL_STRING) ctype = strval(ct);
+    }
+
+    char hdr_buf[512];
+    int hdr_len = snprintf(hdr_buf, sizeof(hdr_buf),
+        "HTTP/1.1 %d OK\r\n"
+        "Content-Type: %s\r\n"
+        "Content-Length: %zu\r\n"
+        "Connection: close\r\n"
+        "\r\n",
+        status_code, ctype, body_len);
+    SSL_write(ssl, hdr_buf, hdr_len);
+    if (body_len > 0) SSL_write(ssl, body, (int)body_len);
+
+    fl_arena_end();
+    free(raw);
+    SSL_shutdown(ssl);
+    SSL_free(ssl);
+    close(client_fd);
+    return NULL;
+}
+
+/* server_start_tls(port, cert_path, key_path) */
+FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
+    int port = 8443;
+    if      (port_val.tag == FL_INT)   port = (int)port_val.i;
+    else if (port_val.tag == FL_FLOAT) port = (int)port_val.f;
+
+    const char* cert_path = strval(cert_val);
+    const char* key_path  = strval(key_val);
+
+    /* SSL 초기화 */
+    SSL_library_init();
+    SSL_load_error_strings();
+    SSL_CTX* ctx = SSL_CTX_new(TLS_server_method());
+    if (!ctx) {
+        fprintf(stderr, "[tls] SSL_CTX_new 실패\n");
+        return fl_nil();
+    }
+    if (SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM) <= 0) {
+        fprintf(stderr, "[tls] 인증서 로드 실패: %s\n", cert_path);
+        SSL_CTX_free(ctx); return fl_nil();
+    }
+    if (SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM) <= 0) {
+        fprintf(stderr, "[tls] 개인키 로드 실패: %s\n", key_path);
+        SSL_CTX_free(ctx); return fl_nil();
+    }
+
+    signal(SIGPIPE, SIG_IGN);
+    pool_init();
+
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family      = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port        = htons((uint16_t)port);
+
+    if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        fprintf(stderr, "[tls] bind(%d) 실패: %s\n", port, strerror(errno));
+        close(server_fd); SSL_CTX_free(ctx); return fl_nil();
+    }
+    listen(server_fd, 128);
+    fprintf(stderr, "[tls] HTTPS 서버 시작: https://0.0.0.0:%d\n", port);
+
+    /* accept 루프 */
+    while (1) {
+        struct sockaddr_in caddr;
+        socklen_t clen = sizeof(caddr);
+        int cfd = accept(server_fd, (struct sockaddr*)&caddr, &clen);
+        if (cfd < 0) { if (errno == EINTR) continue; break; }
+
+        SSL* ssl = SSL_new(ctx);
+        SSL_set_fd(ssl, cfd);
+
+        TLSConn* tc = malloc(sizeof(TLSConn));
+        tc->fd = cfd; tc->ssl = ssl;
+
+        pthread_t tid;
+        pthread_create(&tid, NULL, handle_tls_connection, tc);
+        pthread_detach(tid);
+    }
+
+    close(server_fd);
+    SSL_CTX_free(ctx);
+    return fl_nil();
 }

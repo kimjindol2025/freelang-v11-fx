@@ -371,6 +371,16 @@ FLValue fl_resp_text(FLValue text);
 FLValue fl_resp_status(FLValue code, FLValue body);
 FLValue fl_resp_redirect(FLValue url);
 
+/* ── HTTP 서버 TLS (http.c) ── */
+FLValue server_start_tls(FLValue port, FLValue cert, FLValue key);
+
+/* ── WebSocket (websocket.c) ── */
+FLValue server_ws(FLValue path, FLValue handler);
+FLValue ws_recv(FLValue ws);
+FLValue ws_send(FLValue ws, FLValue msg);
+FLValue ws_close(FLValue ws);
+FLValue ws_conn_id(FLValue ws);
+
 /* ── aliases.c — cgc-bin 생성 함수 bridge ── */
 /* 환경 */
 FLValue env_get(FLValue key);
@@ -534,6 +544,31 @@ FLValue str_test(FLValue str_v, FLValue pat_v);
 FLValue fl_future(FLValue fn);
 FLValue fl_deref(FLValue handle);
 FLValue fl_future_done(FLValue handle);
+/* 날짜/시간 */
+FLValue date_format(FLValue ts, FLValue fmt);
+FLValue date_now_str(void);
+FLValue date_parse(FLValue str_v, FLValue fmt_v);
+FLValue date_add(FLValue ts, FLValue secs);
+FLValue date_diff(FLValue ts1, FLValue ts2);
+/* UUID */
+FLValue uuid4(void);
+/* 컬렉션 유틸 */
+FLValue fl_sum(FLValue vec);
+FLValue fl_average(FLValue vec);
+FLValue fl_distinct(FLValue vec);
+FLValue fl_max_by(FLValue fn, FLValue vec);
+FLValue fl_min_by(FLValue fn, FLValue vec);
+FLValue fl_partition(FLValue n, FLValue vec);
+FLValue fl_index_where(FLValue fn, FLValue vec);
+FLValue fl_zip_map(FLValue keys, FLValue vals);
+/* 문자열 유틸 */
+FLValue str_char_at(FLValue s, FLValue idx);
+FLValue str_length(FLValue s);
+FLValue str_reverse(FLValue s);
+FLValue num_to_str(FLValue n);
+FLValue pad_zero(FLValue n, FLValue width);
+/* 수학 유틸 */
+FLValue fl_clamp(FLValue val, FLValue lo, FLValue hi);
 
 /* ── fx builtin shim ── */
 extern FLValue sqlite_open, sqlite_query, sqlite_exec, sqlite_one;
