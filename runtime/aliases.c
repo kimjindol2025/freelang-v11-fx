@@ -787,6 +787,84 @@ FLValue fl_resp_html_cookie(FLValue html, FLValue cookie_hdr) {
 }
 
 /* form_parse "title=hello&content=world" → {"title":"hello","content":"world"} */
+/* ── 중첩 맵 업데이트 ── */
+
+/* assoc-in: (assoc-in m [k1 k2 ...] v) */
+FLValue assoc_in(FLValue m, FLValue path, FLValue v) {
+    int n = (int)fl_vec_len(path).i;
+    if (n == 0) return m;
+    if (n == 1) {
+        FLValue k = fl_vec_get(path, fl_int(0));
+        return fl_map_set(m, k, v);
+    }
+    FLValue k    = fl_vec_get(path, fl_int(0));
+    FLValue tail = fl_vec_slice(path, fl_int(1), fl_int(n));
+    FLValue sub  = fl_map_get(m, k);
+    if (sub.tag == FL_NIL) sub = fl_map_new();
+    return fl_map_set(m, k, assoc_in(sub, tail, v));
+}
+
+/* update-in: (update-in m [k1 k2 ...] fn) */
+FLValue update_in(FLValue m, FLValue path, FLValue fn) {
+    int n = (int)fl_vec_len(path).i;
+    if (n == 0) return m;
+    FLValue k = fl_vec_get(path, fl_int(0));
+    if (n == 1) {
+        FLValue old = fl_map_get(m, k);
+        FLValue new_val = fl_fn_call(fn, 1, &old);
+        return fl_map_set(m, k, new_val);
+    }
+    FLValue tail = fl_vec_slice(path, fl_int(1), fl_int(n));
+    FLValue sub  = fl_map_get(m, k);
+    if (sub.tag == FL_NIL) sub = fl_map_new();
+    return fl_map_set(m, k, update_in(sub, tail, fn));
+}
+
+/* get-in alias (FL 이름과 일치) */
+FLValue get_in(FLValue m, FLValue path) { return fl_get_in(m, path); }
+
+/* ── 문자열 포맷 ── */
+/* str-format: (str-format "%s is %d" name age) — args는 벡터 */
+FLValue str_format(FLValue fmt_v, FLValue args) {
+    if (fmt_v.tag != FL_STRING) return fl_str_val("");
+    const char* fmt = ((FLString*)fmt_v.obj)->data;
+    /* 결과 버퍼: fmt 길이의 8배 정도 */
+    size_t cap = strlen(fmt) * 8 + 256;
+    char* buf = (char*)malloc(cap);
+    if (!buf) return fl_str_val("");
+
+    int arg_n = (int)fl_vec_len(args).i;
+    int ai = 0;
+    size_t wi = 0;
+
+    for (const char* p = fmt; *p && wi < cap - 64; p++) {
+        if (*p != '%') { buf[wi++] = *p; continue; }
+        p++;
+        if (*p == '%') { buf[wi++] = '%'; continue; }
+        FLValue arg = (ai < arg_n) ? fl_vec_get(args, fl_int(ai++)) : fl_nil();
+        char spec = *p;
+        if (spec == 's') {
+            FLValue sv = to_string(arg);
+            const char* s = ((FLString*)sv.obj)->data;
+            size_t sl = strlen(s);
+            if (wi + sl < cap) { memcpy(buf + wi, s, sl); wi += sl; }
+        } else if (spec == 'd' || spec == 'i') {
+            long long iv = (arg.tag == FL_INT) ? (long long)arg.i : 0;
+            wi += snprintf(buf + wi, cap - wi, "%lld", iv);
+        } else if (spec == 'f') {
+            double dv = (arg.tag == FL_FLOAT) ? arg.f :
+                        (arg.tag == FL_INT)   ? (double)arg.i : 0.0;
+            wi += snprintf(buf + wi, cap - wi, "%.6f", dv);
+        } else {
+            buf[wi++] = '%'; buf[wi++] = spec;
+        }
+    }
+    buf[wi] = '\0';
+    FLValue result = fl_str_val(buf);
+    free(buf);
+    return result;
+}
+
 FLValue form_parse(FLValue body) {
     if (body.tag != FL_STRING) return fl_map_new();
     const char* src = ((FLString*)body.obj)->data;
