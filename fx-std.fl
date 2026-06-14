@@ -1,0 +1,122 @@
+;; ── fx-std.fl — FreeLang fx 표준 라이브러리 ──────────────────────────────
+;; 사용법: (load "/home/kimjin/freelang-v11-fx/fx-std.fl")
+;;
+;; fx 런타임 내장 (이미 있음, 여기서 재정의 금지):
+;;   take, drop, flatten, zip, concat, merge, first, rest, nth
+;;   str_starts_with/ends_with/contains/lower/upper/trim/slice/split
+;;   to_int, to_float, str_to_num, assoc, dissoc, merge, select_keys
+;;   entries, vals, every, some, reverse, sort, fl_map_indexed
+
+;; ─── 1. 문자열 유틸 ─────────────────────────────────────────────────────
+
+(defn blank? [$s]
+  (or (nil? $s) (= (str-trim $s) "")))
+
+(defn str-coerce [$v]
+  (if (nil? $v) "" (str $v)))
+
+(defn url-encode-simple [$s]
+  (str-replace (str-coerce $s) " " "+"))
+
+;; ─── 2. 숫자 유틸 ───────────────────────────────────────────────────────
+
+(defn safe-int [$v $default]
+  (let [[$n (str-to-num (str-coerce $v))]]
+    (if (nil? $n) $default $n)))
+
+(defn safe-float [$v $default]
+  (let [[$n (str-to-num (str-coerce $v))]]
+    (if (nil? $n) $default $n)))
+
+(defn clamp [$v $lo $hi]
+  (if (< $v $lo) $lo
+    (if (> $v $hi) $hi $v)))
+
+;; ─── 3. 컬렉션 유틸 ─────────────────────────────────────────────────────
+
+(defn first-or [$col $default]
+  (if (or (nil? $col) (= (length $col) 0))
+    $default
+    (get $col 0)))
+
+(defn last-item [$col]
+  (get $col (- (length $col) 1)))
+
+(defn unique [$col]
+  (reduce
+    (fn [$acc $x]
+      (if (includes-item $acc $x) $acc (append $acc $x)))
+    (list) $col))
+
+;; ─── 4. 맵 유틸 ─────────────────────────────────────────────────────────
+
+(defn get-or [$m $k $default]
+  (let [[$v (get $m $k)]]
+    (if (nil? $v) $default $v)))
+
+(defn omit-keys [$m $keys]
+  (reduce (fn [$acc $k] (dissoc $acc $k)) $m $keys))
+
+;; ─── 5. HTTP 응답 헬퍼 ──────────────────────────────────────────────────
+
+(defn ok [$data]
+  (server_json (json_stringify {"ok" true "data" $data})))
+
+(defn ok-list [$data $total]
+  (server_json (json_stringify {"ok" true "data" $data "total" $total})))
+
+(defn err [$msg]
+  (server_status 400 (json_stringify {"ok" false "error" $msg})))
+
+(defn err-not-found []
+  (server_status 404 (json_stringify {"ok" false "error" "Not found"})))
+
+(defn err-unauthorized []
+  (server_status 401 (json_stringify {"ok" false "error" "Unauthorized"})))
+
+(defn err-server [$msg]
+  (server_status 500 (json_stringify {"ok" false "error" $msg})))
+
+;; ─── 6. SQLite 페이지네이션 ─────────────────────────────────────────────
+
+(defn sqlite-paginate [$db $table $page $limit]
+  (let [[$offset (* (- $page 1) $limit)]
+        [$rows (sqlite_query_p $db
+                 (str "SELECT * FROM " $table " LIMIT ? OFFSET ?")
+                 (list $limit $offset))]
+        [$total (get (sqlite_one $db
+                       (str "SELECT COUNT(*) as n FROM " $table)) "n")]]
+    {"rows" $rows "total" $total "page" $page "limit" $limit}))
+
+;; ─── 7. MariaDB 페이지네이션 ────────────────────────────────────────────
+
+(defn mysql-paginate [$db $table $page $limit]
+  (let [[$offset (* (- $page 1) $limit)]
+        [$rows (mariadb_query_p $db
+                 (str "SELECT * FROM " $table " LIMIT ? OFFSET ?")
+                 (list $limit $offset))]
+        [$cnt-row (mariadb_one_p $db
+                    (str "SELECT COUNT(*) as n FROM " $table) (list))]
+        [$total (get $cnt-row "n")]]
+    {"rows" $rows "total" $total "page" $page "limit" $limit}))
+
+;; ─── 8. 인증 헬퍼 ───────────────────────────────────────────────────────
+
+(defn bearer-token [$req]
+  (let [[$auth (server_req_header $req "Authorization")]]
+    (if (nil? $auth) nil
+      (if (str-starts-with $auth "Bearer ")
+        (str-slice $auth 7 (length $auth))
+        nil))))
+
+;; ─── 9. 타임스탬프 ──────────────────────────────────────────────────────
+
+(defn now-ms [] (fl_now_ms))
+
+;; ─── 10. 로깅 ───────────────────────────────────────────────────────────
+
+(defn log-info [$msg]
+  (println (str "[INFO] " $msg)))
+
+(defn log-error [$msg]
+  (println (str "[ERROR] " $msg)))
