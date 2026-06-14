@@ -246,6 +246,75 @@ bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app && pm2 reload my-
 | kim-notes | (기존) | 5.1MB | — |
 | kim-short | (기존) | 3.4MB | — |
 | fl-claude-chat | (기존) | 1.7MB | — |
+| fx-subscription | 40285 | ~4MB | kim/fx-subscription |
+
+---
+
+## ⚠️ 함정 목록 (실제 삽질로 발견)
+
+### 1. `replace_all`이 함수명도 치환
+
+```bash
+# ❌ replace_all로 테이블명만 바꾸려 했는데 함수명도 바뀜
+# plans → fx_plans 치환 시 defn plans-all → defn fx_plans-all 됨
+```
+
+**대처**: 치환 후 반드시 `grep -n "defn fx_"` 로 함수명 오염 확인. SQL 문자열만 바꾸려면 패턴을 더 구체적으로 지정.
+
+---
+
+### 2. MariaDB `COUNT(*)` 비교 함정
+
+```lisp
+;; ❌ 오류 — COUNT 반환값 타입이 float일 수 있음
+(if (= $cnt 0) ...)
+
+;; ✅ 안전한 비교 — 문자열로 변환 후 비교
+(if (or (nil? $cnt) (= (str $cnt) "0")) ...)
+```
+
+---
+
+### 3. server_html 내부 더블쿼트 → FL 파서 오류
+
+```lisp
+;; ❌ FL 문자열 파서가 HTML 안의 " 를 문자열 끝으로 인식
+(server_html "...<div onclick='selPlan=\"pro\"'>...")
+
+;; ✅ 올바른 패턴 — HTML 속성은 single-quote, JS는 var/createElement
+(server_html "...<div onclick='selPlan=p.id'>...")
+;; 또는 DOM API 방식으로 onclick 설정
+```
+
+---
+
+### 4. MariaDB `mariadb_exec_p` / `mariadb_query_p` 없음
+
+```lisp
+;; ❌ fx에서 3인자 형식 없음 (컴파일 에러)
+(mariadb_exec db "INSERT INTO t VALUES (?,?)" (list $a $b))
+
+;; ✅ esc() 헬퍼로 SQL 직접 포맷팅
+(defn esc [$s]
+  (if (nil? $s) "NULL"
+    (str "'" (str-replace (str-replace (str $s) "'" "''") "\\" "\\\\") "'")))
+
+(mariadb_exec db (str "INSERT INTO t VALUES (" (esc $a) "," (esc $b) ")"))
+```
+
+> **참고**: SQLite는 `sqlite_exec_p` / `sqlite_query_p` / `sqlite_one_p` 있음. MariaDB만 없음.
+
+---
+
+### 5. server_html 내 JSON 이스케이프 문자 주의
+
+```lisp
+;; ❌ FL 문자열 안의 \" 가 파서 혼동 유발
+(mariadb_exec db "INSERT INTO t(f) VALUES ('[\"a\",\"b\"]')")
+
+;; ✅ JSON 없이 단순 문자열 사용하거나 features를 CSV로 저장
+(mariadb_exec db "INSERT INTO t(f) VALUES ('a,b,c')")
+```
 
 ---
 
