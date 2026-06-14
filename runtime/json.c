@@ -98,17 +98,37 @@ FLValue fl_json_parse(FLValue src) {
     return json_parse_value(&p);
 }
 
-static void json_stringify_buf(FLValue v, char* buf, size_t sz, size_t* pos) {
-#define JCAT(fmt, ...) do { \
-    int _n = snprintf(buf + *pos, sz - *pos, fmt, ##__VA_ARGS__); \
-    if (_n > 0) *pos += (size_t)_n; } while(0)
+/* ── 동적 버퍼 (realloc 기반, 64KB 시작 → 필요시 2배 확장) ── */
+typedef struct { char* data; size_t cap; size_t pos; } JBuf;
 
+static void jbuf_ensure(JBuf* b, size_t need) {
+    if (b->pos + need < b->cap) return;
+    size_t ncap = b->cap;
+    while (ncap <= b->pos + need) ncap *= 2;
+    b->data = realloc(b->data, ncap);
+    b->cap  = ncap;
+}
+
+#define JCAT(fmt, ...) do { \
+    jbuf_ensure(b, 64); \
+    int _n = snprintf(b->data + b->pos, b->cap - b->pos, fmt, ##__VA_ARGS__); \
+    if (_n > 0) { \
+        if ((size_t)_n >= b->cap - b->pos) { \
+            jbuf_ensure(b, (size_t)_n + 1); \
+            _n = snprintf(b->data + b->pos, b->cap - b->pos, fmt, ##__VA_ARGS__); \
+        } \
+        b->pos += (size_t)_n; \
+    } \
+} while(0)
+
+static void json_stringify_buf(FLValue v, JBuf* b);
+
+static void json_stringify_buf(FLValue v, JBuf* b) {
     if (v.tag == FL_NIL)    { JCAT("null"); return; }
     if (v.tag == FL_BOOL)   { JCAT("%s", v.b ? "true" : "false"); return; }
     if (v.tag == FL_INT)    { JCAT("%lld", (long long)v.i); return; }
     if (v.tag == FL_FLOAT)  {
-        /* 정수값 float은 소수점 없이 출력 (9227465.0 → 9227465)
-         * JS safe integer 범위(2^53) 내이고 fractional part 없으면 정수로 직렬화 */
+        /* 정수값 float은 소수점 없이 출력 (9227465.0 → 9227465) */
         double f = v.f;
         if (f == (double)(long long)f &&
             f >= -9007199254740992.0 && f <= 9007199254740992.0) {
@@ -120,23 +140,26 @@ static void json_stringify_buf(FLValue v, char* buf, size_t sz, size_t* pos) {
     }
     if (v.tag == FL_STRING) {
         FLString* s = (FLString*)v.obj;
-        JCAT("\"");
-        for (uint32_t i = 0; i < s->len && *pos < sz-4; i++) {
+        jbuf_ensure(b, s->len * 6 + 4);
+        b->data[b->pos++] = '"';
+        for (uint32_t i = 0; i < s->len; i++) {
             char c = s->data[i];
-            if (c=='"')       { JCAT("\\\""); }
-            else if (c=='\\') { JCAT("\\\\"); }
-            else if (c=='\n') { JCAT("\\n");  }
-            else if (c=='\t') { JCAT("\\t");  }
-            else              { JCAT("%c", c); }
+            if      (c == '"')  { b->data[b->pos++]='\\'; b->data[b->pos++]='"';  }
+            else if (c == '\\') { b->data[b->pos++]='\\'; b->data[b->pos++]='\\'; }
+            else if (c == '\n') { b->data[b->pos++]='\\'; b->data[b->pos++]='n';  }
+            else if (c == '\t') { b->data[b->pos++]='\\'; b->data[b->pos++]='t';  }
+            else if (c == '\r') { b->data[b->pos++]='\\'; b->data[b->pos++]='r';  }
+            else                { b->data[b->pos++] = c; }
         }
-        JCAT("\""); return;
+        b->data[b->pos++] = '"';
+        return;
     }
     if (v.tag == FL_VECTOR) {
         FLVector* vec = (FLVector*)v.obj;
         JCAT("[");
         for (uint32_t i = 0; i < vec->len; i++) {
             if (i) JCAT(",");
-            json_stringify_buf(vec->data[i], buf, sz, pos);
+            json_stringify_buf(vec->data[i], b);
         }
         JCAT("]"); return;
     }
@@ -145,20 +168,23 @@ static void json_stringify_buf(FLValue v, char* buf, size_t sz, size_t* pos) {
         JCAT("{");
         for (uint32_t i = 0; i < m->len; i++) {
             if (i) JCAT(",");
-            json_stringify_buf(m->entries[i].key, buf, sz, pos);
+            json_stringify_buf(m->entries[i].key, b);
             JCAT(":");
-            json_stringify_buf(m->entries[i].val, buf, sz, pos);
+            json_stringify_buf(m->entries[i].val, b);
         }
         JCAT("}"); return;
     }
     JCAT("null");
-#undef JCAT
 }
+#undef JCAT
 
 FLValue fl_json_stringify(FLValue val) {
-    char buf[65536]; size_t pos = 0;
-    json_stringify_buf(val, buf, sizeof(buf), &pos);
-    return fl_str_val(buf);
+    JBuf b = { malloc(65536), 65536, 0 };
+    json_stringify_buf(val, &b);
+    b.data[b.pos] = '\0';
+    FLValue r = fl_str_val(b.data);
+    free(b.data);
+    return r;
 }
 
 /* ── 비트 연산 ── */
