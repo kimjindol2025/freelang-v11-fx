@@ -84,6 +84,26 @@
 
 ---
 
+## 🌐 HTTP 클라이언트 API (outbound)
+
+> 2026-06-14 추가. 기존엔 서버만 있었음. 순수 C 소켓, libcurl·Node 무의존.
+
+```lisp
+;; GET — 응답 본문을 문자열로 반환 (실패 시 nil)
+(let [[$body (http_get "http://localhost:18080/api")]]
+  (if (nil? $body) (println "요청 실패") (println $body)))
+```
+
+- **HTTP 전용 — HTTPS(TLS) 미지원.** `https://` 주면 nil + 진단.
+- **실패 시 nil을 반환하되, 원인을 stderr에 항상 출력**한다 (FL_DEBUG 무관):
+  `[http-get] 연결 실패 localhost:19999 (후보 2개 시도) — Connection refused`
+  진단을 끄려면 환경변수 `FL_HTTP_QUIET=1`.
+- `localhost`가 IPv6 `::1`로 해석돼도 IPv4로 자동 fallback (getaddrinfo 순회).
+- cgc-bin에 예약된 빌트인: `http_get` / `http_get_headers` / `http_post` / `http_post_headers`
+  (현재 런타임 구현은 `http_get`).
+
+---
+
 ## 🗃️ SQLite API
 
 ```lisp
@@ -257,6 +277,28 @@ bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app && pm2 reload my-
 ---
 
 ## ⚠️ 함정 목록 (실제 삽질로 발견)
+
+### 0. ⭐ `defn` 본문은 **단일 표현식** — 다중은 `do`/`let`로 감싸라
+
+cgc-bin은 함수 본문을 단일 표현식으로 컴파일한다. 본문에 표현식을 여러 개
+나열하면 **첫 번째만 실행되고 나머지는 조용히 무시**된다 (Clojure식 implicit-do 아님).
+
+```lisp
+;; ❌ "1"만 출력. "2" "3"은 사라짐 — 에러도 없이!
+(defn f [] (println "1") (println "2") (println "3"))
+
+;; ✅ do 로 감싸기
+(defn f [] (do (println "1") (println "2") (println "3")))
+
+;; ✅ let 본문은 다중 표현식 OK (비대칭 주의)
+(defn f [] (let [[$x 1]] (println "1") (println "2") (println "3")))
+```
+
+**증상**: 함수 중간 로직이 통째로 실행 안 됨. 디버깅하면 마치 그 줄에서
+프로그램이 죽은 것처럼 보이지만(exit 0), 실제로는 컴파일이 그 줄을 버린 것.
+fx 빌트인(`http_get` 등)을 의심하기 전에 **본문이 `do`로 감싸였는지 먼저 확인**.
+
+---
 
 ### 1. `replace_all`이 함수명도 치환
 
