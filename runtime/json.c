@@ -106,7 +106,18 @@ static void json_stringify_buf(FLValue v, char* buf, size_t sz, size_t* pos) {
     if (v.tag == FL_NIL)    { JCAT("null"); return; }
     if (v.tag == FL_BOOL)   { JCAT("%s", v.b ? "true" : "false"); return; }
     if (v.tag == FL_INT)    { JCAT("%lld", (long long)v.i); return; }
-    if (v.tag == FL_FLOAT)  { JCAT("%g", v.f); return; }
+    if (v.tag == FL_FLOAT)  {
+        /* 정수값 float은 소수점 없이 출력 (9227465.0 → 9227465)
+         * JS safe integer 범위(2^53) 내이고 fractional part 없으면 정수로 직렬화 */
+        double f = v.f;
+        if (f == (double)(long long)f &&
+            f >= -9007199254740992.0 && f <= 9007199254740992.0) {
+            JCAT("%lld", (long long)f);
+        } else {
+            JCAT("%.17g", f);
+        }
+        return;
+    }
     if (v.tag == FL_STRING) {
         FLString* s = (FLString*)v.obj;
         JCAT("\"");
