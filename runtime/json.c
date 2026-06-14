@@ -22,6 +22,32 @@ static FLValue json_parse_string(const char** pp) {
             if (c=='n') buf[len++]='\n';
             else if (c=='t') buf[len++]='\t';
             else if (c=='r') buf[len++]='\r';
+            else if (c=='b') buf[len++]='\b';
+            else if (c=='f') buf[len++]='\f';
+            else if (c=='u') {
+                /* \uXXXX → 코드포인트 → UTF-8 (서로게이트 페어 처리) */
+                int cp = 0;
+                for (int i=0;i<4 && *p;i++) {
+                    char h=*p++; cp<<=4;
+                    if (h>='0'&&h<='9') cp|=h-'0';
+                    else if (h>='a'&&h<='f') cp|=h-'a'+10;
+                    else if (h>='A'&&h<='F') cp|=h-'A'+10;
+                }
+                if (cp>=0xD800 && cp<=0xDBFF && p[0]=='\\' && p[1]=='u') {
+                    p+=2; int lo=0;
+                    for (int i=0;i<4 && *p;i++) {
+                        char h=*p++; lo<<=4;
+                        if (h>='0'&&h<='9') lo|=h-'0';
+                        else if (h>='a'&&h<='f') lo|=h-'a'+10;
+                        else if (h>='A'&&h<='F') lo|=h-'A'+10;
+                    }
+                    cp = 0x10000 + ((cp-0xD800)<<10) + (lo-0xDC00);
+                }
+                if (cp<0x80) buf[len++]=cp;
+                else if (cp<0x800) { buf[len++]=0xC0|(cp>>6); buf[len++]=0x80|(cp&0x3F); }
+                else if (cp<0x10000) { buf[len++]=0xE0|(cp>>12); buf[len++]=0x80|((cp>>6)&0x3F); buf[len++]=0x80|(cp&0x3F); }
+                else { buf[len++]=0xF0|(cp>>18); buf[len++]=0x80|((cp>>12)&0x3F); buf[len++]=0x80|((cp>>6)&0x3F); buf[len++]=0x80|(cp&0x3F); }
+            }
             else buf[len++]=c;
         } else {
             buf[len++] = *p++;

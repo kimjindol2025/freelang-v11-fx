@@ -3,11 +3,11 @@
  * libsqlite3가 설치되어 있으면 헤더 포함, 아니면 dlopen 방식
  *
  * 지원 함수 (FL에서 호출):
- *   (sqlite_open  path)            → "db:N" 핸들
- *   (sqlite_query db sql)          → 벡터 of 맵
- *   (sqlite_exec  db sql)          → {"affected": N, "last_id": M}
- *   (sqlite_one   db sql)          → 단일 맵 or nil
- *   (sqlite_close db)              → nil
+ *   (fxb_sqlite_open  path)            → "db:N" 핸들
+ *   (fxb_sqlite_query db sql)          → 벡터 of 맵
+ *   (fxb_sqlite_exec  db sql)          → {"affected": N, "last_id": M}
+ *   (fxb_sqlite_one   db sql)          → 단일 맵 or nil
+ *   (fxb_sqlite_close db)              → nil
  */
 
 #include "runtime.h"
@@ -49,9 +49,9 @@ static FLSQLiteConn* sq_find_by_path(const char* path) {
 
 /* ── FL 인터페이스 ── */
 
-/* (sqlite_open "/path/to/db.sqlite") → "db:N"
+/* (fxb_sqlite_open "/path/to/db.sqlite") → "db:N"
  * 동일 경로로 재호출 시 기존 연결 ID 반환 (연결 재사용) */
-FLValue sqlite_open(FLValue path_v) {
+FLValue fxb_sqlite_open(FLValue path_v) {
     const char* path = (path_v.tag == FL_STRING)
         ? ((FLString*)path_v.obj)->data
         : ":memory:";
@@ -149,8 +149,8 @@ static FLValue sq_fetch_rows(sqlite3_stmt* stmt) {
     return result;
 }
 
-/* (sqlite_query db sql) → 벡터 of 맵 */
-FLValue sqlite_query(FLValue conn_v, FLValue sql_v) {
+/* (fxb_sqlite_query db sql) → 벡터 of 맵 */
+FLValue fxb_sqlite_query(FLValue conn_v, FLValue sql_v) {
     if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
         return fl_vec_new();
 
@@ -177,8 +177,8 @@ FLValue sqlite_query(FLValue conn_v, FLValue sql_v) {
     return rows;
 }
 
-/* (sqlite_exec db sql) → {"affected": N, "last_id": M} */
-FLValue sqlite_exec(FLValue conn_v, FLValue sql_v) {
+/* (fxb_sqlite_exec db sql) → {"affected": N, "last_id": M} */
+FLValue fxb_sqlite_exec(FLValue conn_v, FLValue sql_v) {
     if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
         return fl_nil();
 
@@ -208,9 +208,9 @@ FLValue sqlite_exec(FLValue conn_v, FLValue sql_v) {
     return map;
 }
 
-/* (sqlite_one db sql) → 단일 맵 or nil */
-FLValue sqlite_one(FLValue conn_v, FLValue sql_v) {
-    FLValue rows = sqlite_query(conn_v, sql_v);
+/* (fxb_sqlite_one db sql) → 단일 맵 or nil */
+FLValue fxb_sqlite_one(FLValue conn_v, FLValue sql_v) {
+    FLValue rows = fxb_sqlite_query(conn_v, sql_v);
     if (rows.tag != FL_VECTOR) return fl_nil();
     FLVector* vec = (FLVector*)rows.obj;
     return (vec->len > 0) ? vec->data[0] : fl_nil();
@@ -253,11 +253,11 @@ static int sq_bind_params(sqlite3_stmt* stmt, FLValue params) {
     return SQLITE_OK;
 }
 
-/* (sqlite_query_p db sql params) → 벡터 of 맵
-   예: (sqlite_query_p db "SELECT * FROM t WHERE id=? AND name=?"
+/* (fxb_sqlite_query_p db sql params) → 벡터 of 맵
+   예: (fxb_sqlite_query_p db "SELECT * FROM t WHERE id=? AND name=?"
                           (list 42 "kim"))
 */
-FLValue sqlite_query_p(FLValue conn_v, FLValue sql_v, FLValue params) {
+FLValue fxb_sqlite_query_p(FLValue conn_v, FLValue sql_v, FLValue params) {
     if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
         return fl_vec_new();
 
@@ -294,11 +294,11 @@ FLValue sqlite_query_p(FLValue conn_v, FLValue sql_v, FLValue params) {
     return rows;
 }
 
-/* (sqlite_exec_p db sql params) → {"affected": N, "last_id": M}
-   예: (sqlite_exec_p db "INSERT INTO links (code, url) VALUES (?, ?)"
+/* (fxb_sqlite_exec_p db sql params) → {"affected": N, "last_id": M}
+   예: (fxb_sqlite_exec_p db "INSERT INTO links (code, url) VALUES (?, ?)"
                          (list $code $url))
 */
-FLValue sqlite_exec_p(FLValue conn_v, FLValue sql_v, FLValue params) {
+FLValue fxb_sqlite_exec_p(FLValue conn_v, FLValue sql_v, FLValue params) {
     if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
         return fl_nil();
 
@@ -351,16 +351,16 @@ FLValue sqlite_exec_p(FLValue conn_v, FLValue sql_v, FLValue params) {
     return map;
 }
 
-/* (sqlite_one_p db sql params) → 단일 맵 or nil */
-FLValue sqlite_one_p(FLValue conn_v, FLValue sql_v, FLValue params) {
-    FLValue rows = sqlite_query_p(conn_v, sql_v, params);
+/* (fxb_sqlite_one_p db sql params) → 단일 맵 or nil */
+FLValue fxb_sqlite_one_p(FLValue conn_v, FLValue sql_v, FLValue params) {
+    FLValue rows = fxb_sqlite_query_p(conn_v, sql_v, params);
     if (rows.tag != FL_VECTOR) return fl_nil();
     FLVector* vec = (FLVector*)rows.obj;
     return (vec->len > 0) ? vec->data[0] : fl_nil();
 }
 
-/* (sqlite_close db) → nil */
-FLValue sqlite_close(FLValue conn_v) {
+/* (fxb_sqlite_close db) → nil */
+FLValue fxb_sqlite_close(FLValue conn_v) {
     if (conn_v.tag != FL_STRING) return fl_nil();
     const char* id = ((FLString*)conn_v.obj)->data;
     FLSQLiteConn* c = sq_find(id);

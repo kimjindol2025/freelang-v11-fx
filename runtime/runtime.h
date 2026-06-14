@@ -355,7 +355,7 @@ FLValue server_status(FLValue code, FLValue body);
 FLValue server_redirect(FLValue url);
 FLValue server_req_param(FLValue req, FLValue name);
 FLValue server_req_query(FLValue req, FLValue name);
-FLValue server_req_body(FLValue req);
+FLValue fxb_server_req_body(FLValue req);
 FLValue server_req_header(FLValue req, FLValue name);
 FLValue server_req_method(FLValue req);
 FLValue server_req_path(FLValue req);
@@ -456,15 +456,15 @@ FLValue fl_vec_last(FLValue vec);
 FLValue fl_vec_rest(FLValue vec);
 
 /* ── SQLite (sqlite.c — libsqlite3 직접 링크) ── */
-FLValue sqlite_open(FLValue path);
-FLValue sqlite_query(FLValue conn, FLValue sql);
-FLValue sqlite_exec(FLValue conn, FLValue sql);
-FLValue sqlite_one(FLValue conn, FLValue sql);
+FLValue fxb_sqlite_open(FLValue path);
+FLValue fxb_sqlite_query(FLValue conn, FLValue sql);
+FLValue fxb_sqlite_exec(FLValue conn, FLValue sql);
+FLValue fxb_sqlite_one(FLValue conn, FLValue sql);
 /* 파라미터 바인딩 (SQL injection 방어) */
-FLValue sqlite_query_p(FLValue conn, FLValue sql, FLValue params);
-FLValue sqlite_exec_p(FLValue conn, FLValue sql, FLValue params);
-FLValue sqlite_one_p(FLValue conn, FLValue sql, FLValue params);
-FLValue sqlite_close(FLValue conn);
+FLValue fxb_sqlite_query_p(FLValue conn, FLValue sql, FLValue params);
+FLValue fxb_sqlite_exec_p(FLValue conn, FLValue sql, FLValue params);
+FLValue fxb_sqlite_one_p(FLValue conn, FLValue sql, FLValue params);
+FLValue fxb_sqlite_close(FLValue conn);
 
 /* ── MariaDB (mariadb.c — dlopen 방식, 헤더 불필요) ── */
 FLValue mariadb_connect(FLValue host, FLValue port, FLValue user, FLValue pw, FLValue db);
@@ -522,3 +522,9 @@ static inline FLValue __fl_op_lte_w(FLClosure* _s, int _ac, FLValue* a) { (void)
 static inline FLValue __fl_op_gte_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_gte(a[0], a[1]); }
 
 #endif /* FREELANG_RUNTIME_H */
+
+/* ── fx builtin shim: 설치본 cgc가 모르는 함수를 fl_fn_call 호환
+   전역 클로저로 노출. 실제 구현은 fxb_* (sqlite.c/http.c). ── */
+extern FLValue sqlite_open, sqlite_query, sqlite_exec, sqlite_one;
+extern FLValue sqlite_query_p, sqlite_exec_p, sqlite_one_p, sqlite_close;
+extern FLValue server_req_body;
