@@ -1,0 +1,207 @@
+;; ============================================================
+;; fx-sqlite-browser — 순수 FreeLang fx SQLite 브라우저
+;;   테이블 조회 · 스키마 · CRUD · 임의 SQL 콘솔
+;;   "fx로 사내 업무도구가 되는가"의 실증
+;; ============================================================
+
+(define db (sqlite_open "data/browser.db"))
+
+;; ── 데모 시드 (비어있을 때만) ───────────────────────────────
+(do
+  (sqlite_exec db "CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, dept TEXT, salary INTEGER)")
+  (sqlite_exec db "CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, owner TEXT, status TEXT)")
+  (if (= 0 (get (sqlite_one db "SELECT COUNT(*) AS c FROM employees") "c"))
+    (do
+      (sqlite_exec_p db "INSERT INTO employees (name,dept,salary) VALUES (?,?,?)" (list "김철수" "개발팀" 5200))
+      (sqlite_exec_p db "INSERT INTO employees (name,dept,salary) VALUES (?,?,?)" (list "이영희" "디자인" 4800))
+      (sqlite_exec_p db "INSERT INTO employees (name,dept,salary) VALUES (?,?,?)" (list "박민수" "개발팀" 6100))
+      (sqlite_exec_p db "INSERT INTO projects (title,owner,status) VALUES (?,?,?)" (list "사내 포털 개편" "김철수" "진행중"))
+      (sqlite_exec_p db "INSERT INTO projects (title,owner,status) VALUES (?,?,?)" (list "급여 시스템" "박민수" "완료")))
+    nil))
+
+;; ── 헬퍼: 테이블 화이트리스트 검증 (식별자 injection 방어) ──
+(defn table-exists? [$t]
+  (not (nil? (sqlite_one_p db "SELECT name FROM sqlite_master WHERE type='table' AND name=?" (list $t)))))
+
+(defn bad-req [$msg]
+  (server_status 400 (json_stringify {"ok" false "error" $msg})))
+
+;; ── API: 테이블 목록 ────────────────────────────────────────
+(defn api-tables [$req]
+  (server_json (json_stringify
+    {"ok" true
+     "tables" (sqlite_query db "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")})))
+
+;; ── API: 스키마 (컬럼/타입/pk) ──────────────────────────────
+(defn api-schema [$req]
+  (do
+    (let [[$body (json_parse (server_req_body $req))]
+          [$t    (get $body "table")]]
+      (if (table-exists? $t)
+        (server_json (json_stringify
+          {"ok" true "columns" (sqlite_query db (str "PRAGMA table_info(" $t ")"))}))
+        (bad-req "unknown table")))))
+
+;; ── API: 행 조회 (rowid 포함, 페이징) ───────────────────────
+(defn api-rows [$req]
+  (do
+    (let [[$body   (json_parse (server_req_body $req))]
+          [$t      (get $body "table")]
+          [$limit  (get $body "limit")]
+          [$offset (get $body "offset")]]
+      (if (table-exists? $t)
+        (let [[$lim  (if (nil? $limit) 50 $limit)]
+              [$off  (if (nil? $offset) 0 $offset)]
+              [$rows (sqlite_query_p db (str "SELECT rowid AS _rowid, * FROM " $t " LIMIT ? OFFSET ?") (list $lim $off))]
+              [$cnt  (get (sqlite_one db (str "SELECT COUNT(*) AS c FROM " $t)) "c")]]
+          (server_json (json_stringify {"ok" true "rows" $rows "count" $cnt})))
+        (bad-req "unknown table")))))
+
+;; ── API: 임의 SQL 실행 (read=true → SELECT/PRAGMA, false → 변경) ──
+;;   값은 params(? 바인딩), 식별자만 클라이언트가 조립
+(defn api-query [$req]
+  (do
+    (let [[$body   (json_parse (server_req_body $req))]
+          [$sql    (get $body "sql")]
+          [$params (get $body "params")]
+          [$read   (get $body "read")]]
+      (let [[$ps (if (nil? $params) (list) $params)]]
+        (if (= $read true)
+          (server_json (json_stringify {"ok" true "rows" (sqlite_query_p db $sql $ps)}))
+          (do
+            (sqlite_exec_p db $sql $ps)
+            (server_json (json_stringify {"ok" true "affected" 1}))))))))
+
+;; ── 정적 페이지 ─────────────────────────────────────────────
+(defn page-home [$req]
+  (server_html (str
+"<!DOCTYPE html><html lang='ko'><head><meta charset='utf-8'>\n"
+"<meta name='viewport' content='width=device-width,initial-scale=1'>\n"
+"<title>fx SQLite Browser</title>\n"
+"<style>\n"
+"*{box-sizing:border-box}body{margin:0;font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#1f2937;background:#f8fafc}\n"
+"header{background:#0f172a;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px}\n"
+"header b{font-size:16px}header span{color:#94a3b8;font-size:12px}\n"
+".wrap{display:flex;height:calc(100vh - 44px)}\n"
+"aside{width:220px;background:#fff;border-right:1px solid #e5e7eb;overflow:auto;padding:8px}\n"
+"aside h3{font-size:11px;text-transform:uppercase;color:#94a3b8;margin:8px 6px}\n"
+".tbl{padding:7px 10px;border-radius:6px;cursor:pointer;font-weight:500}\n"
+".tbl:hover{background:#f1f5f9}.tbl.on{background:#dbeafe;color:#1d4ed8}\n"
+"main{flex:1;overflow:auto;padding:16px}\n"
+".bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}\n"
+".bar h2{margin:0;font-size:17px}.muted{color:#64748b;font-size:12px}\n"
+"button{background:#1d4ed8;color:#fff;border:0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}\n"
+"button.ghost{background:#e2e8f0;color:#334155}button.danger{background:#dc2626}button:hover{opacity:.9}\n"
+"table{border-collapse:collapse;width:100%;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05)}\n"
+"th,td{border:1px solid #eef2f7;padding:7px 10px;text-align:left;font-size:13px}\n"
+"th{background:#f8fafc;color:#475569;font-weight:600;white-space:nowrap}\n"
+"td[contenteditable]{cursor:text}td[contenteditable]:focus{outline:2px solid #93c5fd;background:#eff6ff}\n"
+".pk{color:#94a3b8;font-size:11px}\n"
+".console{margin-top:20px;background:#0f172a;border-radius:8px;padding:12px}\n"
+".console textarea{width:100%;height:70px;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:8px;font:13px monospace;resize:vertical}\n"
+".console .row{display:flex;gap:8px;margin-top:8px;align-items:center}\n"
+"#msg{font-size:12px;color:#64748b;margin-left:8px}\n"
+".empty{color:#94a3b8;padding:40px;text-align:center}\n"
+"</style></head><body>\n"
+"<header><b>📊 fx SQLite Browser</b><span>순수 FreeLang fx · C 네이티브</span></header>\n"
+"<div class='wrap'>\n"
+"  <aside><h3>테이블</h3><div id='tables'></div></aside>\n"
+"  <main>\n"
+"    <div id='view'><div class='empty'>← 왼쪽에서 테이블을 선택하세요</div></div>\n"
+"    <div class='console'>\n"
+"      <div style='color:#94a3b8;font-size:11px;margin-bottom:6px'>SQL 콘솔 (SELECT는 결과 표시 · 변경문은 실행)</div>\n"
+"      <textarea id='sql' placeholder='SELECT * FROM employees'></textarea>\n"
+"      <div class='row'><button onclick='runSql()'>실행 (Ctrl+Enter)</button><span id='msg'></span></div>\n"
+"      <div id='sqlout'></div>\n"
+"    </div>\n"
+"  </main>\n"
+"</div>\n"
+"<script>\n"
+(str
+"const $=s=>document.querySelector(s);\n"
+"let cur=null, cols=[];\n"
+"async function api(path,body){\n"
+"  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});\n"
+"  return r.json();\n"
+"}\n"
+"function esc(v){if(v===null||v===undefined)return '';return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}\n"
+"async function loadTables(){\n"
+"  const d=await api('/api/tables');\n"
+"  $('#tables').innerHTML=d.tables.map(t=>`<div class='tbl' onclick=\"openTable('${t.name}')\" id='t-${t.name}'>${t.name}</div>`).join('');\n"
+"}\n"
+"async function openTable(name){\n"
+"  cur=name;\n"
+"  document.querySelectorAll('.tbl').forEach(e=>e.classList.remove('on'));\n"
+"  const el=$('#t-'+name); if(el)el.classList.add('on');\n"
+"  const sc=await api('/api/schema',{table:name});\n"
+"  cols=sc.columns.map(c=>c.name);\n"
+"  const pk=sc.columns.filter(c=>c.pk).map(c=>c.name);\n"
+"  const d=await api('/api/rows',{table:name,limit:200,offset:0});\n"
+"  render(name,sc.columns,d.rows,d.count);\n"
+"}\n")
+(str
+"function render(name,schema,rows,count){\n"
+"  let h=`<div class='bar'><h2>${name}</h2><span class='muted'>${count} rows · ${schema.length} cols</span>`;\n"
+"  h+=`<button onclick='addRow()'>+ 행 추가</button></div>`;\n"
+"  h+=`<table><thead><tr><th class='pk'>rowid</th>`;\n"
+"  h+=schema.map(c=>`<th>${c.name}<div class='pk'>${c.type}${c.pk?' · PK':''}</div></th>`).join('');\n"
+"  h+=`<th></th></tr></thead><tbody>`;\n"
+"  if(!rows.length){h+=`<tr><td colspan='${schema.length+2}' class='empty'>(비어있음)</td></tr>`;}\n"
+"  rows.forEach(r=>{\n"
+"    const rid=r._rowid;\n"
+"    h+=`<tr data-rid='${rid}'><td class='pk'>${rid}</td>`;\n"
+"    h+=schema.map(c=>`<td contenteditable onblur=\"saveCell(${rid},'${c.name}',this)\">${esc(r[c.name])}</td>`).join('');\n"
+"    h+=`<td><button class='danger' onclick='delRow(${rid})'>삭제</button></td></tr>`;\n"
+"  });\n"
+"  h+=`</tbody></table>`;\n"
+"  $('#view').innerHTML=h;\n"
+"}\n"
+"async function saveCell(rid,col,el){\n"
+"  const val=el.innerText;\n"
+"  const sql=`UPDATE ${cur} SET ${col}=? WHERE rowid=?`;\n"
+"  const d=await api('/api/query',{sql,params:[val,rid],read:false});\n"
+"  flash(d.ok?'저장됨 '+col:'실패');\n"
+"}\n"
+"async function delRow(rid){\n"
+"  if(!confirm('이 행을 삭제할까요?'))return;\n"
+"  await api('/api/query',{sql:`DELETE FROM ${cur} WHERE rowid=?`,params:[rid],read:false});\n"
+"  openTable(cur);\n"
+"}\n"
+"async function addRow(){\n"
+"  const editable=cols.filter(c=>c!=='id');\n"
+"  const ph=editable.map(()=>'?').join(',');\n"
+"  const vals=editable.map(()=>'');\n"
+"  const sql=`INSERT INTO ${cur} (${editable.join(',')}) VALUES (${ph})`;\n"
+"  await api('/api/query',{sql,params:vals,read:false});\n"
+"  openTable(cur);\n"
+"}\n")
+(str
+"async function runSql(){\n"
+"  const sql=$('#sql').value.trim(); if(!sql)return;\n"
+"  const read=/^\\s*(select|pragma|with|explain)/i.test(sql);\n"
+"  const d=await api('/api/query',{sql,params:[],read});\n"
+"  if(!d.ok){$('#sqlout').innerHTML=`<div style='color:#f87171;padding:8px'>오류</div>`;flash('실패');return;}\n"
+"  if(read){\n"
+"    const rows=d.rows||[];\n"
+"    if(!rows.length){$('#sqlout').innerHTML=`<div class='muted' style='padding:8px;color:#94a3b8'>0 rows</div>`;}\n"
+"    else{const ks=Object.keys(rows[0]);\n"
+"      let h=`<table style='margin-top:10px'><thead><tr>`+ks.map(k=>`<th>${k}</th>`).join('')+`</tr></thead><tbody>`;\n"
+"      h+=rows.map(r=>`<tr>`+ks.map(k=>`<td>${esc(r[k])}</td>`).join('')+`</tr>`).join('');\n"
+"      $('#sqlout').innerHTML=h+`</tbody></table>`;}\n"
+"    flash(rows.length+' rows');\n"
+"  } else {$('#sqlout').innerHTML='';flash('실행됨');if(cur)openTable(cur);}\n"
+"}\n"
+"function flash(m){$('#msg').textContent=m;setTimeout(()=>$('#msg').textContent='',2500);}\n"
+"document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')runSql();});\n"
+"loadTables();\n"
+"</script></body></html>\n"))))
+
+;; ── 라우트 + 서버 기동 ──────────────────────────────────────
+(do
+  (server_get  "/"            "page-home")
+  (server_post "/api/tables"  "api-tables")
+  (server_post "/api/schema"  "api-schema")
+  (server_post "/api/rows"    "api-rows")
+  (server_post "/api/query"   "api-query")
+  (println "fx-sqlite-browser → http://localhost:40286")
+  (server_start 40286))

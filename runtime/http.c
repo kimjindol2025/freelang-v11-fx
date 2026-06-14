@@ -5,7 +5,7 @@
  *   server_get / server_post / server_put / server_patch / server_delete
  *   server_html / server_text / server_status / server_json
  *   server_start
- *   server_req_param / server_req_query / server_req_body / server_req_header
+ *   server_req_param / server_req_query / fxb_server_req_body / server_req_header
  *   server_redirect
  *
  * 의존: POSIX sockets + dlsym (외부 라이브러리 없음)
@@ -191,7 +191,7 @@ FLValue server_req_query(FLValue req, FLValue name) {
     return fl_nil();
 }
 
-FLValue server_req_body(FLValue req) {
+FLValue fxb_server_req_body(FLValue req) {
     return fl_map_get(req, fl_str_val("body"));
 }
 
@@ -447,7 +447,7 @@ static FLValue make_req_map(HttpRequest* hr, FLValue params) {
     }
 
     /* body — 항상 문자열로 저장
-     * (FL 코드에서 json_parse(server_req_body(req)) 패턴 사용)
+     * (FL 코드에서 json_parse(fxb_server_req_body(req)) 패턴 사용)
      * Node.js 방식의 자동 파싱은 이중파싱 버그를 유발하므로 제거 */
     FLValue body = fl_str_val(hr->body_len > 0 ? hr->body : "");
 
