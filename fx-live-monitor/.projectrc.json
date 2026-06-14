@@ -1,0 +1,29 @@
+{
+  "name": "fx-live-monitor",
+  "version": "1.0.0",
+  "language": "FreeLang v11 (C Native / fx)",
+  "runtime": "cgc-bin → gcc → ELF",
+  "status": "in_progress",
+  "description": "실시간 서비스 헬스 대시보드 — WebSocket broadcast + atom 패턴",
+  "ports": [40290],
+  "entry": "server.fl",
+  "binary": "fx-live-monitor",
+  "commands": {
+    "build": "bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-live-monitor",
+    "start": "pm2 start ./fx-live-monitor --name fx-live-monitor",
+    "reload": "pm2 reload fx-live-monitor"
+  },
+  "features": [
+    "WebSocket multi-client broadcast via atom",
+    "HTTP service polling (7 services)",
+    "SQLite metrics history",
+    "Real-time dashboard HTML"
+  ],
+  "bugs_discovered": [
+    "sqlite_exec / sqlite_query → extern FLValue (FL 런타임 값) → fxb_sqlite_* 사용 필수",
+    "server_req_body → extern FLValue → fxb_server_req_body 또는 (get $req body) 사용",
+    "broadcast lambda closure capture 버그 → $msg 파라미터 atom에 저장 후 deref로 우회",
+    "server_json은 JSON 문자열만 받음 → json_stringify() 감싸기 필수",
+    "[FL Warn] 함수 파라미터 추적 미작동 — 이름 변경 후 경고 사라지지 않음 (무해)"
+  ]
+}

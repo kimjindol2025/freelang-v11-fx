@@ -89,6 +89,66 @@ bash /home/kimjin/freelang-v11-fx/verify-fixpoint.sh
 
 ---
 
+## ⚠️ 실전 함정 (fx-live-monitor 2026-06-15 발견)
+
+### 1. extern FLValue 함수 — defn 내부 직접 호출 불가
+
+`runtime.h`에 `extern FLValue`로 선언된 것들은 FL 런타임 함수 값. C 함수가 아님.
+cgc-bin이 `defn` 안에서 이를 C 함수처럼 호출하는 코드를 생성하면 빌드 실패.
+
+| FL 이름 | 상태 | 대안 |
+|---------|------|------|
+| `sqlite_exec`, `sqlite_query`, `sqlite_one` | `extern FLValue` ❌ | `fxb_sqlite_exec` ✅ |
+| `sqlite_open`, `sqlite_close` | `extern FLValue` ❌ | `fxb_sqlite_open` ✅ |
+| `server_req_body` | `extern FLValue` ❌ | `fxb_server_req_body` 또는 `(get $req "body")` ✅ |
+
+### 2. 람다 클로저 캡처 버그 (defn 파라미터)
+
+`defn`의 파라미터가 람다 안에서 참조될 때 C 클로저 env에 추가되지 않는 버그.
+
+```lisp
+;; ❌ 컴파일 에러 — broadcast 함수 파라미터 $msg가 람다에서 미등록
+(defn broadcast [$msg]
+  (reduce (fn [$acc $ws] (ws_send $ws $msg)) [] @$clients))
+
+;; ✅ 우회: 파라미터를 atom에 저장 후 deref
+(define $bcast-msg (atom ""))
+(defn broadcast [$json]
+  (swap! $bcast-msg (fn [$_] $json))
+  (reduce (fn [$acc $ws]
+            (let [$m @$bcast-msg]
+              (try (do (ws_send $ws $m) (push $acc $ws))
+                   (catch $e $acc))))
+          [] @$clients))
+```
+
+### 3. server_json은 JSON 문자열만 받음
+
+```lisp
+;; ❌ 직접 맵 전달 → Content-Length: 0 (빈 응답)
+(server_json {"ok" true "data" $rows})
+
+;; ✅ json_stringify 필수
+(server_json (json_stringify {"ok" true "data" $rows}))
+```
+
+### 4. WS 핸들러 시그니처 — 1인자, 내부 recv 루프
+
+```lisp
+;; WSHandlerFn typedef: FLValue (*)(FLValue ws) — 1인자만!
+(defn handle-ws [$ws]
+  ;; recv 루프는 직접 구현 (TCO 재귀 권장)
+  (defn recv-loop [$ws]
+    (let [$data (ws_recv $ws)]
+      (if (null? $data)
+        (cleanup $ws)
+        (do (handle-frame $ws $data) (recv-loop $ws)))))
+  (swap! $clients (fn [$cs] (push $cs $ws)))
+  (recv-loop $ws))
+```
+
+---
+
 ## ⚡ v11 vs fx 핵심 차이
 
 | 항목 | FreeLang v11 (인터프리터) | FreeLang fx (C 네이티브) |
@@ -130,8 +190,12 @@ bash /home/kimjin/freelang-v11-fx/verify-fixpoint.sh
 (server_req_query $req "name")
 (server_req_query $req "limit")
 
-;; Request body (POST/PUT)
-(let [[$body (json_parse (server_req_body $req))]]
+;; Request body (POST/PUT) — 두 가지 방법
+(let [$body (get $req "body")]       ;; Content-Type: application/json → 이미 파싱된 맵
+  (get $body "field"))
+
+;; 또는 (server_req_body는 extern FLValue → defn 내부 호출 시 fxb_ 사용)
+(let [$body (json_parse (fxb_server_req_body $req))]
   (get $body "field"))
 
 ;; 헤더
@@ -215,6 +279,21 @@ bash /home/kimjin/freelang-v11-fx/verify-fixpoint.sh
 > **✅ fx에 `?` 바인딩 있음!** `sqlite_exec_p` / `sqlite_query_p` / `sqlite_one_p` 사용.  
 > 3번째 인자로 `(list ...)` 전달. nil/bool/int/float/string 자동 바인딩.  
 > FTS5 `MATCH ?` 도 지원됨. esc() 헬퍼는 더 이상 불필요.
+>
+> **⚠️ defn 내부에서 `sqlite_exec` 호출 실패** (2026-06-15 발견):  
+> `sqlite_exec`는 `extern FLValue` (FL 런타임 값)으로 선언돼 있어 `defn` 안에서  
+> 직접 C 함수 호출 시 `called object is not a function` 에러 발생.  
+> **Fix**: `fxb_sqlite_open` / `fxb_sqlite_exec` / `fxb_sqlite_query` 사용 (실제 C 함수).
+>
+> ```lisp
+> ;; ✅ defn 내부에서도 안전
+> (define db (fxb_sqlite_open DB_PATH))
+> (fxb_sqlite_exec db "CREATE TABLE IF NOT EXISTS ...")
+> (fxb_sqlite_query db "SELECT * FROM t")
+> ;; _p 바인딩 버전도 동일
+> (fxb_sqlite_exec_p db "INSERT INTO t VALUES (?,?)" (list $a $b))
+> (fxb_sqlite_query_p db "SELECT * FROM t WHERE id=?" (list $id))
+> ```
 
 ### ❌ 구 패턴 (사용 금지)
 

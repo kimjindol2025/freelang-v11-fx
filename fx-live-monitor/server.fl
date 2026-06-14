@@ -1,0 +1,186 @@
+;; fx-live-monitor — 실시간 서비스 헬스 대시보드
+;; FreeLang C 네이티브 | 포트 40290
+;; 빌드: bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-live-monitor
+
+(define PORT     40290)
+(define DB_PATH  "./monitor.db")
+
+;; ── 모니터링 서비스 목록 ──────────────────────────────────────────
+(define SERVICES (list
+  {"name" "kimdb"         "port" 40000 "path" "/"}
+  {"name" "kim-jira"      "port" 40100 "path" "/"}
+  {"name" "self-monitor"  "port" 40101 "path" "/api/status"}
+  {"name" "freelang-mcp"  "port" 40253 "path" "/"}
+  {"name" "port-registry" "port" 40254 "path" "/api/dashboard"}
+  {"name" "fl-chat"       "port" 40915 "path" "/"}
+  {"name" "fl-front"      "port" 40850 "path" "/"}))
+
+;; ── 전역 상태 ─────────────────────────────────────────────────────
+(define $ws-clients    (atom []))   ;; 연결된 WS 클라이언트
+(define $svc-state     (atom []))   ;; 최신 서비스 상태
+(define $bcast-payload (atom ""))   ;; broadcast용 페이로드 (클로저 캡처 우회)
+
+;; ── SQLite 초기화 (fxb_* = 실제 C 함수) ──────────────────────────
+(define db (fxb_sqlite_open DB_PATH))
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS metrics (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     svc_name TEXT NOT NULL,
+     status TEXT NOT NULL,
+     response_ms INTEGER,
+     ts INTEGER NOT NULL
+   )")
+
+;; ── 서비스 1개 폴링 ────────────────────────────────────────────────
+(defn poll-one [$item]
+  (let [$n  (get $item "name")
+        $p  (get $item "port")
+        $pt (get $item "path")
+        $u  (str "http://localhost:" $p $pt)
+        $t0 (now-ms)]
+    (let [$res (try (http-get $u) (catch $ex nil))
+          $ms  (- (now-ms) $t0)
+          $st  (if (null? $res) "offline" "online")]
+      (fxb_sqlite_exec db
+        (str "INSERT INTO metrics (svc_name,status,response_ms,ts) VALUES ('"
+             $n "','" $st "'," $ms "," (now-ms) ")"))
+      {"name" $n "status" $st "ms" $ms})))
+
+;; ── 전체 폴링 ──────────────────────────────────────────────────────
+(defn poll-all []
+  (map (fn [$s] (poll-one $s)) SERVICES))
+
+;; ── WS 브로드캐스트 ───────────────────────────────────────────────
+;; 클로저 캡처 버그 우회: 메시지를 atom에 저장 후 람다에서 deref
+(defn broadcast [$json]
+  (swap! $bcast-payload (fn [$_] $json))
+  (let [$alive
+    (reduce
+      (fn [$acc $ws]
+        (let [$m @$bcast-payload]
+          (try
+            (do (ws_send $ws $m)
+                (push $acc $ws))
+            (catch $err $acc))))
+      []
+      @$ws-clients)]
+    (swap! $ws-clients (fn [$_] $alive))))
+
+;; ── WS 핸들러 (접속당 1회 호출, 내부에서 recv 루프) ──────────────
+(defn ws-recv-loop [$ws]
+  (let [$data (ws_recv $ws)]
+    (if (null? $data)
+      ;; 연결 종료 → atom에서 제거
+      (swap! $ws-clients
+        (fn [$cs]
+          (filter (fn [$c]
+                    (not (= (ws_conn_id $c) (ws_conn_id $ws))))
+                  $cs)))
+      (do
+        (try
+          (let [$cmd (json_parse $data)]
+            (when (= (get $cmd "type") "ping")
+              (ws_send $ws "{\"type\":\"pong\"}")))
+          (catch $e nil))
+        (ws-recv-loop $ws)))))
+
+(defn handle-ws [$ws]
+  ;; 연결 즉시 등록 + 현재 상태 전송
+  (swap! $ws-clients (fn [$cs] (push $cs $ws)))
+  (ws_send $ws (json_stringify {"type" "state" "services" @$svc-state}))
+  ;; recv 루프 (TCO 직접재귀)
+  (ws-recv-loop $ws))
+
+;; ── REST 핸들러 ────────────────────────────────────────────────────
+(defn handle-api-poll [$req]
+  (let [$results (poll-all)]
+    (swap! $svc-state (fn [$_] $results))
+    (broadcast (json_stringify {"type" "update" "services" $results "ts" (now-ms)}))
+    (server_json (json_stringify {"ok" true
+                                  "services" $results
+                                  "clients" (length @$ws-clients)}))))
+
+(defn handle-api-status [$req]
+  (server_json (json_stringify {"services" @$svc-state
+                                "ws_clients" (length @$ws-clients)})))
+
+(defn handle-api-history [$req]
+  (let [$rows (fxb_sqlite_query db
+                "SELECT svc_name, status, response_ms, ts
+                   FROM metrics ORDER BY ts DESC LIMIT 50")]
+    (server_json (json_stringify {"history" $rows}))))
+
+(defn handle-index [$req]
+  (server_html (str
+"<!DOCTYPE html>
+<html><head>
+<meta charset='utf-8'>
+<title>fx Live Monitor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:monospace;padding:24px}
+h1{color:#58a6ff;margin-bottom:6px;font-size:20px}
+#meta{color:#8b949e;font-size:12px;margin-bottom:16px}
+#ws-bar{font-size:12px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px}
+.card.online{border-color:#3fb950}
+.card.offline{border-color:#f85149}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.dot.online{background:#3fb950;box-shadow:0 0 6px #3fb950}
+.dot.offline{background:#f85149}
+.svc-name{font-weight:bold;font-size:14px;margin:6px 0 4px}
+.svc-ms{color:#8b949e;font-size:11px}
+#footer{margin-top:20px;color:#8b949e;font-size:11px}
+</style>
+</head>
+<body>
+<h1>fx Live Monitor</h1>
+<div id='meta'>FreeLang C Native &middot; Port "
+PORT
+"</div>
+<div id='ws-bar'>WS: <span id='ws-st'>연결 중...</span> | 클라이언트: <span id='cli'>-</span></div>
+<div class='grid' id='grid'></div>
+<div id='footer'></div>
+<script>
+let ws;
+function connect(){
+  ws=new WebSocket('ws://'+location.host+'/ws');
+  ws.onopen=()=>document.getElementById('ws-st').textContent='연결됨';
+  ws.onclose=()=>{document.getElementById('ws-st').textContent='끊김';setTimeout(connect,3000);}
+  ws.onmessage=e=>{
+    const d=JSON.parse(e.data);
+    if(d.services)render(d.services);
+    if(d.ts)document.getElementById('footer').textContent='마지막 업데이트: '+new Date(d.ts).toLocaleTimeString();
+  };
+  setInterval(()=>ws&&ws.readyState===1&&ws.send(JSON.stringify({type:'ping'})),5000);
+}
+function render(svcs){
+  document.getElementById('grid').innerHTML=svcs.map(s=>
+    '<div class=\"card '+s.status+'\">'
+    +'<span class=\"dot '+s.status+'\"></span>'
+    +'<span style=\"font-size:11px\">'+s.status+'</span>'
+    +'<div class=\"svc-name\">'+s.name+'</div>'
+    +'<div class=\"svc-ms\">'+s.ms+'ms</div>'
+    +'</div>'
+  ).join('');
+}
+function poll(){
+  fetch('/api/poll',{method:'POST'}).then(r=>r.json()).then(d=>{
+    document.getElementById('cli').textContent=d.clients;
+  }).catch(()=>{});
+}
+connect();
+setInterval(poll,10000);
+setTimeout(poll,600);
+</script>
+</body></html>")))
+
+;; ── 라우트 등록 & 시작 ──────────────────────────────────────────
+(println (str "fx-live-monitor 포트 " PORT " | " (length SERVICES) "개 서비스 모니터링"))
+(server_get  "/"            "handle-index")
+(server_get  "/api/status"  "handle-api-status")
+(server_post "/api/poll"    "handle-api-poll")
+(server_get  "/api/history" "handle-api-history")
+(server_ws   "/ws"          "handle-ws")
+(server_start PORT)
