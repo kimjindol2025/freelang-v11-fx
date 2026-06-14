@@ -93,30 +93,31 @@
 ;; 테이블 생성 / DDL
 (sqlite_exec db "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT)")
 
-;; INSERT / UPDATE / DELETE
-(sqlite_exec db (str "INSERT INTO users VALUES ('" $id "', '" $name "')"))
+;; INSERT / UPDATE / DELETE — ? 바인딩 (SQL 인젝션 방어)
+(sqlite_exec_p db "INSERT INTO users VALUES (?, ?)" (list $id $name))
+(sqlite_exec_p db "UPDATE users SET name=? WHERE id=?" (list $name $id))
+(sqlite_exec_p db "DELETE FROM users WHERE id=?" (list $id))
 
 ;; SELECT → 배열 반환
-(sqlite_query db "SELECT id, name FROM users ORDER BY name")
+(sqlite_query_p db "SELECT id, name FROM users WHERE active=? ORDER BY name" (list true))
 
 ;; SELECT → 단일 행 반환 (없으면 nil)
-(sqlite_one db (str "SELECT * FROM users WHERE id='" $id "'"))
+(sqlite_one_p db "SELECT * FROM users WHERE id=?" (list $id))
+
+;; 파라미터 없는 경우 (기존 패턴도 사용 가능)
+(sqlite_query db "SELECT id, name FROM users ORDER BY name")
+(sqlite_exec  db "CREATE TABLE IF NOT EXISTS ...")
 ```
 
-> **⚠️ 중요**: fx는 `?` 파라미터 바인딩 없음. 문자열 보간으로 SQL 직접 작성.  
-> SQL 인젝션 방어: `esc` 헬퍼 사용 (아래 패턴 참고).
+> **✅ fx에 `?` 바인딩 있음!** `sqlite_exec_p` / `sqlite_query_p` / `sqlite_one_p` 사용.  
+> 3번째 인자로 `(list ...)` 전달. nil/bool/int/float/string 자동 바인딩.  
+> FTS5 `MATCH ?` 도 지원됨. esc() 헬퍼는 더 이상 불필요.
 
-### SQL 인젝션 방어 패턴 (필수)
+### ❌ 구 패턴 (사용 금지)
 
 ```lisp
-;; esc 함수 직접 정의 (fx 내장 없음)
-(defn esc [$s]
-  (if (nil? $s) ""
-    (str-replace (str-replace $s "'" "''") "\\" "\\\\")))
-
-;; 사용
-(sqlite_exec db (str "INSERT INTO notes (title) VALUES ('" (esc $title) "')"))
-```
+;; 절대 금지 — SQL 인젝션 위험
+(sqlite_exec db (str "INSERT INTO t VALUES ('" $val "')"))
 
 ### 시간 함수 패턴
 
