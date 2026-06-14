@@ -899,7 +899,13 @@ static void pool_shutdown(int timeout_sec) {
 ─────────────────────────────────────────── */
 
 FLValue server_start(FLValue port_val) {
-    int port = (port_val.tag == FL_INT) ? (int)port_val.i : 8080;
+    /* 수리(2026-06-14): 이전엔 FL_INT가 아니면 조용히 8080으로 떨어져
+     * (server_start (str-to-num env))·(server_start (floor x)) 가 무력화됐다(트랩 #9,
+     * str-to-num/floor 은 FL_FLOAT 반환). 이제 FLOAT·STRING 도 명시 수용. */
+    int port = 8080;
+    if      (port_val.tag == FL_INT)    port = (int)port_val.i;
+    else if (port_val.tag == FL_FLOAT)  port = (int)port_val.f;
+    else if (port_val.tag == FL_STRING) { int p = atoi(strval(port_val)); if (p > 0) port = p; }
 
     /* 시그널 설정 */
     signal(SIGPIPE, SIG_IGN);
@@ -1010,24 +1016,46 @@ FLValue fl_resp_status(FLValue code, FLValue b) { return server_status(code, b);
 FLValue fl_resp_redirect(FLValue url)           { return server_redirect(url); }
 
 /* ───────────────────────────────────────────
-   HTTP 클라이언트 (outbound) — 경로 A PoC
+   HTTP 클라이언트 (outbound)
    fl_http_get(url) → 응답 본문 FL String 반환 (실패 시 nil)
    HTTP only (TLS 미지원). 단순 GET, Connection: close.
+
+   실패 시 nil을 반환하되 *왜* 실패했는지 stderr로 항상 진단한다
+   (FL_DEBUG 무관). 침묵하는 nil은 디버깅 지옥이므로.
+   끄려면: 환경변수 FL_HTTP_QUIET=1
 ─────────────────────────────────────────── */
+static void httpget_diag(const char* fmt, ...) {
+    if (getenv("FL_HTTP_QUIET")) return;
+    va_list ap; va_start(ap, fmt);
+    fprintf(stderr, "[http-get] ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+}
+
 FLValue fl_http_get(FLValue url_v) {
-    if (url_v.tag != FL_STRING || !url_v.obj) return fl_nil();
+    if (url_v.tag != FL_STRING || !url_v.obj) {
+        httpget_diag("인자가 문자열이 아님 (URL 필요)");
+        return fl_nil();
+    }
     const char* url = ((FLString*)url_v.obj)->data;
 
     /* URL 파싱: http://host[:port][/path] */
     const char* p = url;
     if (strncmp(p, "http://", 7) == 0)       p += 7;
-    else if (strncmp(p, "https://", 8) == 0) return fl_nil();  /* TLS 미지원 */
+    else if (strncmp(p, "https://", 8) == 0) {
+        httpget_diag("HTTPS 미지원 (TLS 없음): %s — http:// 만 가능", url);
+        return fl_nil();
+    }
 
     char host[256]; int port = 80; char path[2048] = "/";
     int hi = 0;
     while (*p && *p != ':' && *p != '/' && hi < 255) host[hi++] = *p++;
     host[hi] = 0;
-    if (host[0] == 0) return fl_nil();
+    if (host[0] == 0) {
+        httpget_diag("URL에서 host를 파싱하지 못함: %s", url);
+        return fl_nil();
+    }
     if (*p == ':') {
         p++; port = 0;
         while (*p >= '0' && *p <= '9') port = port * 10 + (*p++ - '0');
@@ -1040,19 +1068,29 @@ FLValue fl_http_get(FLValue url_v) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family   = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host, port_str, &hints, &res) != 0 || !res) return fl_nil();
+    int gai = getaddrinfo(host, port_str, &hints, &res);
+    if (gai != 0 || !res) {
+        httpget_diag("DNS 해석 실패 %s:%s — %s", host, port_str, gai_strerror(gai));
+        return fl_nil();
+    }
 
     /* 모든 후보 주소를 순회하며 connect 성공까지 시도
        (localhost가 ::1/IPv6로 해석되어도 IPv4 fallback) */
-    int fd = -1;
+    int fd = -1, last_errno = 0, tried = 0;
     for (struct addrinfo* ai = res; ai; ai = ai->ai_next) {
+        tried++;
         fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-        if (fd < 0) continue;
+        if (fd < 0) { last_errno = errno; continue; }
         if (connect(fd, ai->ai_addr, ai->ai_addrlen) == 0) break;
+        last_errno = errno;
         close(fd); fd = -1;
     }
     freeaddrinfo(res);
-    if (fd < 0) return fl_nil();
+    if (fd < 0) {
+        httpget_diag("연결 실패 %s:%d (후보 %d개 시도) — %s",
+               host, port, tried, strerror(last_errno));
+        return fl_nil();
+    }
 
     /* send request */
     char req[4096];
@@ -1062,7 +1100,10 @@ FLValue fl_http_get(FLValue url_v) {
     ssize_t sent = 0;
     while (sent < rn) {
         ssize_t s = send(fd, req + sent, rn - sent, MSG_NOSIGNAL);
-        if (s <= 0) { close(fd); return fl_nil(); }
+        if (s <= 0) {
+            httpget_diag("요청 전송 실패 %s — %s", host, strerror(errno));
+            close(fd); return fl_nil();
+        }
         sent += s;
     }
 
