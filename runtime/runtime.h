@@ -574,3 +574,14 @@ FLValue fl_clamp(FLValue val, FLValue lo, FLValue hi);
 extern FLValue sqlite_open, sqlite_query, sqlite_exec, sqlite_one;
 extern FLValue sqlite_query_p, sqlite_exec_p, sqlite_one_p, sqlite_close;
 extern FLValue server_req_body;
+
+/* fx 독립 언어 — 투명 alias 선언 */
+FLValue sqlite_open_v2(FLValue path);
+FLValue sqlite_query_v2(FLValue db, FLValue sql);
+FLValue sqlite_exec_v2(FLValue db, FLValue sql);
+FLValue sqlite_one_v2(FLValue db, FLValue sql);
+FLValue sqlite_query_p_v2(FLValue db, FLValue sql, FLValue p);
+FLValue sqlite_exec_p_v2(FLValue db, FLValue sql, FLValue p);
+FLValue sqlite_close_v2(FLValue db);
+FLValue fx_server_json(FLValue data);
+FLValue fx_respond(FLValue status, FLValue data);

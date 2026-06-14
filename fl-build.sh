@@ -93,10 +93,18 @@ if [ -f "$RUNTIME_DIR/mariadb.c" ]; then
   echo "   + MariaDB dlopen 바인딩 포함"
 fi
 
-gcc -O2 -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
+GCC_LOG="/tmp/fl_gcc_$$.log"
+if gcc -O2 -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
   -I "$RUNTIME_DIR" \
   -rdynamic -lpthread -lm -ldl -lsqlite3 -lssl -lcrypto \
-  -w 2>&1 | grep -E "^.*error" | grep -v '"error"' | head -5 || true
+  -w 2>"$GCC_LOG"; then
+  rm -f "$GCC_LOG"
+else
+  echo "❌ gcc 컴파일 실패:"
+  cat "$GCC_LOG"
+  rm -f "$C_FILE" "$PREPROCESSED" "$GCC_LOG"
+  exit 1
+fi
 
 # ─── 4. 정리 ─────────────────────────────────────────────────────
 rm -f "$C_FILE" "$PREPROCESSED"

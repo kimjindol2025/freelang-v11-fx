@@ -1357,3 +1357,39 @@ FLValue fl_clamp(FLValue val, FLValue lo, FLValue hi) {
            ? fl_int((int64_t)v) : fl_float(v);
 }
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * fx 독립 언어 — 투명 alias
+ * fxb_ 접두사 없이 직접 사용 가능:
+ *   (sqlite-open path)  (sqlite-exec db sql)  (sqlite-query db sql)
+ *   (http-get url)  (http-post url body)
+ *   (server-json data)  — 맵이면 자동 직렬화
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* SQLite 투명 alias */
+FLValue sqlite_open_v2(FLValue path)                         { return fxb_sqlite_open(path); }
+FLValue sqlite_query_v2(FLValue db, FLValue sql)             { return fxb_sqlite_query(db, sql); }
+FLValue sqlite_exec_v2(FLValue db, FLValue sql)              { return fxb_sqlite_exec(db, sql); }
+FLValue sqlite_one_v2(FLValue db, FLValue sql)               { return fxb_sqlite_one(db, sql); }
+FLValue sqlite_query_p_v2(FLValue db, FLValue sql, FLValue p){ return fxb_sqlite_query_p(db, sql, p); }
+FLValue sqlite_exec_p_v2(FLValue db, FLValue sql, FLValue p) { return fxb_sqlite_exec_p(db, sql, p); }
+FLValue sqlite_close_v2(FLValue db)                          { return fxb_sqlite_close(db); }
+
+/* server_json — 맵/리스트면 자동 json_stringify */
+FLValue fx_server_json(FLValue data) {
+    if (data.tag == FL_MAP || data.tag == FL_VECTOR) {
+        FLValue json = json_stringify(data);
+        return server_json(json);
+    }
+    return server_json(data);
+}
+
+/* server_respond — status + body 한번에 */
+FLValue fx_respond(FLValue status, FLValue data) {
+    FLValue json;
+    if (data.tag == FL_MAP || data.tag == FL_VECTOR)
+        json = json_stringify(data);
+    else
+        json = data;
+    return server_status(status, json);
+}
+
