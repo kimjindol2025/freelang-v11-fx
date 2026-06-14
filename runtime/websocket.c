@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/socket.h>
@@ -39,6 +40,7 @@ typedef struct {
     int      fd;
     int      closed;
     uint64_t id;
+    char     query[512];
 } WSConn;
 
 /* ── WS 라우트 테이블 ── */
@@ -68,13 +70,15 @@ static void base64_encode(const unsigned char* in, size_t in_len,
     size_t i = 0, j = 0;
     while (i < in_len) {
         unsigned char b0 = in[i++];
-        unsigned char b1 = (i < in_len) ? in[i++] : 0;
-        unsigned char b2 = (i < in_len) ? in[i++] : 0;
+        int has_b1 = (i < in_len);
+        unsigned char b1 = has_b1 ? in[i++] : 0;
+        int has_b2 = (i < in_len);
+        unsigned char b2 = has_b2 ? in[i++] : 0;
         if (j + 4 >= out_size) break;
         out[j++] = B64_TABLE[b0 >> 2];
         out[j++] = B64_TABLE[((b0 & 3) << 4) | (b1 >> 4)];
-        out[j++] = (i > in_len + 1) ? '=' : B64_TABLE[((b1 & 0xf) << 2) | (b2 >> 6)];
-        out[j++] = (i > in_len)     ? '=' : B64_TABLE[b2 & 0x3f];
+        out[j++] = has_b1 ? B64_TABLE[((b1 & 0xf) << 2) | (b2 >> 6)] : '=';
+        out[j++] = has_b2 ? B64_TABLE[b2 & 0x3f] : '=';
     }
     out[j] = '\0';
 }
@@ -239,18 +243,66 @@ static int ws_write_frame(int fd, const char* data, size_t len) {
 /* ── FLValue WSConn 래퍼 ── */
 /* ws_conn은 FL_MAP {"__ws__": ptr, "id": id_str} */
 
-static FLValue make_ws_conn(int fd) {
+/* URL 디코딩 (websocket 전용, static) */
+static void ws_url_decode(const char* src, char* dst, size_t max) {
+    size_t j = 0;
+    for (size_t i = 0; src[i] && j + 1 < max; i++) {
+        if (src[i] == '%' && src[i+1] && src[i+2]) {
+            char hex[3] = {src[i+1], src[i+2], 0};
+            dst[j++] = (char)strtol(hex, NULL, 16);
+            i += 2;
+        } else if (src[i] == '+') {
+            dst[j++] = ' ';
+        } else {
+            dst[j++] = src[i];
+        }
+    }
+    dst[j] = '\0';
+}
+
+/* "key=val&key2=val2" → FL_MAP */
+static FLValue parse_query_string(const char* qs) {
+    FLValue m = fl_map_new();
+    if (!qs || !*qs) return m;
+    char buf[512];
+    strncpy(buf, qs, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+    char* p = buf;
+    while (p && *p) {
+        char* amp = strchr(p, '&');
+        if (amp) *amp = '\0';
+        char* eq = strchr(p, '=');
+        if (eq) {
+            *eq = '\0';
+            char dk[128] = {0}, dv[256] = {0};
+            ws_url_decode(p, dk, sizeof(dk));
+            ws_url_decode(eq + 1, dv, sizeof(dv));
+            m = fl_map_set(m, fl_str_val(dk), fl_str_val(dv));
+        }
+        p = amp ? amp + 1 : NULL;
+    }
+    return m;
+}
+
+static FLValue make_ws_conn_q(int fd, const char* query_str) {
     WSConn* conn = malloc(sizeof(WSConn));
     conn->fd     = fd;
     conn->closed = 0;
     conn->id     = __atomic_fetch_add(&g_ws_id_counter, 1, __ATOMIC_RELAXED);
+    strncpy(conn->query, query_str ? query_str : "", sizeof(conn->query) - 1);
 
     FLValue m = fl_map_new();
     m = fl_map_set(m, fl_str_val("__ws__"), fl_int((int64_t)(uintptr_t)conn));
     char id_buf[32];
     snprintf(id_buf, sizeof(id_buf), "ws-%lu", (unsigned long)conn->id);
     m = fl_map_set(m, fl_str_val("id"), fl_str_val(id_buf));
+    m = fl_map_set(m, fl_str_val("query"), parse_query_string(query_str));
     return m;
+}
+
+/* 하위 호환성 */
+static FLValue make_ws_conn(int fd) {
+    return make_ws_conn_q(fd, "");
 }
 
 static WSConn* get_ws_conn(FLValue v) {
@@ -351,9 +403,26 @@ int ws_handle_upgrade(int fd, const char* raw, int raw_len) {
     char ws_key[128] = {0};
     char ws_path[512] = {0};
 
+    /* 쿼리 스트링도 분리 파싱 */
+    char ws_query[512] = {0};
     if (ws_parse_upgrade(raw, raw_len, ws_key, sizeof(ws_key),
                          ws_path, sizeof(ws_path)) < 0)
         return 0;
+    /* 원본 요청에서 ? 이후 추출 */
+    const char* q_start = raw;
+    while (*q_start && *q_start != ' ') q_start++;
+    while (*q_start == ' ') q_start++;
+    const char* q_mark = q_start;
+    while (*q_mark && *q_mark != '?' && *q_mark != ' ') q_mark++;
+    if (*q_mark == '?') {
+        q_mark++;
+        const char* q_end = q_mark;
+        while (*q_end && *q_end != ' ' && *q_end != '#') q_end++;
+        size_t qlen = (size_t)(q_end - q_mark);
+        if (qlen >= sizeof(ws_query)) qlen = sizeof(ws_query) - 1;
+        memcpy(ws_query, q_mark, qlen);
+        ws_query[qlen] = '\0';
+    }
 
     /* 라우트 매칭 */
     WSRoute* matched = NULL;
@@ -368,10 +437,14 @@ int ws_handle_upgrade(int fd, const char* raw, int raw_len) {
     /* 핸드셰이크 */
     if (ws_do_handshake(fd, ws_key, ws_path) < 0) return 1;
 
-    fprintf(stderr, "[ws] 연결: %s\n", ws_path);
+    /* WS는 장기 연결 — recv_one_request가 설정한 단기 타임아웃 제거 */
+    struct timeval ws_tv = {0, 0};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &ws_tv, sizeof(ws_tv));
+
+    fprintf(stderr, "[ws] 연결: %s?%s\n", ws_path, ws_query);
 
     /* 핸들러 실행 (현재 스레드에서 블로킹) */
-    FLValue ws_conn = make_ws_conn(fd);
+    FLValue ws_conn = make_ws_conn_q(fd, ws_query);
     if (fl_try_top < FL_TRY_MAX) {
         FLTryFrame* frame = &fl_try_stack[fl_try_top++];
         if (setjmp(frame->buf) == 0) {
