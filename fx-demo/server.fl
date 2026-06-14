@@ -1,0 +1,50 @@
+;; fx-demo — fx 독립 언어 데모
+;; 투명 alias + fx_server_json 자동 직렬화 사용
+
+(define PORT 40295)
+
+;; SQLite (투명 alias — fxb_ 없이)
+(define db (fxb_sqlite_open "./demo.db"))
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS notes (
+     id   INTEGER PRIMARY KEY AUTOINCREMENT,
+     body TEXT NOT NULL,
+     ts   INTEGER NOT NULL
+   )")
+
+;; ── 핸들러 ────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  ;; fx_server_json: 맵 전달 → 자동 json_stringify
+  (fx_server_json {"ok" true "app" "fx-demo" "version" "1.0.0"
+                   "message" "fx 독립언어 데모"}))
+
+(defn handle-notes [$req]
+  (let [$rows (fxb_sqlite_query db
+                "SELECT id, body, ts FROM notes ORDER BY ts DESC LIMIT 20")]
+    (fx_server_json {"notes" $rows "count" (length $rows)})))
+
+(defn handle-add [$req]
+  (let [$body (get $req "body")
+        $text (get $body "body")]
+    (if (null? $text)
+      (fx_respond 400 {"error" "body 필드 필요"})
+      (do
+        (fxb_sqlite_exec db
+          (str "INSERT INTO notes (body, ts) VALUES ('"
+               $text "'," (now-ms) ")"))
+        (fx_server_json {"ok" true "saved" $text})))))
+
+(defn handle-delete [$req]
+  (let [$id (get (get $req "params") "id")]
+    (fxb_sqlite_exec db (str "DELETE FROM notes WHERE id=" $id))
+    (fx_server_json {"ok" true "deleted" $id})))
+
+;; ── 라우트 ────────────────────────────────────────────────────
+(println (str "fx-demo 포트 " PORT " 시작"))
+(server_get  "/"                   "handle-index")
+(server_get  "/notes"              "handle-notes")
+(server_post "/notes"              "handle-add")
+(server_get  "/notes/:id/delete"   "handle-delete")
+(server_start PORT)

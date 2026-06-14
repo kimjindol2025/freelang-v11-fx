@@ -446,10 +446,26 @@ static FLValue make_req_map(HttpRequest* hr, FLValue params) {
             fl_str_val(hr->headers[i][1]));
     }
 
-    /* body — 항상 문자열로 저장
-     * (FL 코드에서 json_parse(fxb_server_req_body(req)) 패턴 사용)
-     * Node.js 방식의 자동 파싱은 이중파싱 버그를 유발하므로 제거 */
-    FLValue body = fl_str_val(hr->body_len > 0 ? hr->body : "");
+    /* body — Content-Type에 따라 자동 파싱
+     * application/json → json_parse (맵/벡터)
+     * 기타 → 문자열 그대로 */
+    FLValue body;
+    {
+        const char* ct = "";
+        for (int i = 0; i < hr->nheaders; i++) {
+            if (strcasecmp(hr->headers[i][0], "content-type") == 0) {
+                ct = hr->headers[i][1]; break;
+            }
+        }
+        const char* raw = hr->body_len > 0 ? hr->body : "";
+        if (strstr(ct, "application/json") && hr->body_len > 0) {
+            FLValue parsed = json_parse(fl_str_val(raw));
+            body = (parsed.tag == FL_MAP || parsed.tag == FL_VECTOR)
+                   ? parsed : fl_str_val(raw);
+        } else {
+            body = fl_str_val(raw);
+        }
+    }
 
     FLValue req = fl_map_new();
     req = fl_map_set(req, fl_str_val("method"),  fl_str_val(hr->method));
