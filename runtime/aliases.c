@@ -895,3 +895,203 @@ FLValue form_parse(FLValue body) {
     free(buf);
     return map;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 정규식 (POSIX ERE)
+ * ═══════════════════════════════════════════════════════════════════ */
+#include <regex.h>
+
+/* str_match(str, pattern) → 첫 번째 매칭 문자열 또는 nil */
+FLValue str_match(FLValue str_v, FLValue pat_v) {
+    if (str_v.tag != FL_STRING || pat_v.tag != FL_STRING) return fl_nil();
+    const char* s   = ((FLString*)str_v.obj)->data;
+    const char* pat = ((FLString*)pat_v.obj)->data;
+    regex_t re;
+    if (regcomp(&re, pat, REG_EXTENDED) != 0) return fl_nil();
+    regmatch_t m[1];
+    FLValue result = fl_nil();
+    if (regexec(&re, s, 1, m, 0) == 0) {
+        int start = m[0].rm_so, end = m[0].rm_eo;
+        char* buf = (char*)malloc(end - start + 1);
+        memcpy(buf, s + start, end - start);
+        buf[end - start] = '\0';
+        result = fl_str_val(buf);
+        free(buf);
+    }
+    regfree(&re);
+    return result;
+}
+
+/* str_match_all(str, pattern) → 모든 매칭 벡터 */
+FLValue str_match_all(FLValue str_v, FLValue pat_v) {
+    if (str_v.tag != FL_STRING || pat_v.tag != FL_STRING) return fl_vec_new();
+    const char* s   = ((FLString*)str_v.obj)->data;
+    const char* pat = ((FLString*)pat_v.obj)->data;
+    regex_t re;
+    if (regcomp(&re, pat, REG_EXTENDED) != 0) return fl_vec_new();
+    FLValue vec = fl_vec_builder_new();
+    const char* p = s;
+    regmatch_t m[1];
+    while (regexec(&re, p, 1, m, 0) == 0) {
+        int start = m[0].rm_so, end = m[0].rm_eo;
+        char* buf = (char*)malloc(end - start + 1);
+        memcpy(buf, p + start, end - start);
+        buf[end - start] = '\0';
+        fl_vec_builder_push(vec, fl_str_val(buf));
+        free(buf);
+        p += end;
+        if (end == 0) p++;  /* 빈 매칭 무한루프 방지 */
+    }
+    regfree(&re);
+    return fl_vec_builder_freeze(vec);
+}
+
+/* str_replace_re(str, pattern, replacement) → 첫 번째 치환 */
+FLValue str_replace_re(FLValue str_v, FLValue pat_v, FLValue rep_v) {
+    if (str_v.tag != FL_STRING || pat_v.tag != FL_STRING || rep_v.tag != FL_STRING)
+        return str_v;
+    const char* s   = ((FLString*)str_v.obj)->data;
+    const char* pat = ((FLString*)pat_v.obj)->data;
+    const char* rep = ((FLString*)rep_v.obj)->data;
+    regex_t re;
+    if (regcomp(&re, pat, REG_EXTENDED) != 0) return str_v;
+    regmatch_t m[1];
+    FLValue result = str_v;
+    if (regexec(&re, s, 1, m, 0) == 0) {
+        int start = m[0].rm_so, end = m[0].rm_eo;
+        int slen = (int)strlen(s), rlen = (int)strlen(rep);
+        char* buf = (char*)malloc(slen - (end - start) + rlen + 1);
+        memcpy(buf, s, start);
+        memcpy(buf + start, rep, rlen);
+        strcpy(buf + start + rlen, s + end);
+        result = fl_str_val(buf);
+        free(buf);
+    }
+    regfree(&re);
+    return result;
+}
+
+/* str_replace_all_re(str, pattern, replacement) → 전체 치환 */
+FLValue str_replace_all_re(FLValue str_v, FLValue pat_v, FLValue rep_v) {
+    if (str_v.tag != FL_STRING || pat_v.tag != FL_STRING || rep_v.tag != FL_STRING)
+        return str_v;
+    const char* orig = ((FLString*)str_v.obj)->data;
+    const char* pat  = ((FLString*)pat_v.obj)->data;
+    const char* rep  = ((FLString*)rep_v.obj)->data;
+    regex_t re;
+    if (regcomp(&re, pat, REG_EXTENDED) != 0) return str_v;
+    int rlen = (int)strlen(rep);
+    int cap  = (int)strlen(orig) * 2 + 256;
+    char* buf = (char*)malloc(cap);
+    int blen = 0;
+    const char* p = orig;
+    regmatch_t m[1];
+    while (regexec(&re, p, 1, m, 0) == 0) {
+        int start = m[0].rm_so, end = m[0].rm_eo;
+        /* 매칭 전 텍스트 */
+        while (blen + start + rlen + 1 >= cap) { cap *= 2; buf = (char*)realloc(buf, cap); }
+        memcpy(buf + blen, p, start);
+        blen += start;
+        memcpy(buf + blen, rep, rlen);
+        blen += rlen;
+        p += end;
+        if (end == 0) { if (*p) buf[blen++] = *p++; else break; }
+    }
+    /* 나머지 */
+    int tail = (int)strlen(p);
+    while (blen + tail + 1 >= cap) { cap *= 2; buf = (char*)realloc(buf, cap); }
+    memcpy(buf + blen, p, tail);
+    blen += tail;
+    buf[blen] = '\0';
+    regfree(&re);
+    FLValue r = fl_str_val(buf);
+    free(buf);
+    return r;
+}
+
+/* str_test(str, pattern) → boolean (매칭 여부) */
+FLValue str_test(FLValue str_v, FLValue pat_v) {
+    if (str_v.tag != FL_STRING || pat_v.tag != FL_STRING) return fl_bool(false);
+    const char* s   = ((FLString*)str_v.obj)->data;
+    const char* pat = ((FLString*)pat_v.obj)->data;
+    regex_t re;
+    if (regcomp(&re, pat, REG_EXTENDED) != 0) return fl_bool(false);
+    regmatch_t m[1];
+    bool matched = (regexec(&re, s, 1, m, 0) == 0);
+    regfree(&re);
+    return fl_bool(matched);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * future (pthread 기반 비동기)
+ * ═══════════════════════════════════════════════════════════════════ */
+#include <pthread.h>
+
+typedef struct {
+    FLValue fn;
+    FLValue result;
+    int     done;
+    pthread_mutex_t mu;
+    pthread_cond_t  cv;
+} FLFuture;
+
+static void* future_runner(void* arg) {
+    FLFuture* f = (FLFuture*)arg;
+    FLValue result = fl_fn_call(f->fn, 0, NULL);
+    pthread_mutex_lock(&f->mu);
+    f->result = fl_heap_copy(result);
+    f->done   = 1;
+    pthread_cond_broadcast(&f->cv);
+    pthread_mutex_unlock(&f->mu);
+    return NULL;
+}
+
+/* fl_future(fn) → opaque FLValue (FL_MAP으로 래핑) */
+FLValue fl_future(FLValue fn) {
+    if (fn.tag != FL_FN) return fl_nil();
+    FLFuture* f = (FLFuture*)malloc(sizeof(FLFuture));
+    f->fn   = fl_heap_copy(fn);
+    f->done = 0;
+    f->result = fl_nil();
+    pthread_mutex_init(&f->mu, NULL);
+    pthread_cond_init(&f->cv, NULL);
+
+    pthread_t tid;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&tid, &attr, future_runner, f);
+    pthread_attr_destroy(&attr);
+
+    /* 포인터를 int64로 저장 (opaque) */
+    FLValue handle = fl_map_new();
+    handle = fl_map_set(handle, fl_str_val("__future__"), fl_int((int64_t)(uintptr_t)f));
+    return handle;
+}
+
+/* fl_deref — atom(FL_VECTOR)과 future(FL_MAP) 모두 처리 */
+FLValue fl_deref(FLValue handle) {
+    /* atom */
+    if (handle.tag == FL_VECTOR) return fl_atom_deref(handle);
+    if (handle.tag != FL_MAP) return fl_nil();
+    FLValue ptr_v = fl_map_get(handle, fl_str_val("__future__"));
+    if (ptr_v.tag != FL_INT) return fl_nil();
+    FLFuture* f = (FLFuture*)(uintptr_t)ptr_v.i;
+    pthread_mutex_lock(&f->mu);
+    while (!f->done) pthread_cond_wait(&f->cv, &f->mu);
+    FLValue result = f->result;
+    pthread_mutex_unlock(&f->mu);
+    return result;
+}
+
+/* fl_future_done(future) → boolean */
+FLValue fl_future_done(FLValue handle) {
+    if (handle.tag != FL_MAP) return fl_bool(false);
+    FLValue ptr_v = fl_map_get(handle, fl_str_val("__future__"));
+    if (ptr_v.tag != FL_INT) return fl_bool(false);
+    FLFuture* f = (FLFuture*)(uintptr_t)ptr_v.i;
+    pthread_mutex_lock(&f->mu);
+    int done = f->done;
+    pthread_mutex_unlock(&f->mu);
+    return fl_bool(done);
+}

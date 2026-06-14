@@ -30,6 +30,8 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 /* ───────────────────────────────────────────
    내부 타입
@@ -1040,15 +1042,14 @@ FLValue fl_http_get(FLValue url_v) {
     }
     const char* url = ((FLString*)url_v.obj)->data;
 
-    /* URL 파싱: http://host[:port][/path] */
+    /* URL 파싱: http(s)://host[:port][/path] */
+    int use_ssl = 0;
     const char* p = url;
-    if (strncmp(p, "http://", 7) == 0)       p += 7;
-    else if (strncmp(p, "https://", 8) == 0) {
-        httpget_diag("HTTPS 미지원 (TLS 없음): %s — http:// 만 가능", url);
-        return fl_nil();
-    }
+    if (strncmp(p, "https://", 8) == 0)      { p += 8; use_ssl = 1; }
+    else if (strncmp(p, "http://", 7) == 0)  { p += 7; }
+    else { /* scheme 없으면 HTTP */ }
 
-    char host[256]; int port = 80; char path[2048] = "/";
+    char host[256]; int port = use_ssl ? 443 : 80; char path[2048] = "/";
     int hi = 0;
     while (*p && *p != ':' && *p != '/' && hi < 255) host[hi++] = *p++;
     host[hi] = 0;
@@ -1074,8 +1075,6 @@ FLValue fl_http_get(FLValue url_v) {
         return fl_nil();
     }
 
-    /* 모든 후보 주소를 순회하며 connect 성공까지 시도
-       (localhost가 ::1/IPv6로 해석되어도 IPv4 fallback) */
     int fd = -1, last_errno = 0, tried = 0;
     for (struct addrinfo* ai = res; ai; ai = ai->ai_next) {
         tried++;
@@ -1092,39 +1091,69 @@ FLValue fl_http_get(FLValue url_v) {
         return fl_nil();
     }
 
+    /* ── SSL 핸드셰이크 (HTTPS) ───────────────────────────────────── */
+    SSL_CTX* ctx = NULL;
+    SSL*     ssl = NULL;
+    if (use_ssl) {
+        SSL_library_init();
+        SSL_load_error_strings();
+        ctx = SSL_CTX_new(TLS_client_method());
+        if (!ctx) { close(fd); return fl_nil(); }
+        SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);  /* 인증서 검증 생략 */
+        ssl = SSL_new(ctx);
+        SSL_set_fd(ssl, fd);
+        SSL_set_tlsext_host_name(ssl, host);
+        if (SSL_connect(ssl) <= 0) {
+            httpget_diag("TLS 핸드셰이크 실패: %s", host);
+            SSL_free(ssl); SSL_CTX_free(ctx); close(fd);
+            return fl_nil();
+        }
+    }
+
     /* send request */
     char req[4096];
     int rn = snprintf(req, sizeof(req),
         "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n"
-        "User-Agent: fx-http/0.1\r\nAccept: */*\r\n\r\n", path, host);
+        "User-Agent: fx-http/1.0\r\nAccept: */*\r\n\r\n", path, host);
     ssize_t sent = 0;
     while (sent < rn) {
-        ssize_t s = send(fd, req + sent, rn - sent, MSG_NOSIGNAL);
+        ssize_t s = use_ssl
+            ? SSL_write(ssl, req + sent, rn - sent)
+            : send(fd, req + sent, rn - sent, MSG_NOSIGNAL);
         if (s <= 0) {
-            httpget_diag("요청 전송 실패 %s — %s", host, strerror(errno));
+            httpget_diag("요청 전송 실패 %s", host);
+            if (use_ssl) { SSL_free(ssl); SSL_CTX_free(ctx); }
             close(fd); return fl_nil();
         }
         sent += s;
     }
 
-    /* recv 전체 응답 (Connection: close → EOF까지) */
+    /* recv 전체 응답 */
     size_t cap = 8192, len = 0;
     char* buf = malloc(cap);
-    if (!buf) { close(fd); return fl_nil(); }
+    if (!buf) {
+        if (use_ssl) { SSL_free(ssl); SSL_CTX_free(ctx); }
+        close(fd); return fl_nil();
+    }
     ssize_t n;
-    while ((n = recv(fd, buf + len, cap - len - 1, 0)) > 0) {
+    while ((n = use_ssl
+               ? SSL_read(ssl, buf + len, (int)(cap - len - 1))
+               : recv(fd, buf + len, cap - len - 1, 0)) > 0) {
         len += (size_t)n;
         if (len + 1 >= cap) {
             cap *= 2;
             char* nb = realloc(buf, cap);
-            if (!nb) { free(buf); close(fd); return fl_nil(); }
+            if (!nb) { free(buf);
+                if (use_ssl) { SSL_free(ssl); SSL_CTX_free(ctx); }
+                close(fd); return fl_nil(); }
             buf = nb;
         }
     }
     buf[len] = 0;
+    if (use_ssl) { SSL_free(ssl); SSL_CTX_free(ctx); }
     close(fd);
 
-    /* 본문만 추출 (헤더/본문 경계 \r\n\r\n 이후) */
+    /* 본문만 추출 */
     char* sep = strstr(buf, "\r\n\r\n");
     const char* body = sep ? sep + 4 : buf;
     FLValue out = fl_str_val(body);

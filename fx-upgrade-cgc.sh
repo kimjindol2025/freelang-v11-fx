@@ -37,7 +37,7 @@ echo "   gen-a.c: $(wc -l < "$GEN_A") 줄"
 # ── Step 2: gen-a.c → gen-bin 빌드 ──────────────────────────────
 echo "⚙️  [2/4] gcc 빌드 → gen-bin ..."
 gcc -O2 -w -I "$RUNTIME_DIR" -o "$GEN_BIN" $GEN_A $RUNTIME_SRCS \
-  -lm -lpthread -ldl -lsqlite3 2>&1 | grep -E "error:" | grep -v '"error"' | head -5 || true
+  -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto 2>&1 | grep -E "error:" | grep -v '"error"' | head -5 || true
 
 if [ ! -f "$GEN_BIN" ]; then
   echo "❌ gen-bin 빌드 실패"

@@ -109,7 +109,7 @@ RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/mariadb.c $RUNTIME_DIR/debug.c"
 
 BUILD_ERR=$(gcc -O0 -w -I "$RUNTIME_DIR" -o "$BIN_FILE" "$C_FILE" $RUNTIME_SRCS \
-  -lm -lpthread -ldl -lsqlite3 2>&1 | grep "error:" | head -5 || true)
+  -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto 2>&1 | grep "error:" | head -5 || true)
 if [ -n "$BUILD_ERR" ]; then
   echo "❌ 빌드 오류:"
   echo "$BUILD_ERR"

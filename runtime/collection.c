@@ -331,8 +331,10 @@ FLValue null_p(FLValue v) {
 FLValue get(FLValue obj, FLValue key) {
     if (obj.tag == FL_NIL) {
         const char* ks = (key.tag == FL_STRING) ? ((FLString*)key.obj)->data : "?";
-        fprintf(stderr, "\n[FreeLang ERROR] (get nil \"%s\") — nil에 key 접근 불가. nil 체크 먼저.\n", ks);
-        abort();
+        char msg[256];
+        snprintf(msg, sizeof(msg), "(get nil \"%s\") — nil에 key 접근 불가. nil 체크 먼저.", ks);
+        fl_throw(fl_str_val(msg));
+        return fl_nil();
     }
     if (obj.tag == FL_MAP) return fl_map_get(obj, key);
     if (obj.tag == FL_VECTOR) {

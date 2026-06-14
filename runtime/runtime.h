@@ -522,3 +522,15 @@ static inline FLValue __fl_op_lte_w(FLClosure* _s, int _ac, FLValue* a) { (void)
 static inline FLValue __fl_op_gte_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_gte(a[0], a[1]); }
 
 #endif /* FREELANG_RUNTIME_H */
+
+/* ── 정규식 (aliases.c) ── */
+FLValue str_match(FLValue str_v, FLValue pat_v);
+FLValue str_match_all(FLValue str_v, FLValue pat_v);
+FLValue str_replace_re(FLValue str_v, FLValue pat_v, FLValue rep_v);
+FLValue str_replace_all_re(FLValue str_v, FLValue pat_v, FLValue rep_v);
+FLValue str_test(FLValue str_v, FLValue pat_v);
+
+/* ── future (aliases.c) ── */
+FLValue fl_future(FLValue fn);
+FLValue fl_deref(FLValue handle);
+FLValue fl_future_done(FLValue handle);
