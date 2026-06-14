@@ -144,8 +144,14 @@
 ;; fx:  mariadb_connect host port user pass db  (5인자 — port 추가!)
 (define db (mariadb_connect "localhost" 3306 "user" "pass" "dbname"))
 
+;; 파라미터 없는 쿼리
 (mariadb_query db "SELECT * FROM table")
 (mariadb_exec  db "INSERT INTO ...")
+
+;; ? 바인딩 (SQL 인젝션 방어) — 2026-06-14 추가
+(mariadb_exec_p  db "INSERT INTO t VALUES (?,?)" (list $a $b))
+(mariadb_query_p db "SELECT * FROM t WHERE id=?" (list $id))
+(mariadb_one_p   db "SELECT * FROM t WHERE id=?" (list $id))
 ```
 
 ---
@@ -288,21 +294,16 @@ bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app && pm2 reload my-
 
 ---
 
-### 4. MariaDB `mariadb_exec_p` / `mariadb_query_p` 없음
+### 4. ~~MariaDB `mariadb_exec_p` 없음~~ → **추가됨 (2026-06-14)**
 
 ```lisp
-;; ❌ fx에서 3인자 형식 없음 (컴파일 에러)
-(mariadb_exec db "INSERT INTO t VALUES (?,?)" (list $a $b))
-
-;; ✅ esc() 헬퍼로 SQL 직접 포맷팅
-(defn esc [$s]
-  (if (nil? $s) "NULL"
-    (str "'" (str-replace (str-replace (str $s) "'" "''") "\\" "\\\\") "'")))
-
-(mariadb_exec db (str "INSERT INTO t VALUES (" (esc $a) "," (esc $b) ")"))
+;; ✅ ? 바인딩 사용 가능 (2026-06-14 추가)
+(mariadb_exec_p  db "INSERT INTO t VALUES (?,?)" (list $a $b))
+(mariadb_query_p db "SELECT * FROM t WHERE id=?" (list $id))
+(mariadb_one_p   db "SELECT * FROM t WHERE id=?" (list $id))
 ```
 
-> **참고**: SQLite는 `sqlite_exec_p` / `sqlite_query_p` / `sqlite_one_p` 있음. MariaDB만 없음.
+> **참고**: `mariadb_exec_p`는 `mysql_real_escape_string` 기반으로 ? 치환. nil/bool/int/float/string 자동 처리.
 
 ---
 
@@ -318,10 +319,35 @@ bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app && pm2 reload my-
 
 ---
 
+## 🔀 Threading Macro (-> / ->>)
+
+```lisp
+;; -> : 결과를 다음 표현식의 첫 번째 인자로 삽입
+(-> 3 add1 (+ 10) str)
+;; = (str (+ (add1 3) 10))
+;; = "14"
+
+;; ->> : 결과를 다음 표현식의 마지막 인자로 삽입
+(->> (list 1 2 3)
+     (filter (fn [$x] (> $x 1)))
+     (map (fn [$x] (* $x 2))))
+;; = [4, 6]
+
+;; bare symbol 및 call form 모두 지원
+(-> data trim-spaces parse-json (get "field"))
+```
+
+**cgc-bin 버전**: cond flat pair + -> / ->> + mariadb_*_p 포함 (2026-06-14, SHA `52e7e185`)
+
+---
+
 ## 🐛 알려진 버그 & 수정 이력
 
 | 날짜 | 버그 | 수정 | 커밋 |
 |------|------|------|------|
+| 2026-06-14 | cond flat pair 미지원 (→ nil 반환) | cgc-cond-flat 추가, cgc-bin 교체 | SHA `52e7e185` |
+| 2026-06-14 | -> / ->> threading macro 추가 | cgc-tf-build/cgc-tl-build 구현 | SHA `52e7e185` |
+| 2026-06-14 | mariadb_exec_p / query_p / one_p 추가 | mysql_real_escape_string 기반 | mariadb.c |
 | 2026-06-14 | json_stringify %g 6자리 절삭 | 정수float→%lld, 실수→%.17g | `34c10ea` |
 | 2026-06-14 | json_stringify 64KB 고정 버퍼 잘림 | realloc 동적 확장 | `c5ee522` |
 | 이전 | server_req_param으로 쿼리스트링 읽기 불가 | server_req_query 사용 | 문서화 |

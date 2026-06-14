@@ -465,6 +465,9 @@ FLValue mariadb_query(FLValue conn, FLValue sql);
 FLValue mariadb_exec(FLValue conn, FLValue sql);
 FLValue mariadb_one(FLValue conn, FLValue sql);
 FLValue mariadb_close(FLValue conn);
+FLValue mariadb_query_p(FLValue conn, FLValue sql, FLValue params);
+FLValue mariadb_exec_p(FLValue conn, FLValue sql, FLValue params);
+FLValue mariadb_one_p(FLValue conn, FLValue sql, FLValue params);
 
 /* ── 메모리/GC (gc.c) ── */
 void    fl_arena_begin(void);

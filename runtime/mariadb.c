@@ -41,6 +41,7 @@ typedef void         (*fn_mysql_close)(MYSQL*);
 typedef const char*  (*fn_mysql_error)(MYSQL*);
 typedef uint64_t     (*fn_mysql_affected_rows)(MYSQL*);
 typedef uint64_t     (*fn_mysql_num_rows)(MYSQL_RES*);
+typedef unsigned long (*fn_mysql_real_escape_string)(MYSQL*, char*, const char*, unsigned long);
 
 static fn_mysql_init           p_mysql_init           = NULL;
 static fn_mysql_real_connect   p_mysql_real_connect   = NULL;
@@ -55,6 +56,7 @@ static fn_mysql_close          p_mysql_close          = NULL;
 static fn_mysql_error          p_mysql_error          = NULL;
 static fn_mysql_affected_rows  p_mysql_affected_rows  = NULL;
 static fn_mysql_num_rows       p_mysql_num_rows       = NULL;
+static fn_mysql_real_escape_string p_mysql_real_escape_string = NULL;
 
 static void load_mariadb_lib(void) {
     /* libmariadb.so.3 → libmysqlclient.so.21 순서로 시도 */
@@ -90,6 +92,7 @@ static void load_mariadb_lib(void) {
     LOAD(mysql_error)
     LOAD(mysql_affected_rows)
     LOAD(mysql_num_rows)
+    LOAD(mysql_real_escape_string)
 #undef LOAD
 }
 
@@ -332,4 +335,163 @@ FLValue mariadb_close(FLValue conn_v) {
     }
     pthread_mutex_unlock(&c->lock);
     return fl_nil();
+}
+
+/* ── ? 파라미터 바인딩 헬퍼 ──
+ * SQL 문자열의 ? 를 params 벡터의 값으로 치환 (mysql_real_escape_string 사용)
+ */
+static char* build_sql_with_params(MYSQL* conn, const char* sql, FLValue params_v) {
+    /* params가 벡터가 아니면 SQL 그대로 복사 */
+    FLVector* params = NULL;
+    uint32_t nparams = 0;
+    if (params_v.tag == FL_VECTOR) {
+        params = (FLVector*)params_v.obj;
+        nparams = params->len;
+    }
+
+    size_t sql_len = strlen(sql);
+    /* worst case: 각 ? 를 최대 2*val_len+2 로 치환 */
+    size_t buf_cap = sql_len * 4 + nparams * 512 + 64;
+    char*  buf     = (char*)malloc(buf_cap);
+    if (!buf) return NULL;
+
+    size_t out = 0;
+    uint32_t pi = 0;
+
+    for (size_t i = 0; i < sql_len; i++) {
+        if (sql[i] == '?' && pi < nparams) {
+            FLValue v = params->data[pi++];
+            char tmp[2048];
+            size_t tmp_len = 0;
+
+            if (v.tag == FL_NIL) {
+                memcpy(tmp, "NULL", 4); tmp_len = 4;
+            } else if (v.tag == FL_BOOL) {
+                int b = (v.i != 0);
+                memcpy(tmp, b ? "1" : "0", 1); tmp_len = 1;
+            } else if (v.tag == FL_INT) {
+                tmp_len = (size_t)snprintf(tmp, sizeof(tmp), "%lld", (long long)v.i);
+            } else if (v.tag == FL_FLOAT) {
+                tmp_len = (size_t)snprintf(tmp, sizeof(tmp), "%.17g", v.f);
+            } else {
+                /* 문자열 — real_escape */
+                const char* s = ((FLString*)v.obj)->data;
+                size_t slen   = strlen(s);
+                char* esc     = (char*)malloc(slen * 2 + 1);
+                if (esc && p_mysql_real_escape_string) {
+                    unsigned long elen = p_mysql_real_escape_string(conn, esc, s, (unsigned long)slen);
+                    /* 따옴표 포함 */
+                    if (out + elen + 2 + 1 > buf_cap) {
+                        buf_cap = (out + elen + 2 + 1) * 2;
+                        buf = (char*)realloc(buf, buf_cap);
+                    }
+                    buf[out++] = '\'';
+                    memcpy(buf + out, esc, elen); out += elen;
+                    buf[out++] = '\'';
+                    free(esc);
+                    continue;
+                }
+                if (esc) free(esc);
+                /* fallback: 수동 이스케이프 */
+                tmp[0] = '\'';
+                size_t k = 1;
+                for (size_t j = 0; j < slen && k < sizeof(tmp) - 4; j++) {
+                    if (s[j] == '\'' || s[j] == '\\') tmp[k++] = '\\';
+                    tmp[k++] = s[j];
+                }
+                tmp[k++] = '\'';
+                tmp_len = k;
+            }
+
+            if (out + tmp_len + 1 > buf_cap) {
+                buf_cap = (out + tmp_len + 1) * 2;
+                buf = (char*)realloc(buf, buf_cap);
+            }
+            memcpy(buf + out, tmp, tmp_len);
+            out += tmp_len;
+        } else {
+            if (out + 1 >= buf_cap) {
+                buf_cap *= 2;
+                buf = (char*)realloc(buf, buf_cap);
+            }
+            buf[out++] = sql[i];
+        }
+    }
+    buf[out] = '\0';
+    return buf;
+}
+
+/* (mariadb_query_p conn sql params) → vector of maps */
+FLValue mariadb_query_p(FLValue conn_v, FLValue sql_v, FLValue params_v) {
+    if (!ensure_lib()) return fl_vec_new();
+    if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
+        return fl_vec_new();
+
+    const char* id  = ((FLString*)conn_v.obj)->data;
+    const char* sql = ((FLString*)sql_v.obj)->data;
+
+    FLMariaConn* c = find_conn(id);
+    if (!c) return fl_str_val("[mariadb] 연결 없음");
+
+    pthread_mutex_lock(&c->lock);
+    char* built = build_sql_with_params(c->conn, sql, params_v);
+    if (!built) { pthread_mutex_unlock(&c->lock); return fl_vec_new(); }
+
+    int rc = p_mysql_real_query(c->conn, built, (unsigned long)strlen(built));
+    free(built);
+    if (rc != 0) {
+        const char* err = p_mysql_error(c->conn);
+        char buf[512];
+        snprintf(buf, sizeof(buf), "[mariadb] 쿼리 오류: %s", err);
+        pthread_mutex_unlock(&c->lock);
+        return fl_str_val(buf);
+    }
+    MYSQL_RES* res = p_mysql_store_result(c->conn);
+    pthread_mutex_unlock(&c->lock);
+
+    return fetch_rows(res);
+}
+
+/* (mariadb_exec_p conn sql params) → {"affected": N} */
+FLValue mariadb_exec_p(FLValue conn_v, FLValue sql_v, FLValue params_v) {
+    if (!ensure_lib()) return fl_nil();
+    if (conn_v.tag != FL_STRING || sql_v.tag != FL_STRING)
+        return fl_nil();
+
+    const char* id  = ((FLString*)conn_v.obj)->data;
+    const char* sql = ((FLString*)sql_v.obj)->data;
+
+    FLMariaConn* c = find_conn(id);
+    if (!c) return fl_str_val("[mariadb] 연결 없음");
+
+    pthread_mutex_lock(&c->lock);
+    char* built = build_sql_with_params(c->conn, sql, params_v);
+    if (!built) { pthread_mutex_unlock(&c->lock); return fl_nil(); }
+
+    int rc = p_mysql_real_query(c->conn, built, (unsigned long)strlen(built));
+    free(built);
+    uint64_t affected = 0;
+    if (rc == 0) {
+        affected = (uint64_t)p_mysql_affected_rows(c->conn);
+    } else {
+        const char* err = p_mysql_error(c->conn);
+        char buf[512];
+        snprintf(buf, sizeof(buf), "[mariadb] 실행 오류: %s", err);
+        pthread_mutex_unlock(&c->lock);
+        return fl_str_val(buf);
+    }
+    pthread_mutex_unlock(&c->lock);
+
+    FLValue map = fl_map_new();
+    map = fl_map_set(map, fl_str_val("affected"), fl_int((int64_t)affected));
+    return map;
+}
+
+/* (mariadb_one_p conn sql params) → 단일 맵 or nil */
+FLValue mariadb_one_p(FLValue conn_v, FLValue sql_v, FLValue params_v) {
+    FLValue rows = mariadb_query_p(conn_v, sql_v, params_v);
+    if (rows.tag != FL_VECTOR) return fl_nil();
+    FLVector* vec = (FLVector*)rows.obj;
+    if (vec->len == 0) return fl_nil();
+    return vec->data[0];
 }
