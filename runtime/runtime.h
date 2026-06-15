@@ -599,6 +599,17 @@ FLValue http_body(FLValue res);
 FLValue http_status(FLValue res);
 FLValue http_ok_p(FLValue res);
 
+/* ── stdlib 갭 함수 (aliases.c) ── */
+FLValue uuid(void);
+FLValue fl_random(void);
+FLValue max_by(FLValue fn, FLValue vec);
+FLValue min_by(FLValue fn, FLValue vec);
+FLValue clamp(FLValue val, FLValue lo, FLValue hi);
+FLValue file_exists_p(FLValue path);
+FLValue sha256(FLValue s);
+FLValue md5(FLValue s);
+FLValue json_pretty(FLValue v);
+
 /* ── 정규식 (regex.c) ── */
 FLValue regex_match(FLValue pattern, FLValue str);
 FLValue regex_find(FLValue pattern, FLValue str);

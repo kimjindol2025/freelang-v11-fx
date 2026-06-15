@@ -1413,3 +1413,88 @@ FLValue regex_groups_alias(FLValue p, FLValue s)                  { return regex
 FLValue regex_replace_alias(FLValue p, FLValue s, FLValue r)      { return regex_replace(p, s, r); }
 FLValue regex_replace_all_alias(FLValue p, FLValue s, FLValue r)  { return regex_replace_all(p, s, r); }
 FLValue regex_split_alias(FLValue p, FLValue s)                   { return regex_split(p, s); }
+
+/* ── stdlib 갭 — kebab-case alias + 미구현 함수 ─────────────────── */
+#include <openssl/sha.h>
+#include <openssl/md5.h>
+
+/* uuid, random, max-by, min-by, clamp, file-exists? */
+FLValue uuid(void)                                { return uuid4(); }
+FLValue fl_random(void)                          { return math_random(); }
+FLValue max_by(FLValue fn, FLValue vec)           { return fl_max_by(fn, vec); }
+FLValue min_by(FLValue fn, FLValue vec)           { return fl_min_by(fn, vec); }
+FLValue clamp(FLValue val, FLValue lo, FLValue hi){ return fl_clamp(val, lo, hi); }
+FLValue file_exists_p(FLValue path)               { return file_exists(path); }
+
+/* sha256 str → hex string */
+FLValue sha256(FLValue s) {
+    if (s.tag != FL_STRING || !s.obj) return fl_str_val("");
+    const char* data = ((FLString*)s.obj)->data;
+    size_t len = ((FLString*)s.obj)->len;
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256((const unsigned char*)data, len, digest);
+    char hex[SHA256_DIGEST_LENGTH * 2 + 1];
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+        snprintf(hex + i * 2, 3, "%02x", digest[i]);
+    return fl_str_val(hex);
+}
+
+/* md5 str → hex string */
+FLValue md5(FLValue s) {
+    if (s.tag != FL_STRING || !s.obj) return fl_str_val("");
+    const char* data = ((FLString*)s.obj)->data;
+    size_t len = ((FLString*)s.obj)->len;
+    unsigned char digest[MD5_DIGEST_LENGTH];
+    MD5((const unsigned char*)data, len, digest);
+    char hex[MD5_DIGEST_LENGTH * 2 + 1];
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
+        snprintf(hex + i * 2, 3, "%02x", digest[i]);
+    return fl_str_val(hex);
+}
+
+/* json-pretty val → 들여쓰기 JSON 문자열 */
+FLValue json_pretty(FLValue v) {
+    FLValue raw = json_stringify(v);
+    if (raw.tag != FL_STRING || !raw.obj) return raw;
+    const char* in = ((FLString*)raw.obj)->data;
+    size_t ilen = strlen(in);
+    size_t cap = ilen * 4 + 64;
+    char* out = malloc(cap);
+    size_t oi = 0;
+    int indent = 0;
+    int in_str = 0;
+    for (size_t i = 0; i < ilen; i++) {
+        char c = in[i];
+        if (in_str) {
+            out[oi++] = c;
+            if (c == '\\' && i + 1 < ilen) { out[oi++] = in[++i]; }
+            else if (c == '"') in_str = 0;
+        } else if (c == '"') {
+            out[oi++] = c; in_str = 1;
+        } else if (c == '{' || c == '[') {
+            out[oi++] = c;
+            if (i + 1 < ilen && in[i+1] != '}' && in[i+1] != ']') {
+                out[oi++] = '\n'; indent++;
+                for (int k = 0; k < indent * 2; k++) out[oi++] = ' ';
+            }
+        } else if (c == '}' || c == ']') {
+            if (oi > 0 && out[oi-1] != '\n') {
+                out[oi++] = '\n'; indent--;
+                for (int k = 0; k < indent * 2; k++) out[oi++] = ' ';
+            } else { indent--; }
+            out[oi++] = c;
+        } else if (c == ',') {
+            out[oi++] = c; out[oi++] = '\n';
+            for (int k = 0; k < indent * 2; k++) out[oi++] = ' ';
+        } else if (c == ':') {
+            out[oi++] = c; out[oi++] = ' ';
+        } else if (c != ' ' && c != '\n' && c != '\t') {
+            out[oi++] = c;
+        }
+        if (oi + 256 >= cap) { cap *= 2; out = realloc(out, cap); }
+    }
+    out[oi] = '\0';
+    FLValue result = fl_str_val(out);
+    free(out);
+    return result;
+}
