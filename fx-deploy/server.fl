@@ -1,0 +1,307 @@
+;; fx-deploy v1 — 배포 엔진
+;; FreeLang fx C 네이티브 | 포트 40302
+;; 역할: POST /deploy → git pull → build → pm2 reload → health check → fx-notify
+;; v1 범위: 로컬 전용, 단일 서비스, 순차 실행 (롤백 없음)
+
+(define PORT       40302)
+(define DB_PATH    "./deploy.db")
+(define REPO_ROOT  "/home/kimjin/freelang-v11-fx")
+(define BUILD_SH   "/home/kimjin/freelang-v11-fx/fl-build.sh")
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(define db (fxb_sqlite_open DB_PATH))
+
+(do
+  (fxb_sqlite_exec db
+    "CREATE TABLE IF NOT EXISTS services (
+       name         TEXT PRIMARY KEY,
+       repo_path    TEXT NOT NULL,
+       build_dir    TEXT NOT NULL,
+       build_cmd    TEXT NOT NULL,
+       pm2_name     TEXT NOT NULL,
+       health_port  INTEGER NOT NULL,
+       enabled      INTEGER NOT NULL DEFAULT 1
+     )")
+  (fxb_sqlite_exec db
+    "CREATE TABLE IF NOT EXISTS deploys (
+       id           TEXT PRIMARY KEY,
+       created_at   INTEGER NOT NULL,
+       service      TEXT NOT NULL,
+       status       TEXT NOT NULL DEFAULT 'pending',
+       step         TEXT,
+       git_before   TEXT,
+       git_after    TEXT,
+       started_at   INTEGER,
+       finished_at  INTEGER,
+       duration_ms  INTEGER,
+       log          TEXT,
+       error        TEXT
+     )")
+  nil)
+
+;; ── 서비스 레지스트리 자동 등록 (fx 앱 5개) ─────────────────────
+
+(defn register-svc [$name $port]
+  (let [$bdir (str REPO_ROOT "/" $name)
+        $bcmd (str "bash " BUILD_SH " server.fl " $name)]
+    (do
+      (fxb_sqlite_exec db
+        (str "INSERT OR IGNORE INTO services"
+             "(name,repo_path,build_dir,build_cmd,pm2_name,health_port)"
+             " VALUES ('" $name "','" REPO_ROOT "','" $bdir "','"
+             $bcmd "','" $name "'," $port ")"))
+      nil)))
+
+(do
+  (register-svc "fx-world"   40296)
+  (register-svc "fx-queue"   40297)
+  (register-svc "fx-mail"    40299)
+  (register-svc "fx-notify"  40300)
+  (register-svc "fx-monitor" 40301)
+  nil)
+
+;; ── fx-notify 전송 헬퍼 ───────────────────────────────────────
+
+(defn send-to-notify [$event $severity $title $message]
+  (shell_run (str
+    "curl -s -X POST http://localhost:40300/notify "
+    "-H 'Content-Type: application/json' "
+    "-d '{\"source\":\"fx-deploy\","
+    "\"event\":\"" $event "\","
+    "\"severity\":\"" $severity "\","
+    "\"channel\":\"all\","
+    "\"title\":\"" $title "\","
+    "\"message\":\"" $message "\","
+    "\"to\":\"root@localhost\"}'")))
+
+;; ── 배포 상태 DB 헬퍼 ─────────────────────────────────────────
+
+(defn update-deploy [$id $status $step]
+  (do
+    (fxb_sqlite_exec db
+      (str "UPDATE deploys SET status='" $status
+           "',step='" $step
+           "' WHERE id='" $id "'"))
+    nil))
+
+(defn finish-deploy [$id $status $gb $ga $log $err $started]
+  (let [$now (now-ms)
+        $dur (- $now $started)]
+    (do
+      (fxb_sqlite_exec db
+        (str "UPDATE deploys SET status='" $status
+             "',step='완료'"
+             ",git_before='" (if $gb $gb "") "'"
+             ",git_after='"  (if $ga $ga "")  "'"
+             ",log='"        (str_slice (if $log $log "") 0 400) "'"
+             ",error='"      (if $err $err "")  "'"
+             ",finished_at=" $now
+             ",duration_ms=" $dur
+             " WHERE id='" $id "'"))
+      nil)))
+
+;; ── git 커밋 해시 ────────────────────────────────────────────
+
+(defn get-commit [$repo]
+  (str_trim (shell_run (str "cd " $repo " && git rev-parse --short HEAD 2>/dev/null"))))
+
+;; ── 단계별 실행 함수 (성공=true, 실패=false) ──────────────────
+;; exit code $? 비교로 판단 — str_includes 타입 충돌 회피
+
+(defn step-pull [$repo]
+  (= (str_trim (shell_run (str "cd " $repo " && git pull > /dev/null 2>&1; echo $?"))) "0"))
+
+(defn step-build [$bdir $bcmd]
+  (= (str_trim (shell_run (str "cd " $bdir " && " $bcmd " > /dev/null 2>&1; echo $?"))) "0"))
+
+(defn step-reload [$pm2]
+  (= (str_trim (shell_run (str "pm2 reload " $pm2 " > /dev/null 2>&1; echo $?"))) "0"))
+
+(defn step-health [$port]
+  (= (str_trim (shell_run
+       (str "nc -z -w3 localhost " $port " 2>/dev/null && echo ok || echo fail")))
+     "ok"))
+
+;; ── 배포 실행 (future 내부) ───────────────────────────────────
+
+(defn do-deploy [$id $name $repo $bdir $bcmd $pm2 $port $started]
+  (let [$git-before (get-commit $repo)]
+    (do
+      (update-deploy $id "pulling" "git pull")
+      (let [$pull-ok (step-pull $repo)]
+        (if (not $pull-ok)
+          (do
+            (finish-deploy $id "failed" $git-before nil "" "git pull 실패" $started)
+            (send-to-notify "deploy-fail" "error"
+              (str $name " 배포 실패") "git pull 실패"))
+          (let [$git-after (get-commit $repo)]
+            (do
+              (update-deploy $id "building" "빌드")
+              (let [$build-ok (step-build $bdir $bcmd)]
+                (if (not $build-ok)
+                  (do
+                    (finish-deploy $id "failed" $git-before $git-after "" "빌드 실패" $started)
+                    (send-to-notify "deploy-fail" "error"
+                      (str $name " 빌드 실패") "빌드 실패"))
+                  (do
+                    (update-deploy $id "reloading" "pm2 reload")
+                    (let [$reload-ok (step-reload $pm2)]
+                      (if (not $reload-ok)
+                        (do
+                          (finish-deploy $id "failed" $git-before $git-after "" "pm2 reload 실패" $started)
+                          (send-to-notify "deploy-fail" "error"
+                            (str $name " reload 실패") "pm2 reload 실패"))
+                        (do
+                          (sleep 2000)
+                          (update-deploy $id "checking" "헬스 체크")
+                          (let [$ok (step-health $port)]
+                            (if $ok
+                              (do
+                                (finish-deploy $id "done" $git-before $git-after "" nil $started)
+                                (send-to-notify "deploy-ok" "info"
+                                  (str $name " 배포 완료")
+                                  (str $git-before " → " $git-after " | 포트:" $port)))
+                              (do
+                                (finish-deploy $id "failed" $git-before $git-after "" "헬스 체크 실패" $started)
+                                (send-to-notify "deploy-fail" "error"
+                                  (str $name " 헬스 체크 실패")
+                                  (str "포트 " $port " 응답 없음"))))))))))))))))))
+
+;; ── POST /deploy {service} ────────────────────────────────────
+
+(defn handle-deploy [$req]
+  (let [$body     (get $req "body")
+        $svc-name (get $body "service")]
+    (if (null? $svc-name)
+      (server_json (json_stringify {"ok" false "error" "service 필드 필요"}))
+      (let [$rows (fxb_sqlite_query db
+                    (str "SELECT name,repo_path,build_dir,build_cmd,pm2_name,health_port"
+                         " FROM services WHERE name='" $svc-name "' AND enabled=1"))]
+        (if (= (length $rows) 0)
+          (server_json (json_stringify {"ok" false "error" (str "서비스 없음: " $svc-name)}))
+          (let [$svc    (get $rows 0)
+                $now    (now-ms)
+                $id     (str "d-" $now)
+                $repo   (get $svc "repo_path")
+                $bdir   (get $svc "build_dir")
+                $bcmd   (get $svc "build_cmd")
+                $pm2    (get $svc "pm2_name")
+                $port   (get $svc "health_port")]
+            (do
+              (fxb_sqlite_exec db
+                (str "INSERT INTO deploys(id,created_at,service,status,step,started_at)"
+                     " VALUES ('" $id "'," $now ",'" $svc-name "','pending','시작'," $now ")"))
+              (future (fn []
+                (do-deploy $id $svc-name $repo $bdir $bcmd $pm2 $port $now)))
+              (server_json (json_stringify
+                {"ok"      true
+                 "id"      $id
+                 "service" $svc-name
+                 "status"  "pending"
+                 "msg"     (str $svc-name " 배포 시작 — " $id)})))))))))
+
+;; ── GET /deploy/:id ───────────────────────────────────────────
+
+(defn handle-get-deploy [$req]
+  (let [$id   (get (get $req "params") "id")
+        $rows (fxb_sqlite_query db
+                (str "SELECT id,created_at,service,status,step,git_before,git_after,"
+                     "started_at,finished_at,duration_ms,log,error"
+                     " FROM deploys WHERE id='" $id "'"))]
+    (if (= (length $rows) 0)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (server_json (json_stringify {"ok" true "deploy" (get $rows 0)})))))
+
+;; ── GET /deploys?service=&status=&limit= ─────────────────────
+
+(defn handle-list-deploys [$req]
+  (let [$q      (get $req "query")
+        $svc    (get $q "service")
+        $status (get $q "status")
+        $limit  (if (get $q "limit") (get $q "limit") "20")
+        $where  (str
+          (if $svc    (str "service='" $svc "' AND ") "")
+          (if $status (str "status='"  $status "' AND ") "")
+          "1=1")
+        $rows   (fxb_sqlite_query db
+          (str "SELECT id,created_at,service,status,step,git_before,git_after,"
+               "started_at,finished_at,duration_ms,error"
+               " FROM deploys WHERE " $where
+               " ORDER BY created_at DESC LIMIT " $limit))]
+    (server_json (json_stringify
+      {"ok" true "deploys" $rows "count" (length $rows)}))))
+
+;; ── GET /services ─────────────────────────────────────────────
+
+(defn handle-list-services [$req]
+  (let [$rows (fxb_sqlite_query db
+                "SELECT name,repo_path,pm2_name,health_port,enabled FROM services")]
+    (server_json (json_stringify
+      {"ok" true "services" $rows "count" (length $rows)}))))
+
+;; ── POST /services/register ───────────────────────────────────
+
+(defn handle-register-service [$req]
+  (let [$b    (get $req "body")
+        $name (get $b "name")
+        $port (get $b "health_port")]
+    (if (null? $name)
+      (server_json (json_stringify {"ok" false "error" "name 필드 필요"}))
+      (if (null? $port)
+        (server_json (json_stringify {"ok" false "error" "health_port 필드 필요"}))
+        (let [$repo (if (get $b "repo_path") (get $b "repo_path") REPO_ROOT)
+              $bdir (if (get $b "build_dir") (get $b "build_dir") (str REPO_ROOT "/" $name))
+              $bcmd (if (get $b "build_cmd") (get $b "build_cmd")
+                      (str "bash " BUILD_SH " server.fl " $name))
+              $pm2  (if (get $b "pm2_name")  (get $b "pm2_name")  $name)]
+          (do
+            (fxb_sqlite_exec db
+              (str "INSERT OR REPLACE INTO services"
+                   "(name,repo_path,build_dir,build_cmd,pm2_name,health_port)"
+                   " VALUES ('" $name "','" $repo "','" $bdir "','"
+                   $bcmd "','" $pm2 "'," $port ")"))
+            (server_json (json_stringify {"ok" true "registered" $name}))))))))
+
+;; ── GET /stats ────────────────────────────────────────────────
+
+(defn handle-stats [$req]
+  (let [$total  (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM deploys")
+        $done   (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM deploys WHERE status='done'")
+        $failed (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM deploys WHERE status='failed'")
+        $by-svc (fxb_sqlite_query db
+          "SELECT service, COUNT(*) as cnt FROM deploys GROUP BY service ORDER BY cnt DESC")]
+    (server_json (json_stringify
+      {"ok"         true
+       "total"      (get (get $total  0) "cnt")
+       "done"       (get (get $done   0) "cnt")
+       "failed"     (get (get $failed 0) "cnt")
+       "by_service" $by-svc}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-deploy"
+     "version" "1.0.0"
+     "role"    "배포 엔진 — git pull → build → pm2 reload → health check → fx-notify"
+     "routes"  (list
+       "POST /deploy {service}         — 배포 시작 (비동기)"
+       "GET  /deploy/:id              — 배포 상태 조회"
+       "GET  /deploys?service=&status= — 배포 이력"
+       "GET  /services                — 등록된 서비스 (fx 앱 5개)"
+       "POST /services/register       — 신규 서비스 등록"
+       "GET  /stats                   — 누적 통계")})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"                  "handle-index")
+(server_post "/deploy"            "handle-deploy")
+(server_get  "/deploy/:id"        "handle-get-deploy")
+(server_get  "/deploys"           "handle-list-deploys")
+(server_get  "/services"          "handle-list-services")
+(server_post "/services/register" "handle-register-service")
+(server_get  "/stats"             "handle-stats")
+
+(println (str "🚀 fx-deploy v1 포트 " PORT " 시작"))
+(server_start PORT)
