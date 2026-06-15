@@ -1,0 +1,204 @@
+;; fx-notify — 이벤트 버스 알림 서버
+;; FreeLang fx C 네이티브 | 포트 40300
+;; 역할: 중심 허브 — fx-monitor/fx-deploy/AI Village → 여기 → WebSocket + Mail + SQLite
+
+(define PORT    40300)
+(define DB_PATH "./notify.db")
+(define MAIL_FROM "fx-notify@localhost")
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(define db (fxb_sqlite_open DB_PATH))
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS notifications (
+     id         TEXT PRIMARY KEY,
+     created_at INTEGER NOT NULL,
+     source     TEXT NOT NULL DEFAULT 'unknown',
+     event      TEXT NOT NULL,
+     severity   TEXT NOT NULL DEFAULT 'info',
+     channel    TEXT NOT NULL DEFAULT 'ws',
+     title      TEXT NOT NULL,
+     message    TEXT,
+     data       TEXT,
+     status     TEXT NOT NULL DEFAULT 'sent'
+   )")
+
+;; ── 전역 상태 ─────────────────────────────────────────────────
+
+(define $ws-clients (atom []))
+(define $bcast-buf  (atom ""))
+
+;; ── DB 헬퍼 ───────────────────────────────────────────────────
+
+(defn db-insert [$id $now $source $event $severity $channel $title $message $data]
+  (do
+    (fxb_sqlite_exec db
+      (str "INSERT INTO notifications"
+           "(id,created_at,source,event,severity,channel,title,message,data)"
+           " VALUES ('" $id "'," $now ",'" $source "','" $event "','"
+           $severity "','" $channel "','" $title "','"
+           (if $message $message "") "','"
+           (if $data $data "{}") "')"))
+    nil))
+
+(defn db-list [$source $event $severity $limit]
+  (let [$where (str
+    (if $source  (str "source='" $source "' AND ") "")
+    (if $event   (str "event='" $event "' AND ") "")
+    (if $severity (str "severity='" $severity "' AND ") "")
+    "1=1")
+        $lim (if $limit $limit "100")]
+    (fxb_sqlite_query db
+      (str "SELECT id,created_at,source,event,severity,channel,title,message,data,status"
+           " FROM notifications WHERE " $where
+           " ORDER BY created_at DESC LIMIT " $lim))))
+
+(defn db-get [$id]
+  (let [$rows (fxb_sqlite_query db
+    (str "SELECT id,created_at,source,event,severity,channel,title,message,data,status"
+         " FROM notifications WHERE id='" $id "'"))]
+    (if (= (length $rows) 0) nil (get $rows 0))))
+
+;; ── WebSocket 브로드캐스트 ─────────────────────────────────────
+
+(defn broadcast [$msg]
+  (swap! $bcast-buf (fn [$_] $msg))
+  (let [$alive
+    (reduce
+      (fn [$acc $ws]
+        (try
+          (do (ws_send $ws @$bcast-buf) (append $acc $ws))
+          (catch $_ $acc)))
+      [] @$ws-clients)]
+    (swap! $ws-clients (fn [$_] $alive))))
+
+;; ── 채널 디스패처 ─────────────────────────────────────────────
+
+(defn notify-ws [$id $source $event $severity $title $message $data]
+  (broadcast (json_stringify
+    {"type"     "notification"
+     "id"       $id
+     "source"   $source
+     "event"    $event
+     "severity" $severity
+     "title"    $title
+     "message"  $message
+     "data"     $data})))
+
+(defn notify-mail [$source $event $severity $title $message $to]
+  (let [$subject (str "[fx-notify][" $severity "] " $title)
+        $body    (str "Source: " $source "\n"
+                      "Event:  " $event "\n"
+                      "Severity: " $severity "\n\n"
+                      (if $message $message ""))]
+    (smtp_send MAIL_FROM $to $subject $body)))
+
+;; ── POST /notify ───────────────────────────────────────────────
+
+(defn handle-notify [$req]
+  (let [$body     (get $req "body")
+        $source   (if (get $body "source")   (get $body "source")   "unknown")
+        $event    (get $body "event")
+        $severity (if (get $body "severity") (get $body "severity") "info")
+        $channel  (if (get $body "channel")  (get $body "channel")  "ws")
+        $title    (get $body "title")
+        $message  (get $body "message")
+        $data     (if (get $body "data")
+                    (json_stringify (get $body "data"))
+                    "{}")]
+    (if (null? $event)
+      (server_json (json_stringify {"ok" false "error" "event 필드 필요"}))
+      (if (null? $title)
+        (server_json (json_stringify {"ok" false "error" "title 필드 필요"}))
+        (let [$id  (str "n-" (now-ms))
+              $now (now-ms)]
+          (do
+            (db-insert $id $now $source $event $severity $channel $title $message $data)
+            ;; ws 채널
+            (if (or (= $channel "ws") (= $channel "all"))
+              (future (fn [] (notify-ws $id $source $event $severity $title $message $data)))
+              nil)
+            ;; mail 채널
+            (if (or (= $channel "mail") (= $channel "all"))
+              (let [$to (if (get $body "to") (get $body "to") "root@localhost")]
+                (future (fn [] (notify-mail $source $event $severity $title $message $to))))
+              nil)
+            (server_json (json_stringify
+              {"ok" true "id" $id "channel" $channel "event" $event}))))))))
+
+;; ── GET /notifications ─────────────────────────────────────────
+
+(defn handle-list [$req]
+  (let [$q        (get $req "query")
+        $source   (get $q "source")
+        $event    (get $q "event")
+        $severity (get $q "severity")
+        $limit    (get $q "limit")
+        $rows     (db-list $source $event $severity $limit)]
+    (server_json (json_stringify
+      {"ok" true "notifications" $rows "count" (length $rows)}))))
+
+;; ── GET /notifications/:id ─────────────────────────────────────
+
+(defn handle-get [$req]
+  (let [$id  (get (get $req "params") "id")
+        $row (db-get $id)]
+    (if (null? $row)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (server_json (json_stringify {"ok" true "notification" $row})))))
+
+;; ── GET /stats ─────────────────────────────────────────────────
+
+(defn handle-stats [$req]
+  (let [$total   (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM notifications")
+        $by-sev  (fxb_sqlite_query db
+          "SELECT severity, COUNT(*) as cnt FROM notifications GROUP BY severity")
+        $by-src  (fxb_sqlite_query db
+          "SELECT source, COUNT(*) as cnt FROM notifications GROUP BY source ORDER BY cnt DESC LIMIT 10")]
+    (server_json (json_stringify
+      {"ok"           true
+       "total"        (get (get $total 0) "cnt")
+       "by_severity"  $by-sev
+       "by_source"    $by-src
+       "ws_clients"   (length @$ws-clients)}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-notify"
+     "version" "1.0.0"
+     "role"    "이벤트 버스 — WebSocket + Mail + SQLite"
+     "routes"  (list
+       "POST /notify {source,event,severity,channel,title,message?,data?,to?}"
+       "GET  /notifications?source=&event=&severity=&limit="
+       "GET  /notifications/:id"
+       "GET  /stats"
+       "WS   /ws")
+     "channels" (list "ws" "mail" "all")
+     "severity" (list "info" "warn" "error" "critical")})))
+
+;; ── WebSocket /ws ─────────────────────────────────────────────
+
+(defn handle-ws [$ws]
+  (do
+    (swap! $ws-clients (fn [$c] (append $c $ws)))
+    (ws_send $ws (json_stringify
+      {"type" "connected" "msg" "fx-notify 이벤트 버스 연결됨"
+       "clients" (length @$ws-clients)}))
+    (let [$msg (try (ws_recv $ws) (catch $_ nil))]
+      (if (null? $msg) nil
+        (ws_send $ws (json_stringify {"type" "pong"}))))))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get    "/"                  "handle-index")
+(server_post   "/notify"            "handle-notify")
+(server_get    "/notifications"     "handle-list")
+(server_get    "/notifications/:id" "handle-get")
+(server_get    "/stats"             "handle-stats")
+(server_ws     "/ws"                "handle-ws")
+
+(println (str "🔔 fx-notify 이벤트 버스 포트 " PORT " 시작"))
+(server_start PORT)
