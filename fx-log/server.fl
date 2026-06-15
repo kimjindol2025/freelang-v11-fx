@@ -1,0 +1,173 @@
+;; fx-log v1 — 중앙 로그 수집기
+;; FreeLang fx C 네이티브 | 포트 40305
+;; POST /log {source,level,message} → SQLite 저장 + WS 브로드캐스트
+;; level: debug/info/warn/error/critical
+;; error/critical → fx-notify 자동 알림
+
+(define PORT    40305)
+(define DB_PATH "./log.db")
+(define MAX_LOGS 50000)
+
+(define db (fxb_sqlite_open DB_PATH))
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS logs (
+     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+     ts         INTEGER NOT NULL,
+     source     TEXT NOT NULL,
+     level      TEXT NOT NULL,
+     message    TEXT NOT NULL,
+     meta       TEXT
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE INDEX IF NOT EXISTS idx_ts     ON logs(ts DESC)")
+(fxb_sqlite_exec db
+  "CREATE INDEX IF NOT EXISTS idx_source ON logs(source)")
+(fxb_sqlite_exec db
+  "CREATE INDEX IF NOT EXISTS idx_level  ON logs(level)")
+
+;; ── WebSocket 클라이언트 ───────────────────────────────────────
+
+(define ws-clients (atom []))
+
+(defn ws-broadcast [$msg]
+  (let [$clients @$ws-clients]
+    (map (fn [$c] (do (ws_send $c $msg) nil)) $clients)))
+
+;; ── fx-notify 전송 ────────────────────────────────────────────
+
+(defn send-notify [$source $level $msg]
+  (shell_run (str
+    "curl -s -X POST http://localhost:40300/notify "
+    "-H 'Content-Type: application/json' "
+    "-d '{\"source\":\"fx-log\","
+    "\"event\":\"log-" $level "\","
+    "\"severity\":\"" $level "\","
+    "\"channel\":\"all\","
+    "\"title\":\"[" $source "] " $level "\","
+    "\"message\":\"" (str_slice $msg 0 120) "\","
+    "\"to\":\"root@localhost\"}'")))
+
+;; ── 오래된 로그 정리 ──────────────────────────────────────────
+
+(defn prune-logs []
+  (let [$cnt (fxb_sqlite_query db "SELECT COUNT(*) as c FROM logs")]
+    (if (> (get (get $cnt 0) "c") MAX_LOGS)
+      (fxb_sqlite_exec db
+        (str "DELETE FROM logs WHERE id IN"
+             "(SELECT id FROM logs ORDER BY ts ASC LIMIT 5000)"))
+      nil)))
+
+;; ── POST /log ─────────────────────────────────────────────────
+
+(defn handle-log [$req]
+  (let [$b      (get $req "body")
+        $source (get $b "source")
+        $level  (get $b "level")
+        $msg    (get $b "message")
+        $meta   (get $b "meta")]
+    (if (null? $source)
+      (server_json (json_stringify {"ok" false "error" "source 필요"}))
+      (if (null? $msg)
+        (server_json (json_stringify {"ok" false "error" "message 필요"}))
+        (let [$lv  (if $level $level "info")
+              $now (now-ms)]
+          (do
+            (fxb_sqlite_exec db
+              (str "INSERT INTO logs(ts,source,level,message,meta)"
+                   " VALUES (" $now ",'" $source "','" $lv "','"
+                   (str_slice (str_replace $msg "'" "''") 0 2000) "','"
+                   (if $meta (str_replace (json_stringify $meta) "'" "''") "") "')"))
+            (let [$entry (json_stringify
+                           {"ts" $now "source" $source "level" $lv "message" $msg})]
+              (do
+                (ws-broadcast $entry)
+                (if (or (= $lv "error") (= $lv "critical"))
+                  (future (fn [] (send-notify $source $lv $msg)))
+                  nil)
+                (future (fn [] (prune-logs)))
+                (server_json (json_stringify {"ok" true "ts" $now}))))))))))
+
+;; ── GET /logs ─────────────────────────────────────────────────
+
+(defn handle-list [$req]
+  (let [$q      (get $req "query")
+        $source (get $q "source")
+        $level  (get $q "level")
+        $limit  (if (get $q "limit") (get $q "limit") "100")
+        $since  (get $q "since")
+        $conds  (str
+          (if $source (str "source='" $source "' AND ") "")
+          (if $level  (str "level='" $level "' AND ")  "")
+          (if $since  (str "ts>=" $since " AND ")       "")
+          "1=1")
+        $rows   (fxb_sqlite_query db
+                  (str "SELECT id,ts,source,level,message,meta"
+                       " FROM logs WHERE " $conds
+                       " ORDER BY ts DESC LIMIT " $limit))]
+    (server_json (json_stringify
+      {"ok" true "logs" $rows "count" (length $rows)}))))
+
+;; ── GET /sources — 로그 출처 목록 ────────────────────────────
+
+(defn handle-sources [$req]
+  (let [$rows (fxb_sqlite_query db
+                (str "SELECT source, COUNT(*) as cnt"
+                     " FROM logs GROUP BY source ORDER BY cnt DESC"))]
+    (server_json (json_stringify {"ok" true "sources" $rows}))))
+
+;; ── GET /stats ────────────────────────────────────────────────
+
+(defn handle-stats [$req]
+  (let [$total  (fxb_sqlite_query db "SELECT COUNT(*) as c FROM logs")
+        $errors (fxb_sqlite_query db
+                  "SELECT COUNT(*) as c FROM logs WHERE level IN ('error','critical')")
+        $by-lv  (fxb_sqlite_query db
+                  (str "SELECT level, COUNT(*) as cnt"
+                       " FROM logs GROUP BY level ORDER BY cnt DESC"))]
+    (server_json (json_stringify
+      {"ok"      true
+       "total"   (get (get $total  0) "c")
+       "errors"  (get (get $errors 0) "c")
+       "by_level" $by-lv
+       "max_logs" MAX_LOGS}))))
+
+;; ── WebSocket /ws ─────────────────────────────────────────────
+;; 연결 유지: ws_recv 블로킹 → 끊기면 nil → 클라이언트 제거
+
+(defn handle-ws [$ws]
+  (do
+    (swap! $ws-clients (fn [$cs] (append $cs $ws)))
+    (ws_send $ws (json_stringify {"connected" true "msg" "fx-log 스트림 연결"}))
+    (let [$msg (ws_recv $ws)]
+      (swap! $ws-clients (fn [$cs] (filter (fn [$c] (not (= $c $ws))) $cs))))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-log"
+     "version" "1.0.0"
+     "role"    "중앙 로그 수집기 — SQLite 저장 + WS 실시간 + fx-notify 연동"
+     "levels"  (list "debug" "info" "warn" "error" "critical")
+     "routes"  (list
+       "POST /log               — 로그 기록 {source, level, message, meta?}"
+       "GET  /logs?source=&level=&limit=&since= — 로그 조회"
+       "GET  /sources           — 출처 목록"
+       "GET  /stats             — 통계"
+       "WS   /ws                — 실시간 스트림")})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"        "handle-index")
+(server_post "/log"     "handle-log")
+(server_get  "/logs"    "handle-list")
+(server_get  "/sources" "handle-sources")
+(server_get  "/stats"   "handle-stats")
+(server_ws   "/ws"      "handle-ws")
+
+(println (str "📋 fx-log v1 포트 " PORT " 시작"))
+(server_start PORT)
