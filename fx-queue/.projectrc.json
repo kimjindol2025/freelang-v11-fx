@@ -1,0 +1,34 @@
+{
+  "name": "fx-queue",
+  "version": "1.0.0",
+  "language": "FreeLang fx (C 네이티브)",
+  "status": "done",
+  "description": "작업 큐 — future(async) + atom(cancel) + WebSocket + SQLite",
+  "ports": [40297],
+  "entry": "server.fl",
+  "binary": "fx-queue",
+  "commands": {
+    "build": "bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-queue",
+    "start": "pm2 start fx-queue --name fx-queue",
+    "reload": "pm2 reload fx-queue"
+  },
+  "routes": {
+    "POST /job": "작업 등록 {type: sleep|retry|timeout|cpu, param}",
+    "GET /job/:id": "상태 조회",
+    "DELETE /job/:id": "취소 (atom cancel-set)",
+    "GET /jobs": "전체 목록",
+    "WS /ws": "완료 알림 구독"
+  },
+  "verified": {
+    "future_async": "POST 즉시 반환, 백그라운드 실행",
+    "concurrent": "3개 job 동시 실행 확인",
+    "cancel": "atom cancel-set → sleep-loop 체크",
+    "retry": "defn 재귀로 N회 재시도",
+    "cpu": "fib(25)=75025, 별도 스레드 실행"
+  },
+  "lessons": [
+    "fxb_sqlite_exec → int 반환 → do...nil 패턴 필수",
+    "lambda 재귀 불가 → defn 재귀로 분리",
+    "future(fn []) 패턴 (즉시 평가 방지)"
+  ]
+}

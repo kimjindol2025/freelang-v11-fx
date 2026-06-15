@@ -1,0 +1,223 @@
+;; fx-queue — 작업 큐 서버
+;; FreeLang fx C 네이티브 | 포트 40297
+;; 검증: future + atom(cancel) + WebSocket + SQLite
+
+(define PORT    40297)
+(define DB_PATH "./queue.db")
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(define db (fxb_sqlite_open DB_PATH))
+
+(fxb_sqlite_exec db "CREATE TABLE IF NOT EXISTS jobs (
+  id      TEXT PRIMARY KEY,
+  type    TEXT NOT NULL,
+  param   TEXT,
+  status  TEXT NOT NULL DEFAULT 'pending',
+  result  TEXT,
+  retries INTEGER DEFAULT 0,
+  created INTEGER NOT NULL,
+  started INTEGER,
+  done    INTEGER
+)")
+
+;; ── 전역 상태 ─────────────────────────────────────────────────
+
+(define $ws-clients (atom []))
+(define $cancel-set (atom {}))
+(define $bcast-buf  (atom ""))
+
+;; ── DB 헬퍼 ───────────────────────────────────────────────────
+;; fxb_sqlite_exec → int 반환 → do...nil 패턴 필수
+
+(defn db-insert-job [$id $type $param $now]
+  (do
+    (fxb_sqlite_exec db
+      (str "INSERT INTO jobs(id,type,param,status,created) VALUES ('"
+           $id "','" $type "','" (if $param $param "") "','pending'," $now ")"))
+    nil))
+
+(defn db-set-running [$id $now]
+  (do
+    (fxb_sqlite_exec db
+      (str "UPDATE jobs SET status='running',started=" $now " WHERE id='" $id "'"))
+    nil))
+
+(defn db-set-done [$id $status $result $now]
+  (do
+    (fxb_sqlite_exec db
+      (str "UPDATE jobs SET status='" $status "',result='"
+           $result "',done=" $now " WHERE id='" $id "'"))
+    nil))
+
+(defn db-inc-retry [$id]
+  (do
+    (fxb_sqlite_exec db (str "UPDATE jobs SET retries=retries+1 WHERE id='" $id "'"))
+    nil))
+
+(defn db-get [$id]
+  (let [$rows (fxb_sqlite_query db
+    (str "SELECT id,type,param,status,result,retries,created,started,done"
+         " FROM jobs WHERE id='" $id "'"))]
+    (if (= (length $rows) 0) nil (get $rows 0))))
+
+(defn db-list []
+  (fxb_sqlite_query db
+    "SELECT id,type,param,status,result,retries,created,started,done
+     FROM jobs ORDER BY created DESC LIMIT 50"))
+
+;; ── WebSocket 브로드캐스트 ─────────────────────────────────────
+
+(defn broadcast [$msg]
+  (swap! $bcast-buf (fn [$_] $msg))
+  (let [$alive
+    (reduce
+      (fn [$acc $ws]
+        (try
+          (do (ws_send $ws @$bcast-buf) (append $acc $ws))
+          (catch $_ $acc)))
+      [] @$ws-clients)]
+    (swap! $ws-clients (fn [$_] $alive))))
+
+;; ── 취소 확인 ─────────────────────────────────────────────────
+
+(defn cancelled? [$id]
+  (not (null? (get @$cancel-set $id))))
+
+;; ── CPU job: fib (defn 재귀 필수 — lambda 재귀 불가) ──────────
+
+(defn fib [$n]
+  (if (< $n 2) $n (+ (fib (- $n 1)) (fib (- $n 2)))))
+
+;; ── retry job: defn 재귀 루프 ─────────────────────────────────
+
+(defn retry-loop [$id $attempt $max-fail]
+  (if (>= $attempt $max-fail)
+    (str "success after " $attempt " retries")
+    (do
+      (db-inc-retry $id)
+      (sleep 300)
+      (retry-loop $id (+ $attempt 1) $max-fail))))
+
+;; ── sleep job: 취소 가능 (defn 재귀 루프) ────────────────────
+
+(defn sleep-loop [$id $remaining]
+  (if (<= $remaining 0)
+    "done"
+    (if (cancelled? $id)
+      "cancelled"
+      (do (sleep 200) (sleep-loop $id (- $remaining 200))))))
+
+;; ── 작업 실행 ─────────────────────────────────────────────────
+
+(defn run-job [$id $type $param]
+  (if (= $type "sleep")
+    (sleep-loop $id (str_to_num (if $param $param "2000")))
+    (if (= $type "retry")
+      (retry-loop $id 0 (str_to_num (if $param $param "3")))
+      (if (= $type "timeout")
+        (let [$limit (str_to_num (if $param $param "1000"))
+              $start (now-ms)]
+          (do
+            (sleep (+ $limit 500))
+            (str "ran " (- (now-ms) $start) "ms (limit=" $limit "ms)")))
+        (if (= $type "cpu")
+          (str "fib(" (if $param $param "20") ")="
+               (fib (str_to_num (if $param $param "20"))))
+          (str "unknown: " $type))))))
+
+;; ── 작업 디스패처 (future에서 실행) ───────────────────────────
+
+(defn dispatch [$id $type $param]
+  (do
+    (db-set-running $id (now-ms))
+    (let [$raw (try (run-job $id $type $param) (catch $e (str "err:" $e)))
+          $result (if (cancelled? $id) "cancelled" $raw)
+          $status (if (cancelled? $id) "cancelled" "done")]
+      (do
+        (db-set-done $id $status $result (now-ms))
+        (broadcast (json_stringify
+          {"type" "job-done" "id" $id "status" $status "result" $result}))))))
+
+;; ── POST /job ─────────────────────────────────────────────────
+
+(defn handle-post-job [$req]
+  (let [$body  (get $req "body")
+        $type  (get $body "type")
+        $param (get $body "param")]
+    (if (null? $type)
+      (server_json (json_stringify {"ok" false "error" "type 필드 필요"}))
+      (let [$id  (str "job-" (now-ms))
+            $now (now-ms)]
+        (do
+          (db-insert-job $id $type $param $now)
+          (let [$f (future (fn [] (dispatch $id $type $param)))]
+            (server_json (json_stringify
+              {"ok" true "id" $id "type" $type "status" "pending"}))))))))
+
+;; ── GET /job/:id ───────────────────────────────────────────────
+
+(defn handle-get-job [$req]
+  (let [$id  (get (get $req "params") "id")
+        $row (db-get $id)]
+    (if (null? $row)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (server_json (json_stringify {"ok" true "job" $row})))))
+
+;; ── DELETE /job/:id ────────────────────────────────────────────
+
+(defn handle-cancel [$req]
+  (let [$id  (get (get $req "params") "id")
+        $row (db-get $id)]
+    (if (null? $row)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (do
+        (swap! $cancel-set (fn [$m] (assoc $m $id true)))
+        (server_json (json_stringify {"ok" true "id" $id "msg" "취소 요청됨"}))))))
+
+;; ── GET /jobs ─────────────────────────────────────────────────
+
+(defn handle-list [$req]
+  (let [$rows (db-list)]
+    (server_json (json_stringify
+      {"ok" true "jobs" $rows "count" (length $rows)}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name" "fx-queue" "version" "1.0.0"
+     "routes" (list
+       "POST   /job        {type,param}"
+       "GET    /job/:id"
+       "DELETE /job/:id    (취소)"
+       "GET    /jobs"
+       "WS     /ws         (완료 알림)")
+     "types" (list
+       "sleep N   — Nms 슬립, 취소 가능"
+       "retry N   — N회 실패 후 성공"
+       "timeout N — Nms 초과 시뮬레이션"
+       "cpu N     — fib(N) CPU 계산")})))
+
+;; ── WebSocket /ws ─────────────────────────────────────────────
+
+(defn handle-ws [$ws]
+  (do
+    (swap! $ws-clients (fn [$c] (append $c $ws)))
+    (ws_send $ws (json_stringify {"type" "connected"}))
+    (let [$msg (try (ws_recv $ws) (catch $_ nil))]
+      (if (null? $msg)
+        nil
+        (ws_send $ws (json_stringify {"type" "pong"}))))))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get    "/"        "handle-index")
+(server_post   "/job"     "handle-post-job")
+(server_get    "/job/:id" "handle-get-job")
+(server_delete "/job/:id" "handle-cancel")
+(server_get    "/jobs"    "handle-list")
+(server_ws     "/ws"      "handle-ws")
+
+(println (str "⚡ fx-queue 포트 " PORT " 시작"))
+(server_start PORT)
