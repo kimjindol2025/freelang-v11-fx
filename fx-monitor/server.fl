@@ -1,0 +1,261 @@
+;; fx-monitor v1.0 — 서버 모니터링 + fx-notify 연동
+;; FreeLang fx C 네이티브 | 포트 40301
+;; 수집: CPU/Memory/Disk/LoadAvg/Uptime/PM2/Port
+;; 감지: 임계값 초과 → fx-notify POST
+
+(define PORT           40301)
+(define DB_PATH        "./monitor.db")
+(define CHECK_INTERVAL 60000)
+(define DISK_ALERT     90)
+(define MEM_ALERT      95)
+
+;; 감시 포트 목록
+(define WATCH_PORTS (list 40296 40297 40299 40300 40301))
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(define db (fxb_sqlite_open DB_PATH))
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS checks (
+     id         TEXT PRIMARY KEY,
+     created_at INTEGER NOT NULL,
+     cpu        REAL,
+     memory     REAL,
+     disk       REAL,
+     loadavg    TEXT,
+     uptime     INTEGER,
+     alerts     INTEGER NOT NULL DEFAULT 0,
+     result     TEXT NOT NULL DEFAULT 'ok'
+   )")
+
+;; ── 메트릭 수집 ───────────────────────────────────────────────
+
+;; CPU: /proc/stat 2회 읽기 (0.3초 간격) → 순간 사용률
+(defn get-cpu []
+  (let [$r (shell_run "python3 -c \"
+import time
+with open('/proc/stat') as f: l1=list(map(int,f.readline().split()[1:]))
+time.sleep(0.3)
+with open('/proc/stat') as f: l2=list(map(int,f.readline().split()[1:]))
+t1=sum(l1);i1=l1[3];t2=sum(l2);i2=l2[3];dt=t2-t1;di=i2-i1
+print(round((1-di/dt)*100,1) if dt else 0)
+\"")]
+    (let [$v (str_to_num (str_trim $r))]
+      (if (null? $v) 0.0 $v))))
+
+;; Memory: /proc/meminfo (MemTotal - MemAvailable) / MemTotal
+(defn get-memory []
+  (let [$r (shell_run "awk '/MemTotal/ {total=$2} /MemAvailable/ {avail=$2} END {printf \"%.1f\\n\", (1-avail/total)*100}' /proc/meminfo")]
+    (let [$v (str_to_num (str_trim $r))]
+      (if (null? $v) 0.0 $v))))
+
+;; Disk: df / → 사용률 %
+(defn get-disk []
+  (let [$r (shell_run "df / | awk 'NR==2 {gsub(/%/,\"\",$5); print $5}'")]
+    (let [$v (str_to_num (str_trim $r))]
+      (if (null? $v) 0.0 $v))))
+
+;; Load Average: /proc/loadavg
+(defn get-loadavg []
+  (let [$r (str_trim (shell_run "awk '{print $1,$2,$3}' /proc/loadavg"))]
+    (if (null? $r) "0 0 0" $r)))
+
+;; Uptime: /proc/uptime (초)
+(defn get-uptime []
+  (let [$r (str_trim (shell_run "awk '{print int($1)}' /proc/uptime"))]
+    (let [$v (str_to_num $r)]
+      (if (null? $v) 0 $v))))
+
+;; ── PM2 서비스 조회 ───────────────────────────────────────────
+
+(defn parse-pm2-line [$line]
+  (let [$parts (regex_split "\\|" $line)]
+    (if (>= (length $parts) 2)
+      {"name" (get $parts 0) "status" (get $parts 1)}
+      nil)))
+
+(defn get-services []
+  (let [$raw (shell_run "pm2 jlist 2>/dev/null | python3 -c \"import sys,json; procs=json.load(sys.stdin); [print(p['name']+'|'+p['pm2_env']['status']) for p in procs]\" 2>/dev/null")]
+    (if (null? $raw)
+      []
+      (let [$lines (filter
+                     (fn [$l] (> (length (str_trim $l)) 0))
+                     (regex_split "\n" (str_trim $raw)))]
+        (filter
+          (fn [$s] (not (null? $s)))
+          (map (fn [$l] (parse-pm2-line $l)) $lines))))))
+
+;; ── 포트 상태 조회 ────────────────────────────────────────────
+
+(defn check-port [$port]
+  (let [$r (str_trim (shell_run (str "nc -z -w1 localhost " $port " 2>/dev/null && echo open || echo closed")))]
+    {"port" $port "status" (if (null? $r) "closed" $r)}))
+
+(defn get-ports []
+  (map (fn [$p] (check-port $p)) WATCH_PORTS))
+
+;; ── fx-notify 전송 ────────────────────────────────────────────
+
+(defn send-alert [$event $severity $title $message]
+  (shell_run (str
+    "curl -s -X POST http://localhost:40300/notify "
+    "-H 'Content-Type: application/json' "
+    "-d '{\"source\":\"fx-monitor\","
+    "\"event\":\"" $event "\","
+    "\"severity\":\"" $severity "\","
+    "\"channel\":\"all\","
+    "\"title\":\"" $title "\","
+    "\"message\":\"" $message "\","
+    "\"to\":\"root@localhost\"}'")))
+
+;; ── 알림 규칙 평가 ────────────────────────────────────────────
+
+(defn eval-rules [$cpu $memory $disk $services $ports]
+  (let [$alert-count (atom 0)]
+    (do
+      ;; 디스크 90% 이상
+      (if (>= $disk DISK_ALERT)
+        (do
+          (send-alert "disk-high" "error"
+            (str "디스크 " $disk "% 사용")
+            (str "/ 파티션이 " $disk "% 도달 — 정리 필요"))
+          (swap! $alert-count (fn [$n] (+ $n 1))))
+        nil)
+      ;; 메모리 95% 이상
+      (if (>= $memory MEM_ALERT)
+        (do
+          (send-alert "memory-high" "error"
+            (str "메모리 " $memory "% 사용")
+            (str "메모리 " $memory "% 도달 — OOM 위험"))
+          (swap! $alert-count (fn [$n] (+ $n 1))))
+        nil)
+      ;; PM2 offline
+      (map
+        (fn [$svc]
+          (if (not (= (get $svc "status") "online"))
+            (do
+              (send-alert "service-down" "critical"
+                (str (get $svc "name") " 서비스 다운")
+                (str (get $svc "name") " 상태: " (get $svc "status")))
+              (swap! $alert-count (fn [$n] (+ $n 1))))
+            nil))
+        $services)
+      ;; 포트 닫힘
+      (map
+        (fn [$p]
+          (if (= (get $p "status") "closed")
+            (do
+              (send-alert "port-down" "critical"
+                (str "포트 " (get $p "port") " 닫힘")
+                (str "localhost:" (get $p "port") " 연결 불가"))
+              (swap! $alert-count (fn [$n] (+ $n 1))))
+            nil))
+        $ports)
+      @$alert-count)))
+
+;; ── 체크 실행 ─────────────────────────────────────────────────
+
+(defn run-check []
+  (let [$cpu      (get-cpu)
+        $memory   (get-memory)
+        $disk     (get-disk)
+        $loadavg  (get-loadavg)
+        $uptime   (get-uptime)
+        $services (get-services)
+        $ports    (get-ports)
+        $alerts   (eval-rules $cpu $memory $disk $services $ports)
+        $result   (if (> $alerts 0) "alert" "ok")
+        $id       (str "chk-" (now-ms))
+        $now      (now-ms)]
+    (do
+      (fxb_sqlite_exec db
+        (str "INSERT INTO checks(id,created_at,cpu,memory,disk,loadavg,uptime,alerts,result)"
+             " VALUES ('" $id "'," $now "," $cpu "," $memory "," $disk ",'"
+             $loadavg "'," $uptime "," $alerts ",'" $result "')"))
+      {"cpu" $cpu "memory" $memory "disk" $disk
+       "loadavg" $loadavg "uptime" $uptime
+       "services" (length $services) "ports" (length $ports)
+       "alerts" $alerts "result" $result})))
+
+;; ── 60초 자동 루프 (TCO 재귀) ────────────────────────────────
+
+(defn monitor-loop []
+  (do
+    (try (run-check) (catch $e nil))
+    (sleep CHECK_INTERVAL)
+    (monitor-loop)))
+
+;; ── API 핸들러 ────────────────────────────────────────────────
+
+(defn handle-metrics [$req]
+  (let [$cpu     (get-cpu)
+        $memory  (get-memory)
+        $disk    (get-disk)
+        $loadavg (get-loadavg)
+        $uptime  (get-uptime)]
+    (server_json (json_stringify
+      {"cpu"     $cpu
+       "memory"  $memory
+       "disk"    $disk
+       "loadavg" (regex_split " " $loadavg)
+       "uptime"  $uptime}))))
+
+(defn handle-services [$req]
+  (let [$svcs (get-services)]
+    (server_json (json_stringify $svcs))))
+
+(defn handle-ports [$req]
+  (let [$ports (get-ports)]
+    (server_json (json_stringify $ports))))
+
+(defn handle-check [$req]
+  (let [$result (run-check)]
+    (server_json (json_stringify
+      {"status"  (get $result "result")
+       "checks"  (+ (length WATCH_PORTS)
+                    (get $result "services"))
+       "alerts"  (get $result "alerts")
+       "metrics" $result}))))
+
+(defn handle-stats [$req]
+  (let [$total  (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM checks")
+        $alerts (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM checks WHERE result='alert'")
+        $last   (fxb_sqlite_query db "SELECT created_at FROM checks ORDER BY created_at DESC LIMIT 1")]
+    (server_json (json_stringify
+      {"checks"     (get (get $total 0) "cnt")
+       "alerts"     (get (get $alerts 0) "cnt")
+       "last_check" (if (> (length $last) 0)
+                      (get (get $last 0) "created_at")
+                      nil)}))))
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-monitor"
+     "version" "1.0.0"
+     "routes"  (list
+       "GET  /metrics    — CPU/Memory/Disk/LoadAvg/Uptime"
+       "GET  /services   — PM2 프로세스 상태"
+       "GET  /ports      — 포트 개방 여부"
+       "POST /check      — 전체 체크 + 알림 평가"
+       "GET  /stats      — 누적 체크/알림 통계")
+     "thresholds" {"disk" DISK_ALERT "memory" MEM_ALERT}
+     "watch_ports" WATCH_PORTS
+     "interval_ms" CHECK_INTERVAL})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"         "handle-index")
+(server_get  "/metrics"  "handle-metrics")
+(server_get  "/services" "handle-services")
+(server_get  "/ports"    "handle-ports")
+(server_post "/check"    "handle-check")
+(server_get  "/stats"    "handle-stats")
+
+;; ── 백그라운드 모니터 루프 시작 ───────────────────────────────
+
+(let [$f (future (fn [] (monitor-loop)))]
+  (println (str "⏱  모니터 루프 시작 (60초 주기)")))
+
+(println (str "📡 fx-monitor 포트 " PORT " 시작"))
+(server_start PORT)
