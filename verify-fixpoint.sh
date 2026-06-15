@@ -8,7 +8,7 @@
 
 set -e
 
-CGC_MAIN="${1:-/home/kimjin/freelang-v11/self/cgc-main.fl}"
+CGC_MAIN="${1:-/home/kimjin/freelang-v11-fx/self/cgc-main.fl}"
 CGC_BIN="/home/kimjin/freelang-v11/bin/cgc-bin"
 RUNTIME_DIR="/home/kimjin/freelang-v11-fx/runtime"
 FIXPOINT_LOG="/home/kimjin/freelang-v11-fx/FIXPOINT_LOG.md"

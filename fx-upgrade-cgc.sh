@@ -7,7 +7,7 @@
 
 set -e
 
-CGC_MAIN="${1:-/home/kimjin/freelang-v11/self/cgc-main.fl}"
+CGC_MAIN="${1:-/home/kimjin/freelang-v11-fx/self/cgc-main.fl}"
 CGC_BIN_PATH="/home/kimjin/freelang-v11/bin/cgc-bin"
 CURRENT_BIN="$CGC_BIN_PATH"
 RUNTIME_DIR="/home/kimjin/freelang-v11-fx/runtime"
@@ -26,8 +26,9 @@ echo ""
 RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/math.c $RUNTIME_DIR/error.c $RUNTIME_DIR/process.c \
   $RUNTIME_DIR/json.c $RUNTIME_DIR/aliases.c $RUNTIME_DIR/cgc-bridge.c \
-  $RUNTIME_DIR/gc.c $RUNTIME_DIR/http.c $RUNTIME_DIR/sqlite.c \
-  $RUNTIME_DIR/mariadb.c $RUNTIME_DIR/debug.c"
+  $RUNTIME_DIR/gc.c $RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c \
+  $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/mariadb.c $RUNTIME_DIR/debug.c \
+  $RUNTIME_DIR/http_client.c $RUNTIME_DIR/regex.c $RUNTIME_DIR/smtp.c"
 
 # ── Step 1: 현재 cgc-bin으로 cgc-main.fl → gen-a.c ───────────────
 echo "⚙️  [1/4] 현재 cgc-bin → gen-a.c ..."
@@ -37,7 +38,7 @@ echo "   gen-a.c: $(wc -l < "$GEN_A") 줄"
 # ── Step 2: gen-a.c → gen-bin 빌드 ──────────────────────────────
 echo "⚙️  [2/4] gcc 빌드 → gen-bin ..."
 gcc -O2 -w -I "$RUNTIME_DIR" -o "$GEN_BIN" $GEN_A $RUNTIME_SRCS \
-  -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto 2>&1 | grep -E "error:" | grep -v '"error"' | head -5 || true
+  -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl 2>&1 | grep -E "error:" | grep -v '"error"' | head -5 || true
 
 if [ ! -f "$GEN_BIN" ]; then
   echo "❌ gen-bin 빌드 실패"
