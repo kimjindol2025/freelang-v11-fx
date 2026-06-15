@@ -1,0 +1,191 @@
+;; fx-kv v1 — Key-Value 스토어
+;; FreeLang fx C 네이티브 | 포트 40304
+;; TTL 자동 만료 + 네임스페이스 분리 + SQLite 기반
+
+(define PORT    40304)
+(define DB_PATH "./kv.db")
+
+(define db (fxb_sqlite_open DB_PATH))
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS kv (
+     ns         TEXT NOT NULL DEFAULT 'default',
+     key        TEXT NOT NULL,
+     value      TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL,
+     expires_at INTEGER,
+     hit_count  INTEGER NOT NULL DEFAULT 0,
+     PRIMARY KEY (ns, key)
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE INDEX IF NOT EXISTS idx_expires ON kv(expires_at) WHERE expires_at IS NOT NULL")
+
+;; ── TTL 만료 제거 루프 ────────────────────────────────────────
+
+(defn expire-loop []
+  (do
+    (try
+      (fxb_sqlite_exec db
+        (str "DELETE FROM kv WHERE expires_at IS NOT NULL AND expires_at<=" (now-ms)))
+      (catch $e nil))
+    (sleep 5000)
+    (expire-loop)))
+
+;; ── GET /kv/:ns/:key ──────────────────────────────────────────
+
+(defn handle-get [$req]
+  (let [$ns  (get (get $req "params") "ns")
+        $key (get (get $req "params") "key")
+        $now (now-ms)
+        $rows (fxb_sqlite_query db
+                (str "SELECT value,expires_at,hit_count FROM kv"
+                     " WHERE ns='" $ns "' AND key='" $key "'"))]
+    (if (= (length $rows) 0)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (let [$row (get $rows 0)
+            $exp (get $row "expires_at")]
+        (if (and (not (null? $exp)) (< $exp $now))
+          (do
+            (fxb_sqlite_exec db
+              (str "DELETE FROM kv WHERE ns='" $ns "' AND key='" $key "'"))
+            (server_json (json_stringify {"ok" false "error" "expired"})))
+          (do
+            (fxb_sqlite_exec db
+              (str "UPDATE kv SET hit_count=hit_count+1 WHERE ns='" $ns "' AND key='" $key "'"))
+            (server_json (json_stringify
+              {"ok"        true
+               "ns"        $ns
+               "key"       $key
+               "value"     (get $row "value")
+               "expires_at" $exp
+               "hit_count" (+ (get $row "hit_count") 1)}))))))))
+
+;; ── PUT /kv/:ns/:key ──────────────────────────────────────────
+
+(defn handle-put [$req]
+  (let [$ns  (get (get $req "params") "ns")
+        $key (get (get $req "params") "key")
+        $b   (get $req "body")
+        $val (get $b "value")
+        $ttl (get $b "ttl")]
+    (if (null? $val)
+      (server_json (json_stringify {"ok" false "error" "value 필요"}))
+      (let [$now (now-ms)
+            $exp (if $ttl (+ $now (* $ttl 1000)) nil)]
+        (do
+          (fxb_sqlite_exec db
+            (str "INSERT OR REPLACE INTO kv(ns,key,value,created_at,updated_at,expires_at)"
+                 " VALUES ('" $ns "','" $key "','"
+                 (str_replace (str_replace $val "'" "''") "\\" "\\\\")
+                 "'," $now "," $now ","
+                 (if $exp $exp "NULL") ")"))
+          (server_json (json_stringify
+            {"ok"        true
+             "ns"        $ns
+             "key"       $key
+             "value"     $val
+             "expires_at" $exp
+             "ttl_sec"   $ttl})))))))
+
+;; ── DELETE /kv/:ns/:key ───────────────────────────────────────
+
+(defn handle-delete [$req]
+  (let [$ns  (get (get $req "params") "ns")
+        $key (get (get $req "params") "key")]
+    (do
+      (fxb_sqlite_exec db
+        (str "DELETE FROM kv WHERE ns='" $ns "' AND key='" $key "'"))
+      (server_json (json_stringify {"ok" true "deleted" (str $ns "/" $key)})))))
+
+;; ── GET /keys/:ns?prefix= ────────────────────────────────────
+
+(defn handle-keys [$req]
+  (let [$ns     (get (get $req "params") "ns")
+        $prefix (get (get $req "query") "prefix")
+        $now    (now-ms)
+        $where  (str "ns='" $ns "' AND (expires_at IS NULL OR expires_at>" $now ")"
+                     (if $prefix (str " AND key LIKE '" $prefix "%'") ""))
+        $rows   (fxb_sqlite_query db
+                  (str "SELECT key,expires_at,hit_count,updated_at"
+                       " FROM kv WHERE " $where " ORDER BY key"))]
+    (server_json (json_stringify
+      {"ok" true "ns" $ns "keys" $rows "count" (length $rows)}))))
+
+;; ── GET /ns — 네임스페이스 목록 ──────────────────────────────
+
+(defn handle-ns [$req]
+  (let [$now  (now-ms)
+        $rows (fxb_sqlite_query db
+                (str "SELECT ns, COUNT(*) as cnt FROM kv"
+                     " WHERE (expires_at IS NULL OR expires_at>" $now ")"
+                     " GROUP BY ns ORDER BY ns"))]
+    (server_json (json_stringify
+      {"ok" true "namespaces" $rows}))))
+
+;; ── DELETE /ns/:ns — 네임스페이스 전체 삭제 ─────────────────
+
+(defn handle-flush-ns [$req]
+  (let [$ns (get (get $req "params") "ns")]
+    (let [$rows (fxb_sqlite_query db
+                  (str "SELECT COUNT(*) as cnt FROM kv WHERE ns='" $ns "'"))
+          $cnt  (get (get $rows 0) "cnt")]
+      (do
+        (fxb_sqlite_exec db (str "DELETE FROM kv WHERE ns='" $ns "'"))
+        (server_json (json_stringify {"ok" true "ns" $ns "deleted" $cnt}))))))
+
+;; ── GET /stats ────────────────────────────────────────────────
+
+(defn handle-stats [$req]
+  (let [$now     (now-ms)
+        $total   (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM kv")
+        $alive   (fxb_sqlite_query db
+                   (str "SELECT COUNT(*) as cnt FROM kv"
+                        " WHERE expires_at IS NULL OR expires_at>" $now))
+        $expired (fxb_sqlite_query db
+                   (str "SELECT COUNT(*) as cnt FROM kv WHERE expires_at<=" $now))
+        $hits    (fxb_sqlite_query db "SELECT SUM(hit_count) as s FROM kv")]
+    (server_json (json_stringify
+      {"ok"       true
+       "total"    (get (get $total   0) "cnt")
+       "alive"    (get (get $alive   0) "cnt")
+       "expired"  (get (get $expired 0) "cnt")
+       "total_hits" (get (get $hits  0) "s")}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-kv"
+     "version" "1.0.0"
+     "role"    "Key-Value 스토어 — TTL 자동 만료 + 네임스페이스 분리"
+     "routes"  (list
+       "GET    /kv/:ns/:key          — 값 조회"
+       "PUT    /kv/:ns/:key          — 값 저장 {value, ttl?}"
+       "POST   /kv/:ns/:key/delete   — 값 삭제"
+       "GET    /keys/:ns?prefix=     — 키 목록"
+       "GET    /ns                   — 네임스페이스 목록"
+       "POST   /ns/:ns/flush         — 네임스페이스 전체 삭제"
+       "GET    /stats                — 통계")})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"                    "handle-index")
+(server_get  "/kv/:ns/:key"         "handle-get")
+(server_post "/kv/:ns/:key"         "handle-put")
+(server_post "/kv/:ns/:key/delete"  "handle-delete")
+(server_get  "/keys/:ns"            "handle-keys")
+(server_get  "/ns"                  "handle-ns")
+(server_post "/ns/:ns/flush"        "handle-flush-ns")
+(server_get  "/stats"               "handle-stats")
+
+;; ── TTL 만료 루프 시작 ────────────────────────────────────────
+
+(let [$f (future (fn [] (expire-loop)))]
+  (println "🗑  TTL 만료 루프 시작 (5초 주기)"))
+
+(println (str "🗝  fx-kv v1 포트 " PORT " 시작"))
+(server_start PORT)
