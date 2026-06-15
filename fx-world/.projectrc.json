@@ -1,0 +1,29 @@
+{
+  "name": "fx-world",
+  "version": "1.0.0",
+  "language": "FreeLang fx (C 네이티브)",
+  "status": "done",
+  "description": "환율/날씨 API — http-get + future + regex_split",
+  "ports": [40296],
+  "entry": "server.fl",
+  "binary": "fx-world",
+  "commands": {
+    "build": "bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-world",
+    "start": "pm2 start fx-world --name fx-world",
+    "reload": "pm2 reload fx-world"
+  },
+  "routes": {
+    "GET /": "라우트 목록",
+    "GET /rates": "주요 환율 (USD 기준, KRW/JPY/EUR/GBP/CNY)",
+    "GET /rates/:currency": "단일 통화 환율",
+    "GET /weather/:city": "도시 날씨 (wttr.in)",
+    "GET /compare?cities=A,B": "여러 도시 날씨 비교",
+    "GET /dashboard": "환율+서울날씨 통합 (future 병렬)"
+  },
+  "notes": [
+    "fl_http_get = body string 직접 반환 (맵 아님)",
+    "chunked transfer encoding 자동 디코딩 (http.c 패치)",
+    "deref = fl_deref (atom + future 통합)",
+    "future(fn []) 패턴 필요 — future(expr) 는 즉시 eval"
+  ]
+}

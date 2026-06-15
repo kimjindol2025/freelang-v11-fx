@@ -1,0 +1,156 @@
+;; fx-world — 환율/날씨 API 서버
+;; FreeLang fx C 네이티브 | 포트 40296
+;; http-get(body string) + future(병렬) + regex_split + json_stringify 활용
+
+(define PORT 40296)
+(define RATE_URL "https://api.exchangerate-api.com/v4/latest/USD")
+(define WEATHER_URL "https://wttr.in/")
+
+;; ── JSON 응답 헬퍼 ──────────────────────────────────────────────
+
+(defn json-ok [$data]
+  (server_json (json_stringify {"ok" true "data" $data})))
+
+(defn json-err [$msg]
+  (server_json (json_stringify {"ok" false "error" $msg})))
+
+;; ── 환율 파싱 ───────────────────────────────────────────────────
+;; fl_http_get → body 문자열 직접 반환
+;; append는 단일 원소 추가 — 맵 직접 하드코딩으로 클로저 캡처 우회
+
+(defn parse-rates [$body]
+  (let [$parsed (json_parse $body)
+        $r      (get $parsed "rates")
+        $date   (get $parsed "date")]
+    {"base"  "USD"
+     "date"  $date
+     "rates" (list
+               {"currency" "KRW" "rate" (get $r "KRW")}
+               {"currency" "JPY" "rate" (get $r "JPY")}
+               {"currency" "EUR" "rate" (get $r "EUR")}
+               {"currency" "GBP" "rate" (get $r "GBP")}
+               {"currency" "CNY" "rate" (get $r "CNY")})}))
+
+;; ── 날씨 파싱 ───────────────────────────────────────────────────
+
+(defn parse-weather [$body $city]
+  (let [$parsed   (json_parse $body)
+        $cond     (get (get $parsed "current_condition") 0)
+        $temp_c   (get $cond "temp_C")
+        $feels    (get $cond "FeelsLikeC")
+        $humidity (get $cond "humidity")
+        $desc     (get (get (get $cond "weatherDesc") 0) "value")
+        $wind     (get $cond "winddir16Point")
+        $uv       (get $cond "uvIndex")]
+    {"city"     $city
+     "temp_c"   (str_to_num $temp_c)
+     "feels_c"  (str_to_num $feels)
+     "humidity" (str_to_num $humidity)
+     "desc"     $desc
+     "wind_dir" $wind
+     "uv_index" (str_to_num $uv)}))
+
+;; ── GET /rates ─────────────────────────────────────────────────
+
+(defn handle-rates [$req]
+  (let [$body (http-get RATE_URL)]
+    (if (null? $body)
+      (json-err "환율 API 오류")
+      (try
+        (json-ok (parse-rates $body))
+        (catch $e (json-err (str "파싱 오류: " $e)))))))
+
+;; ── GET /rates/:currency ───────────────────────────────────────
+
+(defn handle-rate-single [$req]
+  (let [$cur  (str_upper (get (get $req "params") "currency"))
+        $body (http-get RATE_URL)]
+    (if (null? $body)
+      (json-err "환율 API 오류")
+      (try
+        (let [$parsed (json_parse $body)
+              $rates  (get $parsed "rates")
+              $rate   (get $rates $cur)]
+          (if $rate
+            (json-ok {"currency" $cur "rate" $rate "base" "USD"})
+            (json-err (str "알 수 없는 통화: " $cur))))
+        (catch $e (json-err (str "파싱 오류: " $e)))))))
+
+;; ── GET /weather/:city ─────────────────────────────────────────
+
+(defn handle-weather [$req]
+  (let [$city (get (get $req "params") "city")
+        $url  (str WEATHER_URL $city "?format=j1")
+        $body (http-get $url)]
+    (if (null? $body)
+      (json-err (str "날씨 API 오류: " $city))
+      (try
+        (json-ok (parse-weather $body $city))
+        (catch $e (json-err (str "날씨 파싱 오류: " $e)))))))
+
+;; ── 도시 날씨 fetch (future용) ────────────────────────────────
+
+(defn fetch-city-weather [$city]
+  (let [$url  (str WEATHER_URL $city "?format=j1")
+        $body (http-get $url)]
+    (if (null? $body)
+      {"city" $city "error" "fetch-fail"}
+      (try
+        (parse-weather $body $city)
+        (catch $e {"city" $city "error" "parse-fail"})))))
+
+;; ── GET /compare?cities=Seoul,Tokyo,London ─────────────────────
+;; regex_split으로 도시 파싱 → 순차 조회
+
+(defn handle-compare [$req]
+  (let [$q      (get $req "query")
+        $raw    (get $q "cities")
+        $cities (if $raw
+                  (regex_split "," $raw)
+                  (list "Seoul" "Tokyo" "London"))
+        $results (map (fn [$c] (fetch-city-weather $c)) $cities)]
+    (json-ok {"cities" $results "count" (length $results)})))
+
+;; ── GET /dashboard ─────────────────────────────────────────────
+;; 환율 + 서울 날씨 병렬 future x2
+
+(defn handle-dashboard [$req]
+  (let [$f-rates   (future (fn [] (http-get RATE_URL)))
+        $f-weather (future (fn [] (http-get (str WEATHER_URL "Seoul?format=j1"))))]
+    (let [$b-rates   (deref $f-rates)
+          $b-weather (deref $f-weather)
+          $rates     (if (null? $b-rates)
+                       {"error" "환율 실패"}
+                       (try (parse-rates $b-rates)
+                            (catch $e {"error" "파싱 실패"})))
+          $weather   (if (null? $b-weather)
+                       {"error" "날씨 실패"}
+                       (try (parse-weather $b-weather "Seoul")
+                            (catch $e {"error" "파싱 실패"})))]
+      (json-ok {"rates" $rates "weather" $weather}))))
+
+;; ── GET / ──────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-world"
+     "version" "1.0.0"
+     "routes"  (list
+                 "GET /               — 라우트 목록"
+                 "GET /rates          — 주요 환율 (USD 기준)"
+                 "GET /rates/:cur     — 단일 통화"
+                 "GET /weather/:city  — 도시 날씨"
+                 "GET /compare?cities=A,B,C — 병렬 비교"
+                 "GET /dashboard      — 환율+날씨 통합")})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get "/"                 "handle-index")
+(server_get "/rates"            "handle-rates")
+(server_get "/rates/:currency"  "handle-rate-single")
+(server_get "/weather/:city"    "handle-weather")
+(server_get "/compare"          "handle-compare")
+(server_get "/dashboard"        "handle-dashboard")
+
+(println (str "🌍 fx-world 포트 " PORT " 시작"))
+(server_start PORT)

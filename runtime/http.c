@@ -1182,6 +1182,51 @@ FLValue fl_http_get(FLValue url_v) {
     /* 본문만 추출 */
     char* sep = strstr(buf, "\r\n\r\n");
     const char* body = sep ? sep + 4 : buf;
+
+    /* chunked transfer encoding 디코딩 */
+    int is_chunked = 0;
+    char* hdrs_end = sep ? sep : buf;
+    char* hdr_search = buf;
+    while (hdr_search < hdrs_end) {
+        if (strncasecmp(hdr_search, "Transfer-Encoding: chunked", 26) == 0) {
+            is_chunked = 1; break;
+        }
+        char* nl = memchr(hdr_search, '\n', (size_t)(hdrs_end - hdr_search));
+        if (!nl) break;
+        hdr_search = nl + 1;
+    }
+    if (is_chunked) {
+        size_t dcap = strlen(body) + 1;
+        char* decoded = malloc(dcap);
+        size_t dlen = 0;
+        const char* p = body;
+        while (*p) {
+            /* 청크 크기 (hex) */
+            char* end;
+            long chunk_size = strtol(p, &end, 16);
+            if (end == p || chunk_size < 0) break;
+            if (chunk_size == 0) break;
+            p = end;
+            if (*p == '\r') p++;
+            if (*p == '\n') p++;
+            /* 데이터 복사 */
+            if (dlen + (size_t)chunk_size + 1 >= dcap) {
+                dcap = dlen + (size_t)chunk_size + 64;
+                decoded = realloc(decoded, dcap);
+            }
+            memcpy(decoded + dlen, p, (size_t)chunk_size);
+            dlen += (size_t)chunk_size;
+            p += chunk_size;
+            if (*p == '\r') p++;
+            if (*p == '\n') p++;
+        }
+        decoded[dlen] = '\0';
+        FLValue out = fl_str_val(decoded);
+        free(decoded);
+        free(buf);
+        return out;
+    }
+
     FLValue out = fl_str_val(body);
     free(buf);
     return out;
