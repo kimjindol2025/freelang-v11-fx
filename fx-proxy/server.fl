@@ -1,0 +1,274 @@
+;; fx-proxy v1 — 리버스 프록시 + 라운드로빈 로드밸런서
+;; FreeLang fx C 네이티브 | 포트 40307
+;; 역할: 서비스 레지스트리 + 최소히트 라운드로빈 + 헬스체크 + fx-notify 연동
+
+(define PORT            40307)
+(define DB_PATH         "./proxy.db")
+(define HEALTH_INTERVAL 30000)
+
+(define db (fxb_sqlite_open DB_PATH))
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS services (
+     name       TEXT PRIMARY KEY,
+     enabled    INTEGER NOT NULL DEFAULT 1,
+     created_at INTEGER NOT NULL
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS targets (
+     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+     service    TEXT NOT NULL,
+     url        TEXT NOT NULL,
+     healthy    INTEGER NOT NULL DEFAULT 1,
+     hit_count  INTEGER NOT NULL DEFAULT 0,
+     last_hit   INTEGER,
+     last_check INTEGER
+   )")
+
+;; ── fx-notify 전송 ────────────────────────────────────────────
+
+(defn send-notify [$event $severity $msg]
+  (shell_run (str
+    "curl -s -X POST http://localhost:40300/notify "
+    "-H 'Content-Type: application/json' "
+    "-d '{\"source\":\"fx-proxy\","
+    "\"event\":\"" $event "\","
+    "\"severity\":\"" $severity "\","
+    "\"channel\":\"all\","
+    "\"title\":\"[fx-proxy] " $event "\","
+    "\"message\":\"" $msg "\","
+    "\"to\":\"root@localhost\"}'")))
+
+;; ── 타겟 선택 (최소 히트 → 라운드로빈 효과) ─────────────────
+
+(defn pick-target [$name]
+  (let [$rows (fxb_sqlite_query db
+                (str "SELECT id,url FROM targets"
+                     " WHERE service='" $name "' AND healthy=1"
+                     " ORDER BY hit_count ASC LIMIT 1"))]
+    (if (= (length $rows) 0)
+      nil
+      (get $rows 0))))
+
+;; ── HTTP 포워딩 (curl) ────────────────────────────────────────
+
+(defn forward-get [$url $path]
+  (str_trim (shell_run
+    (str "curl -s -L --max-time 10 '"
+         $url $path "' 2>/dev/null"))))
+
+(defn forward-post [$url $path $body]
+  (let [$bdata (if $body (json_stringify $body) "{}")]
+    (str_trim (shell_run
+      (str "curl -s -L --max-time 10 -X POST"
+           " -H 'Content-Type: application/json'"
+           " -d '" $bdata "'"
+           " '" $url $path "' 2>/dev/null")))))
+
+;; ── GET /proxy/:name?path= ────────────────────────────────────
+
+(defn handle-proxy-get [$req]
+  (let [$name   (get (get $req "params") "name")
+        $q      (get $req "query")
+        $path   (if (get $q "path") (get $q "path") "/")
+        $target (pick-target $name)]
+    (if (null? $target)
+      (server_json (json_stringify
+        {"ok" false "error" (str $name " — 가용 타겟 없음")}))
+      (let [$tid  (get $target "id")
+            $url  (get $target "url")
+            $resp (forward-get $url $path)
+            $now  (now-ms)]
+        (do
+          (fxb_sqlite_exec db
+            (str "UPDATE targets SET hit_count=hit_count+1, last_hit=" $now
+                 " WHERE id=" $tid))
+          (server_text $resp))))))
+
+;; ── POST /proxy/:name  body:{path, data} ──────────────────────
+
+(defn handle-proxy-post [$req]
+  (let [$name   (get (get $req "params") "name")
+        $b      (get $req "body")
+        $path   (if (get $b "path") (get $b "path") "/")
+        $data   (get $b "data")
+        $target (pick-target $name)]
+    (if (null? $target)
+      (server_json (json_stringify
+        {"ok" false "error" (str $name " — 가용 타겟 없음")}))
+      (let [$tid  (get $target "id")
+            $url  (get $target "url")
+            $resp (forward-post $url $path $data)
+            $now  (now-ms)]
+        (do
+          (fxb_sqlite_exec db
+            (str "UPDATE targets SET hit_count=hit_count+1, last_hit=" $now
+                 " WHERE id=" $tid))
+          (server_text $resp))))))
+
+;; ── POST /services — 서비스 등록 ─────────────────────────────
+
+(defn handle-register [$req]
+  (let [$b       (get $req "body")
+        $name    (get $b "name")
+        $targets (get $b "targets")]
+    (if (null? $name)
+      (server_json (json_stringify {"ok" false "error" "name 필요"}))
+      (if (null? $targets)
+        (server_json (json_stringify {"ok" false "error" "targets 필요 [{url}]"}))
+        (let [$now (now-ms)]
+          (do
+            (fxb_sqlite_exec db
+              (str "INSERT OR REPLACE INTO services(name,enabled,created_at)"
+                   " VALUES ('" $name "',1," $now ")"))
+            (fxb_sqlite_exec db
+              (str "DELETE FROM targets WHERE service='" $name "'"))
+            (map (fn [$t]
+              (fxb_sqlite_exec db
+                (str "INSERT INTO targets(service,url,healthy,hit_count)"
+                     " VALUES ('" $name "','" (get $t "url") "',1,0)")))
+            $targets)
+            (server_json (json_stringify
+              {"ok"      true
+               "name"    $name
+               "targets" (length $targets)}))))))))
+
+;; ── GET /services — 목록 ─────────────────────────────────────
+
+(defn handle-list [$req]
+  (let [$svcs (fxb_sqlite_query db
+                (str "SELECT name,enabled,created_at FROM services ORDER BY name"))
+        $tgts (fxb_sqlite_query db
+                (str "SELECT id,service,url,healthy,hit_count,last_hit"
+                     " FROM targets ORDER BY service,id"))]
+    (server_json (json_stringify
+      {"ok"       true
+       "services" $svcs
+       "targets"  $tgts
+       "count"    (length $svcs)}))))
+
+;; ── GET /services/:name — 서비스 상세 ────────────────────────
+
+(defn handle-get-service [$req]
+  (let [$name (get (get $req "params") "name")
+        $svc  (fxb_sqlite_query db
+                (str "SELECT name,enabled,created_at FROM services WHERE name='" $name "'"))
+        $tgts (fxb_sqlite_query db
+                (str "SELECT id,url,healthy,hit_count,last_hit,last_check"
+                     " FROM targets WHERE service='" $name "' ORDER BY id"))]
+    (if (= (length $svc) 0)
+      (server_json (json_stringify {"ok" false "error" "서비스 없음"}))
+      (server_json (json_stringify
+        {"ok"      true
+         "service" (get $svc 0)
+         "targets" $tgts})))))
+
+;; ── POST /services/:name/delete ───────────────────────────────
+
+(defn handle-delete-service [$req]
+  (let [$name (get (get $req "params") "name")]
+    (do
+      (fxb_sqlite_exec db (str "DELETE FROM targets  WHERE service='" $name "'"))
+      (fxb_sqlite_exec db (str "DELETE FROM services WHERE name='"    $name "'"))
+      (server_json (json_stringify {"ok" true "deleted" $name})))))
+
+;; ── POST /services/:name/disable / enable ─────────────────────
+
+(defn handle-disable [$req]
+  (let [$name (get (get $req "params") "name")]
+    (do
+      (fxb_sqlite_exec db
+        (str "UPDATE services SET enabled=0 WHERE name='" $name "'"))
+      (server_json (json_stringify {"ok" true "disabled" $name})))))
+
+(defn handle-enable [$req]
+  (let [$name (get (get $req "params") "name")]
+    (do
+      (fxb_sqlite_exec db
+        (str "UPDATE services SET enabled=1 WHERE name='" $name "'"))
+      (server_json (json_stringify {"ok" true "enabled" $name})))))
+
+;; ── GET /stats ────────────────────────────────────────────────
+
+(defn handle-stats [$req]
+  (let [$svc-cnt (fxb_sqlite_query db "SELECT COUNT(*) as c FROM services")
+        $tgt-cnt (fxb_sqlite_query db "SELECT COUNT(*) as c FROM targets")
+        $healthy (fxb_sqlite_query db "SELECT COUNT(*) as c FROM targets WHERE healthy=1")
+        $hits    (fxb_sqlite_query db "SELECT SUM(hit_count) as s FROM targets")]
+    (server_json (json_stringify
+      {"ok"         true
+       "services"   (get (get $svc-cnt 0) "c")
+       "targets"    (get (get $tgt-cnt 0) "c")
+       "healthy"    (get (get $healthy  0) "c")
+       "total_hits" (get (get $hits     0) "s")}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-proxy"
+     "version" "1.0.0"
+     "role"    "리버스 프록시 + 라운드로빈 로드밸런서"
+     "routes"  (list
+       "POST /services                  — 서비스 등록 {name, targets:[{url}]}"
+       "GET  /services                  — 전체 목록"
+       "GET  /services/:name            — 서비스 상세"
+       "POST /services/:name/delete     — 삭제"
+       "POST /services/:name/enable     — 활성화"
+       "POST /services/:name/disable    — 비활성화"
+       "GET  /proxy/:name?path=         — GET 프록시"
+       "POST /proxy/:name               — POST 프록시 {path, data}"
+       "GET  /stats                     — 통계")})))
+
+;; ── 헬스체크 루프 ─────────────────────────────────────────────
+
+(defn check-target [$t]
+  (let [$id   (get $t "id")
+        $url   (get $t "url")
+        $code  (str_trim (shell_run
+                 (str "curl -s -o /dev/null -w '%{http_code}'"
+                      " --max-time 5 '" $url "' 2>/dev/null")))
+        $ok    (not (= $code "000"))
+        $now   (now-ms)]
+    (do
+      (fxb_sqlite_exec db
+        (str "UPDATE targets SET healthy=" (if $ok "1" "0")
+             ", last_check=" $now " WHERE id=" $id))
+      (if (not $ok)
+        (future (fn [] (send-notify "target-down" "critical"
+          (str $url " 헬스체크 실패 (" $code ")"))))
+        nil))))
+
+(defn health-loop []
+  (do
+    (try
+      (let [$tgts (fxb_sqlite_query db
+                    (str "SELECT id,url FROM targets"))]
+        (map (fn [$t] (check-target $t)) $tgts))
+      (catch $e nil))
+    (sleep HEALTH_INTERVAL)
+    (health-loop)))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"                       "handle-index")
+(server_post "/services"               "handle-register")
+(server_get  "/services"               "handle-list")
+(server_get  "/services/:name"         "handle-get-service")
+(server_post "/services/:name/delete"  "handle-delete-service")
+(server_post "/services/:name/enable"  "handle-enable")
+(server_post "/services/:name/disable" "handle-disable")
+(server_get  "/proxy/:name"            "handle-proxy-get")
+(server_post "/proxy/:name"            "handle-proxy-post")
+(server_get  "/stats"                  "handle-stats")
+
+;; ── 헬스체크 루프 시작 ────────────────────────────────────────
+
+(let [$f (future (fn [] (health-loop)))]
+  (println "❤  헬스체크 루프 시작 (30초 주기)"))
+
+(println (str "🔀 fx-proxy v1 포트 " PORT " 시작"))
+(server_start PORT)
