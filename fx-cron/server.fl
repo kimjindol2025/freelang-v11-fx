@@ -1,0 +1,289 @@
+;; fx-cron v1 — 인터벌 스케줄러
+;; FreeLang fx C 네이티브 | 포트 40303
+;; 역할: 등록된 작업을 interval_ms 주기로 실행 → fx-notify 연동
+;; action_type: http / shell / deploy
+
+(define PORT       40303)
+(define DB_PATH    "./cron.db")
+(define TICK_MS    10000)
+
+(define db (fxb_sqlite_open DB_PATH))
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS crons (
+     id           TEXT PRIMARY KEY,
+     name         TEXT NOT NULL,
+     interval_ms  INTEGER NOT NULL,
+     action_type  TEXT NOT NULL,
+     action_url   TEXT,
+     action_method TEXT NOT NULL DEFAULT 'POST',
+     action_body  TEXT,
+     action_cmd   TEXT,
+     enabled      INTEGER NOT NULL DEFAULT 1,
+     last_run     INTEGER,
+     next_run     INTEGER NOT NULL,
+     run_count    INTEGER NOT NULL DEFAULT 0,
+     fail_count   INTEGER NOT NULL DEFAULT 0,
+     created_at   INTEGER NOT NULL
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS runs (
+     id          TEXT PRIMARY KEY,
+     cron_id     TEXT NOT NULL,
+     cron_name   TEXT NOT NULL,
+     started_at  INTEGER NOT NULL,
+     duration_ms INTEGER,
+     status      TEXT NOT NULL,
+     output      TEXT
+   )")
+
+;; ── fx-notify 전송 ────────────────────────────────────────────
+
+(defn send-notify [$event $severity $title $msg]
+  (shell_run (str
+    "curl -s -X POST http://localhost:40300/notify "
+    "-H 'Content-Type: application/json' "
+    "-d '{\"source\":\"fx-cron\","
+    "\"event\":\"" $event "\","
+    "\"severity\":\"" $severity "\","
+    "\"channel\":\"all\","
+    "\"title\":\"" $title "\","
+    "\"message\":\"" $msg "\","
+    "\"to\":\"root@localhost\"}'")))
+
+;; ── 액션 실행 ─────────────────────────────────────────────────
+
+(defn run-http [$url $method $body]
+  (let [$cmd (str "curl -s -o /dev/null -w '%{http_code}' -X " $method
+                  " -H 'Content-Type: application/json' "
+                  (if (> (length (if $body $body "")) 0)
+                    (str "-d '" $body "' ")
+                    "")
+                  $url " 2>/dev/null")
+        $code (str_trim (shell_run $cmd))]
+    {"ok" (= (str_slice $code 0 1) "2") "output" $code}))
+
+(defn run-shell [$cmd]
+  (let [$out (str_trim (shell_run (str $cmd " 2>&1; echo $?")))]
+    (let [$lines  (regex_split "\n" $out)
+          $last   (str_trim (get $lines (- (length $lines) 1)))]
+      {"ok" (= $last "0") "output" $out})))
+
+(defn run-deploy [$svc]
+  (let [$r (shell_run (str
+              "curl -s -X POST http://localhost:40302/deploy "
+              "-H 'Content-Type: application/json' "
+              "-d '{\"service\":\"" $svc "\"}'"))]
+    {"ok" true "output" $r}))
+
+(defn run-action [$cron]
+  (let [$type (get $cron "action_type")]
+    (if (= $type "http")
+      (run-http
+        (get $cron "action_url")
+        (get $cron "action_method")
+        (get $cron "action_body"))
+      (if (= $type "shell")
+        (run-shell (get $cron "action_cmd"))
+        (if (= $type "deploy")
+          (run-deploy (get $cron "action_cmd"))
+          {"ok" false "output" (str "알 수 없는 타입: " $type)})))))
+
+;; ── 크론 실행 ─────────────────────────────────────────────────
+
+(defn exec-cron [$cron]
+  (let [$id    (get $cron "id")
+        $name  (get $cron "name")
+        $intv  (get $cron "interval_ms")
+        $now   (now-ms)
+        $run-id (str "r-" $now)]
+    (let [$result (run-action $cron)
+          $ok     (get $result "ok")
+          $out    (get $result "output")
+          $end    (now-ms)
+          $dur    (- $end $now)]
+      (do
+        (fxb_sqlite_exec db
+          (str "INSERT INTO runs(id,cron_id,cron_name,started_at,duration_ms,status,output)"
+               " VALUES ('" $run-id "','" $id "','" $name "',"
+               $now "," $dur ",'"
+               (if $ok "ok" "failed") "','"
+               (str_slice (if $out $out "") 0 300) "')"))
+        (fxb_sqlite_exec db
+          (str "UPDATE crons"
+               " SET last_run="   $now
+               ",next_run="       (+ $now $intv)
+               ",run_count=run_count+1"
+               (if (not $ok) ",fail_count=fail_count+1" "")
+               " WHERE id='" $id "'"))
+        (if (not $ok)
+          (send-notify "cron-fail" "error"
+            (str "[fx-cron] " $name " 실패")
+            (str $name " 실행 실패: " (str_slice (if $out $out "") 0 100)))
+          nil)))))
+
+;; ── 10초 틱 루프 (TCO 재귀) ──────────────────────────────────
+
+(defn cron-tick []
+  (try
+    (let [$now  (now-ms)
+          $dues (fxb_sqlite_query db
+                  (str "SELECT id,name,interval_ms,action_type,"
+                       "action_url,action_method,action_body,action_cmd"
+                       " FROM crons WHERE enabled=1 AND next_run<=" $now))]
+      (map (fn [$c] (exec-cron $c)) $dues))
+    (catch $e nil)))
+
+(defn cron-loop []
+  (do
+    (cron-tick)
+    (sleep TICK_MS)
+    (cron-loop)))
+
+;; ── API 핸들러 ────────────────────────────────────────────────
+
+(defn handle-create [$req]
+  (let [$b    (get $req "body")
+        $name (get $b "name")
+        $intv (get $b "interval_ms")
+        $type (get $b "action_type")]
+    (if (null? $name)
+      (server_json (json_stringify {"ok" false "error" "name 필요"}))
+      (if (null? $intv)
+        (server_json (json_stringify {"ok" false "error" "interval_ms 필요"}))
+        (if (null? $type)
+          (server_json (json_stringify {"ok" false "error" "action_type 필요 (http/shell/deploy)"}))
+          (let [$now (now-ms)
+                $id  (str "c-" $now)]
+            (do
+              (fxb_sqlite_exec db
+                (str "INSERT INTO crons"
+                     "(id,name,interval_ms,action_type,"
+                     "action_url,action_method,action_body,action_cmd,"
+                     "next_run,created_at)"
+                     " VALUES ('" $id "','" $name "'," $intv ",'" $type "','"
+                     (if (get $b "action_url")    (get $b "action_url")    "") "','"
+                     (if (get $b "action_method") (get $b "action_method") "POST") "','"
+                     (if (get $b "action_body")   (get $b "action_body")   "") "','"
+                     (if (get $b "action_cmd")    (get $b "action_cmd")    "") "',"
+                     (+ $now $intv) "," $now ")"))
+              (server_json (json_stringify
+                {"ok"       true
+                 "id"       $id
+                 "name"     $name
+                 "interval" $intv
+                 "next_run" (+ $now $intv)
+                 "msg"      (str $name " 등록 완료")})))))))))
+
+(defn handle-list [$req]
+  (let [$rows (fxb_sqlite_query db
+                (str "SELECT id,name,interval_ms,action_type,enabled,last_run,next_run,run_count,fail_count"
+                     " FROM crons ORDER BY created_at DESC"))]
+    (server_json (json_stringify
+      {"ok" true "crons" $rows "count" (length $rows)}))))
+
+(defn handle-get [$req]
+  (let [$id   (get (get $req "params") "id")
+        $rows (fxb_sqlite_query db
+                (str "SELECT * FROM crons WHERE id='" $id "'"))]
+    (if (= (length $rows) 0)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (server_json (json_stringify {"ok" true "cron" (get $rows 0)})))))
+
+(defn handle-delete [$req]
+  (let [$id (get (get $req "params") "id")]
+    (do
+      (fxb_sqlite_exec db (str "DELETE FROM crons WHERE id='" $id "'"))
+      (server_json (json_stringify {"ok" true "deleted" $id})))))
+
+(defn handle-pause [$req]
+  (let [$id (get (get $req "params") "id")]
+    (do
+      (fxb_sqlite_exec db (str "UPDATE crons SET enabled=0 WHERE id='" $id "'"))
+      (server_json (json_stringify {"ok" true "paused" $id})))))
+
+(defn handle-resume [$req]
+  (let [$id  (get (get $req "params") "id")
+        $now (now-ms)]
+    (do
+      (fxb_sqlite_exec db
+        (str "UPDATE crons SET enabled=1, next_run=(" $now "+interval_ms)"
+             " WHERE id='" $id "'"))
+      (server_json (json_stringify {"ok" true "resumed" $id})))))
+
+(defn handle-run-now [$req]
+  (let [$id   (get (get $req "params") "id")
+        $rows (fxb_sqlite_query db
+                (str "SELECT id,name,interval_ms,action_type,"
+                     "action_url,action_method,action_body,action_cmd"
+                     " FROM crons WHERE id='" $id "'"))]
+    (if (= (length $rows) 0)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (do
+        (future (fn [] (exec-cron (get $rows 0))))
+        (server_json (json_stringify {"ok" true "triggered" $id}))))))
+
+(defn handle-runs [$req]
+  (let [$q       (get $req "query")
+        $cron-id (get $q "cron_id")
+        $limit   (if (get $q "limit") (get $q "limit") "20")
+        $where   (if $cron-id (str " WHERE cron_id='" $cron-id "'") "")
+        $rows    (fxb_sqlite_query db
+                   (str "SELECT id,cron_id,cron_name,started_at,duration_ms,status,output"
+                        " FROM runs" $where
+                        " ORDER BY started_at DESC LIMIT " $limit))]
+    (server_json (json_stringify
+      {"ok" true "runs" $rows "count" (length $rows)}))))
+
+(defn handle-stats [$req]
+  (let [$total    (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM crons")
+        $enabled  (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM crons WHERE enabled=1")
+        $runs     (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM runs")
+        $failures (fxb_sqlite_query db "SELECT COUNT(*) as cnt FROM runs WHERE status='failed'")]
+    (server_json (json_stringify
+      {"ok"       true
+       "crons"    (get (get $total   0) "cnt")
+       "enabled"  (get (get $enabled 0) "cnt")
+       "runs"     (get (get $runs    0) "cnt")
+       "failures" (get (get $failures 0) "cnt")}))))
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-cron"
+     "version" "1.0.0"
+     "role"    "인터벌 스케줄러 — 등록된 작업을 정해진 주기로 실행 + fx-notify 알림"
+     "tick_ms" TICK_MS
+     "routes"  (list
+       "POST /crons                 — 크론 등록 {name, interval_ms, action_type, ...}"
+       "GET  /crons                 — 전체 목록"
+       "GET  /crons/:id             — 상세"
+       "POST /crons/:id/delete      — 삭제"
+       "POST /crons/:id/pause       — 일시정지"
+       "POST /crons/:id/resume      — 재개"
+       "POST /crons/:id/run         — 즉시 실행"
+       "GET  /runs?cron_id=&limit=  — 실행 이력"
+       "GET  /stats                 — 통계")})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"                  "handle-index")
+(server_post "/crons"             "handle-create")
+(server_get  "/crons"             "handle-list")
+(server_get  "/crons/:id"         "handle-get")
+(server_post "/crons/:id/delete"  "handle-delete")
+(server_post "/crons/:id/pause"   "handle-pause")
+(server_post "/crons/:id/resume"  "handle-resume")
+(server_post "/crons/:id/run"     "handle-run-now")
+(server_get  "/runs"              "handle-runs")
+(server_get  "/stats"             "handle-stats")
+
+;; ── 루프 시작 ─────────────────────────────────────────────────
+
+(let [$f (future (fn [] (cron-loop)))]
+  (println "⏱  크론 루프 시작 (10초 틱)"))
+
+(println (str "📅 fx-cron v1 포트 " PORT " 시작"))
+(server_start PORT)
