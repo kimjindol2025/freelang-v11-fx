@@ -1320,8 +1320,13 @@
         [$nenv (length $caps)]
         [$env-decls (cgc-fn-env-decls $caps 0 "")]
         ;; fn 파라미터를 scope에 등록 — body 컴파일 전에 경고 억제
-        [$_ (map (fn [$p] (swap! known-fncall-targets-atom append $p)) $param-names)]
+        [$_reg (map (fn [$p] (swap! known-fncall-targets-atom append $p)) $param-names)]
+        ;; 중첩 fn 캡처 수정: body 컴파일 전 fn-params를 outer에 추가 (reset 금지)
+        [$_fplen (length @outer-params-atom)]
+        [$_foset (swap! outer-params-atom concat $param-names)]
         [$body-c (cgc $body-node)]
+        ;; 복원: fn-params 추가 이전 길이로 slice (중간에 추가된 let 변수도 제거)
+        [$_fores (reset! outer-params-atom (slice @outer-params-atom 0 $_fplen))]
         [$decls (cgc-fn-argv-decls $param-items 0 "")]
         [$fn-name (str "__fl_anon_" $id)]]
     (swap! lambda-defs-atom append
