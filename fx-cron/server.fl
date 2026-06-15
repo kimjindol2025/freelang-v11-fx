@@ -106,19 +106,16 @@
           $end    (now-ms)
           $dur    (- $end $now)]
       (do
-        (fxb_sqlite_exec db
-          (str "INSERT INTO runs(id,cron_id,cron_name,started_at,duration_ms,status,output)"
-               " VALUES ('" $run-id "','" $id "','" $name "',"
-               $now "," $dur ",'"
-               (if $ok "ok" "failed") "','"
-               (str_slice (if $out $out "") 0 300) "')"))
-        (fxb_sqlite_exec db
-          (str "UPDATE crons"
-               " SET last_run="   $now
-               ",next_run="       (+ $now $intv)
-               ",run_count=run_count+1"
-               (if (not $ok) ",fail_count=fail_count+1" "")
-               " WHERE id='" $id "'"))
+        (fxb_sqlite_exec_p db
+          "INSERT INTO runs(id,cron_id,cron_name,started_at,duration_ms,status,output) VALUES (?,?,?,?,?,?,?)"
+          (list $run-id $id $name $now $dur (if $ok "ok" "failed") (str_slice (if $out $out "") 0 300)))
+        (if (not $ok)
+          (fxb_sqlite_exec_p db
+            "UPDATE crons SET last_run=?,next_run=?,run_count=run_count+1,fail_count=fail_count+1 WHERE id=?"
+            (list $now (+ $now $intv) $id))
+          (fxb_sqlite_exec_p db
+            "UPDATE crons SET last_run=?,next_run=?,run_count=run_count+1 WHERE id=?"
+            (list $now (+ $now $intv) $id)))
         (if (not $ok)
           (send-notify "cron-fail" "error"
             (str "[fx-cron] " $name " 실패")
@@ -130,10 +127,9 @@
 (defn cron-tick []
   (try
     (let [$now  (now-ms)
-          $dues (fxb_sqlite_query db
-                  (str "SELECT id,name,interval_ms,action_type,"
-                       "action_url,action_method,action_body,action_cmd"
-                       " FROM crons WHERE enabled=1 AND next_run<=" $now))]
+          $dues (fxb_sqlite_query_p db
+                  "SELECT id,name,interval_ms,action_type,action_url,action_method,action_body,action_cmd FROM crons WHERE enabled=1 AND next_run<=?"
+                  (list $now))]
       (map (fn [$c] (exec-cron $c)) $dues))
     (catch $e nil)))
 
@@ -159,17 +155,14 @@
           (let [$now (now-ms)
                 $id  (str "c-" $now)]
             (do
-              (fxb_sqlite_exec db
-                (str "INSERT INTO crons"
-                     "(id,name,interval_ms,action_type,"
-                     "action_url,action_method,action_body,action_cmd,"
-                     "next_run,created_at)"
-                     " VALUES ('" $id "','" $name "'," $intv ",'" $type "','"
-                     (if (get $b "action_url")    (get $b "action_url")    "") "','"
-                     (if (get $b "action_method") (get $b "action_method") "POST") "','"
-                     (if (get $b "action_body")   (get $b "action_body")   "") "','"
-                     (if (get $b "action_cmd")    (get $b "action_cmd")    "") "',"
-                     (+ $now $intv) "," $now ")"))
+              (fxb_sqlite_exec_p db
+                "INSERT INTO crons(id,name,interval_ms,action_type,action_url,action_method,action_body,action_cmd,next_run,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)"
+                (list $id $name $intv $type
+                      (if (get $b "action_url")    (get $b "action_url")    "")
+                      (if (get $b "action_method") (get $b "action_method") "POST")
+                      (if (get $b "action_body")   (get $b "action_body")   "")
+                      (if (get $b "action_cmd")    (get $b "action_cmd")    "")
+                      (+ $now $intv) $now))
               (server_json (json_stringify
                 {"ok"       true
                  "id"       $id
@@ -187,8 +180,9 @@
 
 (defn handle-get [$req]
   (let [$id   (get (get $req "params") "id")
-        $rows (fxb_sqlite_query db
-                (str "SELECT * FROM crons WHERE id='" $id "'"))]
+        $rows (fxb_sqlite_query_p db
+                "SELECT * FROM crons WHERE id=?"
+                (list $id))]
     (if (= (length $rows) 0)
       (server_json (json_stringify {"ok" false "error" "not found"}))
       (server_json (json_stringify {"ok" true "cron" (get $rows 0)})))))
@@ -196,30 +190,29 @@
 (defn handle-delete [$req]
   (let [$id (get (get $req "params") "id")]
     (do
-      (fxb_sqlite_exec db (str "DELETE FROM crons WHERE id='" $id "'"))
+      (fxb_sqlite_exec_p db "DELETE FROM crons WHERE id=?" (list $id))
       (server_json (json_stringify {"ok" true "deleted" $id})))))
 
 (defn handle-pause [$req]
   (let [$id (get (get $req "params") "id")]
     (do
-      (fxb_sqlite_exec db (str "UPDATE crons SET enabled=0 WHERE id='" $id "'"))
+      (fxb_sqlite_exec_p db "UPDATE crons SET enabled=0 WHERE id=?" (list $id))
       (server_json (json_stringify {"ok" true "paused" $id})))))
 
 (defn handle-resume [$req]
   (let [$id  (get (get $req "params") "id")
         $now (now-ms)]
     (do
-      (fxb_sqlite_exec db
-        (str "UPDATE crons SET enabled=1, next_run=(" $now "+interval_ms)"
-             " WHERE id='" $id "'"))
+      (fxb_sqlite_exec_p db
+        "UPDATE crons SET enabled=1, next_run=(?+interval_ms) WHERE id=?"
+        (list $now $id))
       (server_json (json_stringify {"ok" true "resumed" $id})))))
 
 (defn handle-run-now [$req]
   (let [$id   (get (get $req "params") "id")
-        $rows (fxb_sqlite_query db
-                (str "SELECT id,name,interval_ms,action_type,"
-                     "action_url,action_method,action_body,action_cmd"
-                     " FROM crons WHERE id='" $id "'"))]
+        $rows (fxb_sqlite_query_p db
+                "SELECT id,name,interval_ms,action_type,action_url,action_method,action_body,action_cmd FROM crons WHERE id=?"
+                (list $id))]
     (if (= (length $rows) 0)
       (server_json (json_stringify {"ok" false "error" "not found"}))
       (do
@@ -230,11 +223,13 @@
   (let [$q       (get $req "query")
         $cron-id (get $q "cron_id")
         $limit   (if (get $q "limit") (get $q "limit") "20")
-        $where   (if $cron-id (str " WHERE cron_id='" $cron-id "'") "")
-        $rows    (fxb_sqlite_query db
-                   (str "SELECT id,cron_id,cron_name,started_at,duration_ms,status,output"
-                        " FROM runs" $where
-                        " ORDER BY started_at DESC LIMIT " $limit))]
+        $rows    (if $cron-id
+                   (fxb_sqlite_query_p db
+                     "SELECT id,cron_id,cron_name,started_at,duration_ms,status,output FROM runs WHERE cron_id=? ORDER BY started_at DESC LIMIT ?"
+                     (list $cron-id $limit))
+                   (fxb_sqlite_query_p db
+                     "SELECT id,cron_id,cron_name,started_at,duration_ms,status,output FROM runs ORDER BY started_at DESC LIMIT ?"
+                     (list $limit)))]
     (server_json (json_stringify
       {"ok" true "runs" $rows "count" (length $rows)}))))
 

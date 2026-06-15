@@ -33,31 +33,34 @@
 
 (defn db-insert [$id $now $source $event $severity $channel $title $message $data]
   (do
-    (fxb_sqlite_exec db
-      (str "INSERT INTO notifications"
-           "(id,created_at,source,event,severity,channel,title,message,data)"
-           " VALUES ('" $id "'," $now ",'" $source "','" $event "','"
-           $severity "','" $channel "','" $title "','"
-           (if $message $message "") "','"
-           (if $data $data "{}") "')"))
+    (fxb_sqlite_exec_p db
+      "INSERT INTO notifications(id,created_at,source,event,severity,channel,title,message,data) VALUES (?,?,?,?,?,?,?,?,?)"
+      (list $id $now $source $event $severity $channel $title
+            (if $message $message "")
+            (if $data $data "{}")))
     nil))
 
 (defn db-list [$source $event $severity $limit]
   (let [$where (str
-    (if $source  (str "source='" $source "' AND ") "")
-    (if $event   (str "event='" $event "' AND ") "")
-    (if $severity (str "severity='" $severity "' AND ") "")
+    (if $source  "source=? AND " "")
+    (if $event   "event=? AND " "")
+    (if $severity "severity=? AND " "")
     "1=1")
-        $lim (if $limit $limit "100")]
-    (fxb_sqlite_query db
+        $params (reduce
+          (fn [$acc $v] (if $v (append $acc $v) $acc))
+          []
+          (list $source $event $severity))
+        $lim (if $limit $limit 100)]
+    (fxb_sqlite_query_p db
       (str "SELECT id,created_at,source,event,severity,channel,title,message,data,status"
            " FROM notifications WHERE " $where
-           " ORDER BY created_at DESC LIMIT " $lim))))
+           " ORDER BY created_at DESC LIMIT ?")
+      (append $params $lim))))
 
 (defn db-get [$id]
-  (let [$rows (fxb_sqlite_query db
-    (str "SELECT id,created_at,source,event,severity,channel,title,message,data,status"
-         " FROM notifications WHERE id='" $id "'"))]
+  (let [$rows (fxb_sqlite_query_p db
+    "SELECT id,created_at,source,event,severity,channel,title,message,data,status FROM notifications WHERE id=?"
+    (list $id))]
     (if (= (length $rows) 0) nil (get $rows 0))))
 
 ;; ── WebSocket 브로드캐스트 ─────────────────────────────────────

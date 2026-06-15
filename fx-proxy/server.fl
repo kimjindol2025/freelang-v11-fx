@@ -45,10 +45,9 @@
 ;; ── 타겟 선택 (최소 히트 → 라운드로빈 효과) ─────────────────
 
 (defn pick-target [$name]
-  (let [$rows (fxb_sqlite_query db
-                (str "SELECT id,url FROM targets"
-                     " WHERE service='" $name "' AND healthy=1"
-                     " ORDER BY hit_count ASC LIMIT 1"))]
+  (let [$rows (fxb_sqlite_query_p db
+                "SELECT id,url FROM targets WHERE service=? AND healthy=1 ORDER BY hit_count ASC LIMIT 1"
+                (list $name))]
     (if (= (length $rows) 0)
       nil
       (get $rows 0))))
@@ -83,9 +82,9 @@
             $resp (forward-get $url $path)
             $now  (now-ms)]
         (do
-          (fxb_sqlite_exec db
-            (str "UPDATE targets SET hit_count=hit_count+1, last_hit=" $now
-                 " WHERE id=" $tid))
+          (fxb_sqlite_exec_p db
+            "UPDATE targets SET hit_count=hit_count+1, last_hit=? WHERE id=?"
+            (list $now $tid))
           (server_text $resp))))))
 
 ;; ── POST /proxy/:name  body:{path, data} ──────────────────────
@@ -104,9 +103,9 @@
             $resp (forward-post $url $path $data)
             $now  (now-ms)]
         (do
-          (fxb_sqlite_exec db
-            (str "UPDATE targets SET hit_count=hit_count+1, last_hit=" $now
-                 " WHERE id=" $tid))
+          (fxb_sqlite_exec_p db
+            "UPDATE targets SET hit_count=hit_count+1, last_hit=? WHERE id=?"
+            (list $now $tid))
           (server_text $resp))))))
 
 ;; ── POST /services — 서비스 등록 ─────────────────────────────
@@ -121,15 +120,16 @@
         (server_json (json_stringify {"ok" false "error" "targets 필요 [{url}]"}))
         (let [$now (now-ms)]
           (do
-            (fxb_sqlite_exec db
-              (str "INSERT OR REPLACE INTO services(name,enabled,created_at)"
-                   " VALUES ('" $name "',1," $now ")"))
-            (fxb_sqlite_exec db
-              (str "DELETE FROM targets WHERE service='" $name "'"))
+            (fxb_sqlite_exec_p db
+              "INSERT OR REPLACE INTO services(name,enabled,created_at) VALUES (?,1,?)"
+              (list $name $now))
+            (fxb_sqlite_exec_p db
+              "DELETE FROM targets WHERE service=?"
+              (list $name))
             (map (fn [$t]
-              (fxb_sqlite_exec db
-                (str "INSERT INTO targets(service,url,healthy,hit_count)"
-                     " VALUES ('" $name "','" (get $t "url") "',1,0)")))
+              (fxb_sqlite_exec_p db
+                "INSERT INTO targets(service,url,healthy,hit_count) VALUES (?,?,1,0)"
+                (list $name (get $t "url"))))
             $targets)
             (server_json (json_stringify
               {"ok"      true
@@ -154,11 +154,12 @@
 
 (defn handle-get-service [$req]
   (let [$name (get (get $req "params") "name")
-        $svc  (fxb_sqlite_query db
-                (str "SELECT name,enabled,created_at FROM services WHERE name='" $name "'"))
-        $tgts (fxb_sqlite_query db
-                (str "SELECT id,url,healthy,hit_count,last_hit,last_check"
-                     " FROM targets WHERE service='" $name "' ORDER BY id"))]
+        $svc  (fxb_sqlite_query_p db
+                "SELECT name,enabled,created_at FROM services WHERE name=?"
+                (list $name))
+        $tgts (fxb_sqlite_query_p db
+                "SELECT id,url,healthy,hit_count,last_hit,last_check FROM targets WHERE service=? ORDER BY id"
+                (list $name))]
     (if (= (length $svc) 0)
       (server_json (json_stringify {"ok" false "error" "서비스 없음"}))
       (server_json (json_stringify
@@ -171,8 +172,8 @@
 (defn handle-delete-service [$req]
   (let [$name (get (get $req "params") "name")]
     (do
-      (fxb_sqlite_exec db (str "DELETE FROM targets  WHERE service='" $name "'"))
-      (fxb_sqlite_exec db (str "DELETE FROM services WHERE name='"    $name "'"))
+      (fxb_sqlite_exec_p db "DELETE FROM targets  WHERE service=?" (list $name))
+      (fxb_sqlite_exec_p db "DELETE FROM services WHERE name=?"    (list $name))
       (server_json (json_stringify {"ok" true "deleted" $name})))))
 
 ;; ── POST /services/:name/disable / enable ─────────────────────
@@ -180,15 +181,15 @@
 (defn handle-disable [$req]
   (let [$name (get (get $req "params") "name")]
     (do
-      (fxb_sqlite_exec db
-        (str "UPDATE services SET enabled=0 WHERE name='" $name "'"))
+      (fxb_sqlite_exec_p db
+        "UPDATE services SET enabled=0 WHERE name=?" (list $name))
       (server_json (json_stringify {"ok" true "disabled" $name})))))
 
 (defn handle-enable [$req]
   (let [$name (get (get $req "params") "name")]
     (do
-      (fxb_sqlite_exec db
-        (str "UPDATE services SET enabled=1 WHERE name='" $name "'"))
+      (fxb_sqlite_exec_p db
+        "UPDATE services SET enabled=1 WHERE name=?" (list $name))
       (server_json (json_stringify {"ok" true "enabled" $name})))))
 
 ;; ── GET /stats ────────────────────────────────────────────────
@@ -234,9 +235,9 @@
         $ok    (not (= $code "000"))
         $now   (now-ms)]
     (do
-      (fxb_sqlite_exec db
-        (str "UPDATE targets SET healthy=" (if $ok "1" "0")
-             ", last_check=" $now " WHERE id=" $id))
+      (fxb_sqlite_exec_p db
+        "UPDATE targets SET healthy=?, last_check=? WHERE id=?"
+        (list (if $ok 1 0) $now $id))
       (if (not $ok)
         (future (fn [] (send-notify "target-down" "critical"
           (str $url " 헬스체크 실패 (" $code ")"))))

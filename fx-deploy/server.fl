@@ -46,11 +46,9 @@
   (let [$bdir (str REPO_ROOT "/" $name)
         $bcmd (str "bash " BUILD_SH " server.fl " $name)]
     (do
-      (fxb_sqlite_exec db
-        (str "INSERT OR IGNORE INTO services"
-             "(name,repo_path,build_dir,build_cmd,pm2_name,health_port)"
-             " VALUES ('" $name "','" REPO_ROOT "','" $bdir "','"
-             $bcmd "','" $name "'," $port ")"))
+      (fxb_sqlite_exec_p db
+        "INSERT OR IGNORE INTO services(name,repo_path,build_dir,build_cmd,pm2_name,health_port) VALUES (?,?,?,?,?,?)"
+        (list $name REPO_ROOT $bdir $bcmd $name $port))
       nil)))
 
 (do
@@ -79,26 +77,25 @@
 
 (defn update-deploy [$id $status $step]
   (do
-    (fxb_sqlite_exec db
-      (str "UPDATE deploys SET status='" $status
-           "',step='" $step
-           "' WHERE id='" $id "'"))
+    (fxb_sqlite_exec_p db
+      "UPDATE deploys SET status=?,step=? WHERE id=?"
+      (list $status $step $id))
     nil))
 
 (defn finish-deploy [$id $status $gb $ga $log $err $started]
   (let [$now (now-ms)
         $dur (- $now $started)]
     (do
-      (fxb_sqlite_exec db
-        (str "UPDATE deploys SET status='" $status
-             "',step='완료'"
-             ",git_before='" (if $gb $gb "") "'"
-             ",git_after='"  (if $ga $ga "")  "'"
-             ",log='"        (str_slice (if $log $log "") 0 400) "'"
-             ",error='"      (if $err $err "")  "'"
-             ",finished_at=" $now
-             ",duration_ms=" $dur
-             " WHERE id='" $id "'"))
+      (fxb_sqlite_exec_p db
+        "UPDATE deploys SET status=?,step='완료',git_before=?,git_after=?,log=?,error=?,finished_at=?,duration_ms=? WHERE id=?"
+        (list $status
+              (if $gb $gb "")
+              (if $ga $ga "")
+              (str_slice (if $log $log "") 0 400)
+              (if $err $err "")
+              $now
+              $dur
+              $id))
       nil)))
 
 ;; ── git 커밋 해시 ────────────────────────────────────────────
@@ -175,9 +172,9 @@
         $svc-name (get $body "service")]
     (if (null? $svc-name)
       (server_json (json_stringify {"ok" false "error" "service 필드 필요"}))
-      (let [$rows (fxb_sqlite_query db
-                    (str "SELECT name,repo_path,build_dir,build_cmd,pm2_name,health_port"
-                         " FROM services WHERE name='" $svc-name "' AND enabled=1"))]
+      (let [$rows (fxb_sqlite_query_p db
+                    "SELECT name,repo_path,build_dir,build_cmd,pm2_name,health_port FROM services WHERE name=? AND enabled=1"
+                    (list $svc-name))]
         (if (= (length $rows) 0)
           (server_json (json_stringify {"ok" false "error" (str "서비스 없음: " $svc-name)}))
           (let [$svc    (get $rows 0)
@@ -189,9 +186,9 @@
                 $pm2    (get $svc "pm2_name")
                 $port   (get $svc "health_port")]
             (do
-              (fxb_sqlite_exec db
-                (str "INSERT INTO deploys(id,created_at,service,status,step,started_at)"
-                     " VALUES ('" $id "'," $now ",'" $svc-name "','pending','시작'," $now ")"))
+              (fxb_sqlite_exec_p db
+                "INSERT INTO deploys(id,created_at,service,status,step,started_at) VALUES (?,?,?,?,?,?)"
+                (list $id $now $svc-name "pending" "시작" $now))
               (future (fn []
                 (do-deploy $id $svc-name $repo $bdir $bcmd $pm2 $port $now)))
               (server_json (json_stringify
@@ -205,10 +202,9 @@
 
 (defn handle-get-deploy [$req]
   (let [$id   (get (get $req "params") "id")
-        $rows (fxb_sqlite_query db
-                (str "SELECT id,created_at,service,status,step,git_before,git_after,"
-                     "started_at,finished_at,duration_ms,log,error"
-                     " FROM deploys WHERE id='" $id "'"))]
+        $rows (fxb_sqlite_query_p db
+                "SELECT id,created_at,service,status,step,git_before,git_after,started_at,finished_at,duration_ms,log,error FROM deploys WHERE id=?"
+                (list $id))]
     (if (= (length $rows) 0)
       (server_json (json_stringify {"ok" false "error" "not found"}))
       (server_json (json_stringify {"ok" true "deploy" (get $rows 0)})))))
@@ -220,15 +216,23 @@
         $svc    (get $q "service")
         $status (get $q "status")
         $limit  (if (get $q "limit") (get $q "limit") "20")
-        $where  (str
-          (if $svc    (str "service='" $svc "' AND ") "")
-          (if $status (str "status='"  $status "' AND ") "")
-          "1=1")
-        $rows   (fxb_sqlite_query db
-          (str "SELECT id,created_at,service,status,step,git_before,git_after,"
-               "started_at,finished_at,duration_ms,error"
-               " FROM deploys WHERE " $where
-               " ORDER BY created_at DESC LIMIT " $limit))]
+        $rows   (cond
+          [(and $svc $status)
+           (fxb_sqlite_query_p db
+             "SELECT id,created_at,service,status,step,git_before,git_after,started_at,finished_at,duration_ms,error FROM deploys WHERE service=? AND status=? AND 1=1 ORDER BY created_at DESC LIMIT ?"
+             (list $svc $status $limit))]
+          [$svc
+           (fxb_sqlite_query_p db
+             "SELECT id,created_at,service,status,step,git_before,git_after,started_at,finished_at,duration_ms,error FROM deploys WHERE service=? AND 1=1 ORDER BY created_at DESC LIMIT ?"
+             (list $svc $limit))]
+          [$status
+           (fxb_sqlite_query_p db
+             "SELECT id,created_at,service,status,step,git_before,git_after,started_at,finished_at,duration_ms,error FROM deploys WHERE status=? AND 1=1 ORDER BY created_at DESC LIMIT ?"
+             (list $status $limit))]
+          [true
+           (fxb_sqlite_query_p db
+             "SELECT id,created_at,service,status,step,git_before,git_after,started_at,finished_at,duration_ms,error FROM deploys WHERE 1=1 ORDER BY created_at DESC LIMIT ?"
+             (list $limit))])]
     (server_json (json_stringify
       {"ok" true "deploys" $rows "count" (length $rows)}))))
 
@@ -256,11 +260,9 @@
                       (str "bash " BUILD_SH " server.fl " $name))
               $pm2  (if (get $b "pm2_name")  (get $b "pm2_name")  $name)]
           (do
-            (fxb_sqlite_exec db
-              (str "INSERT OR REPLACE INTO services"
-                   "(name,repo_path,build_dir,build_cmd,pm2_name,health_port)"
-                   " VALUES ('" $name "','" $repo "','" $bdir "','"
-                   $bcmd "','" $pm2 "'," $port ")"))
+            (fxb_sqlite_exec_p db
+              "INSERT OR REPLACE INTO services(name,repo_path,build_dir,build_cmd,pm2_name,health_port) VALUES (?,?,?,?,?,?)"
+              (list $name $repo $bdir $bcmd $pm2 $port))
             (server_json (json_stringify {"ok" true "registered" $name}))))))))
 
 ;; ── GET /stats ────────────────────────────────────────────────

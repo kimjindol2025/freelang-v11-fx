@@ -53,12 +53,12 @@
   (map
     (fn [$t]
       (do
-        (fxb_sqlite_exec db
-          (str "INSERT OR IGNORE INTO inv_idx(term,doc_id,freq)"
-               " VALUES ('" $t "','" $id "',0)"))
-        (fxb_sqlite_exec db
-          (str "UPDATE inv_idx SET freq=freq+1"
-               " WHERE term='" $t "' AND doc_id='" $id "'"))))
+        (fxb_sqlite_exec_p db
+          "INSERT OR IGNORE INTO inv_idx(term,doc_id,freq) VALUES (?,?,0)"
+          (list $t $id))
+        (fxb_sqlite_exec_p db
+          "UPDATE inv_idx SET freq=freq+1 WHERE term=? AND doc_id=?"
+          (list $t $id))))
     $toks))
 
 (defn handle-index-doc [$req]
@@ -76,14 +76,12 @@
               $toks  (tokenize $ttext)
               $tlen  (length $toks)]
           (do
-            (fxb_sqlite_exec db
-              (str "DELETE FROM inv_idx WHERE doc_id='" $id "'"))
-            (fxb_sqlite_exec db
-              (str "INSERT OR REPLACE INTO docs(id,title,content,term_count,created_at)"
-                   " VALUES ('" $id "','"
-                   (str_replace $ttl "'" "''") "','"
-                   (str_replace $content "'" "''") "',"
-                   $tlen "," $now ")"))
+            (fxb_sqlite_exec_p db
+              "DELETE FROM inv_idx WHERE doc_id=?"
+              (list $id))
+            (fxb_sqlite_exec_p db
+              "INSERT OR REPLACE INTO docs(id,title,content,term_count,created_at) VALUES (?,?,?,?,?)"
+              (list $id $ttl $content $tlen $now))
             (index-tokens $id $toks)
             (server_json (json_stringify
               {"ok"         true
@@ -104,14 +102,15 @@
         (if (= $cnt 0)
           (server_json (json_stringify {"ok" true "q" $q "results" [] "total" 0}))
           (let [$in   (toks-to-in $toks)
-                $rows (fxb_sqlite_query db
+                $rows (fxb_sqlite_query_p db
                         (str "SELECT i.doc_id, SUM(i.freq) as score,"
                              " d.title, d.created_at"
                              " FROM inv_idx i"
                              " JOIN docs d ON d.id=i.doc_id"
                              " WHERE i.term IN (" $in ")"
                              " GROUP BY i.doc_id"
-                             " ORDER BY score DESC LIMIT " $lim))]
+                             " ORDER BY score DESC LIMIT ?")
+                        (list $lim))]
             (server_json (json_stringify
               {"ok"      true
                "q"       $q
@@ -122,9 +121,9 @@
 
 (defn handle-get-doc [$req]
   (let [$id  (get (get $req "params") "id")
-        $row (fxb_sqlite_query db
-               (str "SELECT id,title,content,term_count,created_at"
-                    " FROM docs WHERE id='" $id "'"))]
+        $row (fxb_sqlite_query_p db
+               "SELECT id,title,content,term_count,created_at FROM docs WHERE id=?"
+               (list $id))]
     (if (= (length $row) 0)
       (server_json (json_stringify {"ok" false "error" "문서 없음"}))
       (server_json (json_stringify {"ok" true "doc" (get $row 0)})))))
@@ -134,8 +133,8 @@
 (defn handle-delete-doc [$req]
   (let [$id (get (get $req "params") "id")]
     (do
-      (fxb_sqlite_exec db (str "DELETE FROM inv_idx WHERE doc_id='" $id "'"))
-      (fxb_sqlite_exec db (str "DELETE FROM docs WHERE id='" $id "'"))
+      (fxb_sqlite_exec_p db "DELETE FROM inv_idx WHERE doc_id=?" (list $id))
+      (fxb_sqlite_exec_p db "DELETE FROM docs WHERE id=?" (list $id))
       (server_json (json_stringify {"ok" true "deleted" $id})))))
 
 ;; ── GET /terms?doc_id= ────────────────────────────────────────
@@ -143,10 +142,12 @@
 (defn handle-terms [$req]
   (let [$q      (get $req "query")
         $doc-id (get $q "doc_id")
-        $where  (if $doc-id (str " WHERE doc_id='" $doc-id "'") "")
-        $rows   (fxb_sqlite_query db
-                  (str "SELECT term,doc_id,freq FROM inv_idx"
-                       $where " ORDER BY freq DESC LIMIT 50"))]
+        $rows   (if $doc-id
+                  (fxb_sqlite_query_p db
+                    "SELECT term,doc_id,freq FROM inv_idx WHERE doc_id=? ORDER BY freq DESC LIMIT 50"
+                    (list $doc-id))
+                  (fxb_sqlite_query db
+                    "SELECT term,doc_id,freq FROM inv_idx ORDER BY freq DESC LIMIT 50"))]
     (server_json (json_stringify
       {"ok" true "terms" $rows "count" (length $rows)}))))
 
@@ -155,9 +156,9 @@
 (defn handle-list-docs [$req]
   (let [$q     (get $req "query")
         $limit (if (get $q "limit") (get $q "limit") "20")
-        $rows  (fxb_sqlite_query db
-                 (str "SELECT id,title,term_count,created_at"
-                      " FROM docs ORDER BY created_at DESC LIMIT " $limit))]
+        $rows  (fxb_sqlite_query_p db
+                 "SELECT id,title,term_count,created_at FROM docs ORDER BY created_at DESC LIMIT ?"
+                 (list $limit))]
     (server_json (json_stringify
       {"ok" true "docs" $rows "count" (length $rows)}))))
 
