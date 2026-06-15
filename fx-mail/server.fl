@@ -1,0 +1,191 @@
+;; fx-mail — 메일 발송 서버
+;; FreeLang fx C 네이티브 | 포트 40298
+;; 아키텍처: POST /send → Queue → future → SMTP → WebSocket 알림
+;; 의존: smtp_send (aliases.c), fxb_sqlite_* (sqlite.c)
+
+(define PORT    40299)
+(define DB_PATH "./mail.db")
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(define db (fxb_sqlite_open DB_PATH))
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS mails (
+     id        TEXT PRIMARY KEY,
+     mail_to   TEXT NOT NULL,
+     subject   TEXT NOT NULL,
+     body      TEXT NOT NULL,
+     from_addr TEXT NOT NULL,
+     status    TEXT NOT NULL DEFAULT 'pending',
+     error     TEXT,
+     created   INTEGER NOT NULL,
+     sent      INTEGER
+   )")
+
+;; ── 전역 상태 ─────────────────────────────────────────────────
+
+(define $ws-clients (atom []))
+(define $bcast-buf  (atom ""))
+
+;; ── DB 헬퍼 ───────────────────────────────────────────────────
+
+(defn db-insert [$id $to $subject $body $from $now]
+  (do
+    (fxb_sqlite_exec db
+      (str "INSERT INTO mails(id,mail_to,subject,body,from_addr,status,created)"
+           " VALUES ('" $id "','" $to "','" $subject "','" $body "','"
+           $from "','pending'," $now ")"))
+    nil))
+
+(defn db-set-sent [$id $now]
+  (do
+    (fxb_sqlite_exec db
+      (str "UPDATE mails SET status='sent',sent=" $now " WHERE id='" $id "'"))
+    nil))
+
+(defn db-set-failed [$id $err]
+  (do
+    (fxb_sqlite_exec db
+      (str "UPDATE mails SET status='failed',error='"
+           $err "' WHERE id='" $id "'"))
+    nil))
+
+(defn db-get [$id]
+  (let [$rows (fxb_sqlite_query db
+    (str "SELECT id,mail_to,subject,from_addr,status,error,created,sent"
+         " FROM mails WHERE id='" $id "'"))]
+    (if (= (length $rows) 0) nil (get $rows 0))))
+
+(defn db-list []
+  (fxb_sqlite_query db
+    "SELECT id,mail_to,subject,from_addr,status,error,created,sent
+     FROM mails ORDER BY created DESC LIMIT 50"))
+
+;; ── WebSocket 브로드캐스트 ─────────────────────────────────────
+
+(defn broadcast [$msg]
+  (swap! $bcast-buf (fn [$_] $msg))
+  (let [$alive
+    (reduce
+      (fn [$acc $ws]
+        (try
+          (do (ws_send $ws @$bcast-buf) (append $acc $ws))
+          (catch $_ $acc)))
+      [] @$ws-clients)]
+    (swap! $ws-clients (fn [$_] $alive))))
+
+;; ── SMTP 발송 (retry 3회) ────────────────────────────────────
+
+(defn try-send [$from $to $subject $body $attempt]
+  (if (>= $attempt 3)
+    false
+    (let [$ok (smtp_send $from $to $subject $body)]
+      (if $ok
+        true
+        (do
+          (sleep 1000)
+          (try-send $from $to $subject $body (+ $attempt 1)))))))
+
+;; ── 메일 발송 디스패처 (future에서 실행) ─────────────────────
+
+(defn dispatch [$id $from $to $subject $body]
+  (let [$ok (try
+               (try-send $from $to $subject $body 0)
+               (catch $e false))]
+    (if $ok
+      (do
+        (db-set-sent $id (now-ms))
+        (broadcast (json_stringify
+          {"type" "mail-sent" "id" $id "to" $to "status" "sent"})))
+      (do
+        (db-set-failed $id "SMTP 3회 실패")
+        (broadcast (json_stringify
+          {"type" "mail-failed" "id" $id "to" $to "status" "failed"}))))))
+
+;; ── POST /send ────────────────────────────────────────────────
+
+(defn handle-send [$req]
+  (let [$body (get $req "body")
+        $to      (get $body "to")
+        $subject (get $body "subject")
+        $text    (get $body "body")]
+    (if (null? $to)
+      (server_json (json_stringify
+        {"ok" false "error" "to 필드 필요"}))
+      (if (null? $subject)
+        (server_json (json_stringify
+          {"ok" false "error" "subject 필드 필요"}))
+        (let [$from (if (get $body "from")
+                      (get $body "from")
+                      "fx-mail@localhost")
+              $id   (str "mail-" (now-ms))
+              $now  (now-ms)]
+          (do
+            (db-insert $id $to $subject (if $text $text "") $from $now)
+            (let [$f (future (fn [] (dispatch $id $from $to $subject (if $text $text ""))))]
+              (server_json (json_stringify
+                {"ok" true "id" $id "to" $to
+                 "subject" $subject "status" "pending"})))))))))
+
+;; ── GET /mail/:id ─────────────────────────────────────────────
+
+(defn handle-get [$req]
+  (let [$id  (get (get $req "params") "id")
+        $row (db-get $id)]
+    (if (null? $row)
+      (server_json (json_stringify {"ok" false "error" "not found"}))
+      (server_json (json_stringify {"ok" true "mail" $row})))))
+
+;; ── GET /mails ────────────────────────────────────────────────
+
+(defn handle-list [$req]
+  (let [$rows (db-list)]
+    (server_json (json_stringify
+      {"ok" true "mails" $rows "count" (length $rows)}))))
+
+;; ── POST /test ────────────────────────────────────────────────
+;; 자기 자신에게 테스트 메일 발송
+
+(defn handle-test [$req]
+  (let [$body (get $req "body")
+        $to   (if (get $body "to") (get $body "to") "root@localhost")
+        $ok   (smtp_test $to)]
+    (server_json (json_stringify
+      {"ok" $ok "to" $to "msg"
+       (if $ok "테스트 메일 발송됨" "SMTP 오류")}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name" "fx-mail" "version" "1.0.0"
+     "routes" (list
+       "POST /send  {to, subject, body, from?} — 메일 발송 (비동기)"
+       "GET  /mail/:id                         — 메일 상태 조회"
+       "GET  /mails                            — 최근 50개 목록"
+       "POST /test  {to?}                      — 테스트 메일 발송"
+       "WS   /ws                               — 발송 완료 알림")})))
+
+;; ── WebSocket /ws ─────────────────────────────────────────────
+
+(defn handle-ws [$ws]
+  (do
+    (swap! $ws-clients (fn [$c] (append $c $ws)))
+    (ws_send $ws (json_stringify
+      {"type" "connected" "msg" "fx-mail 알림 채널 연결됨"}))
+    (let [$msg (try (ws_recv $ws) (catch $_ nil))]
+      (if (null? $msg) nil
+        (ws_send $ws (json_stringify {"type" "pong"}))))))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get    "/"         "handle-index")
+(server_post   "/send"     "handle-send")
+(server_get    "/mail/:id" "handle-get")
+(server_get    "/mails"    "handle-list")
+(server_post   "/test"     "handle-test")
+(server_ws     "/ws"       "handle-ws")
+
+(println (str "📮 fx-mail 포트 " PORT " 시작"))
+(server_start PORT)

@@ -1,0 +1,28 @@
+{
+  "name": "fx-mail",
+  "version": "1.0.0",
+  "language": "FreeLang fx (C 네이티브)",
+  "status": "in_progress",
+  "description": "메일 발송 서버 — POST /send → Queue → SMTP → WebSocket 알림",
+  "ports": [40298],
+  "entry": "server.fl",
+  "binary": "fx-mail",
+  "commands": {
+    "build": "bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-mail",
+    "start": "pm2 start ./fx-mail --name fx-mail",
+    "reload": "pm2 reload fx-mail"
+  },
+  "routes": {
+    "POST /send": "메일 발송 {to, subject, body, from?}",
+    "GET /mail/:id": "상태 조회",
+    "GET /mails": "최근 50개 목록",
+    "POST /test": "테스트 메일 {to?}",
+    "WS /ws": "발송 완료 알림"
+  },
+  "notes": [
+    "smtp_send = sendmail popen (postfix 로컬 MTA 사용)",
+    "retry 3회 자동 재발송",
+    "future(fn []) 비동기 발송",
+    "SQLite mail.db — 발송 이력 영구 보관"
+  ]
+}

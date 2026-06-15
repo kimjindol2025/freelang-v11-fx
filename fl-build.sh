@@ -86,7 +86,7 @@ RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/debug.c $RUNTIME_DIR/gc.c \
   $RUNTIME_DIR/jit.c $RUNTIME_DIR/fx-builtin-shim.c \
   $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c \
-  $RUNTIME_DIR/regex.c"
+  $RUNTIME_DIR/regex.c $RUNTIME_DIR/smtp.c"
 
 # mariadb.c는 dlopen 방식이라 헤더 불필요 — 항상 포함
 if [ -f "$RUNTIME_DIR/mariadb.c" ]; then

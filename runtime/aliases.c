@@ -1498,3 +1498,20 @@ FLValue json_pretty(FLValue v) {
     free(out);
     return result;
 }
+
+/* ── SMTP ── (smtp.c 구현 참조) */
+extern FLValue fl_smtp_send(FLValue from, FLValue to, FLValue subject, FLValue body);
+extern FLValue fl_smtp_send_html(FLValue from, FLValue to, FLValue subject, FLValue html);
+extern FLValue fl_smtp_test(FLValue to);
+
+FLValue smtp_send(FLValue from, FLValue to, FLValue subject, FLValue body) {
+    return fl_smtp_send(from, to, subject, body);
+}
+FLValue smtp_send_html(FLValue from, FLValue to, FLValue subject, FLValue html) {
+    return fl_smtp_send_html(from, to, subject, html);
+}
+FLValue smtp_test(FLValue to) { return fl_smtp_test(to); }
+
+/* ── 프로세스/쉘 실행 ── (process.c 구현 참조) */
+extern FLValue _fl_process_run(FLValue cmd);
+FLValue shell_run(FLValue cmd) { return _fl_process_run(cmd); }

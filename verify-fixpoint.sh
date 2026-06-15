@@ -18,7 +18,7 @@ RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/json.c $RUNTIME_DIR/aliases.c $RUNTIME_DIR/cgc-bridge.c \
   $RUNTIME_DIR/gc.c $RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c \
   $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/mariadb.c $RUNTIME_DIR/debug.c \
-  $RUNTIME_DIR/http_client.c $RUNTIME_DIR/regex.c"
+  $RUNTIME_DIR/http_client.c $RUNTIME_DIR/regex.c $RUNTIME_DIR/smtp.c"
 
 TMP=$(mktemp -d /tmp/fixpoint-XXXXXX)
 trap "rm -rf $TMP" EXIT

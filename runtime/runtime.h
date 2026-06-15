@@ -618,3 +618,11 @@ FLValue regex_groups(FLValue pattern, FLValue str);
 FLValue regex_replace(FLValue pattern, FLValue str, FLValue replacement);
 FLValue regex_replace_all(FLValue pattern, FLValue str, FLValue replacement);
 FLValue regex_split(FLValue pattern, FLValue str);
+
+/* SMTP */
+FLValue smtp_send(FLValue from, FLValue to, FLValue subject, FLValue body);
+FLValue smtp_send_html(FLValue from, FLValue to, FLValue subject, FLValue html);
+FLValue smtp_test(FLValue to);
+
+/* 쉘 실행 */
+FLValue shell_run(FLValue cmd);
