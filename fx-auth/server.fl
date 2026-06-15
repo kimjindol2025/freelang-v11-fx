@@ -1,0 +1,224 @@
+;; fx-auth v1 — 인증 서버
+;; FreeLang fx C 네이티브 | 포트 40306
+;; 토큰 형식: {ts}.{username}.{sha256(ts+user+secret)}
+;; TTL: 24시간. 비밀번호: sha256(password+salt)
+
+(define PORT    40306)
+(define DB_PATH "./auth.db")
+(define SECRET  "fx-auth-secret-2026-kimjin")
+(define TTL_MS  86400000)
+
+(define db (fxb_sqlite_open DB_PATH))
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS users (
+     username    TEXT PRIMARY KEY,
+     password_hash TEXT NOT NULL,
+     salt        TEXT NOT NULL,
+     role        TEXT NOT NULL DEFAULT 'user',
+     created_at  INTEGER NOT NULL,
+     last_login  INTEGER,
+     enabled     INTEGER NOT NULL DEFAULT 1
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS tokens (
+     token      TEXT PRIMARY KEY,
+     username   TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     expires_at INTEGER NOT NULL,
+     revoked    INTEGER NOT NULL DEFAULT 0
+   )")
+
+;; ── 토큰 생성/검증 ────────────────────────────────────────────
+
+(defn make-token [$username $role]
+  (let [$ts  (str (now-ms))
+        $sig  (sha256 (str $ts "." $username "." SECRET))]
+    (str $ts "." $username "." $sig)))
+
+(defn verify-token-sig [$ts $user $sig]
+  (= $sig (sha256 (str $ts "." $user "." SECRET))))
+
+(defn parse-token [$token]
+  (let [$dot1 (str_index_of $token ".")]
+    (if (< $dot1 0)
+      nil
+      (let [$ts   (str_slice $token 0 $dot1)
+            $rest (str_slice $token (+ $dot1 1) (length $token))
+            $dot2 (str_index_of $rest ".")]
+        (if (< $dot2 0)
+          nil
+          (let [$user (str_slice $rest 0 $dot2)
+                $sig  (str_slice $rest (+ $dot2 1) (length $rest))]
+            {"ts" $ts "username" $user "sig" $sig}))))))
+
+;; ── 비밀번호 해시 ─────────────────────────────────────────────
+
+(defn hash-password [$password $salt]
+  (sha256 (str $password ":" $salt)))
+
+(defn make-salt [$username]
+  (sha256 (str $username (now-ms) SECRET)))
+
+;; ── POST /auth/register ───────────────────────────────────────
+
+(defn handle-register [$req]
+  (let [$b    (get $req "body")
+        $user (get $b "username")
+        $pass (get $b "password")
+        $role (get $b "role")]
+    (if (null? $user)
+      (server_json (json_stringify {"ok" false "error" "username 필요"}))
+      (if (null? $pass)
+        (server_json (json_stringify {"ok" false "error" "password 필요"}))
+        (let [$exists (fxb_sqlite_query db
+                        (str "SELECT username FROM users WHERE username='" $user "'"))]
+          (if (> (length $exists) 0)
+            (server_json (json_stringify {"ok" false "error" "이미 존재하는 사용자"}))
+            (let [$salt (make-salt $user)
+                  $hash (hash-password $pass $salt)
+                  $now  (now-ms)
+                  $rv   (if $role $role "user")]
+              (do
+                (fxb_sqlite_exec db
+                  (str "INSERT INTO users(username,password_hash,salt,role,created_at)"
+                       " VALUES ('" $user "','" $hash "','" $salt "','" $rv "'," $now ")"))
+                (server_json (json_stringify {"ok" true "username" $user "role" $rv}))))))))))
+
+;; ── POST /auth/login ──────────────────────────────────────────
+
+(defn handle-login [$req]
+  (let [$b    (get $req "body")
+        $user (get $b "username")
+        $pass (get $b "password")]
+    (if (null? $user)
+      (server_json (json_stringify {"ok" false "error" "username 필요"}))
+      (if (null? $pass)
+        (server_json (json_stringify {"ok" false "error" "password 필요"}))
+        (let [$rows (fxb_sqlite_query db
+                      (str "SELECT username,password_hash,salt,role,enabled"
+                           " FROM users WHERE username='" $user "'"))]
+          (if (= (length $rows) 0)
+            (server_json (json_stringify {"ok" false "error" "사용자 없음"}))
+            (let [$u    (get $rows 0)
+                  $en   (get $u "enabled")]
+              (if (= $en 0)
+                (server_json (json_stringify {"ok" false "error" "비활성 계정"}))
+                (let [$stored (get $u "password_hash")
+                      $salt   (get $u "salt")
+                      $role   (get $u "role")
+                      $calc   (hash-password $pass $salt)]
+                  (if (not (= $calc $stored))
+                    (server_json (json_stringify {"ok" false "error" "비밀번호 불일치"}))
+                    (let [$now   (now-ms)
+                          $token (make-token $user $role)
+                          $exp   (+ $now TTL_MS)]
+                      (do
+                        (fxb_sqlite_exec db
+                          (str "INSERT INTO tokens(token,username,created_at,expires_at)"
+                               " VALUES ('" $token "','" $user "'," $now "," $exp ")"))
+                        (fxb_sqlite_exec db
+                          (str "UPDATE users SET last_login=" $now
+                               " WHERE username='" $user "'"))
+                        (server_json (json_stringify
+                          {"ok"      true
+                           "token"   $token
+                           "role"    $role
+                           "expires_at" $exp}))))))))))))))
+
+;; ── POST /auth/verify ─────────────────────────────────────────
+
+(defn handle-verify [$req]
+  (let [$b     (get $req "body")
+        $token (get $b "token")]
+    (if (null? $token)
+      (server_json (json_stringify {"ok" false "error" "token 필요"}))
+      (let [$parsed (parse-token $token)]
+        (if (null? $parsed)
+          (server_json (json_stringify {"ok" false "error" "잘못된 토큰 형식"}))
+          (let [$ts   (get $parsed "ts")
+                $user (get $parsed "username")
+                $sig  (get $parsed "sig")
+                $now  (now-ms)
+                $exp  (+ (str_to_num $ts) TTL_MS)]
+            (if (not (verify-token-sig $ts $user $sig))
+              (server_json (json_stringify {"ok" false "error" "서명 불일치"}))
+              (if (> $now $exp)
+                (server_json (json_stringify {"ok" false "error" "만료된 토큰"}))
+                (let [$rows (fxb_sqlite_query db
+                              (str "SELECT revoked FROM tokens WHERE token='" $token "'"))]
+                  (if (and (> (length $rows) 0) (= (get (get $rows 0) "revoked") 1))
+                    (server_json (json_stringify {"ok" false "error" "폐기된 토큰"}))
+                    (let [$uroles (fxb_sqlite_query db
+                                    (str "SELECT role FROM users WHERE username='" $user "'"))]
+                      (server_json (json_stringify
+                        {"ok"       true
+                         "username" $user
+                         "role"     (if (> (length $uroles) 0)
+                                      (get (get $uroles 0) "role")
+                                      "user")
+                         "expires_at" $exp})))))))))))))
+
+;; ── POST /auth/revoke ─────────────────────────────────────────
+
+(defn handle-revoke [$req]
+  (let [$b     (get $req "body")
+        $token (get $b "token")]
+    (if (null? $token)
+      (server_json (json_stringify {"ok" false "error" "token 필요"}))
+      (do
+        (fxb_sqlite_exec db
+          (str "UPDATE tokens SET revoked=1 WHERE token='" $token "'"))
+        (server_json (json_stringify {"ok" true "revoked" true}))))))
+
+;; ── GET /users (admin) ────────────────────────────────────────
+
+(defn handle-users [$req]
+  (let [$rows (fxb_sqlite_query db
+                (str "SELECT username,role,created_at,last_login,enabled"
+                     " FROM users ORDER BY created_at DESC"))]
+    (server_json (json_stringify {"ok" true "users" $rows "count" (length $rows)}))))
+
+;; ── GET /stats ────────────────────────────────────────────────
+
+(defn handle-stats [$req]
+  (let [$users  (fxb_sqlite_query db "SELECT COUNT(*) as c FROM users WHERE enabled=1")
+        $tokens (fxb_sqlite_query db
+                  (str "SELECT COUNT(*) as c FROM tokens"
+                       " WHERE revoked=0 AND expires_at>" (now-ms)))]
+    (server_json (json_stringify
+      {"ok"           true
+       "active_users" (get (get $users  0) "c")
+       "active_tokens" (get (get $tokens 0) "c")}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-index [$req]
+  (server_json (json_stringify
+    {"name"    "fx-auth"
+     "version" "1.0.0"
+     "role"    "인증 서버 — sha256 토큰 + SQLite 사용자 관리"
+     "token_ttl_hours" 24
+     "routes"  (list
+       "POST /auth/register — 사용자 등록 {username, password, role?}"
+       "POST /auth/login    — 로그인 {username, password} → token"
+       "POST /auth/verify   — 토큰 검증 {token} → payload"
+       "POST /auth/revoke   — 토큰 폐기 {token}"
+       "GET  /users         — 사용자 목록"
+       "GET  /stats         — 통계")})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"               "handle-index")
+(server_post "/auth/register"  "handle-register")
+(server_post "/auth/login"     "handle-login")
+(server_post "/auth/verify"    "handle-verify")
+(server_post "/auth/revoke"    "handle-revoke")
+(server_get  "/users"          "handle-users")
+(server_get  "/stats"          "handle-stats")
+
+(println (str "🔑 fx-auth v1 포트 " PORT " 시작"))
+(server_start PORT)
