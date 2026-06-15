@@ -1,0 +1,204 @@
+;; fx-search v1 — TF 역인덱스 검색 엔진
+;; FreeLang fx C 네이티브 | 포트 40308
+;; 역할: 문서 색인 + 역인덱스 SQLite + TF 스코어 랭킹
+
+(define PORT    40308)
+(define DB_PATH "./search.db")
+
+(define db (fxb_sqlite_open DB_PATH))
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS docs (
+     id          TEXT PRIMARY KEY,
+     title       TEXT NOT NULL DEFAULT '',
+     content     TEXT NOT NULL,
+     term_count  INTEGER NOT NULL DEFAULT 0,
+     created_at  INTEGER NOT NULL
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS inv_idx (
+     term   TEXT NOT NULL,
+     doc_id TEXT NOT NULL,
+     freq   INTEGER NOT NULL DEFAULT 0,
+     PRIMARY KEY (term, doc_id)
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE INDEX IF NOT EXISTS idx_term ON inv_idx(term)")
+
+;; ── 토큰화 ────────────────────────────────────────────────────
+;; 알파벳/숫자/한글만 남기고 분리, 2자 이상만
+
+(defn tokenize [$text]
+  (filter
+    (fn [$t] (> (length $t) 1))
+    (regex_split "[^a-zA-Z0-9가-힣]+" $text)))
+
+;; ── SQL IN 절 생성 (['tok1','tok2',...]) ──────────────────────
+
+(defn toks-to-in [$toks]
+  (if (= (length $toks) 0)
+    "''"
+    (reduce
+      (fn [$acc $t] (str $acc ",'" $t "'"))
+      (str "'" (get $toks 0) "'")
+      (drop 1 $toks))))
+
+;; ── POST /index ───────────────────────────────────────────────
+
+(defn index-tokens [$id $toks]
+  (map
+    (fn [$t]
+      (do
+        (fxb_sqlite_exec db
+          (str "INSERT OR IGNORE INTO inv_idx(term,doc_id,freq)"
+               " VALUES ('" $t "','" $id "',0)"))
+        (fxb_sqlite_exec db
+          (str "UPDATE inv_idx SET freq=freq+1"
+               " WHERE term='" $t "' AND doc_id='" $id "'"))))
+    $toks))
+
+(defn handle-index-doc [$req]
+  (let [$b       (get $req "body")
+        $id      (get $b "id")
+        $title   (get $b "title")
+        $content (get $b "content")]
+    (if (null? $id)
+      (server_json (json_stringify {"ok" false "error" "id 필요"}))
+      (if (null? $content)
+        (server_json (json_stringify {"ok" false "error" "content 필요"}))
+        (let [$now   (now-ms)
+              $ttl   (if $title $title "")
+              $ttext (str $ttl " " $content)
+              $toks  (tokenize $ttext)
+              $tlen  (length $toks)]
+          (do
+            (fxb_sqlite_exec db
+              (str "DELETE FROM inv_idx WHERE doc_id='" $id "'"))
+            (fxb_sqlite_exec db
+              (str "INSERT OR REPLACE INTO docs(id,title,content,term_count,created_at)"
+                   " VALUES ('" $id "','"
+                   (str_replace $ttl "'" "''") "','"
+                   (str_replace $content "'" "''") "',"
+                   $tlen "," $now ")"))
+            (index-tokens $id $toks)
+            (server_json (json_stringify
+              {"ok"         true
+               "id"         $id
+               "term_count" $tlen}))))))))
+
+;; ── GET /search?q=&limit= ────────────────────────────────────
+
+(defn handle-search [$req]
+  (let [$q      (get (get $req "query") "q")
+        $lim    (if (get (get $req "query") "limit")
+                  (get (get $req "query") "limit")
+                  "10")]
+    (if (null? $q)
+      (server_json (json_stringify {"ok" false "error" "q 필요"}))
+      (let [$toks (tokenize $q)
+            $cnt  (length $toks)]
+        (if (= $cnt 0)
+          (server_json (json_stringify {"ok" true "q" $q "results" [] "total" 0}))
+          (let [$in   (toks-to-in $toks)
+                $rows (fxb_sqlite_query db
+                        (str "SELECT i.doc_id, SUM(i.freq) as score,"
+                             " d.title, d.created_at"
+                             " FROM inv_idx i"
+                             " JOIN docs d ON d.id=i.doc_id"
+                             " WHERE i.term IN (" $in ")"
+                             " GROUP BY i.doc_id"
+                             " ORDER BY score DESC LIMIT " $lim))]
+            (server_json (json_stringify
+              {"ok"      true
+               "q"       $q
+               "results" $rows
+               "total"   (length $rows)}))))))))
+
+;; ── GET /docs/:id ─────────────────────────────────────────────
+
+(defn handle-get-doc [$req]
+  (let [$id  (get (get $req "params") "id")
+        $row (fxb_sqlite_query db
+               (str "SELECT id,title,content,term_count,created_at"
+                    " FROM docs WHERE id='" $id "'"))]
+    (if (= (length $row) 0)
+      (server_json (json_stringify {"ok" false "error" "문서 없음"}))
+      (server_json (json_stringify {"ok" true "doc" (get $row 0)})))))
+
+;; ── POST /docs/:id/delete ─────────────────────────────────────
+
+(defn handle-delete-doc [$req]
+  (let [$id (get (get $req "params") "id")]
+    (do
+      (fxb_sqlite_exec db (str "DELETE FROM inv_idx WHERE doc_id='" $id "'"))
+      (fxb_sqlite_exec db (str "DELETE FROM docs WHERE id='" $id "'"))
+      (server_json (json_stringify {"ok" true "deleted" $id})))))
+
+;; ── GET /terms?doc_id= ────────────────────────────────────────
+
+(defn handle-terms [$req]
+  (let [$q      (get $req "query")
+        $doc-id (get $q "doc_id")
+        $where  (if $doc-id (str " WHERE doc_id='" $doc-id "'") "")
+        $rows   (fxb_sqlite_query db
+                  (str "SELECT term,doc_id,freq FROM inv_idx"
+                       $where " ORDER BY freq DESC LIMIT 50"))]
+    (server_json (json_stringify
+      {"ok" true "terms" $rows "count" (length $rows)}))))
+
+;; ── GET /docs ─────────────────────────────────────────────────
+
+(defn handle-list-docs [$req]
+  (let [$q     (get $req "query")
+        $limit (if (get $q "limit") (get $q "limit") "20")
+        $rows  (fxb_sqlite_query db
+                 (str "SELECT id,title,term_count,created_at"
+                      " FROM docs ORDER BY created_at DESC LIMIT " $limit))]
+    (server_json (json_stringify
+      {"ok" true "docs" $rows "count" (length $rows)}))))
+
+;; ── GET /stats ────────────────────────────────────────────────
+
+(defn handle-stats [$req]
+  (let [$docs  (fxb_sqlite_query db "SELECT COUNT(*) as c FROM docs")
+        $uterms (fxb_sqlite_query db "SELECT COUNT(DISTINCT term) as c FROM inv_idx")
+        $idxsz  (fxb_sqlite_query db "SELECT COUNT(*) as c FROM inv_idx")]
+    (server_json (json_stringify
+      {"ok"           true
+       "docs"         (get (get $docs   0) "c")
+       "unique_terms" (get (get $uterms 0) "c")
+       "index_rows"   (get (get $idxsz  0) "c")}))))
+
+;; ── GET / ─────────────────────────────────────────────────────
+
+(defn handle-root [$req]
+  (server_json (json_stringify
+    {"name"    "fx-search"
+     "version" "1.0.0"
+     "role"    "TF 역인덱스 검색 엔진 — 문서 색인 + 스코어 랭킹"
+     "routes"  (list
+       "POST /index              — 문서 색인 {id, title, content}"
+       "GET  /search?q=&limit=  — 검색 (TF 스코어 내림차순)"
+       "GET  /docs               — 문서 목록"
+       "GET  /docs/:id           — 문서 상세"
+       "POST /docs/:id/delete    — 문서 삭제"
+       "GET  /terms?doc_id=      — 역인덱스 조회"
+       "GET  /stats              — 통계")})))
+
+;; ── 라우트 등록 ────────────────────────────────────────────────
+
+(server_get  "/"                "handle-root")
+(server_post "/index"           "handle-index-doc")
+(server_get  "/search"          "handle-search")
+(server_get  "/docs"            "handle-list-docs")
+(server_get  "/docs/:id"        "handle-get-doc")
+(server_post "/docs/:id/delete" "handle-delete-doc")
+(server_get  "/terms"           "handle-terms")
+(server_get  "/stats"           "handle-stats")
+
+(println (str "🔍 fx-search v1 포트 " PORT " 시작"))
+(server_start PORT)
