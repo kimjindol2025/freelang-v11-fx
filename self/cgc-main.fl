@@ -834,8 +834,9 @@
 
 (defn cgc-try [$n]
   (let [[$id @lambda-id-atom]
-        [$body-node (get $n :body)]
-        [$catch-node (get $n :catch)]
+        [$body-node    (get $n :body)]
+        [$catch-node   (get $n :catch)]
+        [$finally-node (get $n :finally)]
         [$body-c (if (null? $body-node) "fl_nil()" (cgc $body-node))]
         [$catch-args (if (null? $catch-node) (list) (get $catch-node :args))]
         [$param-c (if (> (length $catch-args) 0)
@@ -843,7 +844,10 @@
                     "_fl_err")]
         [$catch-body-c (if (> (length $catch-args) 1)
                          (cgc (get $catch-args 1))
-                         "fl_nil()")]]
+                         "fl_nil()")]
+        [$finally-c (if (null? $finally-node) ""
+                      (let [[$fargs (get $finally-node :args)]]
+                        (str "    " (cgc-body $fargs 0 "") ";\n")))]]
     (swap! lambda-id-atom + 1)
     (str "(__extension__ ({\n"
          "    FLValue _fl_try_" $id ";\n"
@@ -860,6 +864,7 @@
          "    } else {\n"
          "        _fl_try_" $id " = " $body-c ";\n"
          "    }\n"
+         $finally-c
          "    _fl_try_" $id ";\n"
          "}))")))
 
