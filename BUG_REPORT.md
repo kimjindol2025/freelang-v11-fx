@@ -81,9 +81,10 @@
 
 ---
 
-#### BUG-04 — 중첩 fn 클로저 캡처 오류
+#### BUG-04 — 중첩 fn 클로저 캡처 오류 ✅ FIXED (2026-06-16, 커밋 6d499c4)
 
 **위치**: `cgc-main.fl:1305-1333` (cgc-fn)  
+**수정**: `_fplen = len(@outer)` → `concat(fn-params)` → body 컴파일 → `slice(0, _fplen)` 복원  
 **원인**: `outer-params-atom`이 중첩 fn 컴파일 시 초기화되지 않아 내부 fn이 외부 변수를 캡처하지 못함
 ```lisp
 ;; ❌ 재현
@@ -379,7 +380,7 @@ const char* ks = (key.tag == FL_STRING && key.obj)
 |------|--------|------------|---------|
 | BUG-01 SQL 인젝션 | 보안 치명적 | 쉬움 (_p 함수 이미 있음) | **P0** |
 | BUG-03 let 섀도잉 | 컴파일 에러 | 중간 | **P1** |
-| BUG-04 중첩 fn 캡처 | 런타임 오류 | 어려움 | **P1** |
+| BUG-04 중첩 fn 캡처 | ~~런타임 오류~~ | ~~어려움~~ | ✅ **FIXED** 6d499c4 |
 | BUG-02 try-finally | 기능 누락 | 중간 | **P1** |
 | BUG-08 loop 재귀 | 장기 스택 누수 | 쉬움 (앱 코드만) | **P2** |
 | BUG-05 html_escape | 보안/안정성 | 쉬움 (strcpy→memcpy) | **P2** |
