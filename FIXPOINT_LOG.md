@@ -6,3 +6,5 @@
 | 2026-06-15 00:27 | 915c8a33 | 691b0aae79206814 | 691b0aae79206814 | 691b0aae79206814 | ✅ 완전 |
 | 2026-06-15 01:08 | 4efb40f5 | facc87d31179ca82 | 18db9db17eb949cf | 18db9db17eb949cf | ⚠️ 부분 |
 | 2026-06-15 01:10 | 4efb40f5 | 18db9db17eb949cf | 18db9db17eb949cf | 18db9db17eb949cf | ✅ 완전 |
+| 2026-06-15 03:17 | 8f4fd2fe | 18db9db17eb949cf | 18db9db17eb949cf | 18db9db17eb949cf | ✅ 완전 |
+| 2026-06-15 17:32 | 8f4fd2fe | 18db9db17eb949cf | 18db9db17eb949cf | 18db9db17eb949cf | ✅ 완전 |

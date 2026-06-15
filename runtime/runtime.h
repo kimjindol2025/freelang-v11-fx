@@ -585,3 +585,25 @@ FLValue sqlite_exec_p_v2(FLValue db, FLValue sql, FLValue p);
 FLValue sqlite_close_v2(FLValue db);
 FLValue fx_server_json(FLValue data);
 FLValue fx_respond(FLValue status, FLValue data);
+
+/* ── HTTP 클라이언트 (http_client.c) ── */
+FLValue http_get(FLValue url);
+FLValue http_get_h(FLValue url, FLValue headers);
+FLValue http_post(FLValue url, FLValue body);
+FLValue http_post_h(FLValue url, FLValue body, FLValue headers);
+FLValue http_put(FLValue url, FLValue body);
+FLValue http_del(FLValue url);
+FLValue http_patch(FLValue url, FLValue body);
+FLValue http_req(FLValue method, FLValue url, FLValue body, FLValue headers);
+FLValue http_body(FLValue res);
+FLValue http_status(FLValue res);
+FLValue http_ok_p(FLValue res);
+
+/* ── 정규식 (regex.c) ── */
+FLValue regex_match(FLValue pattern, FLValue str);
+FLValue regex_find(FLValue pattern, FLValue str);
+FLValue regex_find_all(FLValue pattern, FLValue str);
+FLValue regex_groups(FLValue pattern, FLValue str);
+FLValue regex_replace(FLValue pattern, FLValue str, FLValue replacement);
+FLValue regex_replace_all(FLValue pattern, FLValue str, FLValue replacement);
+FLValue regex_split(FLValue pattern, FLValue str);

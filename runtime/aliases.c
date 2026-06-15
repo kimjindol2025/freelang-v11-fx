@@ -1393,3 +1393,23 @@ FLValue fx_respond(FLValue status, FLValue data) {
     return server_status(status, json);
 }
 
+
+/* ── HTTP 클라이언트 kebab-case alias ── */
+/* fx에서: (http-get url) → http_get(url) */
+FLValue http_get_alias(FLValue url)                               { return http_get(url); }
+FLValue http_post_alias(FLValue url, FLValue body)                { return http_post(url, body); }
+FLValue http_put_alias(FLValue url, FLValue body)                 { return http_put(url, body); }
+FLValue http_del_alias(FLValue url)                               { return http_del(url); }
+FLValue http_patch_alias(FLValue url, FLValue body)               { return http_patch(url, body); }
+FLValue http_body_alias(FLValue res)                              { return http_body(res); }
+FLValue http_status_alias(FLValue res)                            { return http_status(res); }
+FLValue http_ok_p_alias(FLValue res)                              { return http_ok_p(res); }
+
+/* ── 정규식 alias ── */
+FLValue regex_match_alias(FLValue p, FLValue s)                   { return regex_match(p, s); }
+FLValue regex_find_alias(FLValue p, FLValue s)                    { return regex_find(p, s); }
+FLValue regex_find_all_alias(FLValue p, FLValue s)                { return regex_find_all(p, s); }
+FLValue regex_groups_alias(FLValue p, FLValue s)                  { return regex_groups(p, s); }
+FLValue regex_replace_alias(FLValue p, FLValue s, FLValue r)      { return regex_replace(p, s, r); }
+FLValue regex_replace_all_alias(FLValue p, FLValue s, FLValue r)  { return regex_replace_all(p, s, r); }
+FLValue regex_split_alias(FLValue p, FLValue s)                   { return regex_split(p, s); }

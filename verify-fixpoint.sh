@@ -17,7 +17,8 @@ RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/math.c $RUNTIME_DIR/error.c $RUNTIME_DIR/process.c \
   $RUNTIME_DIR/json.c $RUNTIME_DIR/aliases.c $RUNTIME_DIR/cgc-bridge.c \
   $RUNTIME_DIR/gc.c $RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c \
-  $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/mariadb.c $RUNTIME_DIR/debug.c"
+  $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/mariadb.c $RUNTIME_DIR/debug.c \
+  $RUNTIME_DIR/http_client.c $RUNTIME_DIR/regex.c"
 
 TMP=$(mktemp -d /tmp/fixpoint-XXXXXX)
 trap "rm -rf $TMP" EXIT
@@ -25,7 +26,7 @@ trap "rm -rf $TMP" EXIT
 compile_bin() {
   local src=$1 out=$2
   gcc -O2 -w -I "$RUNTIME_DIR" -o "$out" "$src" $RUNTIME_SRCS \
-    -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto 2>&1 | grep "error:" | head -3 || true
+    -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl 2>&1 | grep "error:" | head -3 || true
   [ -f "$out" ] || { echo "❌ 빌드 실패: $src"; exit 1; }
 }
 

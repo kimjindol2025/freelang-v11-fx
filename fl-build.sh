@@ -85,7 +85,8 @@ RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/error.c $RUNTIME_DIR/http.c $RUNTIME_DIR/aliases.c \
   $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/debug.c $RUNTIME_DIR/gc.c \
   $RUNTIME_DIR/jit.c $RUNTIME_DIR/fx-builtin-shim.c \
-  $RUNTIME_DIR/websocket.c"
+  $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c \
+  $RUNTIME_DIR/regex.c"
 
 # mariadb.c는 dlopen 방식이라 헤더 불필요 — 항상 포함
 if [ -f "$RUNTIME_DIR/mariadb.c" ]; then
@@ -96,7 +97,7 @@ fi
 GCC_LOG="/tmp/fl_gcc_$$.log"
 if gcc -O2 -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
   -I "$RUNTIME_DIR" \
-  -rdynamic -lpthread -lm -ldl -lsqlite3 -lssl -lcrypto \
+  -rdynamic -lpthread -lm -ldl -lsqlite3 -lssl -lcrypto -lcurl \
   -w 2>"$GCC_LOG"; then
   rm -f "$GCC_LOG"
 else
