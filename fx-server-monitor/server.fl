@@ -1,0 +1,196 @@
+;; ============================================================
+;; fx-server-monitor — 순수 FreeLang fx HTTP 서비스 Health 대시보드
+;;   서비스 등록(name/url/health_path) → 주기 http_get →
+;;   UP/DOWN · 응답시간 · 최근 1000회 기록 · 가용성%
+;;
+;;   검증된 빌트인만: http_get(native) + fl_now_ms(native)
+;;   + sqlite_*(shim) + server_*(native/shim)
+;;   "http_get + sqlite 결합 = 운영 모니터링" — FX 두 번째 증거
+;; ============================================================
+
+(define db (sqlite_open "data/monitor.db"))
+
+;; ── 스키마 + 데모 시드 ──────────────────────────────────────
+(do
+  (sqlite_exec db "CREATE TABLE IF NOT EXISTS services (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, url TEXT, health_path TEXT)")
+  (sqlite_exec db "CREATE TABLE IF NOT EXISTS checks (id INTEGER PRIMARY KEY AUTOINCREMENT, service_id INTEGER, ts INTEGER, up INTEGER, latency_ms INTEGER)")
+  (sqlite_exec db "CREATE INDEX IF NOT EXISTS idx_checks_svc ON checks (service_id, id)")
+  (if (= 0 (get (sqlite_one db "SELECT COUNT(*) AS c FROM services") "c"))
+    (do
+      (sqlite_exec_p db "INSERT INTO services (name,url,health_path) VALUES (?,?,?)" (list "fx-sqlite-browser" "http://localhost:40286" "/"))
+      (sqlite_exec_p db "INSERT INTO services (name,url,health_path) VALUES (?,?,?)" (list "self (monitor)" "http://localhost:40288" "/health"))
+      (sqlite_exec_p db "INSERT INTO services (name,url,health_path) VALUES (?,?,?)" (list "down-demo" "http://localhost:59999" "/")))
+    nil))
+
+;; ── 헬퍼 ────────────────────────────────────────────────────
+(defn bad-req [$msg]
+  (server_status 400 (json_stringify {"ok" false "error" $msg})))
+
+;; 서비스 하나 폴링 → check 기록 + 1000개 유지
+(defn poll-one [$s]
+  (do
+    (let [[$id   (get $s "id")]
+          [$full (str (get $s "url") (get $s "health_path"))]
+          [$t0   (fl_now_ms)]
+          [$resp (http_get $full)]
+          [$t1   (fl_now_ms)]
+          [$up   (if (nil? $resp) 0 1)]
+          [$lat  (- $t1 $t0)]]
+      (do
+        (sqlite_exec_p db "INSERT INTO checks (service_id,ts,up,latency_ms) VALUES (?,?,?,?)" (list $id $t1 $up $lat))
+        (sqlite_exec_p db "DELETE FROM checks WHERE service_id=? AND id NOT IN (SELECT id FROM checks WHERE service_id=? ORDER BY id DESC LIMIT 1000)" (list $id $id))
+        $up))))
+
+;; 서비스 요약 (최신 상태 + 최근 1000회 가용성)
+(defn svc-summary [$s]
+  (do
+    (let [[$id    (get $s "id")]
+          [$last  (sqlite_one_p db "SELECT up,latency_ms,ts FROM checks WHERE service_id=? ORDER BY id DESC LIMIT 1" (list $id))]
+          [$av    (sqlite_one_p db "SELECT ROUND(AVG(up)*100,1) AS a, COUNT(*) AS n FROM (SELECT up FROM checks WHERE service_id=? ORDER BY id DESC LIMIT 1000)" (list $id))]]
+      {"id"           $id
+       "name"         (get $s "name")
+       "url"          (get $s "url")
+       "health_path"  (get $s "health_path")
+       "up"           (if (nil? $last) nil (get $last "up"))
+       "latency"      (if (nil? $last) nil (get $last "latency_ms"))
+       "last_ts"      (if (nil? $last) nil (get $last "ts"))
+       "availability" (if (nil? $av) nil (get $av "a"))
+       "samples"      (if (nil? $av) 0 (get $av "n"))})))
+
+;; ── API ─────────────────────────────────────────────────────
+(defn api-health [$req]
+  (server_json (json_stringify {"status" "ok"})))
+
+(defn api-list [$req]
+  (do
+    (let [[$svcs (sqlite_query db "SELECT * FROM services ORDER BY name")]]
+      (server_json (json_stringify {"ok" true "services" (map (fn [$s] (svc-summary $s)) $svcs)})))))
+
+(defn api-add [$req]
+  (do
+    (let [[$b (json_parse (server_req_body $req))]
+          [$name (get $b "name")]
+          [$url  (get $b "url")]
+          [$path (get $b "health_path")]]
+      (if (or (nil? $name) (nil? $url))
+        (bad-req "name·url 필수")
+        (do
+          (sqlite_exec_p db "INSERT INTO services (name,url,health_path) VALUES (?,?,?)" (list $name $url (if (nil? $path) "/" $path)))
+          (server_json (json_stringify {"ok" true})))))))
+
+(defn api-del [$req]
+  (do
+    (let [[$b (json_parse (server_req_body $req))]
+          [$id (get $b "id")]]
+      (do
+        (sqlite_exec_p db "DELETE FROM services WHERE id=?" (list $id))
+        (sqlite_exec_p db "DELETE FROM checks WHERE service_id=?" (list $id))
+        (server_json (json_stringify {"ok" true}))))))
+
+(defn api-poll [$req]
+  (do
+    (let [[$svcs (sqlite_query db "SELECT * FROM services")]
+          [$n    (get (sqlite_one db "SELECT COUNT(*) AS c FROM services") "c")]]
+      (do
+        (map (fn [$s] (poll-one $s)) $svcs)
+        (server_json (json_stringify {"ok" true "polled" $n}))))))
+
+;; ── 대시보드 ────────────────────────────────────────────────
+(defn page-home [$req]
+  (server_html (str
+"<!DOCTYPE html><html lang='ko'><head><meta charset='utf-8'>\n"
+"<meta name='viewport' content='width=device-width,initial-scale=1'>\n"
+"<title>fx Server Monitor</title>\n"
+"<style>\n"
+"*{box-sizing:border-box}body{margin:0;font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#1f2937;background:#f1f5f9}\n"
+"header{background:#0f172a;color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px}\n"
+"header b{font-size:16px}header span{color:#94a3b8;font-size:12px}\n"
+"header .live{margin-left:auto;font-size:12px;color:#4ade80}\n"
+"main{max-width:980px;margin:18px auto;padding:0 16px}\n"
+".grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}\n"
+".card{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid #cbd5e1}\n"
+".card.up{border-left-color:#22c55e}.card.down{border-left-color:#ef4444}\n"
+".card .top{display:flex;align-items:center;gap:8px}\n"
+".dot{width:10px;height:10px;border-radius:50%;background:#cbd5e1}\n"
+".dot.up{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2)}\n"
+".dot.down{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.2)}\n"
+".card h3{margin:0;font-size:15px;flex:1}\n"
+".badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}\n"
+".badge.up{background:#dcfce7;color:#15803d}.badge.down{background:#fee2e2;color:#b91c1c}\n"
+".url{color:#64748b;font-size:12px;margin:6px 0;word-break:break-all}\n"
+".metrics{display:flex;gap:16px;margin-top:8px;font-size:13px}\n"
+".metrics b{font-size:17px;display:block}\n"
+".bar{height:6px;background:#e2e8f0;border-radius:3px;margin-top:8px;overflow:hidden}\n"
+".bar i{display:block;height:100%;background:#22c55e}\n"
+".bar i.warn{background:#f59e0b}.bar i.bad{background:#ef4444}\n"
+".del{margin-left:8px;background:#fee2e2;color:#b91c1c;border:0;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px}\n"
+".addbar{background:#fff;border-radius:10px;padding:12px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;box-shadow:0 1px 3px rgba(0,0,0,.06)}\n"
+".addbar input{border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px}\n"
+".addbar input.nm{width:150px}.addbar input.u{flex:1;min-width:180px}.addbar input.p{width:90px}\n"
+".addbar button{background:#1d4ed8;color:#fff;border:0;border-radius:6px;padding:7px 14px;cursor:pointer}\n"
+".muted{color:#94a3b8;font-size:12px}\n"
+"</style></head><body>\n"
+"<header><b>🖥️ fx Server Monitor</b><span>순수 FreeLang fx · http_get + sqlite</span><span class='live' id='live'>● 자동 폴링 10s</span></header>\n"
+"<main>\n"
+"  <div class='addbar'>\n"
+"    <input class='nm' id='f-name' placeholder='이름'>\n"
+"    <input class='u'  id='f-url'  placeholder='http://localhost:PORT'>\n"
+"    <input class='p'  id='f-path' placeholder='/health' value='/'>\n"
+"    <button onclick='addSvc()'>+ 서비스 등록</button>\n"
+"    <button onclick='poll()' style='background:#0f172a'>지금 체크</button>\n"
+"  </div>\n"
+"  <div class='grid' id='grid'></div>\n"
+"  <p class='muted' id='foot'></p>\n"
+"</main>\n"
+"<script>\n"
+(str
+"const $=s=>document.querySelector(s);\n"
+"async function api(p,b){const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});return r.json();}\n"
+"function esc(v){return v==null?'':String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;');}\n"
+"function ago(ts){if(!ts)return '체크 없음';const s=Math.floor((Date.now()-ts)/1000);if(s<60)return s+'초 전';if(s<3600)return Math.floor(s/60)+'분 전';return Math.floor(s/3600)+'시간 전';}\n"
+"function barClass(a){if(a==null)return '';if(a>=99)return '';if(a>=90)return 'warn';return 'bad';}\n"
+"async function render(){\n"
+"  const d=await api('/api/services/list');\n"
+"  const svcs=d.services||[];\n"
+"  $('#grid').innerHTML=svcs.map(s=>{\n"
+"    const up=s.up===1, down=s.up===0;\n"
+"    const cls=up?'up':(down?'down':'');\n"
+"    const av=s.availability==null?'—':s.availability+'%';\n"
+"    const lat=s.latency==null?'—':s.latency+'ms';\n"
+"    return `<div class='card ${cls}'>\n"
+"      <div class='top'><span class='dot ${cls}'></span><h3>${esc(s.name)}</h3>\n"
+"        <span class='badge ${cls}'>${up?'UP':(down?'DOWN':'?')}</span>\n"
+"        <button class='del' onclick=\"delSvc(${s.id})\">삭제</button></div>\n"
+"      <div class='url'>${esc(s.url)}${esc(s.health_path)}</div>\n"
+"      <div class='metrics'><div><span class='muted'>응답시간</span><b>${lat}</b></div>\n"
+"        <div><span class='muted'>가용성</span><b>${av}</b></div>\n"
+"        <div><span class='muted'>샘플</span><b>${s.samples||0}</b></div></div>\n"
+"      <div class='bar'><i class='${barClass(s.availability)}' style='width:${s.availability==null?0:s.availability}%'></i></div>\n"
+"      <div class='muted' style='margin-top:6px'>마지막: ${ago(s.last_ts)}</div>\n"
+"    </div>`;\n"
+"  }).join('')|| `<p class='muted'>등록된 서비스가 없습니다.</p>`;\n"
+"  $('#foot').textContent='서비스 '+svcs.length+'개 · '+new Date().toLocaleTimeString();\n"
+"}\n")
+(str
+"async function poll(){$('#live').textContent='● 체크 중...';await api('/api/poll');await render();$('#live').textContent='● 자동 폴링 10s';}\n"
+"async function addSvc(){\n"
+"  const name=$('#f-name').value.trim(), url=$('#f-url').value.trim(), health_path=$('#f-path').value.trim()||'/';\n"
+"  if(!name||!url){alert('이름과 URL을 입력하세요');return;}\n"
+"  const d=await api('/api/services/add',{name,url,health_path});\n"
+"  if(d.ok){$('#f-name').value='';$('#f-url').value='';await poll();}else alert(d.error||'실패');\n"
+"}\n"
+"async function delSvc(id){if(!confirm('이 서비스를 삭제할까요?'))return;await api('/api/services/del',{id});await render();}\n"
+"poll();\n"
+"setInterval(poll,10000);\n"
+"</script></body></html>\n"))))
+
+;; ── 라우트 + 기동 ───────────────────────────────────────────
+(do
+  (server_get  "/"                    "page-home")
+  (server_get  "/health"              "api-health")
+  (server_post "/api/services/list"   "api-list")
+  (server_post "/api/services/add"    "api-add")
+  (server_post "/api/services/del"    "api-del")
+  (server_post "/api/poll"            "api-poll")
+  (println "fx-server-monitor → http://localhost:40288")
+  (server_start 40288))
