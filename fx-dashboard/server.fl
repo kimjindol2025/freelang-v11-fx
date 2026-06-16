@@ -1,0 +1,164 @@
+;; ============================================================
+;; fx-dashboard v1 — 읽기 전용 fx 생태계 운영 콘솔
+;;   기존 앱(monitor/notify/deploy/mail/auth/kv) + FX-TRAPS 가시화
+;;   원칙: 관측만. 배포/재시작/변경/삭제 없음. down 은 정직하게 down.
+;;
+;;   http_get(native) 으로 각 앱 집계 + FX-TRAPS 수치는 build.sh 주입
+;;   (file_read 가 설치본 cgc 미지원이라 빌드 타임 주입으로 우회)
+;; ============================================================
+
+;; ── FX-TRAPS 수치 (build.sh 가 빌드 시 주입) ──
+(define TRAP_COUNT 15)
+(define LOCK_COUNT 4)
+(define FACT_COUNT 2)
+(define RECENT_TRAP "trap-cgc-stale-node")
+
+;; ── 헬퍼 ────────────────────────────────────────────────────
+(defn fetch-json [$url]
+  (do
+    (let [[$r (http_get $url)]]
+      (if (nil? $r) nil (json_parse $r)))))
+
+(defn probe-svc [$name $port]
+  (do
+    (let [[$r (http_get (str "http://localhost:" $port "/"))]]
+      {"name" $name "port" $port "status" (if (nil? $r) "offline" "online")})))
+
+(defn or-nil [$obj $key]
+  (if (nil? $obj) nil (get $obj $key)))
+
+(defn or-list [$obj $key]
+  (if (nil? $obj) (list) (get $obj $key)))
+
+;; ── API: Overview (fx-monitor /metrics + fx-notify /stats) ──
+(defn api-overview [$req]
+  (do
+    (let [[$m  (fetch-json "http://localhost:40301/metrics")]
+          [$ns (fetch-json "http://localhost:40300/stats")]]
+      (server_json (json_stringify {
+        "cpu"     (or-nil $m "cpu")
+        "memory"  (or-nil $m "memory")
+        "disk"    (or-nil $m "disk")
+        "loadavg" (or-nil $m "loadavg")
+        "uptime"  (or-nil $m "uptime")
+        "alerts"  (or-nil $ns "total")})))))
+
+;; ── API: Services (각 앱 health → online/offline) ──
+(defn api-services [$req]
+  (server_json (json_stringify {"services" (list
+    (probe-svc "fx-mail"    40299)
+    (probe-svc "fx-notify"  40300)
+    (probe-svc "fx-monitor" 40301)
+    (probe-svc "fx-deploy"  40302)
+    (probe-svc "fx-kv"      40304)
+    (probe-svc "fx-auth"    40306))})))
+
+;; ── API: Events (notify/deploy/mail 통합) ──
+(defn api-events [$req]
+  (do
+    (let [[$n  (fetch-json "http://localhost:40300/notifications")]
+          [$d  (fetch-json "http://localhost:40302/deploys")]
+          [$ml (fetch-json "http://localhost:40299/mails")]]
+      (server_json (json_stringify {
+        "alerts"  (or-list $n  "notifications")
+        "deploys" (or-list $d  "deploys")
+        "mails"   (or-list $ml "mails")})))))
+
+;; ── API: FX-TRAPS 요약 (빌드 주입값) ──
+(defn api-traps [$req]
+  (server_json (json_stringify {
+    "trap" TRAP_COUNT "lock" LOCK_COUNT "fact" FACT_COUNT "recent" RECENT_TRAP})))
+
+(defn api-health [$req] (server_json (json_stringify {"status" "ok"})))
+
+;; ── 대시보드 HTML ───────────────────────────────────────────
+(defn page-home [$req]
+  (server_html (str
+"<!DOCTYPE html><html lang='ko'><head><meta charset='utf-8'>\n"
+"<meta name='viewport' content='width=device-width,initial-scale=1'>\n"
+"<title>fx Dashboard</title>\n"
+"<style>\n"
+"*{box-sizing:border-box}body{margin:0;font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#e2e8f0;background:#0b1220}\n"
+"header{background:#0f172a;padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1e293b}\n"
+"header b{font-size:15px;color:#fff}header span{color:#64748b;font-size:11px}\n"
+"header .live{margin-left:auto;color:#4ade80;font-size:11px}\n"
+".grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;padding:12px}\n"
+".card{background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px 14px}\n"
+".card h3{margin:0 0 8px;font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em}\n"
+".metrics{display:flex;gap:14px;flex-wrap:wrap}\n"
+".metrics div b{display:block;font-size:20px;color:#fff}.metrics div span{font-size:11px;color:#64748b}\n"
+"table{width:100%;border-collapse:collapse;font-size:12px}\n"
+"td,th{padding:4px 6px;text-align:left;border-bottom:1px solid #16202f}\n"
+"th{color:#64748b;font-weight:600}\n"
+".dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}\n"
+".on{background:#22c55e}.off{background:#475569}.unk{background:#f59e0b}\n"
+".sev-critical{color:#f87171}.sev-error{color:#fb923c}.sev-warn{color:#facc15}.sev-info{color:#60a5fa}\n"
+".empty{color:#475569;padding:14px 4px;font-size:12px}\n"
+".traps{display:flex;gap:16px}.traps div b{display:block;font-size:22px;color:#fff}.traps div span{font-size:11px;color:#64748b}\n"
+".feed div{padding:3px 0;border-bottom:1px solid #16202f;font-size:12px}.feed .t{color:#64748b;margin-right:8px}\n"
+"</style></head><body>\n"
+"<header><b>🛰 fx Dashboard</b><span>읽기 전용 운영 콘솔 · v1</span><span class='live' id='live'>● 10s</span></header>\n"
+"<div class='grid'>\n"
+"  <div class='card'><h3>System Overview</h3><div class='metrics' id='ov'></div></div>\n"
+"  <div class='card'><h3>Services</h3><div id='svc'></div></div>\n"
+"  <div class='card'><h3>Recent Alerts</h3><div id='alerts'></div></div>\n"
+"  <div class='card'><h3>Recent Deploys</h3><div id='deploys'></div></div>\n"
+"  <div class='card'><h3>Mail Activity</h3><div id='mail'></div></div>\n"
+"  <div class='card'><h3>FX-TRAPS</h3><div class='traps' id='traps'></div></div>\n"
+"  <div class='card' style='grid-column:1/-1'><h3>Activity Feed</h3><div class='feed' id='feed'></div></div>\n"
+"</div>\n"
+"<script>\n"
+(str
+"const $=s=>document.querySelector(s);\n"
+"const g=async p=>{try{return await (await fetch(p)).json()}catch(e){return null}};\n"
+"const v=x=>x==null?'<span style=\"color:#475569\">—</span>':x;\n"
+"async function overview(){\n"
+"  const d=await g('/api/overview')||{};\n"
+"  $('#ov').innerHTML=[['CPU',d.cpu,'%'],['MEM',d.memory,'%'],['DISK',d.disk,'%'],['ALERTS',d.alerts,''],['UPTIME',d.uptime,'s']]\n"
+"    .map(m=>`<div><b>${m[1]==null?'—':m[1]+m[2]}</b><span>${m[0]}</span></div>`).join('');\n"
+"}\n"
+"async function services(){\n"
+"  const d=await g('/api/services')||{services:[]};\n"
+"  $('#svc').innerHTML=`<table><tr><th>이름</th><th>포트</th><th>상태</th></tr>`+\n"
+"    d.services.map(s=>{const c=s.status==='online'?'on':(s.status==='offline'?'off':'unk');\n"
+"      return `<tr><td>${s.name}</td><td>${s.port}</td><td><span class='dot ${c}'></span>${s.status}</td></tr>`}).join('')+`</table>`;\n"
+"}\n")
+(str
+"function rows(arr,cols,empty){if(!arr||!arr.length)return `<div class='empty'>${empty}</div>`;\n"
+"  return `<table><tr>`+cols.map(c=>`<th>${c[0]}</th>`).join('')+`</tr>`+\n"
+"    arr.slice(0,20).map(r=>`<tr>`+cols.map(c=>`<td class='${c[2]?c[2](r):''}'>${v(r[c[1]])}</td>`).join('')+`</tr>`).join('')+`</table>`;}\n"
+"async function events(){\n"
+"  const d=await g('/api/events')||{};\n"
+"  $('#alerts').innerHTML=rows(d.alerts,[['시간','created_at'],['sev','severity',r=>'sev-'+(r.severity||'info')],['event','event'],['src','source']],'알림 없음 (앱 offline)');\n"
+"  $('#deploys').innerHTML=rows(d.deploys,[['서비스','service'],['상태','status'],['시작','started_at']],'배포 없음 (앱 offline)');\n"
+"  const ml=d.mails||[];\n"
+"  const sent=ml.length, failed=ml.filter(m=>m.status==='failed').length;\n"
+"  $('#mail').innerHTML=`<div class='metrics'><div><b>${sent}</b><span>최근</span></div><div><b>${failed}</b><span>실패</span></div></div>`+\n"
+"    (ml.length?'':`<div class='empty'>메일 없음 (앱 offline)</div>`);\n"
+"  const feed=[];\n"
+"  (d.alerts||[]).forEach(a=>feed.push([a.created_at,(a.event||'alert'),'sev-'+(a.severity||'info')]));\n"
+"  (d.deploys||[]).forEach(x=>feed.push([x.started_at,'deploy:'+(x.status||'?'),'']));\n"
+"  (d.mails||[]).forEach(m=>feed.push([m.created_at,'mail:'+(m.status||'sent'),'']));\n"
+"  feed.sort((a,b)=>(b[0]||0)-(a[0]||0));\n"
+"  $('#feed').innerHTML=feed.length?feed.slice(0,50).map(f=>`<div><span class='t'>${v(f[0])}</span><span class='${f[2]}'>${f[1]}</span></div>`).join('')\n"
+"    :`<div class='empty'>이벤트 없음 — 대상 앱이 모두 offline (구조는 정상, 앱 실행 노드에서 채워짐)</div>`;\n"
+"}\n"
+"async function traps(){\n"
+"  const d=await g('/api/traps')||{};\n"
+"  $('#traps').innerHTML=`<div><b>${v(d.trap)}</b><span>trap</span></div><div><b>${v(d.lock)}</b><span>lock</span></div>`+\n"
+"    `<div><b>${v(d.fact)}</b><span>fact</span></div><div style='flex:1'><b style='font-size:13px'>${v(d.recent)}</b><span>최근 trap</span></div>`;\n"
+"}\n"
+"async function tick(){await Promise.all([overview(),services(),events(),traps()]);}\n"
+"tick();setInterval(tick,10000);\n"
+"</script></body></html>\n"))))
+
+;; ── 라우트 + 기동 ───────────────────────────────────────────
+(do
+  (server_get "/"              "page-home")
+  (server_get "/health"        "api-health")
+  (server_get "/api/overview"  "api-overview")
+  (server_get "/api/services"  "api-services")
+  (server_get "/api/events"    "api-events")
+  (server_get "/api/traps"     "api-traps")
+  (println "fx-dashboard → http://localhost:40308")
+  (server_start 40308))
