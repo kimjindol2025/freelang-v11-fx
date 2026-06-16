@@ -669,10 +669,11 @@
     "\r" "\\r"))
 
 (defn c-reserved? [$s]
-  (includes-item ["else" "return" "for" "while" "do" "int" "long" "void"
-                  "char" "float" "double" "struct" "union" "enum"
-                  "static" "const" "if" "switch" "case" "break"
+  (includes-item ["else" "return" "for" "while" "do" "int" "long" "short" "void"
+                  "char" "float" "double" "struct" "union" "enum" "register"
+                  "static" "const" "if" "switch" "case" "break" "extern"
                   "continue" "default" "goto" "sizeof" "auto" "inline"
+                  "unsigned" "signed" "volatile" "typedef" "restrict"
                   "bool" "true" "false"
                   ;; runtime.h 함수명 충돌 방지 (static FLValue NAME 선언 시 충돌)
                   "inc" "dec" "get" "length" "keys" "vals" "first" "last"
@@ -691,7 +692,7 @@
                     "-" "_")
                   "?" "_p")
                 "!" "_b")]]
-    (if (c-reserved? $raw) (str "fl_" $raw) $raw)))
+    (if (c-reserved? $raw) (str "__fl_kw_" $raw) $raw)))
 
 ;; ── 메인 dispatch ──
 
