@@ -534,6 +534,8 @@ FLValue fl_base64_decode(FLValue v);
 FLValue fl_dissoc(FLValue m, FLValue key);
 FLValue fl_keys(FLValue m);
 FLValue fl_vals(FLValue m);
+FLValue fl_select_keys(FLValue m, FLValue ks);
+FLValue fl_update(FLValue m, FLValue key, FLValue fn);
 
 /* ── 연산자 first-class 래퍼 (HOF 인자로 사용 가능, e.g. (map + list)) ── */
 static inline FLValue __fl_op_add_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_add(a[0], a[1]); }

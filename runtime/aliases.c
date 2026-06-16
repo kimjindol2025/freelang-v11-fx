@@ -1803,3 +1803,26 @@ FLValue fl_vals(FLValue m) {
         result = fl_vec_push(result, src->entries[i].val);
     return result;
 }
+
+/* ── select-keys / update ── */
+
+FLValue fl_select_keys(FLValue m, FLValue ks) {
+    if (m.tag != FL_MAP) return fl_map_new();
+    FLValue result = fl_map_new();
+    /* ks는 벡터 또는 리스트 */
+    FLVector* kv = (FLVector*)ks.obj;
+    for (uint32_t i = 0; i < kv->len; i++) {
+        FLValue k = kv->data[i];
+        FLValue v = fl_map_get(m, k);
+        if (v.tag != FL_NIL)
+            result = fl_map_set(result, k, v);
+    }
+    return result;
+}
+
+FLValue fl_update(FLValue m, FLValue key, FLValue fn) {
+    FLValue cur = fl_map_get(m, key);
+    FLValue args[1] = { cur };
+    FLValue updated = fl_fn_call(fn, 1, args);
+    return fl_map_set(m, key, updated);
+}

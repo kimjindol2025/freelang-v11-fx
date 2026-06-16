@@ -965,6 +965,8 @@
   [(= $op "dissoc")      (str "fl_dissoc(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "keys")        (str "fl_keys(" (cgc (get $args 0)) ")")]
   [(= $op "vals")        (str "fl_vals(" (cgc (get $args 0)) ")")]
+  [(= $op "select-keys") (str "fl_select_keys(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "update")      (str "fl_update(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "reverse")     (str "reverse(" (cgc (get $args 0)) ")")]
   [(= $op "sort")        (str "sort(" (cgc (get $args 0)) ")")]
   [(= $op "sort-by")     (str "fl_sort_by(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
