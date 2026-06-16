@@ -191,6 +191,8 @@ FLValue str_to_upper(FLValue s);
 FLValue str_to_lower(FLValue s);
 FLValue fl_any_p(FLValue fn, FLValue vec);
 FLValue fl_every_p(FLValue fn, FLValue vec);
+FLValue fl_contains_p(FLValue coll, FLValue key);
+FLValue fl_apply(FLValue fn, FLValue args);
 FLValue fl_sleep_ms(FLValue ms_v);
 FLValue fl_none_p(FLValue fn, FLValue vec);
 FLValue fl_count_if(FLValue fn, FLValue vec);

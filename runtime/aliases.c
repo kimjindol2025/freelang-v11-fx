@@ -533,6 +533,32 @@ FLValue str_to_lower(FLValue s)   { return str_lower(s); }
 FLValue fl_any_p(FLValue fn, FLValue vec)   { return some(fn, vec); }
 FLValue fl_every_p(FLValue fn, FLValue vec) { return every(fn, vec); }
 
+/* contains? — 맵 키 존재 / 벡터 원소 포함 / 문자열 부분문자열 */
+FLValue fl_contains_p(FLValue coll, FLValue key) {
+    if (coll.tag == FL_MAP) {
+        FLValue v = fl_map_get(coll, key);
+        return fl_bool(v.tag != FL_NIL);
+    }
+    if (coll.tag == FL_VECTOR) {
+        FLVector* vp = (FLVector*)coll.obj;
+        for (size_t i = 0; i < vp->len; i++) {
+            if (fl_truthy(fl_eq(vp->data[i], key))) return fl_bool(true);
+        }
+        return fl_bool(false);
+    }
+    if (coll.tag == FL_STRING) return fl_str_includes(coll, key);
+    return fl_bool(false);
+}
+
+/* apply — (apply fn vec) : 벡터를 인자 목록으로 펼쳐 fn 호출 */
+FLValue fl_apply(FLValue fn, FLValue args) {
+    if (args.tag != FL_VECTOR) {
+        return fl_fn_call(fn, 1, &args);
+    }
+    FLVector* vp = (FLVector*)args.obj;
+    return fl_fn_call(fn, (int)vp->len, vp->data);
+}
+
 /* ── P0: 미구현 기본 함수 ── */
 
 /* sleep */

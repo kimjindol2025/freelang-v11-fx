@@ -705,8 +705,9 @@
             [$line (get $n :line)]]
         (if (includes-item @known-defns-atom $cn)
           (str "fl_fn_new(__fl_wrap_" $cn ", 0, NULL)")
-          ;; 알려진 함수/변수가 아니면 경고 출력 (컴파일 시점)
-          (if (not (includes-item @known-fncall-targets-atom $cn))
+          ;; 알려진 함수/변수/파라미터가 아니면 경고 출력 (컴파일 시점)
+          (if (not (or (includes-item @known-fncall-targets-atom $cn)
+                       (includes-item @outer-params-atom $cn)))
             (do
               (println (str "[FL Warn] 정의되지 않은 이름: " $name
                             (if (null? $line) "" (str " (line " $line ")"))))
@@ -950,6 +951,8 @@
   [(= $op "count")       (str "length(" (cgc (get $args 0)) ")")]
   [(= $op "get")         (str "get(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "assoc")       (str "fl_map_set(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "contains?")  (str "fl_contains_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "apply")      (str "fl_apply(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "dissoc")      (str "dissoc(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "reverse")     (str "reverse(" (cgc (get $args 0)) ")")]
   [(= $op "sort")        (str "sort(" (cgc (get $args 0)) ")")]
@@ -1454,9 +1457,17 @@
         [$body (cgc-body (slice $args 1 (length $args)) 0 "")]]
   (str "((__extension__ ({\n" $decls "    " $body ";\n})))")))
 
+;; $_ 재선언 방지: 이름이 "_"이면 유니크 번호 붙임
+(defn cgc-let-unique-name [$n]
+  (if (= $n "_")
+    (let [[$uid @lambda-id-atom]]
+      (swap! lambda-id-atom + 1)
+      (str "__fl_ign_" $uid))
+    $n))
+
 (defn cgc-let-1d [$it $i $acc]
   (if (>= $i (length $it)) $acc
-  (let [[$n (cgc-extract-name (get $it $i))]
+  (let [[$n (cgc-let-unique-name (cgc-extract-name (get $it $i)))]
         [$v (cgc (get $it (+ $i 1)))]
         [$attr (if (str-starts-with $n "_") " __attribute__((unused))" "")]]
     (swap! known-fncall-targets-atom append $n)
@@ -1466,7 +1477,7 @@
 (defn cgc-let-2d [$it $i $acc]
   (if (>= $i (length $it)) $acc
   (let [[$p    (get-block-items (get $it $i))]
-        [$n    (cgc-extract-name (get $p 0))]
+        [$n    (cgc-let-unique-name (cgc-extract-name (get $p 0)))]
         [$v    (cgc (get $p 1))]
         [$attr (if (str-starts-with $n "_") " __attribute__((unused))" "")]]
     (swap! known-fncall-targets-atom append $n)
