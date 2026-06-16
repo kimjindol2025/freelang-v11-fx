@@ -1673,3 +1673,101 @@ FLValue fl_pp(FLValue v) {
     fprintf(stderr, "[pp] %s\n", ((FLString*)s.obj)->data);
     return v;
 }
+
+/* ── format ── */
+FLValue fl_format(FLValue fmt_v, FLValue args) {
+    if (fmt_v.tag != FL_STRING) return fl_str_val("");
+    const char* fmt = ((FLString*)fmt_v.obj)->data;
+    FLValue argv[64]; int argc = 0;
+    if (args.tag == FL_VECTOR) {
+        FLVector* vp = (FLVector*)args.obj;
+        for (uint32_t i = 0; i < vp->len && i < 64; i++) argv[argc++] = vp->data[i];
+    } else { argv[argc++] = args; }
+    char out[8192]; int op = 0, ai = 0;
+    for (int i = 0; fmt[i] && op < (int)sizeof(out) - 128; i++) {
+        if (fmt[i] != '%') { out[op++] = fmt[i]; continue; }
+        i++;
+        char spec[32] = {'%'}; int sp = 1;
+        while (fmt[i] && strchr("-+0 #", fmt[i])) spec[sp++] = fmt[i++];
+        while (fmt[i] && isdigit((unsigned char)fmt[i])) spec[sp++] = fmt[i++];
+        if (fmt[i] == '.') { spec[sp++] = fmt[i++]; while (fmt[i] && isdigit((unsigned char)fmt[i])) spec[sp++] = fmt[i++]; }
+        char conv = fmt[i]; spec[sp++] = conv; spec[sp] = '\0';
+        FLValue av = (ai < argc) ? argv[ai++] : fl_nil();
+        char tmp[512];
+        switch (conv) {
+            case 'd': case 'i': {
+                /* spec = "%[flags][width][.prec]d" → "%[flags][width][.prec]lld" */
+                char s2[64]; memcpy(s2, spec, sp - 1); s2[sp-1] = 'l'; s2[sp] = 'l'; s2[sp+1] = conv; s2[sp+2] = '\0';
+                snprintf(tmp, sizeof(tmp), s2, (long long)(av.tag == FL_INT ? av.i : (int64_t)av.f));
+                break;
+            }
+            case 'f': case 'e': case 'g': case 'E': case 'G':
+                snprintf(tmp, sizeof(tmp), spec, av.tag == FL_FLOAT ? av.f : (double)av.i);
+                break;
+            case 's': {
+                char vbuf[512];
+                const char* s = av.tag == FL_STRING ? ((FLString*)av.obj)->data : fl_to_str(av, vbuf, sizeof(vbuf));
+                snprintf(tmp, sizeof(tmp), spec, s);
+                break;
+            }
+            case '%': tmp[0] = '%'; tmp[1] = '\0'; ai--; break;
+            default:  snprintf(tmp, sizeof(tmp), "%s", spec); ai--; break;
+        }
+        int tl = (int)strlen(tmp);
+        if (op + tl < (int)sizeof(out) - 1) { memcpy(out + op, tmp, tl); op += tl; }
+    }
+    out[op] = '\0';
+    return fl_str_val(out);
+}
+
+/* ── merge ── */
+FLValue fl_merge(FLValue m1, FLValue m2) {
+    if (m1.tag != FL_MAP) m1 = fl_map_new();
+    if (m2.tag != FL_MAP) return m1;
+    FLMap* mp = (FLMap*)m2.obj;
+    for (uint32_t i = 0; i < mp->len; i++)
+        m1 = fl_map_set(m1, mp->entries[i].key, mp->entries[i].val);
+    return m1;
+}
+
+/* ── base64 ── */
+static const char B64_ENC[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static int b64_dec(char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62; if (c == '/') return 63; return -1;
+}
+FLValue fl_base64_encode(FLValue v) {
+    if (v.tag != FL_STRING) return fl_str_val("");
+    const unsigned char* s = (const unsigned char*)((FLString*)v.obj)->data;
+    size_t n = strlen((char*)s);
+    size_t olen = ((n + 2) / 3) * 4 + 1;
+    char* out = malloc(olen); size_t j = 0;
+    for (size_t i = 0; i < n; i += 3) {
+        unsigned char a = s[i];
+        unsigned char b = (i+1 < n) ? s[i+1] : 0;
+        unsigned char c = (i+2 < n) ? s[i+2] : 0;
+        out[j++] = B64_ENC[a >> 2];
+        out[j++] = B64_ENC[((a & 3) << 4) | (b >> 4)];
+        out[j++] = (i+1 < n) ? B64_ENC[((b & 0xf) << 2) | (c >> 6)] : '=';
+        out[j++] = (i+2 < n) ? B64_ENC[c & 0x3f] : '=';
+    }
+    out[j] = '\0';
+    FLValue r = fl_str_val(out); free(out); return r;
+}
+FLValue fl_base64_decode(FLValue v) {
+    if (v.tag != FL_STRING) return fl_str_val("");
+    const char* s = ((FLString*)v.obj)->data;
+    size_t n = strlen(s);
+    char* out = malloc(n / 4 * 3 + 4); size_t j = 0;
+    for (size_t i = 0; i + 3 < n; i += 4) {
+        int a = b64_dec(s[i]), b = b64_dec(s[i+1]), c = b64_dec(s[i+2]), d = b64_dec(s[i+3]);
+        if (a < 0 || b < 0) break;
+        out[j++] = (a << 2) | (b >> 4);
+        if (s[i+2] != '=' && c >= 0) out[j++] = ((b & 0xf) << 4) | (c >> 2);
+        if (s[i+3] != '=' && d >= 0) out[j++] = ((c & 3) << 6) | d;
+    }
+    out[j] = '\0';
+    FLValue r = fl_str_val(out); free(out); return r;
+}
