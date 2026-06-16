@@ -845,6 +845,7 @@
         [$param-c (if (> (length $catch-args) 0)
                     (cgc-extract-name (get $catch-args 0))
                     "_fl_err")]
+        [$_ (swap! outer-params-atom append $param-c)]
         [$catch-body-c (if (> (length $catch-args) 1)
                          (cgc (get $catch-args 1))
                          "fl_nil()")]
@@ -953,10 +954,14 @@
   [(= $op "assoc")       (str "fl_map_set(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "contains?")  (str "fl_contains_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "apply")      (str "fl_apply(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
-  [(= $op "assoc-in")   (str "fl_assoc_in(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
-  [(= $op "update-in")  (str "fl_update_in(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
-  [(= $op "inspect")    (str "fl_inspect(" (cgc (get $args 0)) ")")]
-  [(= $op "pp")         (str "fl_pp(" (cgc (get $args 0)) ")")]
+  [(= $op "assoc-in")      (str "fl_assoc_in(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "update-in")     (str "fl_update_in(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "inspect")       (str "fl_inspect(" (cgc (get $args 0)) ")")]
+  [(= $op "pp")            (str "fl_pp(" (cgc (get $args 0)) ")")]
+  [(= $op "format")        (str "fl_format(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "merge")         (str "fl_merge(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "base64-encode") (str "fl_base64_encode(" (cgc (get $args 0)) ")")]
+  [(= $op "base64-decode") (str "fl_base64_decode(" (cgc (get $args 0)) ")")]
   [(= $op "dissoc")      (str "dissoc(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "reverse")     (str "reverse(" (cgc (get $args 0)) ")")]
   [(= $op "sort")        (str "sort(" (cgc (get $args 0)) ")")]
