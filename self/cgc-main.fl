@@ -1054,6 +1054,7 @@
   [(= $op "str-match-all")  (str "str_match_all(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "str-test")       (str "str_test(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "future")         (str "fl_future(" (cgc (get $args 0)) ")")]
+  [(= $op "deref-timeout")  (str "fl_deref_timeout(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "future-done?")   (str "fl_future_done(" (cgc (get $args 0)) ")")]
   [(= $op "substring")      (str "substring(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "trim")        (str "trim(" (cgc (get $args 0)) ")")]
@@ -1873,7 +1874,11 @@
           [$is-block-func (and (= $k "block") (= (get $n :type) "FUNC"))]]
       (if (or $is-defn $is-block-func)
         (recur (+ $i 1) $stmts (str $fns (cgc $n) "\n\n"))
-        (recur (+ $i 1) (str $stmts "    " (cgc $n) ";\n") $fns))))))
+        ;; top-level stmt: #line 디렉티브로 FL 소스 줄 번호 보존
+        (let [[$line (get $n :line)]
+              [$ld (if (null? $line) "" (str "    #line " $line " \"<fl>\"\n"))]]
+          (recur (+ $i 1) (str $stmts $ld "    " (cgc $n) ";\n") $fns)))))))
+
 
 ;; S19: lambda forward decl 목록 생성
 (defn cgc-lambda-fwd-loop [$_defs $_i $_acc]
@@ -1959,6 +1964,7 @@
         [$body (get $args 1)]
         [$vars (loop-extract-vars $items 0 [])]
         [$decls (loop-make-decls $items 0 "")]
+        [$_ (map (fn [$v] (swap! outer-params-atom append $v)) $vars)]
         [$body-c (cgc-with-recur $body $vars)]]
     (str "(__extension__ ({\n"
          $decls

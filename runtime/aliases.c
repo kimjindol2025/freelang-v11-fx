@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <math.h>
+#include <errno.h>
 
 /* ── 내부 헬퍼: fn에 인자 1개 전달 ── */
 static FLValue fl_apply_fn(FLValue fn, FLValue arg) {
@@ -1115,6 +1116,37 @@ FLValue fl_deref(FLValue handle) {
     while (!f->done) pthread_cond_wait(&f->cv, &f->mu);
     FLValue result = f->result;
     if (!f->freed) {
+        f->freed = 1;
+        pthread_mutex_unlock(&f->mu);
+        pthread_mutex_destroy(&f->mu);
+        pthread_cond_destroy(&f->cv);
+        free(f);
+    } else {
+        pthread_mutex_unlock(&f->mu);
+    }
+    return result;
+}
+
+/* fl_deref_timeout(future, ms) — ms 초과 시 nil 반환 */
+FLValue fl_deref_timeout(FLValue handle, FLValue ms_v) {
+    if (handle.tag == FL_VECTOR) return fl_atom_deref(handle);
+    if (handle.tag != FL_MAP) return fl_nil();
+    FLValue ptr_v = fl_map_get(handle, fl_str_val("__future__"));
+    if (ptr_v.tag != FL_INT) return fl_nil();
+    FLFuture* f = (FLFuture*)(uintptr_t)ptr_v.i;
+    int64_t ms = (ms_v.tag == FL_INT) ? ms_v.i
+               : (ms_v.tag == FL_FLOAT) ? (int64_t)ms_v.f : 5000;
+    struct timespec deadline;
+    clock_gettime(CLOCK_REALTIME, &deadline);
+    deadline.tv_sec  += ms / 1000;
+    deadline.tv_nsec += (ms % 1000) * 1000000L;
+    if (deadline.tv_nsec >= 1000000000L) { deadline.tv_sec++; deadline.tv_nsec -= 1000000000L; }
+    pthread_mutex_lock(&f->mu);
+    while (!f->done) {
+        if (pthread_cond_timedwait(&f->cv, &f->mu, &deadline) == ETIMEDOUT) break;
+    }
+    FLValue result = f->done ? f->result : fl_nil();
+    if (f->done && !f->freed) {
         f->freed = 1;
         pthread_mutex_unlock(&f->mu);
         pthread_mutex_destroy(&f->mu);
