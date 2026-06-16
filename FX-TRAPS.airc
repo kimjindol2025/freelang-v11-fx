@@ -1,0 +1,227 @@
+;; ============================================================
+;; FX-TRAPS.airc  v1
+;; FreeLang fx 함정(trap) 명세 — 기계 판독 가능 단일 진실 공급원
+;;
+;; 용도:
+;;   - AIRC Single Source of Truth (함정 진실)
+;;   - fl-lint.sh 검사 기준 (lint_detectable: true 인 것)
+;;   - 런타임 수정 우선순위 기준 (trap > lock > decision > fact)
+;;   - 미래 워커 handoff 자동 로드 기준
+;;
+;; 원칙: 모든 trap 은 claimed(믿은 것) vs observed(본 것) 를 분리한다.
+;;       claimed ≠ observed. 추측을 명세로 굳히지 않는다.
+;; ============================================================
+
+@meta
+  version: 1
+  created: 2026-06-16
+  source_of_truth: true
+  node_priority: [trap, lock, decision, fact]
+  consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
+  required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable]
+  next_phases: [phase2=fl-lint.sh, phase3=runtime-fixes, phase4=fx-dashboard]
+
+;; ─────────────────────── TRAPS ───────────────────────
+;; 우선순위 최상위. "이렇게 하면 조용히 깨진다"의 목록.
+
+@trap
+  id: trap-defn-do
+  type: trap
+  claimed: defn 본문은 Clojure식 implicit-do (다중 표현식 순차 실행)
+  observed: cgc는 본문을 단일 표현식으로 컴파일 — 첫 줄만 실행되고 나머지는 침묵 소멸 (exit 0, 에러 없음)
+  risk: 함수 중간 로직이 통째로 누락. 빌트인 버그로 오인하기 쉬움
+  rule: defn 본문에 표현식이 둘 이상이면 반드시 (do ...) 또는 let 본문으로 감싼다
+  safe_pattern: (defn f [] (do (a) (b) (c)))
+  lint_detectable: true
+
+@trap
+  id: trap-count-type
+  type: trap
+  claimed: count 는 fx 빌트인이라 native 호출된다
+  observed: 설치본 cgc 가 count 를 모름 → fl_fn_call(count) 생성 → C 함수 타입 불일치로 gcc 에러
+  risk: 빌드 실패. map 은 fl_map_fn 으로 정상이라 더 헷갈림
+  rule: 길이는 SQL COUNT 또는 length 로. count 직접 사용 금지(설치본 cgc 기준)
+  safe_pattern: (get (sqlite_one db "SELECT COUNT(*) AS c FROM t") "c")
+  lint_detectable: true
+
+@trap
+  id: trap-kebab-symbol
+  type: trap
+  claimed: server-get / json-stringify 등 kebab-case 가 fx 에서도 동작한다 (v11 습관)
+  observed: fx 는 underscore. kebab 심볼은 파서/코드젠에서 미정의 처리 또는 라우트 fn 인라인 거부
+  risk: 컴파일 오류 또는 미정의 이름. v11 코드 복붙 시 빈번
+  rule: fx API 는 underscore (server_get) + 핸들러는 문자열 이름. 인라인 fn 핸들러 금지
+  safe_pattern: (server_get "/" "handle-index")
+  lint_detectable: true
+
+@trap
+  id: trap-str-includes-int
+  type: trap
+  claimed: str_includes 는 boolean 을 반환한다
+  observed: str_includes 는 C int (0/1) 를 반환한다
+  risk: (if (str_includes ...)) 가 타입/진리값 불일치로 오작동
+  rule: if 에 직접 쓰지 말고 명시적으로 1 과 비교한다
+  safe_pattern: (if (= (str_includes x y) 1) ...)
+  lint_detectable: true
+
+@trap
+  id: trap-throw-invalid-initializer
+  type: trap
+  claimed: throw 는 정상 제어 흐름으로 컴파일된다
+  observed: throw 가 invalid C initializer 를 생성할 수 있다 (코드젠 깨짐)
+  risk: 빌드 실패 또는 정의되지 않은 동작
+  rule: throw 대신 nil/false 반환으로 오류 신호. (lock-no-throw 참조)
+  safe_pattern: (if 오류조건 nil 정상값)
+  lint_detectable: true
+
+@trap
+  id: trap-free-locale
+  type: trap
+  claimed: free 명령 출력은 고정 포맷이라 파싱 가능하다
+  observed: free 출력은 locale 에 의존한다 (헤더/단위가 환경마다 다름)
+  risk: 메모리 수치 파싱이 노드/locale 따라 깨짐
+  rule: free 출력 파싱 금지. /proc/meminfo 를 직접 읽는다 (MemTotal/MemAvailable)
+  safe_pattern: awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{print (1-a/t)*100}' /proc/meminfo
+  lint_detectable: false
+
+@trap
+  id: trap-runtime-header
+  type: trap
+  claimed: shell_run 같은 빌트인이 환경에 없다 (조사 시 안 보임)
+  observed: shell_run/future/sleep_ms 는 aliases.c 에 실재 — process.c 만 보고 결론낸 조사범위 한계였음
+  risk: 있는 기능을 "없다"로 단정 → 불필요한 우회 설계. (실제 2026-06-15 사례)
+  rule: 빌트인 부재를 단정하기 전 aliases.c(897줄) 전수 확인. 새 runtime 함수 추가 시 체크리스트 강제(lock-runtime-checklist)
+  safe_pattern: grep -rn 'FLValue <name>' runtime/*.c  ;; 결론 전 전수 확인
+  lint_detectable: false
+
+@trap
+  id: trap-extern-flvalue-defn
+  type: trap
+  claimed: sqlite_* / server_req_body 를 defn 내부에서 직접 호출하면 native call 된다
+  observed: 이들은 extern FLValue. 설치본 cgc 는 fl_fn_call 로 생성 → 함수 포인터 타입 불일치
+  risk: 빌드 실패. 신 cgc 노드는 fxb_ native, 구 cgc 노드(이 aarch64)는 shim 필요 = 노드별 분기
+  rule: 신 cgc 노드는 fxb_sqlite_* 직접. 구 cgc 노드는 sqlite_* + fx-builtin-shim.c. 어느 노드인지 먼저 확인
+  safe_pattern: (sqlite_query_p db "..." (list $id))  ;; + 빌드에 fx-builtin-shim.c
+  lint_detectable: false
+
+@trap
+  id: trap-server-json-string
+  type: trap
+  claimed: server_json 에 맵/벡터를 직접 줄 수 있다 (v11 습관)
+  observed: server_json 은 이미 직렬화된 문자열만 받는다. 맵 직접 전달 시 Content-Length 0 빈 응답
+  risk: 조용한 빈 응답 (false-200)
+  rule: 반드시 json_stringify 로 감싼다
+  safe_pattern: (server_json (json_stringify {"ok" true}))
+  lint_detectable: true
+
+@trap
+  id: trap-server-html-quote
+  type: trap
+  claimed: server_html 문자열 안에 \" 더블쿼트를 자유롭게 쓸 수 있다
+  observed: FL 문자열 파서가 HTML 안의 " 를 문자열 끝으로 인식 → 파싱 깨짐
+  risk: 컴파일/파싱 오류
+  rule: HTML 속성은 single-quote, JS 는 백틱/single-quote. FL 문자열 안엔 " 를 두지 않는다
+  safe_pattern: (server_html "<div onclick='f(p.id)'>...")
+  lint_detectable: true
+
+@trap
+  id: trap-lambda-capture
+  type: trap
+  claimed: defn 파라미터를 람다 본문에서 그대로 참조할 수 있다
+  observed: defn 파라미터가 C 클로저 env 에 추가되지 않는 캡처 버그 (일부 cgc)
+  risk: 컴파일 에러(미등록 변수) 또는 잘못된 값
+  rule: 파라미터를 atom 에 저장 후 deref, 또는 fxb_ 패턴 회피. (BUG-04 로 cgc 수정 진행 중)
+  safe_pattern: (define $a (atom v)) ... (let [$m @$a] ...)
+  lint_detectable: false
+
+@trap
+  id: trap-mariadb-count-float
+  type: trap
+  claimed: COUNT(*) 반환은 정수다
+  observed: MariaDB COUNT 반환 타입이 float 일 수 있다
+  risk: (= $cnt 0) 비교 실패
+  rule: 문자열 변환 후 비교 또는 nil 체크
+  safe_pattern: (if (or (nil? $cnt) (= (str $cnt) "0")) ...)
+  lint_detectable: false
+
+@trap
+  id: trap-replace-all-rename
+  type: trap
+  claimed: replace_all 로 테이블명/문자열만 치환된다
+  observed: 함수명도 함께 치환됨 (plans → fx_plans 시 defn plans-all 오염)
+  risk: 함수명 오염으로 미정의 호출
+  rule: 치환 후 grep 으로 함수명 오염 확인. 패턴을 구체적으로 지정
+  safe_pattern: grep -n "defn fx_" *.fl  ;; 치환 후 확인
+  lint_detectable: false
+
+@trap
+  id: trap-string-literal-1024
+  type: trap
+  claimed: 임의 길이 문자열 리터럴을 한 토큰으로 쓸 수 있다
+  observed: 단일 문자열 리터럴 >1024B → cgc tmpfile() 폴백 → PRoot 에서 'cannot write temp file'
+  risk: 빌드 실패. 큰 HTML/JS 블록에서 발생
+  rule: 큰 문자열은 (str "조각1" "조각2" ...) 로 분할 (각 조각 <1024B)
+  safe_pattern: (server_html (str "<html>...\n" "...\n" "..."))
+  lint_detectable: true
+
+@trap
+  id: trap-cgc-stale-node
+  type: trap
+  claimed: 함정의 원인이 언어 설계 결함이다
+  observed: 대부분 이 aarch64 노드의 cgc-bin 이 구버전이라 발생 (소스 cgc-main.fl 엔 수리 존재) = 전파 지연
+  risk: 언어 탓으로 결론내고 우회 설계. 실제론 컴파일러 날짜 문제
+  rule: 함정을 언어 탓 하기 전 cgc-bin 날짜 + cgc-main.fl 소스 대조. runtime/*.c 는 노드에서 즉시 컴파일되니 런타임 레벨은 바로 고침
+  safe_pattern: ls -la /root/freelang-v11/bin/cgc-bin  ;; 날짜 먼저 확인
+  lint_detectable: false
+
+;; ─────────────────────── LOCKS ───────────────────────
+;; 금지/필수 규칙. trap 보다 강하게, "하지 마라/반드시 하라".
+
+@lock
+  id: lock-no-throw
+  type: lock
+  forbid: (throw ...)
+  reason: trap-throw-invalid-initializer — invalid C initializer 생성 위험
+  instead: nil/false 반환으로 오류 신호
+  lint_detectable: true
+
+@lock
+  id: lock-no-free-memory
+  type: lock
+  forbid: free 출력 파싱
+  reason: trap-free-locale — locale 의존
+  instead: /proc/meminfo 직접 읽기
+  lint_detectable: false
+
+@lock
+  id: lock-runtime-checklist
+  type: lock
+  required: [runtime/<name>.c, runtime/runtime.h, runtime/aliases.c, fl-build.sh, verify-fixpoint.sh]
+  reason: trap-runtime-header — runtime 함수 추가 시 5곳 동기화 누락하면 빌드/고정점 깨짐
+  rule: 새 runtime 빌트인 추가 시 위 5개 파일 모두 갱신했는지 확인
+  lint_detectable: false
+
+@lock
+  id: lock-str-includes
+  type: lock
+  forbid: (if (str_includes ...))
+  reason: trap-str-includes-int — C int 반환을 진리값으로 직접 쓰면 오작동
+  instead: (if (= (str_includes x y) 1) ...)
+  lint_detectable: true
+
+;; ─────────────────────── FACTS ───────────────────────
+;; 참조 사실 (함정도 규칙도 아니나 handoff 에 필요).
+
+@fact
+  id: fact-node-cgc
+  type: fact
+  statement: 이 노드(/root, aarch64, PRoot)의 설치본 cgc 는 구버전 — sqlite_*/http_get 일부 미지원, fxb_ 패턴 불가
+  consequence: 빌드는 .fl-build-root.sh (CGC=/root/...), sqlite 는 fx-builtin-shim.c 필요
+  source: 2026-06-15 실측
+
+@fact
+  id: fact-trap-source
+  type: fact
+  statement: 이 명세의 출처는 CLAUDE.md 산문 함정 + 2026-06-14~16 실측 회고(#1076·1077·1081·1082·1107)
+  consequence: v2 에서 CLAUDE.md 잔여 함정 + 신규 발견 흡수 예정
+  source: fl-cycle handoff
