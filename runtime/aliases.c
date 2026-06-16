@@ -1037,6 +1037,7 @@ typedef struct {
     FLValue fn;
     FLValue result;
     int     done;
+    int     freed;   /* deref 후 cleanup 완료 표시 */
     pthread_mutex_t mu;
     pthread_cond_t  cv;
 } FLFuture;
@@ -1056,8 +1057,9 @@ static void* future_runner(void* arg) {
 FLValue fl_future(FLValue fn) {
     if (fn.tag != FL_FN) return fl_nil();
     FLFuture* f = (FLFuture*)malloc(sizeof(FLFuture));
-    f->fn   = fl_heap_copy(fn);
-    f->done = 0;
+    f->fn     = fl_heap_copy(fn);
+    f->done   = 0;
+    f->freed  = 0;
     f->result = fl_nil();
     pthread_mutex_init(&f->mu, NULL);
     pthread_cond_init(&f->cv, NULL);
@@ -1086,7 +1088,15 @@ FLValue fl_deref(FLValue handle) {
     pthread_mutex_lock(&f->mu);
     while (!f->done) pthread_cond_wait(&f->cv, &f->mu);
     FLValue result = f->result;
-    pthread_mutex_unlock(&f->mu);
+    if (!f->freed) {
+        f->freed = 1;
+        pthread_mutex_unlock(&f->mu);
+        pthread_mutex_destroy(&f->mu);
+        pthread_cond_destroy(&f->cv);
+        free(f);
+    } else {
+        pthread_mutex_unlock(&f->mu);
+    }
     return result;
 }
 
