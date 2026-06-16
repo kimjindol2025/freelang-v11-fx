@@ -1771,3 +1771,35 @@ FLValue fl_base64_decode(FLValue v) {
     out[j] = '\0';
     FLValue r = fl_str_val(out); free(out); return r;
 }
+
+/* ── dissoc / keys / vals ── */
+
+FLValue fl_dissoc(FLValue m, FLValue key) {
+    if (m.tag != FL_MAP) return m;
+    FLMap* src = (FLMap*)m.obj;
+    FLValue result = fl_map_new();
+    for (uint32_t i = 0; i < src->len; i++) {
+        FLValue k = src->entries[i].key;
+        if (!fl_truthy(fl_eq(k, key)))
+            result = fl_map_set(result, k, src->entries[i].val);
+    }
+    return result;
+}
+
+FLValue fl_keys(FLValue m) {
+    if (m.tag != FL_MAP) return fl_vec_new();
+    FLMap* src = (FLMap*)m.obj;
+    FLValue result = fl_vec_new();
+    for (uint32_t i = 0; i < src->len; i++)
+        result = fl_vec_push(result, src->entries[i].key);
+    return result;
+}
+
+FLValue fl_vals(FLValue m) {
+    if (m.tag != FL_MAP) return fl_vec_new();
+    FLMap* src = (FLMap*)m.obj;
+    FLValue result = fl_vec_new();
+    for (uint32_t i = 0; i < src->len; i++)
+        result = fl_vec_push(result, src->entries[i].val);
+    return result;
+}

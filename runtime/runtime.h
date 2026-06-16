@@ -527,6 +527,13 @@ FLValue fl_assoc_in(FLValue m, FLValue keys, FLValue val);
 FLValue fl_update_in(FLValue m, FLValue keys, FLValue fn);
 FLValue fl_inspect(FLValue v);
 FLValue fl_pp(FLValue v);
+FLValue fl_format(FLValue fmt, FLValue args);
+FLValue fl_merge(FLValue m1, FLValue m2);
+FLValue fl_base64_encode(FLValue v);
+FLValue fl_base64_decode(FLValue v);
+FLValue fl_dissoc(FLValue m, FLValue key);
+FLValue fl_keys(FLValue m);
+FLValue fl_vals(FLValue m);
 
 /* ── 연산자 first-class 래퍼 (HOF 인자로 사용 가능, e.g. (map + list)) ── */
 static inline FLValue __fl_op_add_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_add(a[0], a[1]); }
