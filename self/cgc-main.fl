@@ -642,6 +642,8 @@
 (define wrapper-defs-atom  (atom []))
 ;; S24: define 전역 선언 목록 ("static FLValue name;")
 (define global-decls-atom  (atom []))
+;; W1: arity check — defn 이름 → 파라미터 수 맵
+(define defn-arity-atom    (atom {}))
 
 ;; ── 유틸 ──
 
@@ -906,12 +908,13 @@
   [(= $op "let")    (cgc-let $args)]
   [(= $op "defn")   (cgc-defn $args)]
   [(= $op "define") (cgc-define $args)]
-  [(= $op "+")      (cgc-binop-chain $args "fl_add")]
-  [(= $op "-")      (if (= (length $args) 1)
-                      (str "fl_sub(fl_int(0), " (cgc (get $args 0)) ")")
-                      (cgc-binop-chain $args "fl_sub"))]
-  [(= $op "*")      (cgc-binop-chain $args "fl_mul")]
-  [(= $op "/")      (str "fl_div(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "+")      (do (cgc-warn-nil-get "+" $args) (cgc-warn-type-mix "+" $args) (cgc-binop-chain $args "fl_add"))]
+  [(= $op "-")      (do (cgc-warn-nil-get "-" $args)
+                        (if (= (length $args) 1)
+                          (str "fl_sub(fl_int(0), " (cgc (get $args 0)) ")")
+                          (cgc-binop-chain $args "fl_sub")))]
+  [(= $op "*")      (do (cgc-warn-nil-get "*" $args) (cgc-warn-type-mix "*" $args) (cgc-binop-chain $args "fl_mul"))]
+  [(= $op "/")      (do (cgc-warn-nil-get "/" $args) (str "fl_div(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")"))]
   [(= $op "%")      (str "fl_mod(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "=")      (str "fl_eq(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "!=")     (str "fl_neq(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
@@ -1227,12 +1230,40 @@
                       )]]
             (str "fl_atom_reset(" $atom-c ", " $rhs ")")))))))
 
+;; ── 컴파일 타임 경고 헬퍼 ────────────────────────────────────────────
+;; W2: (get ...) 를 산술/문자열 ops에 nil 체크 없이 넘기면 경고
+(defn cgc-is-get? [$n]
+  (and (= (get $n :kind) "sexpr") (= (get $n :op) "get")))
+
+(defn cgc-warn-nil-get [$op $args]
+  (map (fn [$a]
+    (if (cgc-is-get? $a)
+      (println (str "[FL Warn] nil 전파: " $op " 인자에 (get ...) — null? 체크 권장"))
+      nil))
+  $args))
+
+;; W3: 산술 op에 문자열+숫자 리터럴 혼용 경고
+(defn cgc-is-str-lit? [$n]  (and (= (get $n :kind) "literal") (= (get $n :type) "string")))
+(defn cgc-is-num-lit? [$n]  (and (= (get $n :kind) "literal") (= (get $n :type) "number")))
+
+(defn cgc-warn-type-mix [$op $args]
+  (let [[$has-str (> (length (filter cgc-is-str-lit? $args)) 0)]
+        [$has-num (> (length (filter cgc-is-num-lit? $args)) 0)]]
+    (if (and $has-str $has-num)
+      (println (str "[FL Warn] 타입 불일치: " $op " — 문자열과 숫자 혼용"))
+      nil)))
+
 (defn cgc-dispatch-fallback [$op $args]
   (cond
     [(= $op "first")  (str "fl_vec_first(" (cgc (get $args 0)) ")")]
     [(= $op "rest")   (str "fl_vec_rest(" (cgc (get $args 0)) ")")]
     [true
-     (let [[$cn (c-name $op)]]
+     (let [[$cn (c-name $op)]
+           [$known-arity (get @defn-arity-atom $cn)]]
+       ;; W1: arity 불일치 경고
+       (if (and (not (null? $known-arity)) (not (= (length $args) $known-arity)))
+         (println (str "[FL Warn] arity: " $op " expects " $known-arity " args, got " (length $args)))
+         nil)
        (if (includes-item @known-fncall-targets-atom $cn)
          (cgc-fncall $cn $args)
          (str $cn "(" (cgc-args $args) ")")))]))
@@ -1806,8 +1837,10 @@
     (recur (+ $i 1)
       (if (and (= (get $n :kind) "sexpr") (= (get $n :op) "defn"))
         (let [[$name (c-name (cgc-extract-name (get (get $n :args) 0)))]
-              [$ps (cgc-params (get-block-items (get (get $n :args) 1)))]]
+              [$param-items (get-block-items (get (get $n :args) 1))]
+              [$ps (cgc-params $param-items)]]
           (swap! known-defns-atom append $name)
+          (swap! defn-arity-atom assoc $name (length $param-items))
           (str $acc
                "FLValue " $name "(" $ps ");\n"
                "static FLValue __fl_wrap_" $name "(FLClosure*, int, FLValue*);\n"))
