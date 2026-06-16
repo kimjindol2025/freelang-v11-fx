@@ -1,0 +1,32 @@
+{
+  "name": "fx-chat",
+  "version": "1.0.0",
+  "language": "FreeLang v11 (C Native / fx)",
+  "runtime": "cgc-bin → gcc → ELF",
+  "status": "in_progress",
+  "description": "실시간 멀티룸 채팅 서버 — WebSocket + atom broadcast + SQLite",
+  "ports": [40291],
+  "entry": "server.fl",
+  "binary": "fx-chat",
+  "commands": {
+    "build": "bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-chat",
+    "start": "pm2 start ./fx-chat --name fx-chat",
+    "reload": "pm2 reload fx-chat"
+  },
+  "features": [
+    "멀티룸 채팅 (방별 WS 브로드캐스트)",
+    "쿼리 파라미터로 방/닉네임 지정 (/ws?room=...&nick=...)",
+    "SQLite 메시지 영속화",
+    "join/leave/message 이벤트",
+    "REST API: GET /api/rooms, GET /api/messages/:room, POST /api/rooms"
+  ],
+  "ws_fixes": [
+    "websocket.c base64_encode 패딩 버그 수정 (Sec-WebSocket-Accept 'AA'→'A=' Chrome 거부 해결)",
+    "SO_RCVTIMEO 10초 타임아웃 해제 (WS 핸드셰이크 후 setsockopt {0,0})",
+    "errno.h include 누락 수정 (fl-build.sh || true 로 숨겨지던 gcc 오류)",
+    "websocket.c에 쿼리 파라미터 지원 추가 (make_ws_conn_q + parse_query_string)",
+    "WS URL에서 ? 이후 파싱하여 FL 맵으로 ws 객체에 주입",
+    "브로드캐스트 클로저 캡처 버그: $msg를 람다 내부에서 @$bcast-payload로 deref"
+  ],
+  "status": "done"
+}

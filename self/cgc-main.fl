@@ -2357,19 +2357,115 @@
                       (recur (+ $i 1) (append-all $acc $expanded))))))))
           (recur (+ $i 1) (push $acc $node)))))))
 
+;; ── AST JSON 직렬화 ──────────────────────────────────────────────
+(defn ast-json-str [$s]
+  (str "\"" (str-replace (str-replace $s "\\" "\\\\") "\"" "\\\"") "\""))
+
+(defn ast-node-to-json [$node]
+  (if (null? $node) "null"
+  (let [[$k (get $node :kind)]]
+    (cond
+      [(= $k "sexpr")
+       (str "{\"type\":\"call\",\"fn\":" (ast-json-str (get $node :op))
+            ",\"args\":[" (str-join "," (map ast-node-to-json (get $node :args))) "]"
+            ",\"line\":" (get $node :line) "}")]
+      [(= $k "literal")
+       (let [[$t (get $node :type)] [$v (get $node :value)]]
+         (cond
+           [(= $t "number") (str "{\"type\":\"number\",\"value\":" $v "}")]
+           [(= $t "string") (str "{\"type\":\"string\",\"value\":" (ast-json-str $v) "}")]
+           [(= $t "symbol") (str "{\"type\":\"symbol\",\"value\":" (ast-json-str $v) "}")]
+           [(= $t "bool")   (str "{\"type\":\"bool\",\"value\":" (if $v "true" "false") "}")]
+           [true            (str "{\"type\":\"null\"}")]
+         ))]
+      [(= $k "variable")
+       (str "{\"type\":\"var\",\"name\":" (ast-json-str (get $node :name)) "}")]
+      [(= $k "array-block")
+       (str "{\"type\":\"array\",\"items\":["
+            (str-join "," (map ast-node-to-json (get $node :items))) "]}")]
+      [true (str "{\"type\":\"unknown\",\"kind\":" (ast-json-str $k) "}")]))))
+
+;; ── AST 텍스트 트리 ──────────────────────────────────────────────
+(defn ast-tree-lines [$node $prefix $is-last]
+  (if (null? $node) []
+  (let [[$k   (get $node :kind)]
+        [$conn (if $is-last "└─ " "├─ ")]
+        [$next (if $is-last "   " "│  ")]]
+    (cond
+      [(= $k "sexpr")
+       (let [[$head (str $prefix $conn (get $node :op))]
+             [$args (get $node :args)]
+             [$n    (length $args)]
+             [$child-lines
+               (reduce
+                 (fn [$acc $i]
+                   (append-all $acc
+                     (ast-tree-lines
+                       (get $args $i)
+                       (str $prefix $next)
+                       (eq $i (sub $n 1)))))
+                 []
+                 (range $n))]]
+         (push $child-lines $head 0))]
+      [(= $k "literal")
+       (let [[$v (get $node :value)]
+             [$t (get $node :type)]]
+         [(str $prefix $conn (if (= $t "string") (str "\"" $v "\"") (str $v)))])]
+      [(= $k "variable")
+       [(str $prefix $conn "$" (get $node :name))]]
+      [(= $k "array-block")
+       (let [[$head (str $prefix $conn "[…]")]
+             [$items (get $node :items)]
+             [$n     (length $items)]
+             [$child-lines
+               (reduce
+                 (fn [$acc $i]
+                   (append-all $acc
+                     (ast-tree-lines
+                       (get $items $i)
+                       (str $prefix $next)
+                       (eq $i (sub $n 1)))))
+                 []
+                 (range $n))]]
+         (push $child-lines $head 0))]
+      [true [(str $prefix $conn "?")]]))))
+
+(defn ast-emit [$input]
+  (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]
+        [$src      (file-read $input)]
+        [$base-dir (path-dir $input)]
+        [$raw      (parse (lex $src))]
+        [$nodes    (expand-loads $raw $base-dir)]
+        [$json     (str "[" (str-join "," (map ast-node-to-json $nodes)) "]")]
+        [$tree-lines
+          (reduce
+            (fn [$acc $node]
+              (append-all $acc (ast-tree-lines $node "" true)))
+            []
+            $nodes)]
+        [$tree     (str-join "\n" $tree-lines)]]
+    (println (str "AST_JSON:" $json))
+    (println (str "AST_TREE:\n" $tree))))
+
 (defn cgc-run [$argv]
   (let [[$input  (get $argv 0)]
         [$output (get $argv 1)]]
-  (if (or (null? $input) (null? $output))
-    (println "usage: cgc-bin <input.fl> <output.c>")
-    (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]  ;; 매 컴파일 시작 시 초기화
-          [$src      (file-read $input)]
-          [$base-dir (path-dir $input)]
-          [$raw      (parse (lex $src))]
-          [$nodes    (expand-loads $raw $base-dir)]
-          [$_v      (ir-validate $nodes)]
-          [$c-code   (generate-c $nodes)]]
-      (file-write $output $c-code)
-      (println (str "Compiled " $input " -> " $output))))))
+  (if (null? $input)
+    (println "usage: cgc-bin <input.fl> <output.c>\n       cgc-bin --ast <input.fl>")
+    (if (= $input "--ast")
+      (if (null? $output)
+        (println "usage: cgc-bin --ast <input.fl>")
+        (ast-emit $output))
+      (if (null? $output)
+        (println "usage: cgc-bin <input.fl> <output.c>")
+        (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]
+              [$src      (file-read $input)]
+              [$base-dir (path-dir $input)]
+              [$raw      (parse (lex $src))]
+              [$nodes    (expand-loads $raw $base-dir)]
+              [$_v      (ir-validate $nodes)]
+              [$c-code   (generate-c $nodes)]]
+          (file-write $output $c-code)
+          (println (str "Compiled " $input " -> " $output))))))))
 
 (cgc-run (cli-args))

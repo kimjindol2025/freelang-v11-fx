@@ -1,0 +1,324 @@
+;; fx-chat — 실시간 채팅 서버
+;; FreeLang C 네이티브 | 포트 40291
+;; 빌드: bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-chat
+
+(define PORT    40291)
+(define DB_PATH "./chat.db")
+
+;; ── SQLite 초기화 ──────────────────────────────────────────────────
+(define db (fxb_sqlite_open DB_PATH))
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS rooms (
+     id   INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT UNIQUE NOT NULL,
+     created_at INTEGER NOT NULL
+   )")
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS messages (
+     id        INTEGER PRIMARY KEY AUTOINCREMENT,
+     room      TEXT NOT NULL,
+     nick      TEXT NOT NULL,
+     body      TEXT NOT NULL,
+     ts        INTEGER NOT NULL
+   )")
+
+;; 기본 방 생성
+(try
+  (fxb_sqlite_exec db
+    (str "INSERT OR IGNORE INTO rooms (name, created_at) VALUES ('general'," (now-ms) ")"))
+  (catch $e nil))
+
+;; ── 전역 상태 ─────────────────────────────────────────────────────
+;; room → [{ws nick}] 맵
+(define $rooms (atom {}))
+
+;; broadcast용 임시 저장 (클로저 캡처 버그 우회)
+(define $bcast-room    (atom ""))
+(define $bcast-payload (atom ""))
+
+;; ── 유틸 ──────────────────────────────────────────────────────────
+(defn now-sec []
+  (/ (now-ms) 1000))
+
+(defn room-clients [$room]
+  (let [$all (get @$rooms $room)]
+    (if (null? $all) [] $all)))
+
+(defn set-room-clients [$room $clients]
+  (swap! $rooms (fn [$m] (assoc $m $room $clients))))
+
+;; ── 브로드캐스트 (방 단위) ────────────────────────────────────────
+(defn broadcast-room [$room $json]
+  (swap! $bcast-room    (fn [$_] $room))
+  (swap! $bcast-payload (fn [$_] $json))
+  (let [$r   @$bcast-room
+        $cls (room-clients $r)
+        $alive
+          (reduce
+            (fn [$acc $c]
+              ;; $msg을 람다 내부에서 deref — 클로저 캡처 버그 우회
+              (let [$msg @$bcast-payload]
+                (try
+                  (do (ws_send (get $c "ws") $msg)
+                      (push $acc $c))
+                  (catch $err $acc))))
+            []
+            $cls)]
+    (set-room-clients $r $alive)))
+
+;; ── WS recv 루프 (TCO) ────────────────────────────────────────────
+(defn ws-loop [$ws $room $nick]
+  (let [$data (ws_recv $ws)]
+    (if (null? $data)
+      ;; 연결 종료
+      (do
+        (let [$cls (room-clients $room)
+              $next (filter (fn [$c] (not (= (ws_conn_id (get $c "ws")) (ws_conn_id $ws)))) $cls)]
+          (set-room-clients $room $next))
+        (broadcast-room $room
+          (json_stringify {"type" "leave" "nick" $nick "room" $room "ts" (now-ms)})))
+      ;; 메시지 처리
+      (do
+        (try
+          (let [$cmd  (json_parse $data)
+                $type (get $cmd "type")]
+            (cond
+              (= $type "message")
+              (let [$body (get $cmd "body")]
+                (when (not (null? $body))
+                  (fxb_sqlite_exec db
+                    (str "INSERT INTO messages (room,nick,body,ts) VALUES ('"
+                         $room "','" $nick "','" $body "'," (now-ms) ")"))
+                  (broadcast-room $room
+                    (json_stringify {"type" "message" "nick" $nick
+                                    "body" $body "room" $room "ts" (now-ms)}))))
+
+              (= $type "ping")
+              (ws_send $ws "{\"type\":\"pong\"}")
+
+              true nil))
+          (catch $e nil))
+        (ws-loop $ws $room $nick)))))
+
+;; ── WS 핸들러 ─────────────────────────────────────────────────────
+(defn handle-ws [$ws]
+  (let [$q    (get $ws "query")]
+    (let [$room (or (get $q "room") "general")
+          $nick (or (get $q "nick") (str "guest_" (str-slice (uuid4) 0 6)))]
+      ;; 방이 없으면 생성
+      (try
+        (fxb_sqlite_exec db
+          (str "INSERT OR IGNORE INTO rooms (name, created_at) VALUES ('"
+               $room "'," (now-ms) ")"))
+        (catch $e nil))
+      ;; clients 등록
+      (let [$cls (room-clients $room)]
+        (set-room-clients $room (push $cls {"ws" $ws "nick" $nick})))
+      ;; 입장 알림
+      (broadcast-room $room
+        (json_stringify {"type" "join" "nick" $nick "room" $room "ts" (now-ms)}))
+      ;; 최근 50개 메시지 전송
+      (let [$hist (fxb_sqlite_query db
+                    (str "SELECT nick, body, ts FROM messages WHERE room='"
+                         $room "' ORDER BY ts DESC LIMIT 50"))]
+        (ws_send $ws (json_stringify {"type" "history" "messages" (reverse $hist)})))
+      ;; recv 루프
+      (ws-loop $ws $room $nick))))
+
+;; ── REST 핸들러 ────────────────────────────────────────────────────
+(defn handle-rooms [$req]
+  (let [$rows (fxb_sqlite_query db "SELECT name, created_at FROM rooms ORDER BY created_at ASC")]
+    (let [$with-counts
+      (map (fn [$r]
+             (let [$n (get $r "name")
+                   $c (length (room-clients $n))]
+               (assoc $r "online" $c)))
+           $rows)]
+      (server_json (json_stringify {"rooms" $with-counts})))))
+
+(defn handle-messages [$req]
+  (let [$room (get (get $req "params") "room")]
+    (let [$rows (fxb_sqlite_query db
+                  (str "SELECT nick, body, ts FROM messages WHERE room='"
+                       $room "' ORDER BY ts DESC LIMIT 100"))]
+      (server_json (json_stringify {"room" $room "messages" (reverse $rows)})))))
+
+(defn handle-create-room [$req]
+  (let [$body (get $req "body")
+        $name (get $body "name")]
+    (if (null? $name)
+      (server_json (json_stringify {"error" "name required"}))
+      (do
+        (try
+          (fxb_sqlite_exec db
+            (str "INSERT OR IGNORE INTO rooms (name, created_at) VALUES ('"
+                 $name "'," (now-ms) ")"))
+          (catch $e nil))
+        (server_json (json_stringify {"ok" true "room" $name}))))))
+
+(defn handle-online [$req]
+  (let [$snapshot
+    (map (fn [$entry]
+           {"room" (get $entry "key") "online" (length (get $entry "value"))})
+         (map-entries @$rooms))]
+    (server_json (json_stringify {"rooms" $snapshot}))))
+
+(defn handle-index [$req]
+  (server_html (str
+"<!DOCTYPE html>
+<html><head>
+<meta charset='utf-8'>
+<title>fx Chat</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,sans-serif;display:flex;height:100vh}
+#sidebar{width:200px;background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column}
+#sidebar h2{padding:16px;font-size:14px;color:#8b949e;border-bottom:1px solid #30363d}
+#room-list{flex:1;overflow-y:auto;padding:8px}
+.room-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.room-item:hover,.room-item.active{background:#1f2937}
+.room-item .badge{background:#388bfd22;color:#58a6ff;font-size:11px;padding:1px 6px;border-radius:10px}
+#new-room{padding:12px;border-top:1px solid #30363d}
+#new-room input{width:100%;background:#0d1117;border:1px solid #30363d;color:#e6edf3;padding:6px 8px;border-radius:6px;font-size:13px}
+#main{flex:1;display:flex;flex-direction:column}
+#chat-header{padding:14px 20px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px}
+#chat-header h1{font-size:16px}
+#online-count{font-size:12px;color:#3fb950;background:#3fb95015;padding:2px 8px;border-radius:10px}
+#messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:10px}
+.msg .nick{font-weight:600;font-size:13px;color:#58a6ff;min-width:80px;text-align:right}
+.msg .body{font-size:14px;line-height:1.5;word-break:break-word}
+.msg .ts{font-size:11px;color:#8b949e;margin-top:2px}
+.msg-system{text-align:center;font-size:12px;color:#8b949e;padding:4px 0}
+#input-area{padding:16px;border-top:1px solid #30363d;display:flex;gap:10px}
+#msg-input{flex:1;background:#161b22;border:1px solid #30363d;color:#e6edf3;padding:10px 14px;border-radius:8px;font-size:14px}
+#msg-input:focus{outline:none;border-color:#388bfd}
+#send-btn{background:#238636;color:#fff;border:none;padding:0 20px;border-radius:8px;cursor:pointer;font-size:14px}
+#send-btn:hover{background:#2ea043}
+#nick-bar{padding:10px 16px;background:#161b22;border-bottom:1px solid #30363d;font-size:13px;color:#8b949e}
+#nick-bar span{color:#58a6ff;font-weight:600}
+</style>
+</head>
+<body>
+<div id='sidebar'>
+  <h2># 채널</h2>
+  <div id='room-list'></div>
+  <div id='new-room'>
+    <input id='new-room-input' placeholder='+ 새 채널 만들기' onkeydown='if(event.key==\"Enter\")createRoom()'>
+  </div>
+</div>
+<div id='main'>
+  <div id='nick-bar'>닉네임: <span id='my-nick'>-</span></div>
+  <div id='chat-header'>
+    <h1 id='room-title'># general</h1>
+    <span id='online-count'>0 online</span>
+  </div>
+  <div id='messages'></div>
+  <div id='input-area'>
+    <input id='msg-input' placeholder='메시지 입력...' onkeydown='if(event.key==\"Enter\")sendMsg()'>
+    <button id='send-btn' onclick='sendMsg()'>전송</button>
+  </div>
+</div>
+<script>
+let ws = null;
+let currentRoom = 'general';
+const nick = 'user_' + Math.random().toString(36).slice(2,7);
+document.getElementById('my-nick').textContent = nick;
+
+function connect(room) {
+  if(ws) ws.close();
+  currentRoom = room;
+  document.getElementById('room-title').textContent = '# ' + room;
+  document.getElementById('messages').innerHTML = '';
+  ws = new WebSocket('ws://'+location.host+'/ws?room='+encodeURIComponent(room)+'&nick='+encodeURIComponent(nick));
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if(d.type === 'history') { d.messages.forEach(appendMsg); return; }
+    if(d.type === 'message') { appendMsg(d); return; }
+    if(d.type === 'join' || d.type === 'leave') {
+      appendSystem(d.nick + (d.type==='join'?' 님이 입장했습니다.':' 님이 퇴장했습니다.'));
+    }
+    fetchOnline();
+  };
+  ws.onclose = () => setTimeout(() => connect(currentRoom), 2000);
+  fetchRooms();
+}
+
+function appendMsg(d) {
+  const el = document.createElement('div');
+  el.className = 'msg';
+  const t = new Date(d.ts||Date.now()).toLocaleTimeString();
+  el.innerHTML = '<span class=\"nick\">'+escHtml(d.nick)+'</span><div><div class=\"body\">'+escHtml(d.body)+'</div><div class=\"ts\">'+t+'</div></div>';
+  document.getElementById('messages').appendChild(el);
+  document.getElementById('messages').scrollTop = 1e9;
+}
+
+function appendSystem(text) {
+  const el = document.createElement('div');
+  el.className = 'msg-system';
+  el.textContent = text;
+  document.getElementById('messages').appendChild(el);
+  document.getElementById('messages').scrollTop = 1e9;
+}
+
+function sendMsg() {
+  const inp = document.getElementById('msg-input');
+  const body = inp.value.trim();
+  if(!body || !ws || ws.readyState!==1) return;
+  ws.send(JSON.stringify({type:'message', body}));
+  inp.value = '';
+}
+
+function fetchRooms() {
+  fetch('/api/rooms').then(r=>r.json()).then(d=>{
+    const el = document.getElementById('room-list');
+    el.innerHTML = d.rooms.map(r=>
+      '<div class=\"room-item'+(r.name===currentRoom?' active':'')+
+      '\" data-room=\"'+escHtml(r.name)+'\">'+
+      '<span># '+escHtml(r.name)+'</span>'+
+      (r.online>0?'<span class=\"badge\">'+r.online+'</span>':'')+
+      '</div>'
+    ).join('');
+  });
+}
+
+function fetchOnline() {
+  fetch('/api/online').then(r=>r.json()).then(d=>{
+    const rm = d.rooms.find(r=>r.room===currentRoom);
+    document.getElementById('online-count').textContent = (rm?rm.online:0) + ' online';
+    fetchRooms();
+  });
+}
+
+function createRoom() {
+  const inp = document.getElementById('new-room-input');
+  const name = inp.value.trim().replace(/[^a-z0-9_-]/gi,'');
+  if(!name) return;
+  fetch('/api/rooms', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})})
+    .then(r=>r.json()).then(()=>{ inp.value=''; connect(name); });
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');
+}
+
+document.getElementById('room-list').addEventListener('click', function(e) {
+  const item = e.target.closest('[data-room]');
+  if(item) connect(item.dataset.room);
+});
+connect('general');
+setInterval(fetchOnline, 15000);
+</script>
+</body></html>")))
+
+;; ── 라우트 등록 ──────────────────────────────────────────────────
+(println (str "fx-chat 포트 " PORT " 시작"))
+(server_get  "/"                   "handle-index")
+(server_get  "/api/rooms"          "handle-rooms")
+(server_get  "/api/messages/:room" "handle-messages")
+(server_post "/api/rooms"          "handle-create-room")
+(server_get  "/api/online"         "handle-online")
+(server_ws   "/ws"                 "handle-ws")
+(server_start PORT)
