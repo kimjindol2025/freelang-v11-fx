@@ -1,0 +1,124 @@
+;; fx-short: URL 단축기 API (포트 40309)
+
+(define PORT     40309)
+(define BASE_URL "http://localhost:40309")
+(define DB_PATH  "/home/kimjin/freelang-v11-fx/apps/fx-short/short.db")
+
+(define db (fxb_sqlite_open DB_PATH))
+
+;; ── DB 초기화 ──
+
+(fxb_sqlite_exec db
+  "CREATE TABLE IF NOT EXISTS urls (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    code    TEXT    UNIQUE NOT NULL,
+    url     TEXT    NOT NULL,
+    api_key TEXT    NOT NULL,
+    clicks  INTEGER DEFAULT 0,
+    created TEXT    NOT NULL
+  )")
+
+;; ── 헬퍼 ──
+
+(defn now-str []
+  (str-trim (shell_run "date -u +%Y-%m-%dT%H:%M:%SZ")))
+
+(defn gen-code [$url]
+  (let [[$raw  (str $url (now-str))]
+        [$b64  (base64-encode $raw)]
+        [$slug (str-replace (str-replace $b64 "=" "") "/" "-")]]
+    (str-slice $slug 0 7)))
+
+(defn get-api-key [$req]
+  (let [[$auth (get (get $req "headers") "authorization")]]
+    (if (null? $auth)
+      nil
+      (str-replace $auth "Bearer " ""))))
+
+(defn json-ok [$data]
+  (server_json (json_stringify $data)))
+
+(defn json-error [$msg]
+  (server_json (json_stringify {"error" $msg})))
+
+;; ── POST /shorten ──
+
+(defn handle-shorten [$req]
+  (let [[$body    (get $req "body")]
+        [$url     (get $body "url")]
+        [$api-key (get-api-key $req)]]
+    (if (null? $url)
+      (json-error "url 필수")
+      (if (not (or (str-starts-with $url "http://") (str-starts-with $url "https://")))
+        (json-error (str "유효하지 않은 URL: " $url))
+        (if (null? $api-key)
+          (json-error "Authorization 헤더 필수")
+          (let [[$code    (gen-code $url)]
+                [$created (now-str)]
+                [$base    BASE_URL]]
+            (fxb_sqlite_exec_p db
+              "INSERT OR IGNORE INTO urls (code, url, api_key, created) VALUES (?, ?, ?, ?)"
+              (list $code $url $api-key $created))
+            (json-ok
+              {"code"    $code
+               "short"   (str $base "/" $code)
+               "url"     $url
+               "created" $created})))))))
+
+;; ── GET /:code (리다이렉트) ──
+
+(defn handle-redirect [$req]
+  (let [[$code (get (get $req "params") "code")]
+        [$rows (fxb_sqlite_query_p db
+                  "SELECT url FROM urls WHERE code=?" (list $code))]]
+    (if (= (length $rows) 0)
+      (json-error "찾을 수 없습니다")
+      (let [[$url (get (get $rows 0) "url")]]
+        (fxb_sqlite_exec_p db
+          "UPDATE urls SET clicks=clicks+1 WHERE code=?" (list $code))
+        (server_html (str "<meta http-equiv='refresh' content='0;url=" $url "'>"))))))
+
+;; ── GET /stats ──
+
+(defn handle-stats [$req]
+  (let [[$api-key (get-api-key $req)]]
+    (if (null? $api-key)
+      (json-error "Authorization 헤더 필수")
+      (let [[$rows   (fxb_sqlite_query_p db
+                        "SELECT code, url, clicks, created FROM urls WHERE api_key=? ORDER BY clicks DESC"
+                        (list $api-key))]
+            [$total  (reduce (fn [$acc $r] (+ $acc (get $r "clicks"))) 0 $rows)]
+            [$public (map (fn [$r] (select-keys $r ["code" "url" "clicks" "created"])) $rows)]]
+        (json-ok
+          {"total_clicks" $total
+           "count"        (length $rows)
+           "urls"         $public})))))
+
+;; ── POST /delete ──
+
+(defn handle-delete [$req]
+  (let [[$body    (get $req "body")]
+        [$code    (get $body "code")]
+        [$api-key (get-api-key $req)]]
+    (if (or (null? $code) (null? $api-key))
+      (json-error "code + Authorization 필수")
+      (do
+        (fxb_sqlite_exec_p db
+          "DELETE FROM urls WHERE code=? AND api_key=?" (list $code $api-key))
+        (json-ok {"ok" true "code" $code})))))
+
+;; ── GET /health ──
+
+(defn handle-health [$req]
+  (json-ok {"status" "ok" "app" "fx-short"}))
+
+;; ── 라우터 ──
+
+(server_get  "/health"  "handle-health")
+(server_post "/shorten" "handle-shorten")
+(server_get  "/stats"   "handle-stats")
+(server_post "/delete"  "handle-delete")
+(server_get  "/:code"   "handle-redirect")
+
+(println (str "fx-short 시작 — 포트 " PORT))
+(server_start PORT)
