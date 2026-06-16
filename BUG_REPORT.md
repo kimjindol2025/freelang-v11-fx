@@ -99,7 +99,7 @@
 
 ---
 
-#### BUG-05 — fl_html_escape strcpy 버퍼 오버플로
+#### BUG-05 — fl_html_escape strcpy 버퍼 오버플로 ✅ FIXED (2026-06-16, 커밋 f9b62e6)
 
 **위치**: `runtime/core.c:401-423`  
 **원인**: `strcpy(dst, "&amp;")` — 경계 체크 없이 포인터에 복사
@@ -114,7 +114,7 @@ case '&': memcpy(dst, "&amp;", 5); dst += 5; break;
 
 ---
 
-#### BUG-06 — future 메모리 누수
+#### BUG-06 — future 메모리 누수 ✅ FIXED (2026-06-16, 커밋 bd5b8f6)
 
 **위치**: `runtime/aliases.c:1043-1075` (fl_future / fl_deref)  
 **원인**: `FLFuture*` 구조체가 detached thread 종료 후 `free()` 미호출
@@ -382,9 +382,9 @@ const char* ks = (key.tag == FL_STRING && key.obj)
 | BUG-03 let 섀도잉 | 컴파일 에러 | 중간 | **P1** |
 | BUG-04 중첩 fn 캡처 | ~~런타임 오류~~ | ~~어려움~~ | ✅ **FIXED** 6d499c4 |
 | BUG-02 try-finally | 기능 누락 | 중간 | **P1** |
-| BUG-08 loop 재귀 | 장기 스택 누수 | 쉬움 (앱 코드만) | **P2** |
-| BUG-05 html_escape | 보안/안정성 | 쉬움 (strcpy→memcpy) | **P2** |
-| BUG-06 future 누수 | 장기 메모리 | 중간 | **P2** |
+| BUG-08 loop 재귀 | TCO 이미 있어 FALSE POSITIVE | 생략 | **WONTFIX** |
+| BUG-05 html_escape | ~~보안/안정성~~ | ~~쉬움~~ | ✅ **FIXED** f9b62e6 |
+| BUG-06 future 누수 | ~~장기 메모리~~ | ~~중간~~ | ✅ **FIXED** bd5b8f6 |
 | BUG-07 lambda recur | 무음 버그 | 중간 (에러로 변환) | **P3** |
 | BUG-09 str_replace_re | 안정성 | 쉬움 | **P3** |
 | BUG-10 get() NULL | 방어적 코딩 | 쉬움 | **P3** |
