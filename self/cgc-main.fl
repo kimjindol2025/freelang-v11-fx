@@ -827,7 +827,9 @@
 (defn cgc-params-loop [$_it $_i $_acc]
   (loop [$i $_i $acc $_acc]
     (if (>= $i (length $_it)) $acc
-    (let [[$n (cgc-extract-name (get $_it $i))]
+    ;; $_ 파라미터를 인덱스로 고유화: _ → __fl_ign_0, __fl_ign_1 (중복 선언 방지)
+    (let [[$raw (cgc-extract-name (get $_it $i))]
+          [$n   (if (= $raw "_") (str "__fl_ign_" $i) $raw)]
           [$entry (str "FLValue " $n)]]
       (recur (+ $i 1) (if (= (length $acc) 0) $entry (str $acc ", " $entry)))))))
 
@@ -1294,15 +1296,18 @@
 ;; argv[i] 선언 구문
 (defn cgc-fn-argv-decls [$items $i $acc]
   (if (>= $i (length $items)) $acc
-  (let [[$name (c-name (cgc-extract-name (get $items $i)))]]
+  (let [[$raw  (c-name (cgc-extract-name (get $items $i)))]
+        ;; $_ 파라미터 인덱스 고유화 (fn 람다 파라미터 중복 방지)
+        [$name (if (= $raw "_") (str "__fl_ign_" $i) $raw)]]
     (cgc-fn-argv-decls $items (+ $i 1)
       (str $acc "    FLValue " $name " __attribute__((unused)) = argv[" $i "];\n")))))
 
 ;; 파라미터 이름 목록 수집
 (defn cgc-fn-param-names [$items $i $acc]
   (if (>= $i (length $items)) $acc
-  (cgc-fn-param-names $items (+ $i 1)
-    (push $acc (c-name (cgc-extract-name (get $items $i)))))))
+  (let [[$raw (c-name (cgc-extract-name (get $items $i)))]
+        [$name (if (= $raw "_") (str "__fl_ign_" $i) $raw)]]
+    (cgc-fn-param-names $items (+ $i 1) (push $acc $name)))))
 
 ;; body AST에서 variable 이름 수집 (중복 제거)
 (defn cgc-collect-vars [$node $acc]
@@ -1665,9 +1670,10 @@
   (let [[$items  (get-block-items (get $args 0))]
         [$vnode  (get $items 0)]
         [$cnode  (get $items 1)]
-        [$body-c (cgc-body $args 1 "")]
         [$var-c  (cgc-extract-name $vnode)]
-        [$coll-c (cgc $cnode)]]
+        [$_      (swap! outer-params-atom append $var-c)]
+        [$coll-c (cgc $cnode)]
+        [$body-c (cgc-body $args 1 "")]]
     (str "(__extension__ ({ FLValue _ds_c = " $coll-c ";"
          " FLValue _ds_len = length(_ds_c);"
          " FLValue _ds_i = fl_int(0);"
@@ -1680,9 +1686,10 @@
 ;; (dotimes $i n body...) → C for loop
 (defn cgc-dotimes [$args]
   (let [[$var-node (get $args 0)]
-        [$n-c  (cgc (get $args 1))]
-        [$body-c (cgc-body $args 2 "")]
-        [$var-c  (cgc-extract-name $var-node)]]
+        [$var-c   (cgc-extract-name $var-node)]
+        [$_       (swap! outer-params-atom append $var-c)]
+        [$n-c     (cgc (get $args 1))]
+        [$body-c  (cgc-body $args 2 "")]]
     (str "(__extension__ ({ FLValue __n_" $var-c " = " $n-c ";"
          " FLValue " $var-c " = fl_int(0);"
          " for (; fl_truthy(fl_lt(" $var-c ", __n_" $var-c "));"
