@@ -11,12 +11,23 @@ __thread int fl_try_top = 0;
 /* FL 소스 라인 추적 (cgc-main이 throw 직전에 설정) */
 int __fl_throw_line = 0;
 
+/* ── 콜스택 추적 ── */
+#define FL_CALLSTACK_MAX 64
+__thread const char* __fl_callstack[FL_CALLSTACK_MAX];
+__thread int __fl_callstack_depth = 0;
+
+void fl_push_frame(const char* fn) {
+    if (__fl_callstack_depth < FL_CALLSTACK_MAX)
+        __fl_callstack[__fl_callstack_depth++] = fn;
+}
+void fl_pop_frame(void) {
+    if (__fl_callstack_depth > 0) __fl_callstack_depth--;
+}
+
 static void print_uncaught(FLValue err) {
     int lineno = __fl_throw_line;
-    const char* loc = lineno > 0 ? "" : "";
     char locbuf[32] = "";
     if (lineno > 0) snprintf(locbuf, sizeof(locbuf), " (line %d)", lineno);
-    (void)loc;
     if (err.tag == FL_STRING && err.obj)
         fprintf(stderr, "Uncaught error%s: %s\n", locbuf, ((FLString*)err.obj)->data);
     else if (err.tag == FL_MAP) {
@@ -25,6 +36,12 @@ static void print_uncaught(FLValue err) {
             fprintf(stderr, "Uncaught error%s: %s\n", locbuf, ((FLString*)msg.obj)->data);
         else fprintf(stderr, "Uncaught error%s\n", locbuf);
     } else fprintf(stderr, "Uncaught error%s\n", locbuf);
+    /* 콜스택 출력 */
+    if (__fl_callstack_depth > 0) {
+        fprintf(stderr, "Stack trace:\n");
+        for (int i = __fl_callstack_depth - 1; i >= 0; i--)
+            fprintf(stderr, "  at %s\n", __fl_callstack[i]);
+    }
 }
 
 void fl_throw(FLValue err) {

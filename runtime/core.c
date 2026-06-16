@@ -77,9 +77,11 @@ const char* fl_type_name(FLValue v) {
 }
 
 static void fl_type_error(const char* op, const char* expected, FLValue got) {
-    fprintf(stderr, "[FL Error] TypeError: %s — %s 필요, %s 제공\n",
-            op, expected, fl_type_name(got));
-    exit(1);
+    char buf[256];
+    snprintf(buf, sizeof(buf), "TypeError: %s — %s 필요, %s 제공",
+             op, expected, fl_type_name(got));
+    fl_throw(fl_str_val(buf));
+    exit(1); /* unreachable — fl_throw exits or longjmps */
 }
 
 static int fl_is_num(FLValue v) {
@@ -218,10 +220,10 @@ FLValue fl_div(FLValue a, FLValue b) {
     if (a.tag == FL_FLOAT || b.tag == FL_FLOAT) {
         double av = (a.tag == FL_FLOAT) ? a.f : (double)a.i;
         double bv = (b.tag == FL_FLOAT) ? b.f : (double)b.i;
-        if (bv == 0.0) { fprintf(stderr, "[FL Error] ArithmeticError: 0으로 나눌 수 없습니다\n"); exit(1); }
+        if (bv == 0.0) fl_throw(fl_str_val("ArithmeticError: 0으로 나눌 수 없습니다"));
         return fl_float(av / bv);
     }
-    if (b.i == 0) { fprintf(stderr, "[FL Error] ArithmeticError: 0으로 나눌 수 없습니다\n"); exit(1); }
+    if (b.i == 0) fl_throw(fl_str_val("ArithmeticError: 0으로 나눌 수 없습니다"));
     return fl_int(a.i / b.i);
 }
 

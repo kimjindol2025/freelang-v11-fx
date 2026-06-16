@@ -520,6 +520,13 @@ void fl_throw(FLValue err);
 FLValue fl_make_error(const char* type, const char* msg);
 /* throw 시 FL 소스 라인 추적 (cgc-main이 설정, uncaught handler가 출력) */
 extern int __fl_throw_line;
+/* 콜스택 추적 */
+void fl_push_frame(const char* fn);
+void fl_pop_frame(void);
+FLValue fl_assoc_in(FLValue m, FLValue keys, FLValue val);
+FLValue fl_update_in(FLValue m, FLValue keys, FLValue fn);
+FLValue fl_inspect(FLValue v);
+FLValue fl_pp(FLValue v);
 
 /* ── 연산자 first-class 래퍼 (HOF 인자로 사용 가능, e.g. (map + list)) ── */
 static inline FLValue __fl_op_add_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_add(a[0], a[1]); }

@@ -1584,3 +1584,92 @@ FLValue smtp_test(FLValue to) { return fl_smtp_test(to); }
 /* ── 프로세스/쉘 실행 ── (process.c 구현 참조) */
 extern FLValue _fl_process_run(FLValue cmd);
 FLValue shell_run(FLValue cmd) { return _fl_process_run(cmd); }
+
+/* ── assoc-in / update-in ── */
+static FLValue fl_assoc_in_impl(FLValue m, FLValue* keys, int klen, int ki, FLValue val) {
+    if (ki >= klen) return val;
+    FLValue key = keys[ki];
+    if (ki == klen - 1) return fl_map_set(m, key, val);
+    FLValue sub = (m.tag == FL_MAP) ? fl_map_get(m, key) : fl_nil();
+    if (sub.tag != FL_MAP) sub = fl_map_new();
+    return fl_map_set(m, key, fl_assoc_in_impl(sub, keys, klen, ki + 1, val));
+}
+
+FLValue fl_assoc_in(FLValue m, FLValue keys, FLValue val) {
+    if (keys.tag != FL_VECTOR) return fl_map_set(m, keys, val);
+    FLVector* kv = (FLVector*)keys.obj;
+    if (kv->len == 0) return val;
+    return fl_assoc_in_impl(m, kv->data, (int)kv->len, 0, val);
+}
+
+FLValue fl_update_in(FLValue m, FLValue keys, FLValue fn) {
+    if (keys.tag != FL_VECTOR) {
+        FLValue cur = (m.tag == FL_MAP) ? fl_map_get(m, keys) : fl_nil();
+        FLValue nv = fl_fn_call(fn, 1, &cur);
+        return fl_map_set(m, keys, nv);
+    }
+    FLVector* kv = (FLVector*)keys.obj;
+    if (kv->len == 0) return m;
+    /* get current value at path */
+    FLValue cur = m;
+    for (uint32_t i = 0; i < kv->len; i++) {
+        if (cur.tag != FL_MAP) { cur = fl_nil(); break; }
+        cur = fl_map_get(cur, kv->data[i]);
+    }
+    FLValue nv = fl_fn_call(fn, 1, &cur);
+    return fl_assoc_in_impl(m, kv->data, (int)kv->len, 0, nv);
+}
+
+/* ── fl_inspect / pp ── */
+static int fl_inspect_write(FLValue v, char* buf, int pos, int sz, int depth) {
+    if (pos >= sz - 4) { memcpy(buf + pos, "...", 3); return pos + 3; }
+    switch (v.tag) {
+        case FL_NIL:    return pos + snprintf(buf + pos, sz - pos, "nil");
+        case FL_BOOL:   return pos + snprintf(buf + pos, sz - pos, "%s", v.b ? "true" : "false");
+        case FL_INT:    return pos + snprintf(buf + pos, sz - pos, "%lld", (long long)v.i);
+        case FL_FLOAT:  return pos + snprintf(buf + pos, sz - pos, "%g", v.f);
+        case FL_STRING: {
+            const char* s = ((FLString*)v.obj)->data;
+            return pos + snprintf(buf + pos, sz - pos, "\"%s\"", s);
+        }
+        case FL_VECTOR: {
+            FLVector* vec = (FLVector*)v.obj;
+            buf[pos++] = '[';
+            for (uint32_t i = 0; i < vec->len && pos < sz - 4; i++) {
+                if (i) { buf[pos++] = ' '; }
+                pos = fl_inspect_write(vec->data[i], buf, pos, sz, depth + 1);
+            }
+            if (pos < sz - 1) buf[pos++] = ']';
+            buf[pos] = '\0';
+            return pos;
+        }
+        case FL_MAP: {
+            FLMap* mp = (FLMap*)v.obj;
+            buf[pos++] = '{';
+            for (uint32_t i = 0; i < mp->len && pos < sz - 4; i++) {
+                if (i) { buf[pos++] = ' '; }
+                pos = fl_inspect_write(mp->entries[i].key, buf, pos, sz, depth + 1);
+                buf[pos++] = ' ';
+                pos = fl_inspect_write(mp->entries[i].val, buf, pos, sz, depth + 1);
+            }
+            if (pos < sz - 1) buf[pos++] = '}';
+            buf[pos] = '\0';
+            return pos;
+        }
+        case FL_FN: return pos + snprintf(buf + pos, sz - pos, "#<fn>");
+        default:    return pos + snprintf(buf + pos, sz - pos, "#<?>");
+    }
+}
+
+FLValue fl_inspect(FLValue v) {
+    char buf[8192];
+    int len = fl_inspect_write(v, buf, 0, (int)sizeof(buf), 0);
+    buf[len] = '\0';
+    return fl_str_val(buf);
+}
+
+FLValue fl_pp(FLValue v) {
+    FLValue s = fl_inspect(v);
+    fprintf(stderr, "[pp] %s\n", ((FLString*)s.obj)->data);
+    return v;
+}

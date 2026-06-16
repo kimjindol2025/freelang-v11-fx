@@ -953,6 +953,10 @@
   [(= $op "assoc")       (str "fl_map_set(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "contains?")  (str "fl_contains_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "apply")      (str "fl_apply(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "assoc-in")   (str "fl_assoc_in(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "update-in")  (str "fl_update_in(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "inspect")    (str "fl_inspect(" (cgc (get $args 0)) ")")]
+  [(= $op "pp")         (str "fl_pp(" (cgc (get $args 0)) ")")]
   [(= $op "dissoc")      (str "dissoc(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "reverse")     (str "reverse(" (cgc (get $args 0)) ")")]
   [(= $op "sort")        (str "sort(" (cgc (get $args 0)) ")")]
@@ -1499,7 +1503,7 @@
   (let [[$last (= $i (- (length $args) 1))]
         [$c (cgc (get $args $i))]]
     (if $last
-      (str $acc "    return " $c ";\n")
+      (str $acc "    { FLValue __fl_ret__ = " $c "; fl_pop_frame(); return __fl_ret__; }\n")
       (cgc-defn-stmts $args (+ $i 1) (str $acc "    (void)(" $c ");\n"))))))
 
 ;; ── defn 직접재귀 TCO (goto 루프) ────────────────────────────────
@@ -1742,7 +1746,7 @@
   (let [[$last (= $i (- (length $args) 1))]
         [$c (cgc-with-recur-goto (get $args $i) $vars $label)]]
     (if $last
-      (str $acc "    return " $c ";\n")
+      (str $acc "    { FLValue __fl_ret__ = " $c "; fl_pop_frame(); return __fl_ret__; }\n")
       (cgc-defn-stmts-tco $args $vars $label (+ $i 1) (str $acc "    (void)(" $c ");\n"))))))
 
 (defn cgc-defn [$args]
@@ -1769,12 +1773,15 @@
               [$stmts (cgc-defn-stmts-tco $args $pnames $label 2 "")]]
           (str $line-directive
                "FLValue " $name "(" $ps ") {\n"
+               "    fl_push_frame(\"" $name "\");\n"
                "    " $label ":;\n"
                $stmts "}"))
         ;; 일반 경로
         (let [[$stmts (cgc-defn-stmts $args 2 "")]]
           (str $line-directive
-               "FLValue " $name "(" $ps ") {\n" $stmts "}"))))))
+               "FLValue " $name "(" $ps ") {\n"
+               "    fl_push_frame(\"" $name "\");\n"
+               $stmts "}"))))))
 
 ;; ── define (전역 변수) ──
 
