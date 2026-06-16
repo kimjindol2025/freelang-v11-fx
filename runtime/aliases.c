@@ -5,7 +5,9 @@
  * 런타임 구현은 fl_ 접두사를 쓰므로 여기서 bridge.
  */
 
+#define _GNU_SOURCE
 #include "runtime.h"
+#include "internal.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

@@ -95,7 +95,7 @@ if [ -f "$RUNTIME_DIR/mariadb.c" ]; then
 fi
 
 GCC_LOG="/tmp/fl_gcc_$$.log"
-if gcc -O2 -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
+if gcc -O2 -Werror=implicit-function-declaration -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
   -I "$RUNTIME_DIR" \
   -rdynamic -lpthread -lm -ldl -lsqlite3 -lssl -lcrypto -lcurl \
   -w 2>"$GCC_LOG"; then
