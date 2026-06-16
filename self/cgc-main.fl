@@ -178,8 +178,17 @@
         [(is-digit? $c) (read-number $st1)]
         [(and (= $c "-") (is-digit? (peek-at $st1 1)))
          (read-number-body (advance $st1) "-" false $line $col)]
+        [(= $c "#")
+         (if (= (peek-at $st1 1) "(")
+           (emit (advance (advance $st1)) "HashParen" "#(" $line $col)
+           (emit (advance $st1) "Unknown" "#" $line $col))]
+        [(= $c "|")
+         (if (= (peek-at $st1 1) ">")
+           (emit (advance (advance $st1)) "Pipe" "|>" $line $col)
+           (emit (advance $st1) "Unknown" "|" $line $col))]
         [(is-symbol-char? $c) (read-symbol $st1)]
         [true (emit (advance $st1) "Unknown" $c $line $col)])))))
+
 
 ;; ── 메인 루프 — 모든 토큰 수집
 
@@ -450,20 +459,87 @@
      (r-pair (p-advance $p) (make-keyword $v $line))]
     [true (r-pair (p-advance $p) (make-literal "unknown" $v $line))])))
 
+;; ── #() 단축 fn: % 심볼을 $__pct__ 로 치환
+
+(defn hash-fn-op [$node]
+  (if (= (get $node :kind) "literal") (get $node :value)
+  (if (= (get $node :kind) "variable") (str "$" (get $node :name))
+  "__apply__")))
+
+(defn replace-pct [$node]
+  ;; % 심볼 → $__pct__ variable
+  (if (and (= (get $node :kind) "literal")
+           (= (get $node :type) "symbol")
+           (= (get $node :value) "%"))
+    (make-variable "__pct__" (get $node :line))
+    (if (= (get $node :kind) "sexpr")
+      (make-sexpr (get $node :op) (replace-pct-list (get $node :args) 0 []) (get $node :line))
+      $node)))
+
+(defn replace-pct-list [$lst $i $acc]
+  (if (>= $i (length $lst)) $acc
+  (replace-pct-list $lst (+ $i 1) (append $acc (replace-pct (get $lst $i))))))
+
+(defn parse-hash-fn [$p]
+  ;; #(op arg...) → (fn [$__pct__] (op replaced-args...))
+  (let [[$tok (p-peek $p)]
+        [$line (get $tok :line)]
+        [$p1 (p-advance $p)]
+        [$collected (parse-args $p1 [])]
+        [$p2 (get $collected :p)]
+        [$raw (get $collected :node)]
+        [$p3 (parse-consume-rparen $p2)]
+        [$replaced (replace-pct-list $raw 0 [])]]
+    (r-pair $p3
+            (make-sexpr "fn"
+              (list (make-array-block (list (make-variable "__pct__" $line)) $line)
+                    (if (= (length $replaced) 0) (make-literal "nil" null $line)
+                    (if (= (length $replaced) 1) (get $replaced 0)
+                    (make-sexpr (hash-fn-op (get $replaced 0)) (rest $replaced) $line))))
+              $line))))
+
+;; ── |> 파이프 체인: 왼쪽 결합 (x |> f |> g → (g (f x)))
+
+(defn make-pipe-call [$lhs $rhs $line]
+  ;; FL 컨벤션: (filter fn coll) (map fn coll) → lhs를 마지막 인자로
+  (if (= (get $rhs :kind) "sexpr")
+    ;; (f a...) → (f a... lhs)
+    (make-sexpr (get $rhs :op)
+                (concat (get $rhs :args) (list $lhs))
+                $line)
+    ;; bare symbol: f → (f lhs)
+    (make-sexpr (get $rhs :value) (list $lhs) $line)))
+
+(defn parse-pipe-chain [$p $lhs]
+  (let [[$nt (p-peek $p)]]
+  (if (and (not (null? $nt)) (= (get $nt :kind) "Pipe"))
+    (let [[$p2 (p-advance $p)]                      ;; |> 소비
+          [$rhs-res (parse-expr-base $p2)]
+          [$p3 (get $rhs-res :p)]
+          [$rhs (get $rhs-res :node)]
+          [$line (get $nt :line)]]
+      (parse-pipe-chain $p3 (make-pipe-call $lhs $rhs $line)))
+    (r-pair $p $lhs))))
+
 ;; ── 33 parse-expr — 단일 표현식 (atom 또는 S-expr/array/map/block)
 
-(defn parse-expr [$p]
+(defn parse-expr-base [$p]
   (let [[$t (p-peek $p)] [$k (get $t :kind)] [$v (get $t :value)]]
   (cond
-    [(= $k "LParen")   (parse-sexpr $p)]
-    [(= $k "LBracket") (parse-bracket $p)]
-    [(= $k "LBrace")   (parse-map $p)]
+    [(= $k "LParen")    (parse-sexpr $p)]
+    [(= $k "LBracket")  (parse-bracket $p)]
+    [(= $k "LBrace")    (parse-map $p)]
+    [(= $k "HashParen") (parse-hash-fn $p)]
     [(and (= $k "Unknown") (= $v "@"))
      (let [[$p1 (p-advance $p)]
-           [$res (parse-expr $p1)]]
+           [$res (parse-expr-base $p1)]]
        (r-pair (get $res :p)
                (make-sexpr "deref" (list (get $res :node)) (get $t :line))))]
     [true (parse-atom $p)])))
+
+(defn parse-expr [$p]
+  (let [[$res (parse-expr-base $p)]]
+  (parse-pipe-chain (get $res :p) (get $res :node))))
 
 ;; ── 33 parse-sexpr (parens)
 
