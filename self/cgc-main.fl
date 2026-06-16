@@ -1793,14 +1793,14 @@
               [$stmts (cgc-defn-stmts-tco $args $pnames $label 2 "")]]
           (str $line-directive
                "FLValue " $name "(" $ps ") {\n"
-               "    fl_push_frame(\"" $name "\");\n"
+               "    fl_push_frame_ln(\"" $name "\", __LINE__);\n"
                "    " $label ":;\n"
                $stmts "}"))
         ;; 일반 경로
         (let [[$stmts (cgc-defn-stmts $args 2 "")]]
           (str $line-directive
                "FLValue " $name "(" $ps ") {\n"
-               "    fl_push_frame(\"" $name "\");\n"
+               "    fl_push_frame_ln(\"" $name "\", __LINE__);\n"
                $stmts "}"))))))
 
 ;; ── define (전역 변수) ──

@@ -522,6 +522,7 @@ FLValue fl_make_error(const char* type, const char* msg);
 extern int __fl_throw_line;
 /* 콜스택 추적 */
 void fl_push_frame(const char* fn);
+void fl_push_frame_ln(const char* fn, int line);
 void fl_pop_frame(void);
 FLValue fl_assoc_in(FLValue m, FLValue keys, FLValue val);
 FLValue fl_update_in(FLValue m, FLValue keys, FLValue fn);

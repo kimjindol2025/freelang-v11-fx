@@ -14,11 +14,23 @@ int __fl_throw_line = 0;
 /* ── 콜스택 추적 ── */
 #define FL_CALLSTACK_MAX 64
 __thread const char* __fl_callstack[FL_CALLSTACK_MAX];
+__thread int         __fl_callstack_line[FL_CALLSTACK_MAX];
 __thread int __fl_callstack_depth = 0;
 
 void fl_push_frame(const char* fn) {
-    if (__fl_callstack_depth < FL_CALLSTACK_MAX)
-        __fl_callstack[__fl_callstack_depth++] = fn;
+    if (__fl_callstack_depth < FL_CALLSTACK_MAX) {
+        __fl_callstack[__fl_callstack_depth]      = fn;
+        __fl_callstack_line[__fl_callstack_depth] = 0;
+        __fl_callstack_depth++;
+    }
+}
+void fl_push_frame_ln(const char* fn, int line) {
+    if (__fl_callstack_depth < FL_CALLSTACK_MAX) {
+        __fl_callstack[__fl_callstack_depth]      = fn;
+        __fl_callstack_line[__fl_callstack_depth] = line;
+        __fl_callstack_depth++;
+        if (line > 0) __fl_throw_line = line;
+    }
 }
 void fl_pop_frame(void) {
     if (__fl_callstack_depth > 0) __fl_callstack_depth--;
@@ -39,8 +51,13 @@ static void print_uncaught(FLValue err) {
     /* 콜스택 출력 */
     if (__fl_callstack_depth > 0) {
         fprintf(stderr, "Stack trace:\n");
-        for (int i = __fl_callstack_depth - 1; i >= 0; i--)
-            fprintf(stderr, "  at %s\n", __fl_callstack[i]);
+        for (int i = __fl_callstack_depth - 1; i >= 0; i--) {
+            int ln = __fl_callstack_line[i];
+            if (ln > 0)
+                fprintf(stderr, "  at %s (line %d)\n", __fl_callstack[i], ln);
+            else
+                fprintf(stderr, "  at %s\n", __fl_callstack[i]);
+        }
     }
 }
 
