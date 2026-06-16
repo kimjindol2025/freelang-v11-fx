@@ -554,8 +554,11 @@
     (parse-array $p1 $line))))
 
 (defn is-block-type? [$s]
+  ;; 대문자 시작 + 밑줄 없음 = named block (FUNC, Array, Map 등)
+  ;; 밑줄 포함(BASE_URL, DB_PATH 등)은 define 상수 → 일반 심벌로 처리
   (let [[$c (char-at $s 0)]]
-  (and (>= $c "A") (<= $c "Z"))))
+  (and (>= $c "A") (<= $c "Z")
+       (not (str-includes $s "_")))))
 
 (defn upper-case [$s]
   $s)   ;; FL stdlib 기본 upper-case 가 없으면 identity. 판별엔 첫글자만 본다.

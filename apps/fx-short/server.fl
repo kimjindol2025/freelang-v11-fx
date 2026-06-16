@@ -54,14 +54,13 @@
         (if (null? $api-key)
           (json-error "Authorization 헤더 필수")
           (let [[$code    (gen-code $url)]
-                [$created (now-str)]
-                [$base    BASE_URL]]
+                [$created (now-str)]]
             (fxb_sqlite_exec_p db
               "INSERT OR IGNORE INTO urls (code, url, api_key, created) VALUES (?, ?, ?, ?)"
               (list $code $url $api-key $created))
             (json-ok
               {"code"    $code
-               "short"   (str $base "/" $code)
+               "short"   (format "%s/%s" [BASE_URL $code])
                "url"     $url
                "created" $created})))))))
 
@@ -87,7 +86,7 @@
       (let [[$rows   (fxb_sqlite_query_p db
                         "SELECT code, url, clicks, created FROM urls WHERE api_key=? ORDER BY clicks DESC"
                         (list $api-key))]
-            [$total  (reduce (fn [$acc $r] (+ $acc (get $r "clicks"))) 0 $rows)]
+            [$total  (reduce (fn [$acc $r] (+ $acc (or (get $r "clicks") 0))) 0 $rows)]
             [$public (map (fn [$r] (select-keys $r ["code" "url" "clicks" "created"])) $rows)]]
         (json-ok
           {"total_clicks" $total
