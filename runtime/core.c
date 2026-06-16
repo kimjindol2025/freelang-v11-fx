@@ -408,11 +408,11 @@ FLValue fl_html_escape(FLValue s) {
     for (size_t i = 0; i < n; i++) {
         unsigned char c = (unsigned char)src[i];
         switch (c) {
-            case '&':  strcpy(dst, "&amp;");  dst += 5; break;
-            case '<':  strcpy(dst, "&lt;");   dst += 4; break;
-            case '>':  strcpy(dst, "&gt;");   dst += 4; break;
-            case '"':  strcpy(dst, "&quot;"); dst += 6; break;
-            case '\'': strcpy(dst, "&#39;");  dst += 5; break;
+            case '&':  memcpy(dst, "&amp;",  5); dst += 5; break;
+            case '<':  memcpy(dst, "&lt;",   4); dst += 4; break;
+            case '>':  memcpy(dst, "&gt;",   4); dst += 4; break;
+            case '"':  memcpy(dst, "&quot;", 6); dst += 6; break;
+            case '\'': memcpy(dst, "&#39;",  5); dst += 5; break;
             default:   *dst++ = (char)c;               break;
         }
     }

@@ -966,9 +966,10 @@ FLValue str_replace_re(FLValue str_v, FLValue pat_v, FLValue rep_v) {
         int start = m[0].rm_so, end = m[0].rm_eo;
         int slen = (int)strlen(s), rlen = (int)strlen(rep);
         char* buf = (char*)malloc(slen - (end - start) + rlen + 1);
+        int tail = slen - end;
         memcpy(buf, s, start);
         memcpy(buf + start, rep, rlen);
-        strcpy(buf + start + rlen, s + end);
+        memcpy(buf + start + rlen, s + end, tail + 1);  /* tail + null */
         result = fl_str_val(buf);
         free(buf);
     }
