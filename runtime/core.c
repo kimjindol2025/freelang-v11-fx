@@ -228,8 +228,10 @@ FLValue fl_div(FLValue a, FLValue b) {
 }
 
 FLValue fl_mod(FLValue a, FLValue b) {
-    if (b.i == 0) { fputs("error: mod by zero\n", stderr); exit(1); }
-    return fl_int(a.i % b.i);
+    long long ai = (a.tag == FL_FLOAT) ? (long long)a.f : a.i;
+    long long bi = (b.tag == FL_FLOAT) ? (long long)b.f : b.i;
+    if (bi == 0) { fputs("error: mod by zero\n", stderr); exit(1); }
+    return fl_int(ai % bi);
 }
 
 /* ── 비교 ── */

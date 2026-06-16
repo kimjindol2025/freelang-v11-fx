@@ -481,7 +481,9 @@
   (replace-pct-list $lst (+ $i 1) (append $acc (replace-pct (get $lst $i))))))
 
 (defn parse-hash-fn [$p]
-  ;; #(op arg...) → (fn [$__pct__] (op replaced-args...))
+  ;; #(op arg...) → (fn [$__pct__] body)
+  ;; 순서: 1) sexpr 구성 (op 자리 확정) 2) replace-pct (% 치환)
+  ;; 이유: replace-pct 먼저 하면 op 자리의 % 연산자도 $__pct__로 치환돼 오류
   (let [[$tok (p-peek $p)]
         [$line (get $tok :line)]
         [$p1 (p-advance $p)]
@@ -489,13 +491,14 @@
         [$p2 (get $collected :p)]
         [$raw (get $collected :node)]
         [$p3 (parse-consume-rparen $p2)]
-        [$replaced (replace-pct-list $raw 0 [])]]
+        [$body (if (= (length $raw) 0) (make-literal "nil" null $line)
+               (if (= (length $raw) 1) (get $raw 0)
+               (make-sexpr (hash-fn-op (get $raw 0)) (rest $raw) $line)))]
+        [$replaced (replace-pct $body)]]
     (r-pair $p3
             (make-sexpr "fn"
               (list (make-array-block (list (make-variable "__pct__" $line)) $line)
-                    (if (= (length $replaced) 0) (make-literal "nil" null $line)
-                    (if (= (length $replaced) 1) (get $replaced 0)
-                    (make-sexpr (hash-fn-op (get $replaced 0)) (rest $replaced) $line))))
+                    $replaced)
               $line))))
 
 ;; ── |> 파이프 체인: 왼쪽 결합 (x |> f |> g → (g (f x)))
