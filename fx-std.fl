@@ -1,19 +1,24 @@
 ;; ── fx-std.fl — FreeLang fx 표준 라이브러리 ──────────────────────────────
 ;; 사용법: (load "/home/kimjin/freelang-v11-fx/fx-std.fl")
 ;;
-;; fx 런타임 내장 (이미 있음, 여기서 재정의 금지):
+;; fx 런타임 내장 (여기서 재정의 금지):
 ;;   take, drop, flatten, zip, concat, merge, first, rest, nth
-;;   str_starts_with/ends_with/contains/lower/upper/trim/slice/split
-;;   to_int, to_float, str_to_num, assoc, dissoc, merge, select_keys
-;;   entries, vals, every, some, reverse, sort, fl_map_indexed
+;;   str-starts-with/ends-with/str-includes/str-lower/str-upper/str-trim
+;;   str-replace/str-slice/str-split/str-to-num/str-join/index-of
+;;   assoc, dissoc, merge, select-keys, keys, vals, update, assoc-in, update-in
+;;   filter, map, reduce, every, some, reverse, sort
+;;   format, base64-encode, base64-decode, inspect, pp
+;;   clamp, includes-item, append
 
 ;; ─── 1. 문자열 유틸 ─────────────────────────────────────────────────────
 
 (defn blank? [$s]
-  (or (nil? $s) (= (str-trim $s) "")))
+  (or (null? $s) (= (str-trim $s) "")))
 
 (defn str-coerce [$v]
-  (if (nil? $v) "" (str $v)))
+  (if (null? $v) "" (str $v)))
+
+;; str-join → 런타임 내장 (io.c str_join)
 
 (defn url-encode-simple [$s]
   (str-replace (str-coerce $s) " " "+"))
@@ -22,20 +27,18 @@
 
 (defn safe-int [$v $default]
   (let [[$n (str-to-num (str-coerce $v))]]
-    (if (nil? $n) $default $n)))
+    (if (null? $n) $default (to-int $n))))
 
 (defn safe-float [$v $default]
   (let [[$n (str-to-num (str-coerce $v))]]
-    (if (nil? $n) $default $n)))
+    (if (null? $n) $default $n)))
 
-(defn clamp [$v $lo $hi]
-  (if (< $v $lo) $lo
-    (if (> $v $hi) $hi $v)))
+;; clamp → 런타임 내장 (aliases.c)
 
 ;; ─── 3. 컬렉션 유틸 ─────────────────────────────────────────────────────
 
 (defn first-or [$col $default]
-  (if (or (nil? $col) (= (length $col) 0))
+  (if (or (null? $col) (= (length $col) 0))
     $default
     (get $col 0)))
 
@@ -48,14 +51,33 @@
       (if (includes-item $acc $x) $acc (append $acc $x)))
     (list) $col))
 
+(defn zip-map [$ks $vs]
+  ;; range는 단일 인자만: (range n) → [0..n-1]
+  (reduce
+    (fn [$acc $i]
+      (assoc $acc (get $ks $i) (get $vs $i)))
+    {}
+    (range (length $ks))))
+
+;; index-of → 런타임 내장 (math.c)
+
 ;; ─── 4. 맵 유틸 ─────────────────────────────────────────────────────────
 
 (defn get-or [$m $k $default]
   (let [[$v (get $m $k)]]
-    (if (nil? $v) $default $v)))
+    (if (null? $v) $default $v)))
 
-(defn omit-keys [$m $keys]
-  (reduce (fn [$acc $k] (dissoc $acc $k)) $m $keys))
+(defn omit-keys [$m $ks]
+  (reduce (fn [$acc $k] (dissoc $acc $k)) $m $ks))
+
+(defn rename-keys [$m $remap]
+  (reduce
+    (fn [$acc $k]
+      (let [[$new-k (get $remap $k)]
+            [$val   (get $m $k)]]
+        (if (null? $new-k) $acc (assoc $acc $new-k $val))))
+    {}
+    (keys $remap)))
 
 ;; ─── 5. HTTP 응답 헬퍼 ──────────────────────────────────────────────────
 
@@ -77,46 +99,74 @@
 (defn err-server [$msg]
   (server_status 500 (json_stringify {"ok" false "error" $msg})))
 
-;; ─── 6. SQLite 페이지네이션 ─────────────────────────────────────────────
+;; ─── 6. 요청 헬퍼 ───────────────────────────────────────────────────────
 
-(defn sqlite-paginate [$db $table $page $limit]
-  (let [[$offset (* (- $page 1) $limit)]
-        [$rows (sqlite_query_p $db
-                 (str "SELECT * FROM " $table " LIMIT ? OFFSET ?")
-                 (list $limit $offset))]
-        [$total (get (sqlite_one $db
-                       (str "SELECT COUNT(*) as n FROM " $table)) "n")]]
-    {"rows" $rows "total" $total "page" $page "limit" $limit}))
-
-;; ─── 7. MariaDB 페이지네이션 ────────────────────────────────────────────
-
-(defn mysql-paginate [$db $table $page $limit]
-  (let [[$offset (* (- $page 1) $limit)]
-        [$rows (mariadb_query_p $db
-                 (str "SELECT * FROM " $table " LIMIT ? OFFSET ?")
-                 (list $limit $offset))]
-        [$cnt-row (mariadb_one_p $db
-                    (str "SELECT COUNT(*) as n FROM " $table) (list))]
-        [$total (get $cnt-row "n")]]
-    {"rows" $rows "total" $total "page" $page "limit" $limit}))
-
-;; ─── 8. 인증 헬퍼 ───────────────────────────────────────────────────────
+(defn get-header [$req $name]
+  ;; 런타임은 헤더 원본 케이스 유지 → 소문자 비교로 스캔
+  (let [[$hdrs  (get $req "headers")]
+        [$lower (str-lower $name)]
+        [$exact (get $hdrs $name)]]
+    (if (not (null? $exact)) $exact
+      (reduce
+        (fn [$acc $k]
+          (if (not (null? $acc)) $acc
+            (if (= (str-lower $k) $lower) (get $hdrs $k) nil)))
+        nil
+        (keys $hdrs)))))
 
 (defn bearer-token [$req]
-  (let [[$auth (server_req_header $req "Authorization")]]
-    (if (nil? $auth) nil
+  (let [[$auth (get-header $req "authorization")]]
+    (if (null? $auth) nil
       (if (str-starts-with $auth "Bearer ")
         (str-slice $auth 7 (length $auth))
         nil))))
 
-;; ─── 9. 타임스탬프 ──────────────────────────────────────────────────────
+(defn req-param [$req $name]
+  (get (get $req "params") $name))
+
+(defn req-query [$req $name]
+  (get (get $req "query") $name))
+
+(defn req-body [$req]
+  (get $req "body"))
+
+(defn query-int [$req $name $default]
+  (safe-int (req-query $req $name) $default))
+
+;; ─── 7. SQLite 헬퍼 ─────────────────────────────────────────────────────
+
+(defn db-one [$db $sql $params]
+  (let [[$rows (fxb_sqlite_query_p $db $sql $params)]]
+    (if (= (length $rows) 0) nil (get $rows 0))))
+
+(defn sqlite-count [$db $table]
+  (let [[$row (db-one $db
+                 (str "SELECT COUNT(*) as n FROM " $table) (list))]]
+    (if (null? $row) 0 (or (get $row "n") 0))))
+
+(defn sqlite-paginate [$db $sql $params $page $limit]
+  (let [[$offset (* (- $page 1) $limit)]
+        [$paged  (str $sql " LIMIT ? OFFSET ?")]
+        [$rows   (fxb_sqlite_query_p $db $paged
+                   (append (append $params $limit) $offset))]]
+    {"rows" $rows "page" $page "limit" $limit}))
+
+;; ─── 8. 타임스탬프 ──────────────────────────────────────────────────────
 
 (defn now-ms [] (fl_now_ms))
 
-;; ─── 10. 로깅 ───────────────────────────────────────────────────────────
+(defn now-str []
+  (str-trim (shell_run "date -u +%Y-%m-%dT%H:%M:%SZ")))
+
+;; ─── 9. 로깅 ────────────────────────────────────────────────────────────
 
 (defn log-info [$msg]
   (println (str "[INFO] " $msg)))
 
 (defn log-error [$msg]
   (println (str "[ERROR] " $msg)))
+
+(defn log-req [$req]
+  (println (str "[" (now-str) "] "
+                (get $req "method") " "
+                (get $req "path"))))
