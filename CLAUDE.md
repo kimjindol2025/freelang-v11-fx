@@ -122,6 +122,35 @@ cgc-bin이 `defn` 안에서 이를 C 함수처럼 호출하는 코드를 생성�
           [] @$clients))
 ```
 
+### 2-b. 람다 클로저 — map 키 이름이 변수명과 같으면 충돌
+
+`reduce` lambda 안에서 맵 리터럴의 **키 이름**이 lambda 내부 let 바인딩 변수명과 같으면
+cgc-bin이 해당 키를 자유변수로 분류해 클로저 env에 추가한다.
+결과: gcc에서 `'acc' undeclared` 같은 오류 발생.
+
+```lisp
+;; ❌ "acc", "id" 키가 let 바인딩 $acc, $id와 이름 충돌
+(reduce
+  (fn [$st $entry]
+    (let [[$acc (get $st "acc")]
+          [$id  (get $st "id")]]
+      {"acc" (str $acc ...) "id" (+ $id 1)}))
+  {"acc" "" "id" 0}
+  $list)
+
+;; ✅ 키 이름을 변수명과 다르게
+(reduce
+  (fn [$st $entry]
+    (let [[$xacc (get $st "xacc")]
+          [$xid  (get $st "xid")]]
+      {"xacc" (str $xacc ...) "xid" (+ $xid 1)}))
+  {"xacc" "" "xid" 0}
+  $list)
+```
+
+**규칙**: `reduce` 상태 맵의 키는 lambda 내 변수명과 절대 겹치지 않게 짓는다.
+예: `"acc"` → `"xacc"/"istr"`, `"id"` → `"xid"/"iid"`.
+
 ### 3. server_json은 JSON 문자열만 받음
 
 ```lisp
