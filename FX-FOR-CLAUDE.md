@@ -99,7 +99,7 @@ bash fl-repl.sh   # REPL    bash fl-test.sh   # 테스트    bash fl-watch.sh  #
 ## 더 읽을 것 (필요할 때만)
 
 - **`CLAUDE.md`** — fx API 레퍼런스 전체 (HTTP/SQLite/MariaDB/JSON/함정 목록·수정 이력). 가장 권위 있음.
-- **`FX-STATE-2026-06-14.md`** — 현재 상태 스냅샷(검증된 사실·미해결·빌드체계 상세).
+- **`docs/status/FX-STATE-2026-06-14.md`** — 현재 상태 스냅샷(검증된 사실·미해결·빌드체계 상세).
 - **`fx-files/LANGUAGE-NOTES.md`** — 실전 삽질로 발견한 언어 노트.
 - ⚠️ `README.md`는 구버전 서술(인터프리터 실험 시절). **CLAUDE.md가 정식.**
 
