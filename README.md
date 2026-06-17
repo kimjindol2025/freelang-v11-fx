@@ -1,7 +1,36 @@
 # freelang-v11-fx
 
-FL v11 **실험 런타임** + **11.7.11 통합 기준선/회귀패치 보존** 리포.
-운영 `freelang-v11` 과 분리된 실험·기록 공간. (원칙: 기록이 증명이다)
+FL v11 **fx C 네이티브 런타임** + 앱 생태계. (원칙: 기록이 증명이다)
+- **언어/빌드 입문**: `FX-FOR-CLAUDE.md` · **API 레퍼런스**: `CLAUDE.md` · **함정 명세**: `FX-TRAPS.airc`
+- **빌드**: `bash fl-build.sh <app>/server.fl <out>` (이 노드 aarch64: `.fl-build-root.sh`)
+- **문서**: `docs/{status,decisions,reports,architecture}/`
+
+## 🗂 fx 앱 카탈로그
+
+| 앱 | 포트 | 설명 |
+|----|------|------|
+| `fx-sqlite-browser` | 40286 | SQLite DB 브라우저 (테이블·CRUD·SQL 콘솔) ✓검증 |
+| `fx-server-monitor` | 40288 | HTTP 서비스 health (Outside-In·가용성%) ✓검증 |
+| `fx-live-monitor` | 40290 | 실시간 서비스 health (websocket) |
+| `fx-chat` | 40291 | 실시간 채팅 |
+| `fx-demo` | 40295 | fx 언어 데모 |
+| `fx-world` | 40296 | 환율/날씨 API |
+| `fx-queue` | 40297 | 작업 큐 |
+| `fx-mail` | 40299 | 메일 발송 (sendmail) |
+| `fx-notify` | 40300 | 이벤트 버스 알림 |
+| `fx-monitor` | 40301 | 시스템 모니터 (Inside-Out·CPU/Mem/PM2) |
+| `fx-deploy` | 40302 | 배포 엔진 |
+| `fx-cron` | 40303 | 인터벌 스케줄러 |
+| `fx-kv` | 40304 | Key-Value 스토어 |
+| `fx-log` | 40305 | 중앙 로그 수집 |
+| `fx-auth` | 40306 | 인증 서버 |
+| `fx-proxy` | 40307 | 리버스 프록시 + 로드밸런서 |
+| `fx-search` | 40308 | TF 역인덱스 검색 엔진 |
+| `fx-short` | 40309 | URL 단축기 (`apps/`) |
+| `fx-dashboard` | 40310 | 읽기전용 운영 콘솔 (7패널) ✓검증 |
+| `fx-files` | — | 파일 탐색기 (CLI/FS) |
+
+> 모니터 3종 = `fx-monitor`(Inside-Out) + `fx-server-monitor`·`fx-live-monitor`(Outside-In). 상세 `docs/decisions/MONITOR-AXES.md`.
 
 ## 구성
 

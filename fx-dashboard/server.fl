@@ -160,5 +160,5 @@
   (server_get "/api/services"  "api-services")
   (server_get "/api/events"    "api-events")
   (server_get "/api/traps"     "api-traps")
-  (println "fx-dashboard → http://localhost:40308")
-  (server_start 40308))
+  (println "fx-dashboard → http://localhost:40310")
+  (server_start 40310))
