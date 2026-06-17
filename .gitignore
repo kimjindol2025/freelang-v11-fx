@@ -14,3 +14,13 @@ templates/*/hello-server
 *.db-shm
 *.db-wal
 dist/
+
+# cgc ELF 바이너리 (노드별 재빌드 — 추적 금지)
+fx-*/fx-*
+fx-*/server
+fx-*/test-*
+apps/*/fx-*
+*-bin
+*.o
+*.so
+*.a
