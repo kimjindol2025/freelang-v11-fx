@@ -1,12 +1,15 @@
 ;; ── pdf.fl — FreeLang fx PDF 생성 라이브러리 ──────────────────────────
 ;; (load "/home/kim/freelang-v11-fx/stdlib/pdf.fl")
 ;;
-;; 사용법:
-;;   (let [[$doc (pdf_new "제목")]]
-;;     (let [[$doc (pdf_text $doc "안녕하세요" 72 700 16)]]
-;;       (pdf_save $doc "/tmp/output.pdf")))
+;; 한글 사용 시:
+;;   (pdf-ttf-load "/mnt/c/Windows/Fonts/malgun.ttf")  ;; 먼저 호출
+;;   → 이후 pdf_text/pdf_bold에서 Identity-H hex 자동 사용
+;;
+;; 영문만 사용 시:
+;;   별도 설정 없이 Helvetica 자동 사용
 ;;
 ;; API:
+;;   pdf-ttf-load   path → true/nil  (한글 폰트 등록)
 ;;   pdf_new        title → doc
 ;;   pdf_text       doc text x y size → doc
 ;;   pdf_bold       doc text x y size → doc
@@ -16,19 +19,32 @@
 ;;   pdf_build      doc → pdf-string
 ;;   pdf_save       doc path → nil
 
+;; ─── 내부: 텍스트 인코딩 ────────────────────────────────────────────────
+;; pdf-ttf-size() > 0 이면 TTF 로드됨 → Identity-H hex 사용
+
+(defn pdf_has_ko []
+  (> (pdf-ttf-size) 0))
+
+(defn pdf_encode_text [$text]
+  (if (pdf_has_ko)
+    (pdf-ttf-glyphs $text)
+    (let [[$s1 (str-replace $text "\\" "\\\\")]
+          [$s2 (str-replace $s1 "(" "\\(")]
+          [$s3 (str-replace $s2 ")" "\\)")]]
+      (str "(" $s3 ")"))))
+
 ;; ─── 내부: 콘텐츠 스트림 명령 생성 ─────────────────────────────────────
 
 (defn pdf_cmd_text [$text $x $y $size $bold]
-  (let [[$font (if $bold "F2" "F1")]
-        [$s1 (str-replace $text "\\" "\\\\")]
-        [$s2 (str-replace $s1 "(" "\\(")]
-        [$safe (str-replace $s2 ")" "\\)")]
-        [$result (str "BT\n/"
-                      $font " " $size " Tf\n"
-                      $x " " $y " Td\n"
-                      "(" $safe ") Tj\n"
-                      "ET\n")]]
-    $result))
+  (let [[$font (if (pdf_has_ko)
+                 (if $bold "/FK" "/FK")
+                 (if $bold "/F2" "/F1"))]
+        [$encoded (pdf_encode_text $text)]]
+    (str "BT\n"
+         $font " " $size " Tf\n"
+         $x " " $y " Td\n"
+         $encoded " Tj\n"
+         "ET\n")))
 
 (defn pdf_cmd_line [$x1 $y1 $x2 $y2]
   (str $x1 " " $y1 " m\n"
@@ -40,9 +56,9 @@
 ;; ─── 새 문서 생성 ────────────────────────────────────────────────────────
 
 (defn pdf_new [$title]
-  {"title"  $title
-   "pages"  (list (list))
-   "cur"    0})
+  {"title" $title
+   "pages" (list (list))
+   "cur"   0})
 
 ;; ─── 현재 페이지에 명령 추가 ─────────────────────────────────────────────
 
@@ -73,11 +89,10 @@
         [$np    (append $pages (list))]]
     (assoc (assoc $doc "pages" $np) "cur" (length $pages))))
 
-;; ─── PDF 바이너리 빌드 ───────────────────────────────────────────────────
+;; ─── PDF 빌드 (영문 전용) ────────────────────────────────────────────────
 
-(defn pdf_build [$doc]
+(defn pdf_build_latin [$doc]
   (let [[$pages  (get $doc "pages")]
-        [$title  (get $doc "title")]
         [$npage  (length $pages)]
         [$cat_id 1]
         [$pgs_id 2]
@@ -86,59 +101,123 @@
         [$f1_id     (+ 3 (* 2 $npage))]
         [$f2_id     (+ 4 (* 2 $npage))]
         [$hdr "%PDF-1.4\n"]
-        [$cat_obj (str $cat_id " 0 obj\n"
-                       "<< /Type /Catalog /Pages " $pgs_id " 0 R >>\n"
-                       "endobj\n")]
-        [$kids_str (str-join
-                     (map (fn [$pid] (str $pid " 0 R ")) $page_ids)
-                     "")]
-        [$pgs_obj (str $pgs_id " 0 obj\n"
-                       "<< /Type /Pages /Kids [" $kids_str "] /Count " $npage " >>\n"
-                       "endobj\n")]
-        [$f1_obj (str $f1_id " 0 obj\n"
-                      "<< /Type /Font /Subtype /Type1 "
-                      "/BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\n"
-                      "endobj\n")]
-        [$f2_obj (str $f2_id " 0 obj\n"
-                      "<< /Type /Font /Subtype /Type1 "
-                      "/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\n"
-                      "endobj\n")]
+        [$cat_obj (str $cat_id " 0 obj\n<< /Type /Catalog /Pages " $pgs_id " 0 R >>\nendobj\n")]
+        [$kids_str (str-join (map (fn [$pid] (str $pid " 0 R ")) $page_ids) "")]
+        [$pgs_obj (str $pgs_id " 0 obj\n<< /Type /Pages /Kids [" $kids_str "] /Count " $npage " >>\nendobj\n")]
+        [$f1_obj (str $f1_id " 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n")]
+        [$f2_obj (str $f2_id " 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n")]
+        [$fref   (str "/F1 " $f1_id " 0 R /F2 " $f2_id " 0 R")]
         [$page_objs
           (map (fn [$i]
             (let [[$pid  (get $page_ids $i)]
                   [$cid  (get $cont_ids $i)]
                   [$cmds (str-join (get $pages $i) "")]
-                  [$clen (length $cmds)]
-                  [$pobj (str $pid " 0 obj\n"
-                              "<< /Type /Page /Parent " $pgs_id " 0 R\n"
-                              "   /MediaBox [0 0 595 842]\n"
-                              "   /Contents " $cid " 0 R\n"
-                              "   /Resources << /Font << /F1 " $f1_id " 0 R /F2 " $f2_id " 0 R >> >> >>\n"
-                              "endobj\n")]
-                  [$cobj (str $cid " 0 obj\n"
-                              "<< /Length " $clen " >>\n"
-                              "stream\n"
-                              $cmds
-                              "endstream\n"
-                              "endobj\n")]]
-              (str $pobj $cobj)))
+                  [$clen (length $cmds)]]
+              (str $pid " 0 obj\n"
+                   "<< /Type /Page /Parent " $pgs_id " 0 R\n"
+                   "   /MediaBox [0 0 595 842]\n"
+                   "   /Contents " $cid " 0 R\n"
+                   "   /Resources << /Font << " $fref " >> >> >>\n"
+                   "endobj\n"
+                   $cid " 0 obj\n<< /Length " $clen " >>\nstream\n"
+                   $cmds
+                   "endstream\nendobj\n")))
           (range $npage))]
-        [$body (str $hdr $cat_obj $pgs_obj
-                    (str-join $page_objs "")
-                    $f1_obj $f2_obj)]
-        [$total_objs (+ 4 (* 2 $npage))]
-        [$xref (str "xref\n0 " (+ $total_objs 1) "\n"
-                    "0000000000 65535 f \n"
-                    (str-join
-                      (map (fn [$_] "0000000000 00000 n \n")
-                           (range $total_objs))
-                      ""))]
-        [$trailer (str "trailer\n"
-                       "<< /Size " (+ $total_objs 1) " /Root " $cat_id " 0 R >>\n"
-                       "startxref\n"
-                       (length $body) "\n"
-                       "%%EOF\n")]]
+        [$body (str $hdr $cat_obj $pgs_obj (str-join $page_objs "") $f1_obj $f2_obj)]
+        [$total  (+ 4 (* 2 $npage))]
+        [$xref   (str "xref\n0 " (+ $total 1) "\n0000000000 65535 f \n"
+                      (str-join (map (fn [$_] "0000000000 00000 n \n") (range $total)) ""))]
+        [$trailer (str "trailer\n<< /Size " (+ $total 1) " /Root " $cat_id " 0 R >>\nstartxref\n" (length $body) "\n%%EOF\n")]]
     (str $body $xref $trailer)))
+
+;; ─── PDF 빌드 (한글 TTF 임베딩 + 이미지) ────────────────────────────────
+
+(defn pdf_build_ko [$doc]
+  (let [[$pages    (get $doc "pages")]
+        [$npage    (length $pages)]
+        [$imgs_raw (get $doc "imgs")]
+        [$imgs     (if (null? $imgs_raw) (list) $imgs_raw)]
+        [$nimgs    (length $imgs)]
+        [$cat_id   1]
+        [$pgs_id   2]
+        [$page_ids (map (fn [$i] (+ 3 $i)) (range $npage))]
+        [$cont_ids (map (fn [$i] (+ 3 $npage $i)) (range $npage))]
+        ;; TTF: 3+2n ~ 6+2n (4개), 이미지: 7+2n ~
+        [$ttf_base  (+ 3 (* 2 $npage))]
+        [$type0_id  (+ $ttf_base 3)]
+        [$img_base  (+ $ttf_base 4)]
+        [$fref      (str "/FK " $type0_id " 0 R")]
+        ;; XObject ref 문자열 — 상태를 누적값에 담아 캡처 없이 처리
+        [$xobj_result
+          (reduce
+            (fn [$st $entry]
+              (let [[$xacc (get $st "xacc")]
+                    [$xid  (get $st "xid")]
+                    [$nm   (get $entry "name")]]
+                {"xacc" (str $xacc "/" $nm " " $xid " 0 R ") "xid" (+ $xid 1)}))
+            {"xacc" "" "xid" $img_base}
+            $imgs)]
+        [$xobj_str  (if (= $nimgs 0) ""
+                      (str " /XObject << " (get $xobj_result "xacc") ">>"))]
+        [$hdr "%PDF-1.4\n"]
+        [$cat_obj (str $cat_id " 0 obj\n<< /Type /Catalog /Pages " $pgs_id " 0 R >>\nendobj\n")]
+        [$kids_str (str-join (map (fn [$pid] (str $pid " 0 R ")) $page_ids) "")]
+        [$pgs_obj (str $pgs_id " 0 obj\n<< /Type /Pages /Kids [" $kids_str "] /Count " $npage " >>\nendobj\n")]
+        [$page_objs
+          (map (fn [$i]
+            (let [[$pid  (get $page_ids $i)]
+                  [$cid  (get $cont_ids $i)]
+                  [$cmds (str-join (get $pages $i) "")]
+                  [$clen (length $cmds)]]
+              (str $pid " 0 obj\n"
+                   "<< /Type /Page /Parent " $pgs_id " 0 R\n"
+                   "   /MediaBox [0 0 595 842]\n"
+                   "   /Contents " $cid " 0 R\n"
+                   "   /Resources << /Font << " $fref " >>" $xobj_str " >> >>\n"
+                   "endobj\n"
+                   $cid " 0 obj\n<< /Length " $clen " >>\nstream\n"
+                   $cmds "endstream\nendobj\n")))
+          (range $npage))]
+        [$ttf_objs (pdf-ttf-embed-objs $ttf_base)]
+        [$img_objs (get
+                     (reduce
+                       (fn [$st $entry]
+                         (let [[$istr (get $st "istr")]
+                               [$iid  (get $st "iid")]
+                               [$path (get $entry "path")]
+                               [$img  (pdf-img-load $path)]
+                               [$obj  (if (null? $img) "" (pdf-img-obj $img $iid))]]
+                           {"istr" (str $istr $obj) "iid" (+ $iid 1)}))
+                       {"istr" "" "iid" $img_base}
+                       $imgs)
+                     "istr")]
+        [$body   (str $hdr $cat_obj $pgs_obj (str-join $page_objs "") $ttf_objs $img_objs)]
+        [$total  (+ 7 (* 2 $npage) $nimgs)]
+        [$xref   (str "xref\n0 " (+ $total 1) "\n0000000000 65535 f \n"
+                      (str-join (map (fn [$_] "0000000000 00000 n \n") (range $total)) ""))]
+        [$trailer (str "trailer\n<< /Size " (+ $total 1) " /Root " $cat_id " 0 R >>\nstartxref\n" (length $body) "\n%%EOF\n")]]
+    (str $body $xref $trailer)))
+
+;; ─── pdf_build: TTF 로드 여부에 따라 자동 선택 ───────────────────────────
+
+(defn pdf_build [$doc]
+  (if (pdf_has_ko)
+    (pdf_build_ko $doc)
+    (pdf_build_latin $doc)))
+
+;; ─── 이미지 API ─────────────────────────────────────────────────────────
+;; 이미지 로드: 이미지 맵 반환 ({"w" "h" "hex" "size"})
+;; doc에 이미지 목록 저장 → pdf_build 시 XObject 자동 포함
+
+(defn pdf_img_add [$doc $path $x $y $w $h]
+  (let [[$imgs0  (get $doc "imgs")]
+        [$imgs1  (if (null? $imgs0) (list) $imgs0)]
+        [$idx    (length $imgs1)]
+        [$name   (str "Im" $idx)]
+        [$entry  {"path" $path "x" $x "y" $y "w" $w "h" $h "name" $name}]
+        [$cmd    (str "q\n" $w " 0 0 " $h " " $x " " $y " cm\n/" $name " Do\nQ\n")]
+        [$doc2   (assoc $doc "imgs" (append $imgs1 $entry))]]
+    (pdf_add_cmd $doc2 $cmd)))
 
 ;; ─── 파일 저장 ───────────────────────────────────────────────────────────
 

@@ -646,3 +646,16 @@ FLValue smtp_test(FLValue to);
 
 /* 쉘 실행 */
 FLValue shell_run(FLValue cmd);
+
+/* PDF TTF 폰트 임베딩 */
+FLValue pdf_ttf_load(FLValue path);
+FLValue pdf_ttf_glyphs(FLValue text);
+FLValue pdf_ttf_embed_objs(FLValue base_id);
+FLValue pdf_ttf_size(void);
+
+/* PDF 이미지 임베딩 */
+FLValue fl_map_new(void);
+FLValue fl_map_get(FLValue map, FLValue key);
+FLValue fl_map_set(FLValue map, FLValue key, FLValue val);
+FLValue pdf_img_load(FLValue path);
+FLValue pdf_img_obj(FLValue img, FLValue obj_id);

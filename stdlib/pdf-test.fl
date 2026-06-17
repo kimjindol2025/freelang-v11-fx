@@ -1,28 +1,67 @@
-;; pdf-test.fl — pdf.fl 라이브러리 테스트
+;; pdf-test.fl — 이미지 포함 제품 카탈로그 PDF
 
 (load "/home/kim/freelang-v11-fx/stdlib/pdf.fl")
 
+(pdf-ttf-load "/home/kim/NanumGothic.ttf")
+
 (defn make_catalog []
-  (let [[$d0 (pdf_new "제품 카탈로그 2026")]
-        [$d1 (pdf_bold $d0 "제품 카탈로그 2026" 72 780 22)]
-        [$d2 (pdf_line $d1 72 768 522 768)]
-        [$d3 (pdf_text $d2 "PRODUCT CATALOG 2026" 72 748 11)]
-        [$d4 (pdf_text $d3 "1. 차량용 진공청소기 ROBO-1" 72 710 14)]
-        [$d5 (pdf_text $d4 "   360도 붐 회전 / 진공모터 2개 / 반영구 필터 / 저소음" 72 692 11)]
-        [$d6 (pdf_text $d5 "2. 밸트식 에어콤프레서 4.5HP 120L" 72 668 14)]
-        [$d7 (pdf_text $d6 "   콤프월드 / 국내산 / 저전압 구동 / 밸트 방식" 72 650 11)]
-        [$d8 (pdf_text $d7 "3. 스텐레스 싱크대 SIN-600-1" 72 626 14)]
-        [$d9 (pdf_text $d8 "   W600 x D600 x H800 / SUS201 / 두께 상0.7T 하0.5T" 72 608 11)]
-        [$d10 (pdf_text $d9 "4. 메가썬 전기온수기 100L (MSW-100BU)" 72 584 14)]
-        [$d11 (pdf_text $d10 "   상향식 바닥형 / MEGA SUN코리아" 72 566 11)]
-        [$d12 (pdf_text $d11 "5. 쏠레몬 Self 연막항균탈취기" 72 542 14)]
-        [$d13 (pdf_text $d12 "   연막 방식 항균탈취 / 자가 운용형" 72 524 11)]
-        [$d14 (pdf_line $d13 72 508 522 508)]
-        [$d15 (pdf_text $d14 "본 카탈로그는 내부 참고용입니다." 72 490 10)]]
-    $d15))
+  (let [[$d0  (pdf_new "제품 카탈로그 2026")]
+
+        ;; ── 헤더 ──
+        [$d1  (pdf_bold  $d0  "제품 카탈로그 2026" 55 800 22)]
+        [$d2  (pdf_line  $d1  40 788 555 788)]
+        [$d3  (pdf_text  $d2  "PRODUCT CATALOG 2026" 55 774 10)]
+        [$d4  (pdf_line  $d3  40 768 555 768)]
+
+        ;; ── 1. 차량용 진공청소기 (이미지 좌 120x120, 텍스트 우) ──
+        [$d5  (pdf_img_add $d4  "/home/kim/catalog-imgs/bravo.jpg"   40 620 120 120)]
+        [$d6  (pdf_bold  $d5  "1. 차량용 진공청소기 ROBO-1"         175 730 13)]
+        [$d7  (pdf_text  $d6  "360도 붐 회전 방식"                   175 712 10)]
+        [$d8  (pdf_text  $d7  "진공모터 2개 장착"                    175 698 10)]
+        [$d9  (pdf_text  $d8  "반영구적 필터 방식"                   175 684 10)]
+        [$d10 (pdf_text  $d9  "쓰레기통 내장 / 저소음"              175 670 10)]
+        [$d11 (pdf_line  $d10 40 612 555 612)]
+
+        ;; ── 2. 에어콤프레서 ──
+        [$d12 (pdf_img_add $d11 "/home/kim/catalog-imgs/comp.jpg"   40 465 130 115)]
+        [$d13 (pdf_bold  $d12 "2. 밸트식 에어콤프레서 4.5HP 120L"  185 585 13)]
+        [$d14 (pdf_text  $d13 "저전압 구동 (4.5HP)"                 185 568 10)]
+        [$d15 (pdf_text  $d14 "탱크 용량 120리터"                   185 554 10)]
+        [$d16 (pdf_text  $d15 "밸트 구동 방식 (저소음)"             185 540 10)]
+        [$d17 (pdf_text  $d16 "콤프월드 / 국내산"                   185 526 10)]
+        [$d18 (pdf_line  $d17 40 457 555 457)]
+
+        ;; ── 3. 싱크대 ──
+        [$d19 (pdf_img_add $d18 "/home/kim/catalog-imgs/sink.jpg"   40 305 105 130)]
+        [$d20 (pdf_bold  $d19 "3. 스텐레스 싱크대 SIN-600-1"        160 430 13)]
+        [$d21 (pdf_text  $d20 "W600 x D600 x H800 mm"               160 413 10)]
+        [$d22 (pdf_text  $d21 "스텐 재질: SUS201"                   160 399 10)]
+        [$d23 (pdf_text  $d22 "두께 상 0.7T / 하 0.5T"              160 385 10)]
+        [$d24 (pdf_text  $d23 "하부 선반 내장"                       160 371 10)]
+        [$d25 (pdf_line  $d24 40 297 555 297)]
+
+        ;; ── 4. 온수기 ──
+        [$d26 (pdf_img_add $d25 "/home/kim/catalog-imgs/water.jpg"  40 155 85 120)]
+        [$d27 (pdf_bold  $d26 "4. 메가썬 전기온수기 100L"            140 270 13)]
+        [$d28 (pdf_text  $d27 "모델: MSW-100BU"                     140 253 10)]
+        [$d29 (pdf_text  $d28 "상향식 바닥 설치형"                   140 239 10)]
+        [$d30 (pdf_text  $d29 "MEGA SUN코리아"                      140 225 10)]
+        [$d31 (pdf_line  $d30 40 147 555 147)]
+
+        ;; ── 5. 쏠레몬 ──
+        [$d32 (pdf_img_add $d31 "/home/kim/catalog-imgs/sollemon.jpg" 40 10 80 115)]
+        [$d33 (pdf_bold  $d32 "5. 쏠레몬 Self 연막항균탈취기"         135 120 13)]
+        [$d34 (pdf_text  $d33 "연막 방식 항균·탈취"                  135 103 10)]
+        [$d35 (pdf_text  $d34 "Self 운용 (독립 작동)"                135 89  10)]
+        [$d36 (pdf_text  $d35 "SOLLEMON / 자가 운용형"               135 75  10)]
+
+        ;; ── 푸터 ──
+        [$d37 (pdf_line  $d36 40 32 555 32)]
+        [$d38 (pdf_text  $d37 "* 본 카탈로그는 내부 참고용입니다." 55 18 9)]]
+    $d38))
 
 (do
   (let [[$doc (make_catalog)]]
     (do
       (pdf_save $doc "/home/kim/catalog.pdf")
-      (println "PDF 생성 완료: /home/kim/catalog.pdf"))))
+      (println "완료: /home/kim/catalog.pdf"))))
