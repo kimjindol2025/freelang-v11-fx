@@ -1486,8 +1486,10 @@ FLValue regex_replace_all_alias(FLValue p, FLValue s, FLValue r)  { return regex
 FLValue regex_split_alias(FLValue p, FLValue s)                   { return regex_split(p, s); }
 
 /* ── stdlib 갭 — kebab-case alias + 미구현 함수 ─────────────────── */
+#ifndef FL_NO_CRYPTO
 #include <openssl/sha.h>
 #include <openssl/md5.h>
+#endif
 
 /* uuid, random, max-by, min-by, clamp, file-exists? */
 FLValue uuid(void)                                { return uuid4(); }
@@ -1497,6 +1499,7 @@ FLValue min_by(FLValue fn, FLValue vec)           { return fl_min_by(fn, vec); }
 FLValue clamp(FLValue val, FLValue lo, FLValue hi){ return fl_clamp(val, lo, hi); }
 FLValue file_exists_p(FLValue path)               { return file_exists(path); }
 
+#ifndef FL_NO_CRYPTO
 /* sha256 str → hex string */
 FLValue sha256(FLValue s) {
     if (s.tag != FL_STRING || !s.obj) return fl_str_val("");
@@ -1522,6 +1525,7 @@ FLValue md5(FLValue s) {
         snprintf(hex + i * 2, 3, "%02x", digest[i]);
     return fl_str_val(hex);
 }
+#endif
 
 /* json-pretty val → 들여쓰기 JSON 문자열 */
 FLValue json_pretty(FLValue v) {

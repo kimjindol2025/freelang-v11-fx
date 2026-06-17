@@ -9,16 +9,23 @@ set -e
 SCRIPT_REAL="$(readlink -f "$0")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_REAL")" && pwd)"
 RUNTIME_DIR="$SCRIPT_DIR/runtime"
-CGC_BIN="/home/kimjin/freelang-v11/bin/cgc-bin"
+CGC_BIN="/home/kim/freelang-v11/bin/cgc-bin"
 
-FL_INPUT="$1"
+# --no-net 플래그: openssl/curl 없이 stub으로 빌드
+NO_NET=0
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--no-net" ]; then NO_NET=1; else ARGS+=("$arg"); fi
+done
+
+FL_INPUT="${ARGS[0]}"
 if [ -z "$FL_INPUT" ]; then
-  echo "사용법: $0 <input.fl> [output-name]"
+  echo "사용법: $0 <input.fl> [output-name] [--no-net]"
   exit 1
 fi
 
 FL_BASE="$(basename "$FL_INPUT" .fl)"
-OUTPUT="${2:-$FL_BASE}"
+OUTPUT="${ARGS[1]:-$FL_BASE}"
 C_FILE="/tmp/fl_build_$$.c"
 
 echo "🔨 FreeLang 네이티브 빌드"
@@ -80,12 +87,22 @@ echo "⚙️  FL → C 컴파일..."
 
 # ─── 3. gcc: C → ELF ─────────────────────────────────────────────
 echo "⚙️  C → 바이너리 컴파일..."
+if [ "$NO_NET" = "1" ]; then
+  echo "   + --no-net: HTTP/WS/crypto stub 사용 (openssl/curl 불필요)"
+  NET_SRCS="$RUNTIME_DIR/http-stub.c $RUNTIME_DIR/websocket-stub.c $RUNTIME_DIR/http_client-stub.c $RUNTIME_DIR/crypto-stub.c"
+  NET_LIBS=""
+  EXTRA_CFLAGS="-DFL_NO_CRYPTO"
+else
+  NET_SRCS="$RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c"
+  NET_LIBS="-lssl -lcrypto -lcurl"
+  EXTRA_CFLAGS=""
+fi
+
 RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/json.c $RUNTIME_DIR/math.c $RUNTIME_DIR/process.c \
-  $RUNTIME_DIR/error.c $RUNTIME_DIR/http.c $RUNTIME_DIR/aliases.c \
+  $RUNTIME_DIR/error.c $NET_SRCS $RUNTIME_DIR/aliases.c \
   $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/debug.c $RUNTIME_DIR/gc.c \
   $RUNTIME_DIR/jit.c $RUNTIME_DIR/fx-builtin-shim.c \
-  $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c \
   $RUNTIME_DIR/regex.c $RUNTIME_DIR/smtp.c"
 
 # mariadb.c는 dlopen 방식이라 헤더 불필요 — 항상 포함
@@ -96,8 +113,8 @@ fi
 
 GCC_LOG="/tmp/fl_gcc_$$.log"
 if gcc -O2 -Werror=implicit-function-declaration -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
-  -I "$RUNTIME_DIR" \
-  -rdynamic -lpthread -lm -ldl -lsqlite3 -lssl -lcrypto -lcurl \
+  -I "$RUNTIME_DIR" $EXTRA_CFLAGS \
+  -rdynamic -lpthread -lm -ldl -lsqlite3 $NET_LIBS \
   -w 2>"$GCC_LOG"; then
   rm -f "$GCC_LOG"
 else

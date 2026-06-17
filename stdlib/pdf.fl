@@ -1,0 +1,146 @@
+;; ── pdf.fl — FreeLang fx PDF 생성 라이브러리 ──────────────────────────
+;; (load "/home/kim/freelang-v11-fx/stdlib/pdf.fl")
+;;
+;; 사용법:
+;;   (let [[$doc (pdf_new "제목")]]
+;;     (let [[$doc (pdf_text $doc "안녕하세요" 72 700 16)]]
+;;       (pdf_save $doc "/tmp/output.pdf")))
+;;
+;; API:
+;;   pdf_new        title → doc
+;;   pdf_text       doc text x y size → doc
+;;   pdf_bold       doc text x y size → doc
+;;   pdf_line       doc x1 y1 x2 y2 → doc
+;;   pdf_rect       doc x y w h → doc
+;;   pdf_newpage    doc → doc
+;;   pdf_build      doc → pdf-string
+;;   pdf_save       doc path → nil
+
+;; ─── 내부: 콘텐츠 스트림 명령 생성 ─────────────────────────────────────
+
+(defn pdf_cmd_text [$text $x $y $size $bold]
+  (let [[$font (if $bold "F2" "F1")]
+        [$s1 (str-replace $text "\\" "\\\\")]
+        [$s2 (str-replace $s1 "(" "\\(")]
+        [$safe (str-replace $s2 ")" "\\)")]
+        [$result (str "BT\n/"
+                      $font " " $size " Tf\n"
+                      $x " " $y " Td\n"
+                      "(" $safe ") Tj\n"
+                      "ET\n")]]
+    $result))
+
+(defn pdf_cmd_line [$x1 $y1 $x2 $y2]
+  (str $x1 " " $y1 " m\n"
+       $x2 " " $y2 " l\nS\n"))
+
+(defn pdf_cmd_rect [$x $y $w $h]
+  (str $x " " $y " " $w " " $h " re\nS\n"))
+
+;; ─── 새 문서 생성 ────────────────────────────────────────────────────────
+
+(defn pdf_new [$title]
+  {"title"  $title
+   "pages"  (list (list))
+   "cur"    0})
+
+;; ─── 현재 페이지에 명령 추가 ─────────────────────────────────────────────
+
+(defn pdf_add_cmd [$doc $cmd]
+  (let [[$pages (get $doc "pages")]
+        [$cur   (get $doc "cur")]
+        [$page  (get $pages $cur)]
+        [$np    (append $page $cmd)]
+        [$nps   (assoc $pages $cur $np)]]
+    (assoc $doc "pages" $nps)))
+
+;; ─── Public API ──────────────────────────────────────────────────────────
+
+(defn pdf_text [$doc $text $x $y $size]
+  (pdf_add_cmd $doc (pdf_cmd_text $text $x $y $size false)))
+
+(defn pdf_bold [$doc $text $x $y $size]
+  (pdf_add_cmd $doc (pdf_cmd_text $text $x $y $size true)))
+
+(defn pdf_line [$doc $x1 $y1 $x2 $y2]
+  (pdf_add_cmd $doc (pdf_cmd_line $x1 $y1 $x2 $y2)))
+
+(defn pdf_rect [$doc $x $y $w $h]
+  (pdf_add_cmd $doc (pdf_cmd_rect $x $y $w $h)))
+
+(defn pdf_newpage [$doc]
+  (let [[$pages (get $doc "pages")]
+        [$np    (append $pages (list))]]
+    (assoc (assoc $doc "pages" $np) "cur" (length $pages))))
+
+;; ─── PDF 바이너리 빌드 ───────────────────────────────────────────────────
+
+(defn pdf_build [$doc]
+  (let [[$pages  (get $doc "pages")]
+        [$title  (get $doc "title")]
+        [$npage  (length $pages)]
+        [$cat_id 1]
+        [$pgs_id 2]
+        [$page_ids  (map (fn [$i] (+ 3 $i)) (range $npage))]
+        [$cont_ids  (map (fn [$i] (+ 3 $npage $i)) (range $npage))]
+        [$f1_id     (+ 3 (* 2 $npage))]
+        [$f2_id     (+ 4 (* 2 $npage))]
+        [$hdr "%PDF-1.4\n"]
+        [$cat_obj (str $cat_id " 0 obj\n"
+                       "<< /Type /Catalog /Pages " $pgs_id " 0 R >>\n"
+                       "endobj\n")]
+        [$kids_str (str-join
+                     (map (fn [$pid] (str $pid " 0 R ")) $page_ids)
+                     "")]
+        [$pgs_obj (str $pgs_id " 0 obj\n"
+                       "<< /Type /Pages /Kids [" $kids_str "] /Count " $npage " >>\n"
+                       "endobj\n")]
+        [$f1_obj (str $f1_id " 0 obj\n"
+                      "<< /Type /Font /Subtype /Type1 "
+                      "/BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\n"
+                      "endobj\n")]
+        [$f2_obj (str $f2_id " 0 obj\n"
+                      "<< /Type /Font /Subtype /Type1 "
+                      "/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\n"
+                      "endobj\n")]
+        [$page_objs
+          (map (fn [$i]
+            (let [[$pid  (get $page_ids $i)]
+                  [$cid  (get $cont_ids $i)]
+                  [$cmds (str-join (get $pages $i) "")]
+                  [$clen (length $cmds)]
+                  [$pobj (str $pid " 0 obj\n"
+                              "<< /Type /Page /Parent " $pgs_id " 0 R\n"
+                              "   /MediaBox [0 0 595 842]\n"
+                              "   /Contents " $cid " 0 R\n"
+                              "   /Resources << /Font << /F1 " $f1_id " 0 R /F2 " $f2_id " 0 R >> >> >>\n"
+                              "endobj\n")]
+                  [$cobj (str $cid " 0 obj\n"
+                              "<< /Length " $clen " >>\n"
+                              "stream\n"
+                              $cmds
+                              "endstream\n"
+                              "endobj\n")]]
+              (str $pobj $cobj)))
+          (range $npage))]
+        [$body (str $hdr $cat_obj $pgs_obj
+                    (str-join $page_objs "")
+                    $f1_obj $f2_obj)]
+        [$total_objs (+ 4 (* 2 $npage))]
+        [$xref (str "xref\n0 " (+ $total_objs 1) "\n"
+                    "0000000000 65535 f \n"
+                    (str-join
+                      (map (fn [$_] "0000000000 00000 n \n")
+                           (range $total_objs))
+                      ""))]
+        [$trailer (str "trailer\n"
+                       "<< /Size " (+ $total_objs 1) " /Root " $cat_id " 0 R >>\n"
+                       "startxref\n"
+                       (length $body) "\n"
+                       "%%EOF\n")]]
+    (str $body $xref $trailer)))
+
+;; ─── 파일 저장 ───────────────────────────────────────────────────────────
+
+(defn pdf_save [$doc $path]
+  (file-write $path (pdf_build $doc)))
