@@ -1303,6 +1303,7 @@
         (cgc-body $args 1 "") "))")]
   ;; case: (case val k1 v1 k2 v2 ... default) → if/else chain
   [(= $op "case")  (cgc-case $args)]
+  [(= $op "match") (cgc-match $args)]
   ;; doseq: (doseq [$var coll] body...) → for loop (부작용 전용)
   [(= $op "doseq")   (cgc-doseq $args)]
   ;; dotimes: (dotimes $i n body...) → for loop
@@ -1757,6 +1758,115 @@
 
 ;; ── doseq 매크로 ──
 ;; (doseq [$var coll] body...) → C for loop, 부작용 전용, nil 반환
+;; ── match 매크로 ──────────────────────────────────────────────────────────
+;; (match $x
+;;   0     "zero"
+;;   "hi"  "hello"
+;;   _     "default")   ← _ = 와일드카드
+;;
+;; 벡터 패턴 (Result 타입 등):
+;; (match $r
+;;   [$v nil] (use $v)
+;;   [nil $e] (err $e)
+;;   _        (err "알 수 없음"))
+;;
+;; 패턴 종류:
+;;   _ (심볼)   → 항상 매칭 (default)
+;;   $var       → 항상 매칭 + 바인딩 (단독 변수)
+;;   리터럴     → 동등성 체크
+;;   벡터 패턴  → 길이 + 원소 체크 + 변수 바인딩
+
+;; match 패턴이 와일드카드인지
+(defn match-wildcard? [$node]
+  (and (= (get $node :kind) "literal")
+       (= (get $node :type) "symbol")
+       (= (get $node :value) "_")))
+
+;; match 패턴이 단독 변수 바인딩인지 ($var)
+(defn match-bind-var? [$node]
+  (= (get $node :kind) "variable"))
+
+;; 벡터 패턴인지 (AST 벡터 노드)
+(defn match-vec-pat? [$node]
+  (and (= (get $node :kind) "block") (= (get $node :type) "Array")))
+
+;; 벡터 패턴 원소가 nil 리터럴인지
+(defn match-pat-nil? [$node]
+  (or (and (= (get $node :kind) "literal") (= (get $node :type) "nil"))
+      (and (= (get $node :kind) "literal") (= (get $node :type) "symbol")
+           (or (= (get $node :value) "nil") (= (get $node :value) "null")))))
+
+;; 벡터 패턴 원소가 변수 바인딩인지
+(defn match-pat-var? [$node]
+  (= (get $node :kind) "variable"))
+
+;; 벡터 패턴 → C 조건 + 바인딩 생성
+;; 반환: {"cond" "..." "binds" "..."} or nil
+(defn cgc-match-vec-cond [$val-c $pat-node]
+  (let [[$items (get-block-items $pat-node)]
+        [$n     (length $items)]
+        ;; 길이 조건
+        [$len-cond (str "fl_truthy(fl_eq(length(" $val-c "), fl_int(" $n ")))")]
+        ;; 각 원소 조건/바인딩 생성
+        [$elem-results
+          (map (fn [$i]
+            (let [[$elem  (get $items $i)]
+                  [$getter (str "get(" $val-c ", fl_int(" $i "))")]]
+              (if (match-pat-nil? $elem)
+                ;; nil 체크
+                {"cond" (str "fl_truthy(null_p(" $getter "))") "bind" ""}
+                (if (match-pat-var? $elem)
+                  ;; 변수 바인딩: 조건 없음, 항상 매칭
+                  {"cond" "" "bind" (str "FLValue " (c-name (get $elem :name)) " = " $getter ";")}
+                  ;; 리터럴 동등성 체크
+                  {"cond" (str "fl_truthy(fl_eq(" $getter ", " (cgc $elem) "))") "bind" ""}))))
+            (range $n))]
+        ;; 모든 조건 and 연결 (len-cond에 elem-conds를 fold)
+        [$elem-conds (filter (fn [$s] (> (length $s) 0))
+                       (map (fn [$r] (get $r "cond")) $elem-results))]
+        [$cond-str (reduce (fn [$a $b] (str $a " && " $b)) $len-cond $elem-conds)]
+        [$bind-str (reduce (fn [$a $b] (str $a " " $b)) ""
+                     (filter (fn [$s] (> (length $s) 0))
+                             (map (fn [$r] (get $r "bind")) $elem-results)))]]
+    {"cond" $cond-str "bind" $bind-str}))
+
+;; match 재귀 빌더 (오른쪽에서 왼쪽으로 중첩 ternary)
+(defn cgc-match-rev [$val-c $args $i $acc]
+  (if (< $i 1) $acc
+  (let [[$pat  (get $args $i)]
+        [$res  (get $args (+ $i 1))]]
+    (cgc-match-rev $val-c $args (- $i 2)
+      (if (match-wildcard? $pat)
+        ;; _ → 그냥 결과
+        (cgc $res)
+        (if (match-bind-var? $pat)
+          ;; $var → 항상 매칭, 바인딩
+          (str "(__extension__ ({ FLValue " (c-name (get $pat :name))
+               " = " $val-c "; " (cgc $res) "; }))")
+          (if (match-vec-pat? $pat)
+            ;; 벡터 패턴
+            (let [[$vc (cgc-match-vec-cond $val-c $pat)]]
+              (str "((" (get $vc "cond") ") ? (__extension__ ({ "
+                   (get $vc "bind") " " (cgc $res) "; })) : " $acc ")"))
+            ;; 리터럴 동등성
+            (str "(fl_truthy(fl_eq(" $val-c ", " (cgc $pat) ")) ? "
+                 (cgc $res) " : " $acc ")"))))))))
+
+(defn cgc-match [$args]
+  ;; subject=args[0], 패턴/결과 쌍: k1 v1 k2 v2 ... kN vN
+  (let [[$n        (length $args)]
+        ;; 마지막 쌍: key=args[n-2], val=args[n-1]
+        [$last-key (get $args (- $n 2))]
+        [$last-val (get $args (- $n 1))]
+        [$has-wild (match-wildcard? $last-key)]
+        ;; 와일드카드면 마지막 val이 default
+        [$default  (if $has-wild (cgc $last-val) "fl_nil()")]
+        ;; 와일드카드면 그 앞 쌍부터, 아니면 마지막 쌍부터 처리
+        [$start-i  (if $has-wild (- $n 4) (- $n 2))]
+        [$val-tmp  "__match_val__"]
+        [$inner    (cgc-match-rev $val-tmp $args $start-i $default)]]
+    (str "(__extension__ ({ FLValue " $val-tmp " = " (cgc (get $args 0)) "; " $inner "; }))")))
+
 (defn cgc-doseq [$args]
   (let [[$items  (get-block-items (get $args 0))]
         [$vnode  (get $items 0)]
