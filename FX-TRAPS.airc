@@ -15,15 +15,16 @@
 @meta
   version: 2
   created: 2026-06-16
-  updated: 2026-06-20
+  updated: 2026-06-21
   source_of_truth: true
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction]
-  trap_count: 23
+  trap_count: 24
   verified_stdlib: verified-stdlib.md
-  maturation_phase: phase1_complete
-  next_phases: [phase2=stdlib-fixes, phase3=cgc-http-remap, phase4=cache-cgc-port]
+  maturation_phase: phase3_complete
+  completed_phases: [phase2=stdlib-fixes(e72dcb0), phase3=cgc-http-remap(72aab72)]
+  next_phases: [phase4=cache-cgc-port, phase5=str-includes-bool]
 
 ;; ─────────────────────── TRAPS ───────────────────────
 ;; 우선순위 최상위. "이렇게 하면 조용히 깨진다"의 목록.
@@ -319,3 +320,14 @@
   statement: 이 명세의 출처는 CLAUDE.md 산문 함정 + 2026-06-14~16 실측 회고(#1076·1077·1081·1082·1107)
   consequence: v2 에서 CLAUDE.md 잔여 함정 + 신규 발견 흡수 예정
   source: fl-cycle handoff
+
+@trap
+  id: trap-swap-gc-invalidates-ref
+  type: trap
+  claimed: swap! 이전에 let으로 바인딩한 값은 swap! 이후에도 유효하다
+  observed: (get (get @$ch "store") $key) 로 얻은 $val을 let에 바인딩 후 swap! 호출 시 GC가 원본 맵을 수집 → $val 참조 무효화
+  risk: 캐시/상태 패턴에서 swap! 전에 읽은 값이 swap! 후 쓰레기값이 됨
+  rule: swap! 호출 전에 읽은 nested 참조는 swap! 후 재조회. (get @atom key) 대신 swap! 후 즉시 @atom 재참조
+  safe_pattern: (do (swap! $ch update-fn) (get (get @$ch "store") $key))
+  reproduction: 2026-06-21 — cache-get! 테스트에서 "kim" → 쓰레기값 확인. swap! 제거 시 정상
+  lint_detectable: false
