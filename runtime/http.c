@@ -55,6 +55,7 @@ typedef struct {
     char   method[8];      /* GET POST PUT PATCH DELETE */
     char   path[512];      /* /api/users/:id */
     HandlerFn fn;
+    FLValue  closure;      /* FL_FN 클로저 핸들러 (fn이 NULL일 때 사용) */
 } Route;
 
 /* ── 응답 FLMap 키 상수 ── */
@@ -104,28 +105,36 @@ static FLValue make_response(int status, const char* content_type, const char* b
    라우트 등록 API
 ─────────────────────────────────────────── */
 
-static void register_route(const char* method, FLValue path, FLValue handler_name) {
+static void register_route(const char* method, FLValue path, FLValue handler) {
     if (g_nroutes >= MAX_ROUTES) {
         fprintf(stderr, "[http] 라우트 한도 초과\n");
         return;
     }
     const char* p = strval(path);
-    const char* h = strval(handler_name);
-
-    /* dlsym으로 핸들러 함수 룩업 */
-    char cname[256];
-    fn_name_to_c(h, cname, sizeof(cname));
-    HandlerFn fn = (HandlerFn)dlsym(RTLD_DEFAULT, cname);
-    if (!fn) {
-        fprintf(stderr, "[http] 핸들러 '%s' (%s) 를 찾을 수 없음\n", h, cname);
-        return;
-    }
-
     Route* r = &g_routes[g_nroutes++];
     strncpy(r->method, method, sizeof(r->method) - 1);
     strncpy(r->path,   p,      sizeof(r->path) - 1);
-    r->fn = fn;
-    fprintf(stderr, "[http] 라우트 등록: %s %s → %s\n", method, p, cname);
+    r->closure = fl_nil();
+    r->fn = NULL;
+
+    if (handler.tag == FL_FN) {
+        /* FL_FN 클로저 핸들러 */
+        r->closure = handler;
+        fprintf(stderr, "[http] 라우트 등록: %s %s → <closure>\n", method, p);
+    } else {
+        /* 문자열 이름 → dlsym 룩업 */
+        const char* h = strval(handler);
+        char cname[256];
+        fn_name_to_c(h, cname, sizeof(cname));
+        HandlerFn fn = (HandlerFn)dlsym(RTLD_DEFAULT, cname);
+        if (!fn) {
+            fprintf(stderr, "[http] 핸들러 '%s' (%s) 를 찾을 수 없음\n", h, cname);
+            g_nroutes--;
+            return;
+        }
+        r->fn = fn;
+        fprintf(stderr, "[http] 라우트 등록: %s %s → %s\n", method, p, cname);
+    }
 }
 
 FLValue server_get(FLValue path, FLValue handler) {
@@ -705,7 +714,7 @@ static void* handle_connection(void* arg) {
             if (fl_try_top < FL_TRY_MAX) {
                 FLTryFrame* frame = &fl_try_stack[fl_try_top++];
                 if (setjmp(frame->buf) == 0) {
-                    resp = matched->fn(req);
+                    resp = (matched->fn) ? matched->fn(req) : fl_fn_call(matched->closure, 1, &req);
                     fl_try_top--;
                 } else {
                     fl_try_top--;
@@ -722,7 +731,7 @@ static void* handle_connection(void* arg) {
                     keep_alive = 0;
                 }
             } else {
-                resp = matched->fn(req);
+                resp = (matched->fn) ? matched->fn(req) : fl_fn_call(matched->closure, 1, &req);
             }
         }
 
@@ -1303,7 +1312,7 @@ static void* handle_tls_connection(void* arg) {
         if (fl_try_top < FL_TRY_MAX) {
             FLTryFrame* frame = &fl_try_stack[fl_try_top++];
             if (setjmp(frame->buf) == 0) {
-                resp = matched->fn(req); fl_try_top--;
+                resp = (matched->fn) ? matched->fn(req) : fl_fn_call(matched->closure, 1, &req); fl_try_top--;
             } else {
                 fl_try_top--;
                 const char* emsg = frame->err.tag == FL_STRING ? strval(frame->err) : "error";
@@ -1311,7 +1320,7 @@ static void* handle_tls_connection(void* arg) {
                 resp = make_response(500, "application/json", eb);
             }
         } else {
-            resp = matched->fn(req);
+            resp = (matched->fn) ? matched->fn(req) : fl_fn_call(matched->closure, 1, &req);
         }
     }
 

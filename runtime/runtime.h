@@ -478,6 +478,10 @@ FLValue fxb_sqlite_query_p(FLValue conn, FLValue sql, FLValue params);
 FLValue fxb_sqlite_exec_p(FLValue conn, FLValue sql, FLValue params);
 FLValue fxb_sqlite_one_p(FLValue conn, FLValue sql, FLValue params);
 FLValue fxb_sqlite_close(FLValue conn);
+/* 73서버 cgc-bin 호환 alias (aliases.c에 구현) */
+FLValue fl_db_open(FLValue path);
+FLValue fl_db_query(FLValue db, FLValue sql, FLValue params);
+FLValue fl_db_exec(FLValue db, FLValue sql, FLValue params);
 
 /* ── MariaDB (mariadb.c — dlopen 방식, 헤더 불필요) ── */
 FLValue mariadb_connect(FLValue host, FLValue port, FLValue user, FLValue pw, FLValue db);
