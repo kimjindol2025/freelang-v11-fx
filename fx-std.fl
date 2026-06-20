@@ -186,6 +186,95 @@
 (defn get-in-2 [$m $k1 $k2]
   (json_safe_get (json_safe_get $m $k1 nil) $k2 nil))
 
+;; ─── 6. Result 타입 — Go 스타일 에러 처리 ──────────────────────────────────
+;;
+;; 컨벤션: [값 nil] = 성공 / [nil "에러메시지"] = 실패
+;;
+;; 패턴:
+;;   (let [[$v $e] (db-query-safe $db $sql $params)]
+;;     (if $e (handle-err $e) (use $v)))
+;;
+;; 함수 목록:
+;;   (ok $v)             → [v nil]         성공 Result 생성
+;;   (fail $msg)         → [nil msg]       실패 Result 생성
+;;   (ok? $r)            → bool            성공 여부
+;;   (err? $r)           → bool            실패 여부
+;;   (unwrap $r)         → 값              성공값 추출 (실패면 nil)
+;;   (unwrap-err $r)     → 문자열          에러 추출 (성공이면 nil)
+;;   (unwrap-or $r $def) → 값              성공값 or 기본값
+;;   (and-then $r $fn)   → Result          ok면 fn($v) 적용, 에러면 그대로
+;;   (result-map $r $fn) → Result          ok면 값 변환, 에러면 그대로
+;;
+;; safe 래퍼:
+;;   (db-query-safe $db $sql $params) → Result
+;;   (db-exec-safe $db $sql $params)  → Result
+;;   (db-one-safe $db $sql $params)   → Result
+;;   (http-get-safe $url)             → Result (body 문자열)
+;;   (json-parse-safe $s)             → Result
+
+;; Result 생성자
+(defn result-ok [$v]    [$v nil])
+(defn result-fail [$e]  [nil $e])
+
+;; 검사
+(defn result-ok? [$r]
+  (and (not (null? $r)) (null? (get $r 1))))
+
+(defn result-err? [$r]
+  (or (null? $r) (not (null? (get $r 1)))))
+
+;; 추출
+(defn result-val [$r]
+  (if (result-ok? $r) (get $r 0) nil))
+
+(defn result-msg [$r]
+  (if (result-err? $r) (get $r 1) nil))
+
+(defn result-val-or [$r $default]
+  (if (result-ok? $r) (get $r 0) $default))
+
+;; 체이닝: ok면 fn($v) 적용, 에러면 그대로 전파
+(defn result-then [$r $fn]
+  (if (result-ok? $r) ($fn (get $r 0)) $r))
+
+;; 값 변환 (에러면 그대로)
+(defn result-map [$r $fn]
+  (if (result-ok? $r) (result-ok ($fn (get $r 0))) $r))
+
+;; Safe DB 래퍼 — try-catch로 에러를 Result로 변환
+(defn db-query-safe [$db $sql $params]
+  (try
+    (result-ok (fxb_sqlite_query_p $db $sql $params))
+    (catch $e (result-fail (str $e)))))
+
+(defn db-exec-safe [$db $sql $params]
+  (try
+    (result-ok (fxb_sqlite_exec_p $db $sql $params))
+    (catch $e (result-fail (str $e)))))
+
+(defn db-one-safe [$db $sql $params]
+  (try
+    (let [$rows (fxb_sqlite_query_p $db $sql $params)]
+      (if (= (length $rows) 0)
+        (result-ok nil)
+        (result-ok (get $rows 0))))
+    (catch $e (result-fail (str $e)))))
+
+;; Safe HTTP GET
+(defn http-get-safe [$url]
+  (try
+    (let [$r (http_get $url)]
+      (if (>= (get $r "status") 400)
+        (result-fail (str "HTTP " (get $r "status")))
+        (result-ok (get $r "body"))))
+    (catch $e (result-fail (str $e)))))
+
+;; Safe JSON parse
+(defn json-parse-safe [$s]
+  (try
+    (result-ok (json_parse $s))
+    (catch $e (result-fail (str $e)))))
+
 ;; upsert: SQLite INSERT OR REPLACE 래퍼
 ;; 검증: cgc 컴파일 VERIFIED (fxb_sqlite_exec_p 의존)
 ;; 사용: (upsert $db "users" ["id" "name"] (list $id $name))
