@@ -411,6 +411,7 @@ FLValue str_pad_left(FLValue s, FLValue width, FLValue ch);
 FLValue str_pad_right(FLValue s, FLValue width, FLValue ch);
 FLValue str_repeat(FLValue s, FLValue n);
 FLValue str_contains(FLValue s, FLValue sub);
+FLValue str_includes(FLValue s, FLValue sub);
 FLValue parse_int(FLValue s);
 FLValue parse_float(FLValue s);
 FLValue to_string(FLValue v);

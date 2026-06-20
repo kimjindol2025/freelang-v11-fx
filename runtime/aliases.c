@@ -163,6 +163,7 @@ FLValue str_repeat(FLValue s, FLValue n_v) {
 }
 
 FLValue str_contains(FLValue s, FLValue sub) { return fl_str_includes(s, sub); }
+FLValue str_includes(FLValue s, FLValue sub) { return fl_str_includes(s, sub); }
 
 /* parse number */
 FLValue parse_int(FLValue s) {
