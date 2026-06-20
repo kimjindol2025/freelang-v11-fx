@@ -1,0 +1,28 @@
+;; fx-std/parallel.fl — future 기반 병렬 실행 (fx CGC 전용)
+;; (load "/home/kimjin/freelang-v11-fx/fx-std/parallel.fl")
+;;
+;; v11 stdlib/parallel.fl의 run-parallel은 cgc에서 동작 안 함
+;; → future + deref 패턴으로 재구현
+;;
+;; 사용법:
+;;   (parallel-map (list fn1 fn2 fn3))   ;; [r1 r2 r3] 반환
+;;   (parallel-run (list fn1 fn2 fn3))   ;; 부작용만, nil 반환
+;;   (parallel-each items (fn [$x] ...)) ;; items 각 원소에 병렬 적용
+
+(defn parallel-map [$fns]
+  (let [[$futures (map (fn [$f] (future (fn [] ($f)))) $fns)]]
+    (map (fn [$ft] (deref $ft)) $futures)))
+
+(defn parallel-run [$fns]
+  (let [[$futures (map (fn [$f] (future (fn [] ($f)))) $fns)]]
+    (map (fn [$ft] (deref $ft)) $futures)
+    nil))
+
+(defn parallel-each [$items $fn]
+  (let [[$futures (map (fn [$item] (future (fn [] ($fn $item)))) $items)]]
+    (map (fn [$ft] (deref $ft)) $futures)
+    nil))
+
+(defn parallel-map-items [$items $fn]
+  (let [[$futures (map (fn [$item] (future (fn [] ($fn $item)))) $items)]]
+    (map (fn [$ft] (deref $ft)) $futures)))
