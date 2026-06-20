@@ -1,10 +1,15 @@
 ;; fx-world — 환율/날씨 API 서버
 ;; FreeLang fx C 네이티브 | 포트 40296
-;; http-get(body string) + future(병렬) + regex_split + json_stringify 활용
+;; http-get({status body headers}) + future(병렬) + regex_split 활용
 
 (define PORT 40296)
 (define RATE_URL "https://api.exchangerate-api.com/v4/latest/USD")
 (define WEATHER_URL "https://wttr.in/")
+
+;; http-get-body: 응답 맵에서 body string만 추출 (실패 시 nil)
+(defn http-get-body [$url]
+  (let [[$res (http-get $url)]]
+    (if (or (null? $res) (not (http-ok? $res))) nil (http-body $res))))
 
 ;; ── JSON 응답 헬퍼 ──────────────────────────────────────────────
 
@@ -53,7 +58,7 @@
 ;; ── GET /rates ─────────────────────────────────────────────────
 
 (defn handle-rates [$req]
-  (let [$body (http-get RATE_URL)]
+  (let [$body (http-get-body RATE_URL)]
     (if (null? $body)
       (json-err "환율 API 오류")
       (try
@@ -64,7 +69,7 @@
 
 (defn handle-rate-single [$req]
   (let [$cur  (str_upper (get (get $req "params") "currency"))
-        $body (http-get RATE_URL)]
+        $body (http-get-body RATE_URL)]
     (if (null? $body)
       (json-err "환율 API 오류")
       (try
@@ -81,7 +86,7 @@
 (defn handle-weather [$req]
   (let [$city (get (get $req "params") "city")
         $url  (str WEATHER_URL $city "?format=j1")
-        $body (http-get $url)]
+        $body (http-get-body $url)]
     (if (null? $body)
       (json-err (str "날씨 API 오류: " $city))
       (try
@@ -92,7 +97,7 @@
 
 (defn fetch-city-weather [$city]
   (let [$url  (str WEATHER_URL $city "?format=j1")
-        $body (http-get $url)]
+        $body (http-get-body $url)]
     (if (null? $body)
       {"city" $city "error" "fetch-fail"}
       (try
@@ -115,8 +120,8 @@
 ;; 환율 + 서울 날씨 병렬 future x2
 
 (defn handle-dashboard [$req]
-  (let [$f-rates   (future (fn [] (http-get RATE_URL)))
-        $f-weather (future (fn [] (http-get (str WEATHER_URL "Seoul?format=j1"))))]
+  (let [$f-rates   (future (fn [] (http-get-body RATE_URL)))
+        $f-weather (future (fn [] (http-get-body (str WEATHER_URL "Seoul?format=j1"))))]
     (let [$b-rates   (deref $f-rates)
           $b-weather (deref $f-weather)
           $rates     (if (null? $b-rates)

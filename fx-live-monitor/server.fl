@@ -40,7 +40,7 @@
         $t0 (now-ms)]
     (let [$res (try (http-get $u) (catch $ex nil))
           $ms  (- (now-ms) $t0)
-          $st  (if (null? $res) "offline" "online")]
+          $st  (if (or (null? $res) (not (http-ok? $res))) "offline" "online")]
       (fxb_sqlite_exec db
         (str "INSERT INTO metrics (svc_name,status,response_ms,ts) VALUES ('"
              $n "','" $st "'," $ms "," (now-ms) ")"))
