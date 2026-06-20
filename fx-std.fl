@@ -272,11 +272,44 @@
         (result-fail (str "HTTP " (get $r "status")))
         (result-ok (get $r "body"))))))
 
-;; Safe JSON parse — json_parse가 잘못된 JSON시 throw (json.c 수정 후)
+;; Safe JSON parse — json_try_parse가 C 레벨에서 try-catch 처리
+;; (FL try-catch는 setjmp를 statement expression 안에 넣어 GCC 에러 발생)
 (defn json-parse-safe [$s]
-  (try
-    (result-ok (json_parse $s))
-    (catch $e (result-fail (str $e)))))
+  (json_try_parse $s))
+
+;; Safe file_read — 파일 없으면 nil 반환 (throw 없음)
+;; null? 체크: let 단일 바인딩으로 fl_str_n GCC 충돌 우회
+(defn file-read-safe [$path]
+  (let [$r (file-read $path)]
+    (if (null? $r)
+      (result-fail "파일 없음")
+      (result-ok $r))))
+
+;; Safe shell_run — popen 실패시 nil 반환
+(defn shell-run-safe [$cmd]
+  (let [$r (shell_run $cmd)]
+    (if (null? $r)
+      (result-fail "명령 실패")
+      (result-ok $r))))
+
+;; Safe MariaDB — 에러시 "[mariadb] ..." 문자열 반환 (sqlite와 동일 패턴)
+(defn mariadb-query-safe [$conn $sql]
+  (let [$r (mariadb_query $conn $sql)]
+    (if (string? $r)
+      (result-fail $r)
+      (result-ok $r))))
+
+(defn mariadb-exec-safe [$conn $sql]
+  (let [$r (mariadb_exec $conn $sql)]
+    (if (string? $r)
+      (result-fail $r)
+      (result-ok $r))))
+
+(defn mariadb-connect-safe [$host $port $user $pw $db]
+  (let [$r (mariadb_connect $host $port $user $pw $db)]
+    (if (string? $r)
+      (result-fail $r)
+      (result-ok $r))))
 
 ;; upsert: SQLite INSERT OR REPLACE 래퍼
 ;; 검증: cgc 컴파일 VERIFIED (fxb_sqlite_exec_p 의존)

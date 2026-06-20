@@ -132,6 +132,32 @@ FLValue fl_json_parse(FLValue src) {
     return result;
 }
 
+/* fl_json_try_parse: try-catch를 C 레벨에서 처리 → FL try-catch 불필요
+ * 반환: [값 nil] = 성공, [nil "에러"] = 실패 (Result 타입)
+ * FL에서: (defn json-parse-safe [$s] (json_try_parse $s))  */
+FLValue fl_json_try_parse(FLValue src) {
+    extern __thread FLTryFrame fl_try_stack[];
+    extern __thread int fl_try_top;
+    if (fl_try_top >= FL_TRY_MAX) {
+        /* try 스택 가득 → 직접 파싱 (에러 가능성 무시) */
+        FLValue __fl_arr[2] = {fl_json_parse(src), fl_nil()};
+        return fl_vec_from(__fl_arr, 2);
+    }
+    FLTryFrame* frame = &fl_try_stack[fl_try_top++];
+    if (setjmp(frame->buf) == 0) {
+        FLValue result = fl_json_parse(src);
+        fl_try_top--;
+        FLValue __fl_arr[2] = {result, fl_nil()};
+        return fl_vec_from(__fl_arr, 2);
+    } else {
+        fl_try_top--;
+        FLValue err = frame->err;
+        FLValue __fl_arr[2] = {fl_nil(), err};
+        return fl_vec_from(__fl_arr, 2);
+    }
+}
+FLValue json_try_parse(FLValue src) { return fl_json_try_parse(src); }
+
 /* ── 동적 버퍼 (realloc 기반, 64KB 시작 → 필요시 2배 확장) ── */
 typedef struct { char* data; size_t cap; size_t pos; } JBuf;
 

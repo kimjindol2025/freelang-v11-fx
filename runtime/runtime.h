@@ -300,10 +300,12 @@ FLValue fl_parse(FLValue src);
 
 /* ── JSON ── */
 FLValue fl_json_parse(FLValue src);
+FLValue fl_json_try_parse(FLValue src);
 FLValue fl_json_stringify(FLValue val);
 /* cgc-bin이 생성하는 짧은 이름 별칭 */
 FLValue json_parse(FLValue src);
 FLValue json_stringify(FLValue val);
+FLValue json_try_parse(FLValue src);
 
 /* ── 비트 연산 ── */
 FLValue fl_bit_xor(FLValue a, FLValue b);
