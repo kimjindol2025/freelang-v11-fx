@@ -1838,3 +1838,14 @@ FLValue fl_update(FLValue m, FLValue key, FLValue fn) {
 FLValue fl_db_open(FLValue path)                              { return fxb_sqlite_open(path); }
 FLValue fl_db_query(FLValue db, FLValue sql, FLValue params)  { return fxb_sqlite_query_p(db, sql, params); }
 FLValue fl_db_exec(FLValue db, FLValue sql, FLValue params)   { return fxb_sqlite_exec_p(db, sql, params); }
+
+
+
+/* FL:USER_SECTION:BEGIN */
+
+
+
+
+
+
+/* FL:USER_SECTION:END */

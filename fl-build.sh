@@ -132,6 +132,11 @@ if [ -f "$RUNTIME_DIR/mariadb.c" ]; then
   echo "   + MariaDB dlopen 바인딩 포함"
 fi
 
+# user-fns.c — fl-source-manager 관리 (있으면 자동 포함)
+if [ -f "$RUNTIME_DIR/user-fns.c" ]; then
+  RUNTIME_SRCS="$RUNTIME_SRCS $RUNTIME_DIR/user-fns.c"
+fi
+
 GCC_LOG="/tmp/fl_gcc_$$.log"
 if gcc -O2 -Werror=implicit-function-declaration -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
   -I "$RUNTIME_DIR" $EXTRA_CFLAGS \

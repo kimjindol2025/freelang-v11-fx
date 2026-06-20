@@ -677,3 +677,15 @@ FLValue fl_map_get(FLValue map, FLValue key);
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val);
 FLValue pdf_img_load(FLValue path);
 FLValue pdf_img_obj(FLValue img, FLValue obj_id);
+
+/* ── FL:USER_SECTION:BEGIN ── fl-source-manager가 관리 ── */
+
+/* FL:USER_SECTION:BEGIN */
+
+
+
+
+
+FLValue str_indent(FLValue a0, FLValue a1);
+
+/* FL:USER_SECTION:END */
