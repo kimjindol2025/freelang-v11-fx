@@ -386,6 +386,14 @@ FLValue ws_send(FLValue ws, FLValue msg);
 FLValue ws_close(FLValue ws);
 FLValue ws_conn_id(FLValue ws);
 
+/* ── sse.c — Server-Sent Events ── */
+FLValue server_sse(FLValue path, FLValue handler);
+FLValue sse_send(FLValue conn, FLValue data);
+FLValue sse_close(FLValue conn);
+FLValue sse_alive(FLValue conn);
+int sse_is_sse_request(const char* raw);
+int sse_handle_request(int fd, const char* raw, int raw_len);
+
 /* ── aliases.c — cgc-bin 생성 함수 bridge ── */
 /* 환경 */
 FLValue env_get(FLValue key);

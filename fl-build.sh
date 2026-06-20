@@ -110,11 +110,11 @@ fi
 echo "⚙️  C → 바이너리 컴파일..."
 if [ "$NO_NET" = "1" ]; then
   echo "   + --no-net: HTTP/WS/crypto stub 사용 (openssl/curl 불필요)"
-  NET_SRCS="$RUNTIME_DIR/http-stub.c $RUNTIME_DIR/websocket-stub.c $RUNTIME_DIR/http_client-stub.c $RUNTIME_DIR/crypto-stub.c"
+  NET_SRCS="$RUNTIME_DIR/http-stub.c $RUNTIME_DIR/websocket-stub.c $RUNTIME_DIR/http_client-stub.c $RUNTIME_DIR/crypto-stub.c $RUNTIME_DIR/sse.c"
   NET_LIBS=""
   EXTRA_CFLAGS="-DFL_NO_CRYPTO"
 else
-  NET_SRCS="$RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c"
+  NET_SRCS="$RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c $RUNTIME_DIR/sse.c"
   NET_LIBS="-lssl -lcrypto -lcurl"
   EXTRA_CFLAGS=""
 fi

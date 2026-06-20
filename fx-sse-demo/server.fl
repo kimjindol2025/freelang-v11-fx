@@ -1,0 +1,50 @@
+;; fx-sse-demo — FreeLang fx SSE 검증 앱
+;; 포트: 40320
+;; 테스트: curl -N http://localhost:40320/stream
+
+(define PORT 40321)
+(define $tick-count (atom 0))
+
+;; ── SSE 스트림 핸들러 ────────────────────────────────────────────
+(defn handle-stream [$sse]
+  (swap! $tick-count (fn [$n] (+ $n 1)))
+  (loop [$i 0]
+    (if (sse_alive $sse)
+      (do
+        (let [[$data (json_stringify {"tick" $i "time" (now-ms)})]]
+          (sse_send $sse $data))
+        (sleep 1000)
+        (if (< $i 9)
+          (recur (+ $i 1))
+          (sse_close $sse)))
+      nil)))
+
+;; ── 상태 확인 ────────────────────────────────────────────────────
+(defn handle-status [$req]
+  (server_json (json_stringify
+    {"ok" true "app" "fx-sse-demo" "port" PORT
+     "total-connections" @$tick-count})))
+
+;; ── 테스트 HTML 페이지 ────────────────────────────────────────────
+(defn handle-index [$req]
+  (server_html (str
+    "<!DOCTYPE html><html><head><title>fx SSE Demo</title></head><body>"
+    "<h1>fx SSE Demo</h1>"
+    "<div id='events'></div>"
+    "<script>"
+    "const es = new EventSource('/stream');"
+    "es.onmessage = e => {"
+    "  const d = document.getElementById('events');"
+    "  d.innerHTML = '<pre>' + e.data + '</pre>' + d.innerHTML;"
+    "};"
+    "es.onerror = () => es.close();"
+    "</script>"
+    "</body></html>")))
+
+;; ── 라우트 등록 ─────────────────────────────────────────────────
+(server_get  "/"        "handle-index")
+(server_get  "/status"  "handle-status")
+(server_sse  "/stream"  "handle-stream")
+
+(println (str "fx-sse-demo 포트 " PORT " | SSE: /stream"))
+(server_start PORT)
