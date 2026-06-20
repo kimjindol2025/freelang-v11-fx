@@ -263,20 +263,21 @@
         (result-ok nil)
         (result-ok (get $rows 0))))))
 
-;; Safe HTTP GET
+;; Safe HTTP GET — status=0(연결실패) / status>=400(HTTP에러) 감지
 (defn http-get-safe [$url]
-  (try
-    (let [$r (http_get $url)]
+  (let [$r (http_get $url)]
+    (if (= (get $r "status") 0)
+      (result-fail (str "연결 실패: " (get $r "error")))
       (if (>= (get $r "status") 400)
         (result-fail (str "HTTP " (get $r "status")))
-        (result-ok (get $r "body"))))
-    (catch $e (result-fail (str $e)))))
+        (result-ok (get $r "body"))))))
 
-;; Safe JSON parse
+;; Safe JSON parse — 주의: json_parse는 에러 시 {} 반환 (throw/null 없음)
+;; 빈 맵과 파싱 실패를 구분 불가 — 입력이 빈 문자열이면 fail, 나머지는 ok 반환
 (defn json-parse-safe [$s]
-  (try
-    (result-ok (json_parse $s))
-    (catch $e (result-fail (str $e)))))
+  (if (or (null? $s) (= (str-trim $s) ""))
+    (result-fail "빈 JSON 입력")
+    (result-ok (json_parse $s))))
 
 ;; upsert: SQLite INSERT OR REPLACE 래퍼
 ;; 검증: cgc 컴파일 VERIFIED (fxb_sqlite_exec_p 의존)
