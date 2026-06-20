@@ -26018,6 +26018,8 @@ function createBitsModule() {
 // src/stdlib-timer.ts
 var timerRegistry = /* @__PURE__ */ new Map();
 var nextTimerId = 2e3;
+// FL-P1 fix (ROS Round 9): missed-tick observability — throw로 인한 silent skip을 관측 가능 상태로(P-08 MOVE).
+var intervalStats = /* @__PURE__ */ new Map();
 function createTimerModule(interpreter) {
   return {
     // set_interval fn ms -> number (fn: function name string, ms: interval)
@@ -26031,7 +26033,10 @@ function createTimerModule(interpreter) {
           throw new Error(`Interval must be positive number, got ${ms}`);
         }
         const timerId = nextTimerId++;
+        intervalStats.set(timerId, { ticks: 0, missed: 0, lastError: null, lastErrorAt: 0 });
         const callback = () => {
+          const st = intervalStats.get(timerId);
+          if (st) st.ticks++;
           try {
             if (isFnObj) {
               interpreter.callFunction(fnName, []);
@@ -26039,6 +26044,7 @@ function createTimerModule(interpreter) {
               interpreter.callUserFunction(fnName, []);
             }
           } catch (err4) {
+            if (st) { st.missed++; st.lastError = err4.message; st.lastErrorAt = Date.now(); }
             const label = isFnObj ? "<fn>" : fnName;
             console.error(`set_interval callback error for '${label}':`, err4.message);
           }
@@ -26059,10 +26065,22 @@ function createTimerModule(interpreter) {
         }
         clearInterval(nodeTimer);
         timerRegistry.delete(timerId);
+        intervalStats.delete(timerId);
         return true;
       } catch (err4) {
         throw new Error(`clear_interval failed: ${err4.message}`);
       }
+    },
+    // interval_stats [timerId] (FL-P1 / ROS R9): silently-skipped ticks 노출. healthy=(missed===0). watchdog 폴링용.
+    "interval_stats": (timerId) => {
+      if (timerId === void 0 || timerId === null) {
+        const out = {};
+        for (const [id, st] of intervalStats) out[String(id)] = { ...st, healthy: st.missed === 0 };
+        return out;
+      }
+      const st = intervalStats.get(timerId);
+      if (st === void 0) return null;
+      return { ...st, healthy: st.missed === 0 };
     },
     // set_timeout fn ms -> number (fn: function name string, ms: delay)
     "set_timeout": (fnName, ms) => {
