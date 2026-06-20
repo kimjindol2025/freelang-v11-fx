@@ -594,6 +594,9 @@ FLValue fl_clamp(FLValue val, FLValue lo, FLValue hi);
 extern FLValue sqlite_open, sqlite_query, sqlite_exec, sqlite_one;
 extern FLValue sqlite_query_p, sqlite_exec_p, sqlite_one_p, sqlite_close;
 extern FLValue server_req_body;
+/* throw: old cgc-bin generates fl_fn_call(throw,...) — shim maps to fl_throw() */
+/* In C (not C++), 'throw' is a valid identifier */
+extern FLValue throw;
 
 /* fx 독립 언어 — 투명 alias 선언 */
 FLValue sqlite_open_v2(FLValue path);
