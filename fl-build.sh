@@ -81,9 +81,30 @@ open("$PREPROCESSED", "w").write(output)
 print(f"[fl-build] 전처리 완료", file=sys.stderr)
 PYEOF
 
-# ─── 2. cgc-bin: FL → C ──────────────────────────────────────────
+# ─── 2. 사전 검사 ────────────────────────────────────────────────
+CHECK_PARENS="/home/kimjin/freelang-v11/scripts/check-parens.py"
+if [ -f "$CHECK_PARENS" ]; then
+  echo "🔍 괄호/브래킷 검사..."
+  if ! python3 "$CHECK_PARENS" "$PREPROCESSED" 2>&1; then
+    echo "❌ 사전 검사 실패 — 컴파일 중단"
+    rm -f "$PREPROCESSED"
+    exit 1
+  fi
+fi
+
+# ─── 3. cgc-bin: FL → C ──────────────────────────────────────────
 echo "⚙️  FL → C 컴파일..."
-"$CGC_BIN" "$PREPROCESSED" "$C_FILE" 2>&1 | grep -v "^$" || true
+COMPILE_OUT=$("$CGC_BIN" "$PREPROCESSED" "$C_FILE" 2>&1)
+echo "$COMPILE_OUT" | grep -v "^$" || true
+
+# W1/W2/W3 경고 있으면 강조 출력
+WARN_COUNT=$(echo "$COMPILE_OUT" | grep -c "\[W[123]\]" || true)
+if [ "$WARN_COUNT" -gt 0 ]; then
+  echo ""
+  echo "⚠️  컴파일 경고 ${WARN_COUNT}개:"
+  echo "$COMPILE_OUT" | grep "\[W[123]\]"
+  echo ""
+fi
 
 # ─── 3. gcc: C → ELF ─────────────────────────────────────────────
 echo "⚙️  C → 바이너리 컴파일..."
