@@ -241,24 +241,27 @@
 (defn result-map [$r $fn]
   (if (result-ok? $r) (result-ok ($fn (get $r 0))) $r))
 
-;; Safe DB 래퍼 — try-catch로 에러를 Result로 변환
+;; Safe DB 래퍼 — sqlite는 에러 시 문자열 반환 (throw 아님)
+;; 반환값이 문자열이면 에러, 벡터/맵이면 성공
 (defn db-query-safe [$db $sql $params]
-  (try
-    (result-ok (fxb_sqlite_query_p $db $sql $params))
-    (catch $e (result-fail (str $e)))))
+  (let [$r (fxb_sqlite_query_p $db $sql $params)]
+    (if (string? $r)
+      (result-fail $r)
+      (result-ok $r))))
 
 (defn db-exec-safe [$db $sql $params]
-  (try
-    (result-ok (fxb_sqlite_exec_p $db $sql $params))
-    (catch $e (result-fail (str $e)))))
+  (let [$r (fxb_sqlite_exec_p $db $sql $params)]
+    (if (string? $r)
+      (result-fail $r)
+      (result-ok $r))))
 
 (defn db-one-safe [$db $sql $params]
-  (try
-    (let [$rows (fxb_sqlite_query_p $db $sql $params)]
+  (let [$rows (fxb_sqlite_query_p $db $sql $params)]
+    (if (string? $rows)
+      (result-fail $rows)
       (if (= (length $rows) 0)
         (result-ok nil)
-        (result-ok (get $rows 0))))
-    (catch $e (result-fail (str $e)))))
+        (result-ok (get $rows 0))))))
 
 ;; Safe HTTP GET
 (defn http-get-safe [$url]

@@ -9,7 +9,7 @@ set -e
 SCRIPT_REAL="$(readlink -f "$0")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_REAL")" && pwd)"
 RUNTIME_DIR="$SCRIPT_DIR/runtime"
-CGC_BIN="/home/kim/freelang-v11/bin/cgc-bin"
+CGC_BIN="/home/kimjin/freelang-v11/bin/cgc-bin"
 
 # --no-net 플래그: openssl/curl 없이 stub으로 빌드
 NO_NET=0
