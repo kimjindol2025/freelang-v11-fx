@@ -272,12 +272,11 @@
         (result-fail (str "HTTP " (get $r "status")))
         (result-ok (get $r "body"))))))
 
-;; Safe JSON parse — 주의: json_parse는 에러 시 {} 반환 (throw/null 없음)
-;; 빈 맵과 파싱 실패를 구분 불가 — 입력이 빈 문자열이면 fail, 나머지는 ok 반환
+;; Safe JSON parse — json_parse가 잘못된 JSON시 throw (json.c 수정 후)
 (defn json-parse-safe [$s]
-  (if (or (null? $s) (= (str-trim $s) ""))
-    (result-fail "빈 JSON 입력")
-    (result-ok (json_parse $s))))
+  (try
+    (result-ok (json_parse $s))
+    (catch $e (result-fail (str $e)))))
 
 ;; upsert: SQLite INSERT OR REPLACE 래퍼
 ;; 검증: cgc 컴파일 VERIFIED (fxb_sqlite_exec_p 의존)

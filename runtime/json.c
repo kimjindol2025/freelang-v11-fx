@@ -121,7 +121,15 @@ FLValue fl_json_parse(FLValue src) {
     if (src.tag != FL_STRING) return fl_nil();
     FLString* s = (FLString*)src.obj;
     const char* p = s->data;
-    return json_parse_value(&p);
+    FLValue result = json_parse_value(&p);
+    /* 파싱 후 남은 비공백 문자 있으면 → 잘못된 JSON → throw */
+    p = json_skip_ws(p);
+    if (*p != '\0') {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "[json] 파싱 실패: 잘못된 JSON (위치: '%.20s')", p);
+        fl_throw(fl_str_val(buf));
+    }
+    return result;
 }
 
 /* ── 동적 버퍼 (realloc 기반, 64KB 시작 → 필요시 2배 확장) ── */
