@@ -22,9 +22,9 @@
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction]
   trap_count: 24
   verified_stdlib: verified-stdlib.md
-  maturation_phase: phase3_complete
+  maturation_phase: phase5_complete
   completed_phases: [phase2=stdlib-fixes(e72dcb0), phase3=cgc-http-remap(72aab72)]
-  next_phases: [phase4=cache-cgc-port, phase5=str-includes-bool]
+  next_phases: [phase6=cache-cgc-port]
 
 ;; ─────────────────────── TRAPS ───────────────────────
 ;; 우선순위 최상위. "이렇게 하면 조용히 깨진다"의 목록.
@@ -61,13 +61,14 @@
 
 @trap
   id: trap-str-includes-int
-  type: trap
-  claimed: str_includes 는 boolean 을 반환한다
-  observed: str_includes 는 C int (0/1) 를 반환한다
-  risk: (if (str_includes ...)) 가 타입/진리값 불일치로 오작동
-  rule: if 에 직접 쓰지 말고 명시적으로 1 과 비교한다
-  safe_pattern: (if (= (str_includes x y) 1) ...)
-  lint_detectable: true
+  type: resolved
+  claimed: str_includes(underscore)가 C int 반환 → if 오작동
+  observed: aliases.c에 str_includes 미정의 → GCC implicit int 반환 → fl_truthy 타입 오류
+  fix: aliases.c + runtime.h에 FLValue str_includes alias 추가 (7862281)
+  rule: str-includes(kebab)은 항상 정상. str_includes(underscore)는 7862281 이후 정상
+  safe_pattern: (if (str-includes $s "word") ...) ;; kebab 권장
+  lint_detectable: false
+  resolved_at: 2026-06-21
 
 @trap
   id: trap-throw-invalid-initializer
