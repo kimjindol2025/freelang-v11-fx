@@ -170,3 +170,29 @@
   (println (str "[" (now-str) "] "
                 (get $req "method") " "
                 (get $req "path"))))
+
+;; ─── 10. 안전한 맵 접근 (Phase 3, 2026-06-20, cgc VERIFIED) ────────────
+
+;; json_safe_get: 맵에서 키 추출, nil이면 기본값 반환
+;; 용도: (get (get $req "params") "id") 패턴에서 nil 방어
+;; 검증: cgc 컴파일 + 실행 확인 (2026-06-20)
+(defn json_safe_get [$m $k $default]
+  (let [[$v (if (nil? $m) nil (get $m $k))]]
+    (if (nil? $v) $default $v)))
+
+;; get-in-2: 2단계 중첩 맵 접근 (fx 앱에서 가장 흔한 패턴)
+;; 대체: (get (get $req "params") "id") → (get-in-2 $req "params" "id")
+;; 검증: cgc 컴파일 + 실행 확인 (2026-06-20)
+(defn get-in-2 [$m $k1 $k2]
+  (json_safe_get (json_safe_get $m $k1 nil) $k2 nil))
+
+;; upsert: SQLite INSERT OR REPLACE 래퍼
+;; 검증: cgc 컴파일 VERIFIED (fxb_sqlite_exec_p 의존)
+;; 사용: (upsert $db "users" ["id" "name"] (list $id $name))
+(defn upsert [$db $table $cols $vals]
+  (do
+    (let [[$n (length $cols)]
+          [$col-list (str-join $cols ",")]
+          [$placeholders (str-join (map (fn [$_] "?") $cols) ",")]
+          [$sql (str "INSERT OR REPLACE INTO " $table "(" $col-list ") VALUES (" $placeholders ")")]]
+      (fxb_sqlite_exec_p $db $sql $vals))))

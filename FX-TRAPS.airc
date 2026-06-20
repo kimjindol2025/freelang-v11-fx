@@ -13,13 +13,17 @@
 ;; ============================================================
 
 @meta
-  version: 1
+  version: 2
   created: 2026-06-16
+  updated: 2026-06-20
   source_of_truth: true
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
-  required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable]
-  next_phases: [phase2=fl-lint.sh, phase3=runtime-fixes, phase4=fx-dashboard]
+  required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction]
+  trap_count: 23
+  verified_stdlib: verified-stdlib.md
+  maturation_phase: phase1_complete
+  next_phases: [phase2=stdlib-fixes, phase3=cgc-http-remap, phase4=cache-cgc-port]
 
 ;; ─────────────────────── TRAPS ───────────────────────
 ;; 우선순위 최상위. "이렇게 하면 조용히 깨진다"의 목록.
@@ -173,6 +177,96 @@
   rule: 함정을 언어 탓 하기 전 cgc-bin 날짜 + cgc-main.fl 소스 대조. runtime/*.c 는 노드에서 즉시 컴파일되니 런타임 레벨은 바로 고침
   safe_pattern: ls -la /root/freelang-v11/bin/cgc-bin  ;; 날짜 먼저 확인
   lint_detectable: false
+
+;; ─────────── TRAPS 추가 (2026-06-20 성숙화 실측) ───────────
+
+@trap
+  id: trap-set-interval-swallow
+  type: trap
+  claimed: set_interval 콜백에서 throw 하면 인터벌이 중단된다
+  observed: throw 발생 시 "set_interval callback error" stderr 출력 후 다음 틱 계속 실행 — 인터벌 절대 중단 안 됨
+  risk: 데몬 로직에서 throw로 중단 시도 시 조용히 무시됨. 보안 탐지 코드에서 치명적 — crash 아닌 silentskipped-cycle 상태로 영구 계속됨
+  rule: set_interval 콜백 안에서 throw 금지. 중단 신호는 atom 플래그로 전달하고 콜백 첫 줄에서 확인
+  safe_pattern: (define *stop* (atom false)) (set_interval (fn [] (if @*stop* nil (do ...))) ms)
+  reproduction: 2026-06-20 실측 — tick 3에서 throw, stderr에 오류 출력, tick 4 계속 실행 확인
+  lint_detectable: true
+
+@trap
+  id: trap-nth-out-of-bounds
+  type: trap
+  claimed: nth 로 범위 밖 인덱스 접근 시 오류가 발생한다
+  observed: nil 을 반환한다 (에러 없음). (nil? (nth v 999)) → true
+  risk: 배열 경계 검사를 오류 catch 로 구현 시 항상 통과. 잘못된 인덱스가 nil 로 조용히 전파됨
+  rule: nth 사용 전 (< idx (length v)) 로 경계 검사. 반환값 nil 가능성 항상 가정
+  safe_pattern: (if (< $i (length $v)) (nth $v $i) default-val)
+  reproduction: 2026-06-20 실측 — (nth [10 20 30] 5) → null, (nil? ...) → true
+  lint_detectable: false
+
+@trap
+  id: trap-try-map-literal
+  type: trap
+  claimed: try 본문에 맵 리터럴 {..} 을 직접 쓸 수 있다
+  observed: v11 파서가 try 본문 위치에서 LBrace 를 예상치 못해 E_PARSE_UNEXPECTED_TOKEN 발생
+  risk: try 안에서 맵 반환 패턴(ok/error 래핑) 전체 사용 불가
+  rule: try 본문에 {..} 직접 금지. (hash-map "k" v) 또는 변수를 앞에서 바인딩 후 사용
+  safe_pattern: (try (hash-map "ok" true "val" (fn-to-call)) (catch err (hash-map "ok" false "err" err)))
+  reproduction: 2026-06-20 실측 — (try {:ok true} (catch err ...)) → 파싱 오류
+  lint_detectable: true
+
+@trap
+  id: trap-nested-defn-skip
+  type: trap
+  claimed: defn 내부에 defn 을 중첩하면 로컬 함수처럼 동작한다
+  observed: cgc 가 "/* defn inside expr — skip */fl_nil()" 을 생성. 외부 defn 이 nil 반환
+  risk: retry, recursive helper 같은 중첩 함수 패턴 전체 silent-fail
+  rule: 모든 defn 은 최상위 레벨에 정의. 내부 함수가 필요하면 prefix 로 구분
+  safe_pattern: (defn retry-inner [attempt] ...) (defn retry [fn opts] (retry-inner 1))
+  reproduction: 2026-06-20 실측 — cgc 생성 C 코드에서 확인
+  lint_detectable: true
+
+@trap
+  id: trap-inc-dec-missing
+  type: trap
+  claimed: inc / dec 는 FreeLang 기본 빌트인이다 (Clojure 스타일)
+  observed: v11 인터프리터와 cgc 양쪽에서 'inc' 함수 없음 오류 발생
+  risk: queue/stack 구현, 카운터 증감 로직 전체가 런타임 오류
+  rule: (inc x) → (+ x 1) 로, (dec x) → (- x 1) 로 모두 대체
+  safe_pattern: (defn inc [n] (+ n 1))  ;; 또는 (+ $cnt 1) 직접 사용
+  reproduction: 2026-06-20 실측 — queue.fl 로드 시 [queue-push] [inc] 없음 오류
+  lint_detectable: true
+
+@trap
+  id: trap-cache-cgc-missing
+  type: trap
+  claimed: cache-create / cache-set / cache-get 등은 cgc 에서도 동작한다
+  observed: 이 함수들은 v11 인터프리터 전용 빌트인. cgc 런타임(runtime.h/aliases.c)에 없음 → 링크 실패 또는 fl_fn_call 타입 오류
+  risk: cache.fl 전체가 cgc 에서 dead code
+  rule: cgc 앱에서 캐시가 필요하면 SQLite 기반 또는 맵+atom 직접 구현
+  safe_pattern: (define *cache* (atom {})) (defn cache-get! [k] (get (deref *cache*) k))
+  reproduction: 2026-06-20 실측 — cgc 빌드 시 fl_fn_call(cache_create,...) 링크 오류
+  lint_detectable: false
+
+@trap
+  id: trap-http-get-cgc-mapping
+  type: trap
+  claimed: (http_get url) 는 cgc 에서 {status body headers} 맵을 반환한다
+  observed: cgc-main.fl:992 가 http-get/http_get 을 fl_http_get (http.c) 으로 변환 — 이 함수는 문자열 body 만 반환 (맵 아님). (get result "status") → nil
+  risk: http 응답 상태코드 확인 불가. 정상 응답도 nil 처리됨
+  rule: cgc 에서 http 결과를 맵으로 쓰지 말 것. 현재 cgc http_get 은 body string 전용으로만 사용. 맵이 필요하면 http_client.c 의 http_get 을 직접 노출하는 패치 필요
+  safe_pattern: (define $body (http_get "http://..."))  ;; string 반환, nil 체크 후 사용
+  reproduction: 2026-06-20 실측 — cgc 생성 C에 fl_http_get 호출 확인, (get result "status") → nil
+  lint_detectable: false
+
+@trap
+  id: trap-parallel-run-missing
+  type: trap
+  claimed: (parallel-run [fn1 fn2]) 로 병렬 실행이 가능하다 (stdlib/parallel.fl)
+  observed: parallel.fl 내부가 run-parallel 빌트인을 래핑하는데, run-parallel 자체가 존재하지 않음
+  risk: parallel.fl 전체 dead code. 로드는 성공하지만 호출 즉시 런타임 오류
+  rule: parallel.fl 사용 금지. 진짜 병렬 실행이 필요하면 shell_run 다중 호출 또는 다른 패턴
+  safe_pattern: ;; 현재 fx 에서 진짜 병렬 실행 방법 없음 — 순차 처리 또는 백그라운드 shell_run
+  reproduction: 2026-06-20 실측 — [run-parallel] 'run-parallel' 함수 없음 오류
+  lint_detectable: true
 
 ;; ─────────────────────── LOCKS ───────────────────────
 ;; 금지/필수 규칙. trap 보다 강하게, "하지 마라/반드시 하라".
