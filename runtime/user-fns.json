@@ -1,0 +1,22 @@
+{
+  "str-indent": {
+    "name": "str-indent",
+    "version": "0.1.0",
+    "args": 2,
+    "added": "2026-06-20T19:08:28.876Z",
+    "updated": "2026-06-20T19:08:28.877Z",
+    "body": "FLValue ufl_str_indent(FLValue s, FLValue n) {\n    if (s.tag != FL_STRING || n.tag != FL_INT) return s;\n    int64_t cnt = n.i < 0 ? 0 : n.i;\n    const char* src = ((FLString*)s.obj)->data;\n    size_t slen = strlen(src);\n    char* buf = (char*)fl_arena_alloc(cnt + slen + 1);\n    if (!buf) return s;\n    memset(buf, 32, cnt);\n    memcpy(buf + cnt, src, slen);\n    buf[cnt + slen] = 0;\n    return fl_str_val(buf);\n}",
+    "bodyHash": "sha256:bfcba54ec7a863e5",
+    "test": "(println (str-indent \"hello\" 4))",
+    "tags": [
+      "string",
+      "formatting"
+    ],
+    "lastBuild": {
+      "status": "ok",
+      "durationMs": 6271,
+      "ts": "2026-06-20T19:08:35.175Z"
+    },
+    "buildCount": 1
+  }
+}

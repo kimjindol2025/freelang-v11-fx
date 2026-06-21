@@ -686,6 +686,11 @@ FLValue pdf_img_obj(FLValue img, FLValue obj_id);
 
 
 
-FLValue str_indent(FLValue a0, FLValue a1);
 
+
+
+
+
+FLValue ufl_str_indent(FLValue a0, FLValue a1);
+FLValue str_indent(FLValue a0, FLValue a1);
 /* FL:USER_SECTION:END */

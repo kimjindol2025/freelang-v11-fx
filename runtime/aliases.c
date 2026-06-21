@@ -1848,4 +1848,9 @@ FLValue fl_db_exec(FLValue db, FLValue sql, FLValue params)   { return fxb_sqlit
 
 
 
+
+
+
+
+FLValue str_indent(FLValue a0, FLValue a1) { return ufl_str_indent(a0, a1); }
 /* FL:USER_SECTION:END */
