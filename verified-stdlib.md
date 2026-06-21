@@ -23,108 +23,117 @@
 
 ### 1. retry.fl
 
-**Status: BROKEN**
+**Status: VERIFIED (2026-06-20/21)**
 
 **Evidence:**
 
 | 경로 | 결과 | 증거 |
 |------|------|------|
-| v11 interpreter | ❌ BROKEN | `(try {:map...} (catch...))` → 파싱 오류 (map literal이 try 첫 body 위치 불가) |
-| cgc C 컴파일 | ❌ BROKEN | `defn inner` 중첩 → `/* defn inside expr — skip */fl_nil()` 생성. js-eval 사용 (cgc 비호환) |
+| v11 interpreter | ✅ VERIFIED | retry-result/retry-safe 실측. max-tries=5, fallback, -int-pow 모두 정상 |
+| cgc C 컴파일 | ✅ VERIFIED | hash_map shim(fd7a57b) 추가 후 빌드·실행 성공. 출력: true/success!/fallback/1/2/8 |
 | 실서비스 | ❌ 없음 | fx 앱 중 retry.fl 사용 사례 없음 |
 
-**구체적 오류:**
+**cgc 실행 증거 (root 노드, 2026-06-21):**
 ```
-[E_PARSE_UNEXPECTED_TOKEN] [51:22] Expected RParen, got LBrace
-— (try {:ok true ...} (catch err {...})) 형식에서 발생
-```
-
-cgc 생성 C:
-```c
-FLValue retry_simple(...) {
-    return /* defn inside expr — skip */fl_nil();
-}
+true        ← retry-result ok=true
+success!    ← retry-result value
+fallback    ← retry-safe (always-throw fn → fallback)
+1           ← -int-pow 2 0
+2           ← -int-pow 2 1
+8           ← -int-pow 2 3
 ```
 
-**근본 원인:**
-1. v11: `try` 본문에 map literal `{...}` 직접 사용 불가 (괄호 형태만 허용)
-2. cgc: 중첩 `defn` (`defn fn` 안에 `defn inner`) → cgc가 건너뜀
-3. `js-eval("Atomics.wait(...)")` 딜레이 → cgc C 네이티브에서 실행 불가
+**수정 내역 (원본 retry.fl → 새 버전):**
+1. `:keyword` 키 → `"string"` 키 (cgc 호환)
+2. `try + {map}` → `try + (hash-map ...)` (v11 파싱 오류 수정)
+3. `js-eval(Atomics.wait)` → `(sleep d)` (cgc 호환)
+4. `pow()` 없음 → `-int-pow` (loop/recur 수동 계산)
+5. `rand-int` 없음 → jitter 기능 제거
+6. `-retry-core`: 절대 throw 하지 않음 (defn-throw-rerun 트랩 우회)
+7. `(get m k default)` 3인자 → `-rget` 헬퍼 (cgc get은 2인자)
 
-**수정 방향:**
-```lisp
-;; v11: {:map} → (hash-map "ok" true ...)
-;; cgc: 중첩 defn → 최상위 defn으로 분리
-;; delay: sleep_ms 빌트인 사용
-```
+**runtime 변경사항 (fx-builtin-shim.c / runtime.h):**
+- `throw` shim 추가 (커밋 2c98a8a): old cgc-bin `fl_fn_call(throw,...)` → `fl_throw()`
+- `hash_map` shim 추가 (커밋 fd7a57b): old cgc-bin `fl_fn_call(hash_map,...)` → `fl_map_new/fl_map_set`
+
+**[v11 주의] defn-throw-rerun 트랩:**
+- v11에서 defn 내부 throw → 함수 전체 재실행
+- retry-result/retry-safe: -retry-core가 throw 없음 → 정확히 max-tries 회 이하 호출
+- retry(): v11에서 throw로 propagate 시 fn을 2×max-tries 회 호출 가능 (부작용 있는 fn은 retry-result 사용)
 
 ---
 
 ### 2. cache.fl
 
-**Status: PARTIAL (v11 내장 함수만)**
+**Status: VERIFIED (2026-06-21)**
 
 **Evidence:**
 
 | 경로 | 결과 | 증거 |
 |------|------|------|
-| v11 내장 (`cache-create/get/has`) | ✅ PARTIAL | `(define ch (cache-create 10))` + get/has 동작 확인 |
-| cgc C 컴파일 | ❌ BROKEN | `cache_create` 등 cgc 런타임에 없음 → 링크 실패 |
+| v11 interpreter | ✅ VERIFIED | 전 함수 실측. set/get/has/del/clear/stats/TTL/get-or-set 모두 정상 |
+| cgc C 컴파일 | ✅ VERIFIED | 빌드 성공. 15항목 출력 v11과 동일 (nil 표현 차이만) |
 | 실서비스 | ❌ 없음 | fx 앱 중 cache.fl 사용 사례 없음 |
 
-**동작 확인된 함수 (v11):**
-```lisp
-(cache-create 10)        ; → 핸들 반환 ✅
-(cache-set ch "k" "v")  ; → 저장 ✅
-(cache-get ch "k")      ; → "v" ✅
-(cache-has ch "k")      ; → true ✅
-(cache-has ch "no")     ; → false ✅
+**실행 증거 (v11+cgc, 2026-06-21):**
+```
+hello     ← cache-get "a" ✓
+42        ← cache-get "b" (int) ✓
+true      ← cache-has "a" ✓
+false     ← cache-has "missing" ✓
+2         ← cache-size ✓
+false     ← cache-has after del ✓
+1         ← size after del ✓
+4         ← hits ✓
+1         ← misses ✓
+true      ← cache-has TTL before expire ✓
+false     ← cache-has TTL after expire ✓
+nil/null  ← cache-get expired = nil ✓
+loaded-val ← cache-get-or-set (loader called) ✓
+loaded-val ← cache-get (hit after set) ✓
+0         ← cache-size after clear ✓
 ```
 
-**cgc 실패 원인:**
-- `cache_create`, `cache_set`, `cache_get` 등이 v11 인터프리터 전용 빌트인
-- `runtime.h`, `aliases.c`에 선언 없음
-- cgc 생성 C에서 `fl_fn_call(cache_create, ...)` → undefined symbol
+**구현 방식 (순수 FL, v11 내장 cache-* 미사용):**
+- 핸들 = atom containing `{"entries" {key→{"val" v "exp" ms|nil}} "hits" N "misses" N "max" N}`
+- TTL = `now_ms` 비교 (v11+cgc 공통)
+- max-size 저장 but LRU 강제 없음 (순수 FL 한계)
 
-**TTL 4인자 `cache-set`**: 미검증
+**발견된 버그 + 수정 (cgc GC 함정):**
+- 원인: `fl_atom_deref` = raw pointer (RC 증가 없음). `fl_atom_reset` = old값 RC-- → 0이면 재귀 free.
+  reset! 후 old 포인터(`entry`) 접근 → freed memory → nil 반환
+- 수정: hit 케이스에서 reset 후 `@ch` re-deref로 새 heap-safe 포인터에서 val 읽기
+- 신규 트랩 등록: `trap-atom-deref-gc` (FX-TRAPS.airc #25)
+
+**API 변경 (v11 원본 대비):**
+- `cache-set [ch key val ttl-ms]` 4인자 → `cache-set-ttl [ch key val ttl-ms]` 로 분리 (FL 고정 arity)
 
 ---
 
 ### 3. queue.fl
 
-**Status: PARTIAL (cgc 핵심 로직)**
+**Status: VERIFIED (2026-06-20)**
 
 **Evidence:**
 
 | 경로 | 결과 | 증거 |
 |------|------|------|
-| v11 interpreter | ❌ BROKEN | `inc`/`dec` 함수 없음 → 런타임 오류 |
-| cgc C 컴파일 | ✅ PARTIAL | `inc`→`(+ n 1)` 수동 대체 시 컴파일 성공, 실행 정상 |
+| v11 interpreter | ✅ VERIFIED | queue/stack 전 함수 실측. push/pop/peek/size/empty?/->list 모두 정상 |
+| cgc C 컴파일 | ✅ VERIFIED | 빌드·실행 성공. queue 3항목 push→pop 순서 정확, stack LIFO 정확 |
 | 실서비스 | ❌ 없음 | fx 앱 중 queue.fl 사용 사례 없음 |
 
-**cgc 실행 결과:**
+**cgc 실행 증거 (root 노드, 2026-06-20):**
 ```
-3     ; queue-size 정상
-a     ; queue-pop 정상
-a     ; queue-peek 정상
+3       ← queue-size 3항목
+a       ← queue-pop first item (FIFO)
+3       ← stack-size
+c       ← stack-pop last item (LIFO)
 ```
 
-**v11 실패 원인:**
-```
-[queue-push] [inc] 'inc' 함수 없음
-```
-- queue.fl 내부에서 `(inc (get q :size))` 사용
-- v11에서 `inc` 빌트인 없음 (`(+ x 1)` 사용해야 함)
-
-**queue.fl 수정 필요:**
-```lisp
-;; 현재 (broken)
-{:size (inc (get q :size))}
-
-;; 수정
-{"size" (+ (get q "size") 1)}
-;; 참고: 키 스타일도 :keyword → "string" 로 맞춰야 cgc 호환
-```
+**수정 내역 (원본 queue.fl → 새 버전):**
+1. `:keyword` 키 → `"string"` 키 (cgc 호환)
+2. `(inc n)` → `(+ n 1)`, `(dec n)` → `(- n 1)` (inc/dec 빌트인 없음)
+3. `butlast` → `(take (- n 1) items)` (butlast 빌트인 없음)
 
 ---
 
@@ -243,17 +252,18 @@ cgc-main.fl에서 http_get → http_get (C direct call) 또는 fxb_http_get 래�
 
 | stdlib | v11 | cgc | 실서비스 | **판정** |
 |--------|-----|-----|---------|---------|
-| retry.fl | ❌ BROKEN | ❌ BROKEN | ❌ 없음 | **BROKEN** |
-| cache.fl | ⚠️ PARTIAL | ❌ BROKEN | ❌ 없음 | **PARTIAL** |
-| queue.fl | ❌ BROKEN | ⚠️ PARTIAL | ❌ 없음 | **PARTIAL** |
-| parallel.fl | ❌ BROKEN | ❌ BROKEN | ❌ 없음 | **BROKEN** |
+| retry.fl | ✅ VERIFIED | ✅ VERIFIED | ❌ 없음 | **VERIFIED** |
+| queue.fl | ✅ VERIFIED | ✅ VERIFIED | ❌ 없음 | **VERIFIED** |
+| cache.fl | ✅ VERIFIED | ✅ VERIFIED | ❌ 없음 | **VERIFIED** |
 | debug-tools.fl | ⚠️ PARTIAL | ❌ 미검증 | ❌ 없음 | **PARTIAL** |
 | http_get (client) | ✅ 동작 | ❌ BROKEN | ❌ 없음 | **PARTIAL** |
+| parallel.fl | ❌ BROKEN | ❌ BROKEN | ❌ 없음 | **BROKEN** |
 | server_start_tls | ❌ 미검증 | ❌ 미검증 | ❌ 없음 | **CLAIMED** |
 
-**Claimed → Verified 달성률: 0/7 (0%)**  
-**PARTIAL 이상: 4/7 (57%)**  
-**완전 BROKEN: 2/7 (retry, parallel)**
+**VERIFIED: 3/7 (43%)**  
+**PARTIAL 이상: 5/7 (71%)**  
+**완전 BROKEN: 1/7 (parallel만)**  
+**CLAIMED: 1/7 (server_start_tls)**
 
 ---
 

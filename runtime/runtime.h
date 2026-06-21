@@ -612,6 +612,8 @@ extern FLValue server_req_body;
 /* throw: old cgc-bin generates fl_fn_call(throw,...) — shim maps to fl_throw() */
 /* In C (not C++), 'throw' is a valid identifier */
 extern FLValue throw;
+/* hash_map: old cgc-bin generates fl_fn_call(hash_map,...) for (hash-map ...) */
+extern FLValue hash_map;
 
 /* fx 독립 언어 — 투명 alias 선언 */
 FLValue sqlite_open_v2(FLValue path);

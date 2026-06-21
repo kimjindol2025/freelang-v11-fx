@@ -26020,6 +26020,49 @@ var timerRegistry = /* @__PURE__ */ new Map();
 var nextTimerId = 2e3;
 // FL-P1 fix (ROS Round 9): missed-tick observability — throw로 인한 silent skip을 관측 가능 상태로(P-08 MOVE).
 var intervalStats = /* @__PURE__ */ new Map();
+// SIS Phase 2 (fx 인터프리터): Evidence Bus 인라인 (sis-bus.ts JS포팅). emit O(1)·drop_latch 분리(immunodeficiency 방지).
+var SIS_E_TIMER_EXCEPTION = 1, SIS_E_EVENT_DROPPED = 3, SIS_CAP = 4096;
+var sisRing = new Array(SIS_CAP), sisHead = 0, sisTail = 0;
+var sisEmitCount = 0, sisReceived = 0, sisDropped = 0, sisDropSince = 0, sisDropLatchSeq = 0;
+function sisRingPush(type, payload) {
+  var next = (sisHead + 1) % SIS_CAP;
+  if (next === sisTail) return false;
+  sisRing[sisHead] = { ts: Date.now(), type, payload }; sisHead = next; sisReceived++; return true;
+}
+// SIS Phase 3 (fx): L3-minimal immune response (Observe→Classify→React). 얇게: score++/quarantine 판정만.
+var SIS_QUARANTINE_THRESHOLD = 3;
+var sisPolicyState = new Map();
+var sisPolicyEventCount = 0, sisPolicyFireCount = 0, sisQuarantineCount = 0, sisPolicyErrorCount = 0;
+function sisPolicyOnEvent(type, payload) {
+  sisPolicyEventCount++;
+  if (type !== SIS_E_TIMER_EXCEPTION) return;
+  var tid = (payload && payload.timer_id) || 0;
+  var s = sisPolicyState.get(tid);
+  if (!s) { s = { score: 0, quarantined: false }; sisPolicyState.set(tid, s); }
+  s.score++;
+  if (s.score >= SIS_QUARANTINE_THRESHOLD && !s.quarantined) {
+    s.quarantined = true; sisQuarantineCount++; sisPolicyFireCount++;
+    console.error(`[SIS] event=E_TIMER_EXCEPTION score=${s.score} quarantined=true action=QUARANTINE timer=${tid}`);
+  }
+}
+function sisEmit(type, payload) {
+  sisEmitCount++;
+  if (sisDropSince > 0 && type !== SIS_E_EVENT_DROPPED) {
+    if (sisRingPush(SIS_E_EVENT_DROPPED, { emit_count: sisEmitCount, dropped_count: sisDropped })) sisDropSince = 0;
+  }
+  var ok = sisRingPush(type, payload);
+  if (!ok) { sisDropped++; sisDropSince++; sisDropLatchSeq++; }
+  // I4: subscriber(정책) 격리 — 정책 오류가 Evidence Bus를 손상시키면 안 됨
+  try { sisPolicyOnEvent(type, payload); } catch (e) { sisPolicyErrorCount++; }
+  return ok;
+}
+function sisStats() {
+  return { emit_count: sisEmitCount, received_count: sisReceived, dropped_count: sisDropped,
+    queued: (sisHead + SIS_CAP - sisTail) % SIS_CAP, drop_latch_seq: sisDropLatchSeq,
+    invariant_ok: sisEmitCount === sisReceived + sisDropped,
+    policy_event_count: sisPolicyEventCount, policy_fire_count: sisPolicyFireCount,
+    quarantine_count: sisQuarantineCount, policy_error_count: sisPolicyErrorCount };
+}
 function createTimerModule(interpreter) {
   return {
     // set_interval fn ms -> number (fn: function name string, ms: interval)
@@ -26045,6 +26088,7 @@ function createTimerModule(interpreter) {
             }
           } catch (err4) {
             if (st) { st.missed++; st.lastError = err4.message; st.lastErrorAt = Date.now(); }
+            sisEmit(SIS_E_TIMER_EXCEPTION, { timer_id: timerId, exception_count: st ? st.missed : 0 });
             const label = isFnObj ? "<fn>" : fnName;
             console.error(`set_interval callback error for '${label}':`, err4.message);
           }
@@ -26125,6 +26169,8 @@ function createTimerModule(interpreter) {
     "timer_count": () => {
       return timerRegistry.size;
     },
+    // SIS Phase 2 (fx): Evidence Bus 통계 노출
+    "sis_stats": () => sisStats(),
     // timer_clear_all -> boolean (clear all active timers)
     "timer_clear_all": () => {
       try {
