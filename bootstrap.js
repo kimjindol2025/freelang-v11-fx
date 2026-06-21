@@ -26020,6 +26020,28 @@ var timerRegistry = /* @__PURE__ */ new Map();
 var nextTimerId = 2e3;
 // FL-P1 fix (ROS Round 9): missed-tick observability — throw로 인한 silent skip을 관측 가능 상태로(P-08 MOVE).
 var intervalStats = /* @__PURE__ */ new Map();
+// SIS Phase 2 (fx 인터프리터): Evidence Bus 인라인 (sis-bus.ts JS포팅). emit O(1)·drop_latch 분리(immunodeficiency 방지).
+var SIS_E_TIMER_EXCEPTION = 1, SIS_E_EVENT_DROPPED = 3, SIS_CAP = 4096;
+var sisRing = new Array(SIS_CAP), sisHead = 0, sisTail = 0;
+var sisEmitCount = 0, sisReceived = 0, sisDropped = 0, sisDropSince = 0, sisDropLatchSeq = 0;
+function sisRingPush(type, payload) {
+  var next = (sisHead + 1) % SIS_CAP;
+  if (next === sisTail) return false;
+  sisRing[sisHead] = { ts: Date.now(), type, payload }; sisHead = next; sisReceived++; return true;
+}
+function sisEmit(type, payload) {
+  sisEmitCount++;
+  if (sisDropSince > 0 && type !== SIS_E_EVENT_DROPPED) {
+    if (sisRingPush(SIS_E_EVENT_DROPPED, { emit_count: sisEmitCount, dropped_count: sisDropped })) sisDropSince = 0;
+  }
+  if (!sisRingPush(type, payload)) { sisDropped++; sisDropSince++; sisDropLatchSeq++; return false; }
+  return true;
+}
+function sisStats() {
+  return { emit_count: sisEmitCount, received_count: sisReceived, dropped_count: sisDropped,
+    queued: (sisHead + SIS_CAP - sisTail) % SIS_CAP, drop_latch_seq: sisDropLatchSeq,
+    invariant_ok: sisEmitCount === sisReceived + sisDropped };
+}
 function createTimerModule(interpreter) {
   return {
     // set_interval fn ms -> number (fn: function name string, ms: interval)
@@ -26045,6 +26067,7 @@ function createTimerModule(interpreter) {
             }
           } catch (err4) {
             if (st) { st.missed++; st.lastError = err4.message; st.lastErrorAt = Date.now(); }
+            sisEmit(SIS_E_TIMER_EXCEPTION, { timer_id: timerId, exception_count: st ? st.missed : 0 });
             const label = isFnObj ? "<fn>" : fnName;
             console.error(`set_interval callback error for '${label}':`, err4.message);
           }
@@ -26125,6 +26148,8 @@ function createTimerModule(interpreter) {
     "timer_count": () => {
       return timerRegistry.size;
     },
+    // SIS Phase 2 (fx): Evidence Bus 통계 노출
+    "sis_stats": () => sisStats(),
     // timer_clear_all -> boolean (clear all active timers)
     "timer_clear_all": () => {
       try {
