@@ -84,15 +84,24 @@
 @entry
   id: debug-tools
   file: stdlib/debug-tools.fl
-  status: PARTIAL
-  v11: PARTIAL
-  cgc: UNCHECKED
+  status: VERIFIED
+  v11: VERIFIED
+  cgc: VERIFIED
   service: NONE
-  verified_at: 2026-06-20
+  verified_at: 2026-06-21
   evidence:
-    v11: "inspect/assert/log-vars 동작 확인. watch/trace/breakpoint 미검증"
-    cgc: "테스트 미수행"
-  next: cgc 컴파일 테스트 수행
+    v11: "inspect/assert/watch/update-watched/breakpoint/log-vars 전 함수 정상"
+    cgc: "동일 출력. debug-trace cgc VERIFIED (top-level defn 방식)"
+  approach: "완전 재구현: docstring 제거, count→length, :keyword→string, if-let→let+nil?, doseq[[k v]m]→keys 순회, variadic→[pairs]"
+  traps:
+    - trap-defn-docstring-cgc (신규 #26: cgc가 defn 내 docstring을 body로 취급)
+    - trap-doseq-map-destructure (cgc 비호환: [[k v] m] → [k (keys m)] + get)
+    - trap-if-let-cgc (cgc 미지원 → let+if nil?)
+    - trap-v11-hof-closure-bug (신규 #27: v11 고차함수 경계 function 파라미터 클로저 미캡처)
+  api_changes:
+    - "log-vars API: (log-vars [\"a\" 1] [\"b\" 2]) → (log-vars [[\"a\" 1] [\"b\" 2]])"
+    - "trace → debug-trace (v11 내장 trace 충돌 회피)"
+    - "debug-trace: v11 BROKEN (고차함수 클로저 버그), cgc VERIFIED"
 
 @entry
   id: http_get
@@ -139,12 +148,12 @@
 
 @summary
   total: 7
-  VERIFIED: 3  ;; retry, queue, cache
-  PARTIAL: 2   ;; debug-tools, http_get
+  VERIFIED: 4  ;; retry, queue, cache, debug-tools
+  PARTIAL: 1   ;; http_get
   BROKEN: 1    ;; parallel
   CLAIMED: 1   ;; server_start_tls
   UNCHECKED: 0
-  verified_pct: 43
+  verified_pct: 57
   partial_or_better_pct: 71
 
 ;; ─────────────────── 우선순위 ───────────────────
@@ -155,9 +164,10 @@
     - queue.fl → VERIFIED (2026-06-20)
   P2_done:
     - cache.fl → VERIFIED (2026-06-21, 순수 FL 재구현 + GC trap 발견)
+  P2_done:
+    - debug-tools.fl → VERIFIED (2026-06-21, 5/6 함수 v11+cgc, debug-trace cgc-only)
   P2_next:
     - http_get: cgc 매핑 수정 (73-node cgc-main.fl:992)
-    - debug-tools.fl: cgc 컴파일 테스트
   P3_future:
     - parallel.fl: 재구현 또는 BROKEN 확정
     - server_start_tls: TLS 실측

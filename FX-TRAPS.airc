@@ -20,7 +20,8 @@
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction]
-  trap_count: 25
+  trap_count: 27
+  updated: 2026-06-21
   verified_stdlib: verified-stdlib.md
   maturation_phase: phase1_complete
   next_phases: [phase2=stdlib-fixes, phase3=cgc-http-remap, phase4=cache-cgc-port]
@@ -291,6 +292,28 @@
   reproduction: 2026-06-21 실측 — max-tries=3 시 fn 6회 호출. (atom cnt) + 확인 → cnt=6. 단일 throw defn → fn 2회 실행 확인
   lint_detectable: false
   scope: v11-interpreter-only  ;; cgc 는 미검증 (cgc에서는 throw shim이 다르게 작동할 수 있음)
+
+@trap
+  id: trap-defn-docstring-cgc
+  type: trap
+  claimed: defn 본문에 문서 목적 docstring을 첫 번째 표현식으로 넣어도 실제 구현이 실행된다
+  observed: old cgc-bin(cgc-bin.bak)은 defn 내 첫 번째 문자열 리터럴을 함수 본문으로 컴파일. 두 번째 이후 표현식(실제 구현)은 무시됨. 결과: 함수가 docstring 문자열을 반환하며 아무 동작도 안 함
+  risk: 모든 함수가 무출력 무동작. 증상=함수 호출 후 아무 출력 없음. 에러 메시지 없음
+  rule: cgc 대상 코드에서 defn 내 docstring 완전 제거. 주석(//)으로 대체
+  lint_detectable: true
+  reproduction: 2026-06-21 실측 — debug-tools.fl 7개 함수 전부 docstring을 body로 취급. inspect/assert 등 전부 docstring 반환하며 무동작 확인
+  scope: cgc-only  ;; v11은 docstring 이후 표현식도 실행
+
+@trap
+  id: trap-v11-hof-closure-bug
+  type: trap
+  claimed: v11에서 고차함수(HOF)의 function 파라미터를 클로저로 캡처하면 중첩 호출에서도 올바르게 사용할 수 있다
+  observed: v11에서 defn A가 function 파라미터 body-fn을 받아 호출하고, body-fn 내부에서 다시 A를 같은 방식으로 호출할 때 inner A의 body-fn 파라미터가 클로저에서 누락됨. "Function not found: body-fn" 오류 또는 global atom이 심볼명 문자열로 반환됨
+  risk: debug-trace 패턴(재귀적 HOF 호출) v11에서 전면 불가. 인덱스 함수 파라미터가 무작위로 소실됨
+  rule: v11에서 재귀적 HOF 패턴(body-fn을 받아 같은 함수를 다시 호출하는) 사용 금지. 대안: 인라인 (fn [] ...) 람다 사용(단일 레벨), 또는 global atom 대신 파라미터로 상태 전달
+  lint_detectable: false
+  reproduction: 2026-06-21 실측 — debug-trace/use-atom 패턴: 3단계 중첩 시 inner body-fn="Function not found", global atom deref → 심볼명 문자열 반환 확인
+  scope: v11-interpreter-only  ;; cgc는 top-level defn 방식으로 정상 동작
 
 ;; ─────────────────────── LOCKS ───────────────────────
 ;; 금지/필수 규칙. trap 보다 강하게, "하지 마라/반드시 하라".
