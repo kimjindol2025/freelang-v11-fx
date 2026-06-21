@@ -20,7 +20,7 @@
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction]
-  trap_count: 23
+  trap_count: 24
   verified_stdlib: verified-stdlib.md
   maturation_phase: phase1_complete
   next_phases: [phase2=stdlib-fixes, phase3=cgc-http-remap, phase4=cache-cgc-port]
@@ -267,6 +267,18 @@
   safe_pattern: ;; 현재 fx 에서 진짜 병렬 실행 방법 없음 — 순차 처리 또는 백그라운드 shell_run
   reproduction: 2026-06-20 실측 — [run-parallel] 'run-parallel' 함수 없음 오류
   lint_detectable: true
+
+@trap
+  id: trap-defn-throw-rerun
+  type: trap
+  claimed: v11에서 defn 내부 throw 는 호출 스택 상단으로 전파될 뿐 함수가 재실행되지 않는다
+  observed: v11에서 defn 본문 내부에서 throw 가 발생하면 함수 전체가 재실행된다. top-level 직접 호출이든 다른 defn에서 호출이든 무관. max-tries=3 설정 시 fn이 6회(3+3) 호출됨
+  risk: 재시도 로직의 호출 횟수 2배. 부작용 있는 함수(DB write, HTTP call, 카운터 증가)가 예상치 못한 횟수만큼 실행됨
+  rule: v11에서 부작용 있는 함수에 throw 를 제어 흐름으로 쓰지 말 것. 오류 신호는 {ok false error e} 맵 반환으로 (retry-result / retry-safe 패턴)
+  safe_pattern: (defn -retry-core [fn opts] (loop [i 1] (let [r (try (hash-map "ok" true "v" (fn)) (catch e (hash-map "ok" false "e" e)))] (if (get r "ok") r (recur (+ i 1))))))
+  reproduction: 2026-06-21 실측 — max-tries=3 시 fn 6회 호출. (atom cnt) + 확인 → cnt=6. 단일 throw defn → fn 2회 실행 확인
+  lint_detectable: false
+  scope: v11-interpreter-only  ;; cgc 는 미검증 (cgc에서는 throw shim이 다르게 작동할 수 있음)
 
 ;; ─────────────────────── LOCKS ───────────────────────
 ;; 금지/필수 규칙. trap 보다 강하게, "하지 마라/반드시 하라".

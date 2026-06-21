@@ -1,0 +1,186 @@
+;; ============================================================
+;; VERIFIED-MATRIX.airc
+;; FreeLang stdlib 검증 매트릭스 — 단일 진실 공급원
+;;
+;; 원칙: claimed ≠ observed.
+;;   VERIFIED = 실측 실행 증거 (v11 + cgc ≥ 2개 조건)
+;;   PARTIAL  = 1개 조건 또는 일부 기능만
+;;   BROKEN   = 실행 시 오류 (문서와 달리 동작 안 함)
+;;   CLAIMED  = 코드/문서에 존재하나 실측 증거 없음
+;;
+;; 상태 전이 규칙:
+;;   VERIFIED → CLAIMED 금지 (퇴행 불가)
+;;   BROKEN   → VERIFIED 직접 승격 금지 (PARTIAL 경유 권장)
+;;   승격 = Evidence 첨부 필수 (실행 로그 / 출력 / 재현 코드)
+;; ============================================================
+
+@meta
+  version: 1
+  created: 2026-06-21
+  updated: 2026-06-21
+  source_of_truth: true
+  canonical_detail: verified-stdlib.md
+  trap_ref: FX-TRAPS.airc
+  success_criteria:
+    - CLAIMED=0
+    - VERIFIED >= 80% (현재 29%)
+    - Evidence 재현 가능
+    - FX-TRAPS 연동 (실패 발견 → 트랩 등록)
+
+;; ─────────────────── STDLIB 검증 현황 ───────────────────
+
+@entry
+  id: retry
+  file: stdlib/retry.fl
+  status: VERIFIED
+  v11: VERIFIED
+  cgc: VERIFIED
+  service: NONE
+  verified_at: 2026-06-20/21
+  evidence:
+    v11: "retry-result max-tries=5 성공·retry-safe fallback·-int-pow 2^3=8 정상"
+    cgc: "빌드 성공(hash_map shim fd7a57b) 출력: true/success!/fallback/1/2/8"
+  traps:
+    - trap-try-map-literal (v11 파싱 오류 → hash-map 대체)
+    - trap-nested-defn-skip (cgc 중첩 defn → 최상위 분리)
+    - trap-defn-throw-rerun (-retry-core throw-free 설계로 우회)
+  runtime_changes:
+    - fx-builtin-shim.c: throw shim 추가 (2c98a8a)
+    - fx-builtin-shim.c: hash_map shim 추가 (fd7a57b)
+    - runtime.h: extern FLValue throw/hash_map 선언
+
+@entry
+  id: queue
+  file: stdlib/queue.fl
+  status: VERIFIED
+  v11: VERIFIED
+  cgc: VERIFIED
+  service: NONE
+  verified_at: 2026-06-20
+  evidence:
+    v11: "queue/stack 전 함수 실측. push/pop/peek/size/empty?/->list 정상"
+    cgc: "빌드 성공. queue FIFO·stack LIFO 정확. 3항목 push→pop 순서 검증"
+  traps:
+    - trap-inc-dec-missing (inc/dec → +1/-1 대체)
+    - (trap-butlast-missing 등록 필요: butlast → take(n-1))
+
+@entry
+  id: cache
+  file: stdlib/cache.fl
+  status: PARTIAL
+  v11: PARTIAL
+  cgc: BROKEN
+  service: NONE
+  verified_at: 2026-06-20
+  evidence:
+    v11: "cache-create/get/set/has 동작 확인. TTL 4인자 미검증"
+    cgc: "cache_create 등 cgc 런타임에 없음 → 링크 실패"
+  traps:
+    - trap-cache-cgc-missing
+  next: cgc 이식 (aliases.c에 cache_create/set/get/has 추가) 또는 v11-only로 확정
+
+@entry
+  id: debug-tools
+  file: stdlib/debug-tools.fl
+  status: PARTIAL
+  v11: PARTIAL
+  cgc: UNCHECKED
+  service: NONE
+  verified_at: 2026-06-20
+  evidence:
+    v11: "inspect/assert/log-vars 동작 확인. watch/trace/breakpoint 미검증"
+    cgc: "테스트 미수행"
+  next: cgc 컴파일 테스트 수행
+
+@entry
+  id: http_get
+  file: (runtime built-in)
+  status: PARTIAL
+  v11: PARTIAL
+  cgc: BROKEN
+  service: NONE
+  verified_at: 2026-06-20
+  evidence:
+    v11: "http_get {status body} 맵 반환 확인 (FL_HTTP_ALLOW=127.0.0.1 필요)"
+    cgc: "fl_http_get (string 전용) 로 잘못 매핑 → (get result status) nil"
+  traps:
+    - trap-http-get-cgc-mapping
+  next: cgc-main.fl:992 매핑 수정 (73-node cgc 소스 수정 필요)
+
+@entry
+  id: parallel
+  file: stdlib/parallel.fl
+  status: BROKEN
+  v11: BROKEN
+  cgc: BROKEN
+  service: NONE
+  verified_at: 2026-06-20
+  evidence:
+    v11: "[run-parallel] 'run-parallel' 함수 없음 오류"
+    cgc: "동일"
+  traps:
+    - trap-parallel-run-missing
+  next: parallel.fl 교체 또는 삭제. fl_future C 구현(aliases.c)을 FL에 노출 후 재구현 검토
+
+@entry
+  id: server_start_tls
+  file: (runtime built-in)
+  status: CLAIMED
+  v11: UNCHECKED
+  cgc: UNCHECKED
+  service: NONE
+  verified_at: N/A
+  evidence: "http.c:1351에 server_start_tls 구현 존재 — 실행 테스트 없음"
+  next: 자체 서명 cert 생성 후 실제 HTTPS 서버 시작 테스트 수행
+
+;; ─────────────────── 요약 ───────────────────
+
+@summary
+  total: 7
+  VERIFIED: 2  ;; retry, queue
+  PARTIAL: 3   ;; cache, debug-tools, http_get
+  BROKEN: 1    ;; parallel
+  CLAIMED: 1   ;; server_start_tls
+  UNCHECKED: 0
+  verified_pct: 29
+  partial_or_better_pct: 71
+
+;; ─────────────────── 우선순위 ───────────────────
+
+@priority
+  P1_done:
+    - retry.fl → VERIFIED (2026-06-21)
+    - queue.fl → VERIFIED (2026-06-20)
+  P2_next:
+    - cache.fl: cgc 이식 (v11-only PARTIAL → VERIFIED)
+    - http_get: cgc 매핑 수정 (73-node)
+    - debug-tools.fl: cgc 컴파일 테스트
+  P3_future:
+    - parallel.fl: 재구현 또는 BROKEN 확정
+    - server_start_tls: TLS 실측
+
+;; ─────────────────── 공통 결함 패턴 ───────────────────
+
+@pattern
+  id: pat-try-hashmap
+  problem: "try 본문에 {맵 리터럴} 직접 사용 → v11 파싱 오류"
+  fix: "(try (hash-map ...) (catch e (hash-map ...)))"
+  ref: trap-try-map-literal
+
+@pattern
+  id: pat-get-default
+  problem: "(get m k default) 3인자 → cgc get은 2인자만 지원"
+  fix: "(defn -rget [m k d] (let [v (get m k)] (if (nil? v) d v)))"
+  ref: N/A (미등록 트랩 — 추가 권장)
+
+@pattern
+  id: pat-butlast
+  problem: "(butlast v) 빌트인 없음 → v11/cgc 모두 오류"
+  fix: "(take (- (length v) 1) v)"
+  ref: N/A (미등록 트랩 — 추가 권장)
+
+@pattern
+  id: pat-hash-map-shim
+  problem: "old cgc-bin이 (hash-map ...) → fl_fn_call(hash_map,...) 생성 → 링크 오류"
+  fix: "fx-builtin-shim.c에 hash_map FLValue 클로저 추가 (fd7a57b)"
+  ref: fact-node-cgc
