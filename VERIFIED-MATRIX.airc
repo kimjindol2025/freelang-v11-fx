@@ -67,17 +67,19 @@
 @entry
   id: cache
   file: stdlib/cache.fl
-  status: PARTIAL
-  v11: PARTIAL
-  cgc: BROKEN
+  status: VERIFIED
+  v11: VERIFIED
+  cgc: VERIFIED
   service: NONE
-  verified_at: 2026-06-20
+  verified_at: 2026-06-21
   evidence:
-    v11: "cache-create/get/set/has 동작 확인. TTL 4인자 미검증"
-    cgc: "cache_create 등 cgc 런타임에 없음 → 링크 실패"
+    v11: "set/get/has/del/clear/stats/TTL/get-or-set 전 함수 실측. 15항목 정상"
+    cgc: "빌드 성공. 동일 출력 (nil 표현 차이만)"
+  approach: "순수 FL (atom+map). v11 내장 cache-* 미사용. max-size 저장, LRU 없음. TTL=now_ms"
   traps:
-    - trap-cache-cgc-missing
-  next: cgc 이식 (aliases.c에 cache_create/set/get/has 추가) 또는 v11-only로 확정
+    - trap-cache-cgc-missing (해결: 내장 대신 순수 FL 구현)
+    - trap-atom-deref-gc (신규 #25: reset 후 re-deref 패턴으로 우회)
+  api_change: "cache-set 4인자(TTL) → cache-set-ttl 별도 함수 (FL 고정 arity 제약)"
 
 @entry
   id: debug-tools
@@ -137,12 +139,12 @@
 
 @summary
   total: 7
-  VERIFIED: 2  ;; retry, queue
-  PARTIAL: 3   ;; cache, debug-tools, http_get
+  VERIFIED: 3  ;; retry, queue, cache
+  PARTIAL: 2   ;; debug-tools, http_get
   BROKEN: 1    ;; parallel
   CLAIMED: 1   ;; server_start_tls
   UNCHECKED: 0
-  verified_pct: 29
+  verified_pct: 43
   partial_or_better_pct: 71
 
 ;; ─────────────────── 우선순위 ───────────────────
@@ -151,9 +153,10 @@
   P1_done:
     - retry.fl → VERIFIED (2026-06-21)
     - queue.fl → VERIFIED (2026-06-20)
+  P2_done:
+    - cache.fl → VERIFIED (2026-06-21, 순수 FL 재구현 + GC trap 발견)
   P2_next:
-    - cache.fl: cgc 이식 (v11-only PARTIAL → VERIFIED)
-    - http_get: cgc 매핑 수정 (73-node)
+    - http_get: cgc 매핑 수정 (73-node cgc-main.fl:992)
     - debug-tools.fl: cgc 컴파일 테스트
   P3_future:
     - parallel.fl: 재구현 또는 BROKEN 확정

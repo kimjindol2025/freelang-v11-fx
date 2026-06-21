@@ -65,31 +65,48 @@ fallback    ← retry-safe (always-throw fn → fallback)
 
 ### 2. cache.fl
 
-**Status: PARTIAL (v11 내장 함수만)**
+**Status: VERIFIED (2026-06-21)**
 
 **Evidence:**
 
 | 경로 | 결과 | 증거 |
 |------|------|------|
-| v11 내장 (`cache-create/get/has`) | ✅ PARTIAL | `(define ch (cache-create 10))` + get/has 동작 확인 |
-| cgc C 컴파일 | ❌ BROKEN | `cache_create` 등 cgc 런타임에 없음 → 링크 실패 |
+| v11 interpreter | ✅ VERIFIED | 전 함수 실측. set/get/has/del/clear/stats/TTL/get-or-set 모두 정상 |
+| cgc C 컴파일 | ✅ VERIFIED | 빌드 성공. 15항목 출력 v11과 동일 (nil 표현 차이만) |
 | 실서비스 | ❌ 없음 | fx 앱 중 cache.fl 사용 사례 없음 |
 
-**동작 확인된 함수 (v11):**
-```lisp
-(cache-create 10)        ; → 핸들 반환 ✅
-(cache-set ch "k" "v")  ; → 저장 ✅
-(cache-get ch "k")      ; → "v" ✅
-(cache-has ch "k")      ; → true ✅
-(cache-has ch "no")     ; → false ✅
+**실행 증거 (v11+cgc, 2026-06-21):**
+```
+hello     ← cache-get "a" ✓
+42        ← cache-get "b" (int) ✓
+true      ← cache-has "a" ✓
+false     ← cache-has "missing" ✓
+2         ← cache-size ✓
+false     ← cache-has after del ✓
+1         ← size after del ✓
+4         ← hits ✓
+1         ← misses ✓
+true      ← cache-has TTL before expire ✓
+false     ← cache-has TTL after expire ✓
+nil/null  ← cache-get expired = nil ✓
+loaded-val ← cache-get-or-set (loader called) ✓
+loaded-val ← cache-get (hit after set) ✓
+0         ← cache-size after clear ✓
 ```
 
-**cgc 실패 원인:**
-- `cache_create`, `cache_set`, `cache_get` 등이 v11 인터프리터 전용 빌트인
-- `runtime.h`, `aliases.c`에 선언 없음
-- cgc 생성 C에서 `fl_fn_call(cache_create, ...)` → undefined symbol
+**구현 방식 (순수 FL, v11 내장 cache-* 미사용):**
+- 핸들 = atom containing `{"entries" {key→{"val" v "exp" ms|nil}} "hits" N "misses" N "max" N}`
+- TTL = `now_ms` 비교 (v11+cgc 공통)
+- max-size 저장 but LRU 강제 없음 (순수 FL 한계)
 
-**TTL 4인자 `cache-set`**: 미검증
+**발견된 버그 + 수정 (cgc GC 함정):**
+- 원인: `fl_atom_deref` = raw pointer (RC 증가 없음). `fl_atom_reset` = old값 RC-- → 0이면 재귀 free.
+  reset! 후 old 포인터(`entry`) 접근 → freed memory → nil 반환
+- 수정: hit 케이스에서 reset 후 `@ch` re-deref로 새 heap-safe 포인터에서 val 읽기
+- 신규 트랩 등록: `trap-atom-deref-gc` (FX-TRAPS.airc #25)
+
+**API 변경 (v11 원본 대비):**
+- `cache-set [ch key val ttl-ms]` 4인자 → `cache-set-ttl [ch key val ttl-ms]` 로 분리 (FL 고정 arity)
 
 ---
 
@@ -237,13 +254,13 @@ cgc-main.fl에서 http_get → http_get (C direct call) 또는 fxb_http_get 래�
 |--------|-----|-----|---------|---------|
 | retry.fl | ✅ VERIFIED | ✅ VERIFIED | ❌ 없음 | **VERIFIED** |
 | queue.fl | ✅ VERIFIED | ✅ VERIFIED | ❌ 없음 | **VERIFIED** |
-| cache.fl | ⚠️ PARTIAL | ❌ BROKEN | ❌ 없음 | **PARTIAL** |
+| cache.fl | ✅ VERIFIED | ✅ VERIFIED | ❌ 없음 | **VERIFIED** |
 | debug-tools.fl | ⚠️ PARTIAL | ❌ 미검증 | ❌ 없음 | **PARTIAL** |
 | http_get (client) | ✅ 동작 | ❌ BROKEN | ❌ 없음 | **PARTIAL** |
 | parallel.fl | ❌ BROKEN | ❌ BROKEN | ❌ 없음 | **BROKEN** |
 | server_start_tls | ❌ 미검증 | ❌ 미검증 | ❌ 없음 | **CLAIMED** |
 
-**VERIFIED: 2/7 (29%)**  
+**VERIFIED: 3/7 (43%)**  
 **PARTIAL 이상: 5/7 (71%)**  
 **완전 BROKEN: 1/7 (parallel만)**  
 **CLAIMED: 1/7 (server_start_tls)**

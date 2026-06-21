@@ -20,7 +20,7 @@
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction]
-  trap_count: 24
+  trap_count: 25
   verified_stdlib: verified-stdlib.md
   maturation_phase: phase1_complete
   next_phases: [phase2=stdlib-fixes, phase3=cgc-http-remap, phase4=cache-cgc-port]
@@ -267,6 +267,18 @@
   safe_pattern: ;; 현재 fx 에서 진짜 병렬 실행 방법 없음 — 순차 처리 또는 백그라운드 shell_run
   reproduction: 2026-06-20 실측 — [run-parallel] 'run-parallel' 함수 없음 오류
   lint_detectable: true
+
+@trap
+  id: trap-atom-deref-gc
+  type: trap
+  claimed: (reset! ch new-val) 후에도 deref 전에 캡처한 let 바인딩으로 atom 내용을 안전하게 읽을 수 있다
+  observed: fl_atom_deref 는 RC 증가 없이 raw pointer를 반환. fl_atom_reset 은 old값 RC-- → 0이면 재귀 free. 따라서 reset! 직후 old 값을 가리키던 C 로컬 변수(st/entries/entry)는 dangling pointer가 됨 → nil/쓰레기 반환
+  risk: cache-get/cache-set-or-get 같이 "읽고 → atom 갱신 → 읽은 값 반환" 패턴에서 조용히 nil 반환. 실측: cache-get이 모든 키에 nil 반환
+  rule: reset! 호출 후 old atom 내용이 필요하면 반드시 @ch 로 re-deref(새 heap-safe 포인터). reset! 이전에 read할 값을 추출해도 동일 문제(string/map도 heap-copy 트리에 있어 같이 해제됨)
+  safe_pattern: (let [new-st (assoc st "hits" n)] (reset! ch new-st) (get (get (get @ch "entries") key) "val"))
+  reproduction: 2026-06-21 실측 — cache-get 전 항목 nil 반환. fl_atom_reset 소스(math.c:215) fl_heap_release(old) 확인
+  lint_detectable: false
+  scope: cgc-only  ;; v11은 GC 방식이 달라 동일 문제 없음
 
 @trap
   id: trap-defn-throw-rerun
