@@ -16,8 +16,10 @@ FLValue sqlite_open, sqlite_query, sqlite_exec, sqlite_one;
 FLValue sqlite_query_p, sqlite_exec_p, sqlite_one_p, sqlite_close;
 FLValue server_req_body;
 /* throw shim: old cgc-bin generates fl_fn_call(throw,...) for (throw expr) */
-/* In C (not C++), 'throw' is a valid identifier. */
+/* In C (not C++), 'throw' is a valid identifier */
 FLValue throw;
+/* hash_map shim: old cgc-bin generates fl_fn_call(hash_map, n, kv) for (hash-map ...) */
+FLValue hash_map;
 
 /* arity 별 디스패치 래퍼 */
 static FLValue w_sqlite_open   (FLClosure* s,int ac,FLValue* a){(void)s;(void)ac;return fxb_sqlite_open(a[0]);}
@@ -29,7 +31,13 @@ static FLValue w_sqlite_exec_p (FLClosure* s,int ac,FLValue* a){(void)s;(void)ac
 static FLValue w_sqlite_one_p  (FLClosure* s,int ac,FLValue* a){(void)s;(void)ac;return fxb_sqlite_one_p(a[0],a[1],a[2]);}
 static FLValue w_sqlite_close  (FLClosure* s,int ac,FLValue* a){(void)s;(void)ac;return fxb_sqlite_close(a[0]);}
 static FLValue w_server_req_body(FLClosure* s,int ac,FLValue* a){(void)s;(void)ac;return fxb_server_req_body(a[0]);}
-static FLValue w_throw         (FLClosure* s,int ac,FLValue* a){(void)s; fl_throw(ac>0?a[0]:fl_nil()); return fl_nil();}
+static FLValue w_throw (FLClosure* s,int ac,FLValue* a){(void)s; fl_throw(ac>0?a[0]:fl_nil()); return fl_nil();}
+static FLValue w_hash_map(FLClosure* s,int ac,FLValue* a){
+    (void)s;
+    FLValue m = fl_map_new();
+    for (int i = 0; i+1 < ac; i+=2) m = fl_map_set(m, a[i], a[i+1]);
+    return m;
+}
 
 __attribute__((constructor))
 static void fx_builtin_shim_init(void) {
@@ -43,4 +51,5 @@ static void fx_builtin_shim_init(void) {
     sqlite_close    = fl_fn_new(w_sqlite_close,   0, NULL);
     server_req_body = fl_fn_new(w_server_req_body,0, NULL);
     throw           = fl_fn_new(w_throw,           0, NULL);
+    hash_map        = fl_fn_new(w_hash_map,        0, NULL);
 }
