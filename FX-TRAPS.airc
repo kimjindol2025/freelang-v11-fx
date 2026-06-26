@@ -13,18 +13,21 @@
 ;; ============================================================
 
 @meta
-  version: 2
+  version: 2.1
   created: 2026-06-16
-  updated: 2026-06-20
+  updated: 2026-06-26
   source_of_truth: true
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
-  required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction]
+  required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction, verification_status]
   trap_count: 27
-  updated: 2026-06-21
-  verified_stdlib: verified-stdlib.md
-  maturation_phase: phase1_complete
-  next_phases: [phase2=stdlib-fixes, phase3=cgc-http-remap, phase4=cache-cgc-port]
+  verified_count: 3
+  unverified_count: 24
+  unverified_stdlib: verified-stdlib.md
+  maturation_phase: phase1_partial (3/27 verified)
+  next_phases: [phase1b=comprehensive-v11-audit, phase2=cgc-isolated-test, phase3=stdlib-fixes, phase4=cgc-http-remap]
+  last_verification: 2026-06-26 by claude
+  verification_method: direct-execution + reproduction
 
 ;; ─────────────────────── TRAPS ───────────────────────
 ;; 우선순위 최상위. "이렇게 하면 조용히 깨진다"의 목록.
@@ -34,20 +37,25 @@
   type: trap
   claimed: defn 본문은 Clojure식 implicit-do (다중 표현식 순차 실행)
   observed: cgc는 본문을 단일 표현식으로 컴파일 — 첫 줄만 실행되고 나머지는 침묵 소멸 (exit 0, 에러 없음)
+  v11_status: ❌ UNVERIFIED (2026-06-26 실행 검증: implicit-do 정상 작동, 모든 표현식 실행됨)
+  cgc_status: ⚠️ CLAIMED (미검증 — cgc 빌드 환경 실패로 직접 재현 불가)
   risk: 함수 중간 로직이 통째로 누락. 빌트인 버그로 오인하기 쉬움
   rule: defn 본문에 표현식이 둘 이상이면 반드시 (do ...) 또는 let 본문으로 감싼다
   safe_pattern: (defn f [] (do (a) (b) (c)))
   lint_detectable: true
+  verification_status: cgc-only (v11에서는 거짓)
 
 @trap
   id: trap-count-type
   type: trap
   claimed: count 는 fx 빌트인이라 native 호출된다
   observed: 설치본 cgc 가 count 를 모름 → fl_fn_call(count) 생성 → C 함수 타입 불일치로 gcc 에러
+  cgc_status: ⚠️ CLAIMED (cgc 빌드 환경 실패로 미검증)
   risk: 빌드 실패. map 은 fl_map_fn 으로 정상이라 더 헷갈림
   rule: 길이는 SQL COUNT 또는 length 로. count 직접 사용 금지(설치본 cgc 기준)
   safe_pattern: (get (sqlite_one db "SELECT COUNT(*) AS c FROM t") "c")
   lint_detectable: true
+  verification_status: unverified-cgc
 
 @trap
   id: trap-kebab-symbol
@@ -286,12 +294,15 @@
   type: trap
   claimed: v11에서 defn 내부 throw 는 호출 스택 상단으로 전파될 뿐 함수가 재실행되지 않는다
   observed: v11에서 defn 본문 내부에서 throw 가 발생하면 함수 전체가 재실행된다. top-level 직접 호출이든 다른 defn에서 호출이든 무관. max-tries=3 설정 시 fn이 6회(3+3) 호출됨
-  risk: 재시도 로직의 호출 횟수 2배. 부작용 있는 함수(DB write, HTTP call, 카운터 증가)가 예상치 못한 횟수만큼 실행됨
-  rule: v11에서 부작용 있는 함수에 throw 를 제어 흐름으로 쓰지 말 것. 오류 신호는 {ok false error e} 맵 반환으로 (retry-result / retry-safe 패턴)
+  v11_status: ⚠️ PARTIAL (2026-06-26 검증: throw 재실행 O, but with-retry 함수 v11에 미지원)
+  cgc_status: ❓ UNVERIFIED (cgc 빌드 실패로 미검증)
+  risk: 재시도 로직의 호출 횟수 2배. 부작용 있는 함수(DB write, HTTP call, 카운터 증가)가 예상치 못한 횟수만큼 실행됨 (⚠️ v11에 기본 retry 메커니즘 없으므로 실제 위험도 낮음)
+  rule: v11에서 부작용 있는 함수에 throw 를 제어 흐름으로 쓰지 말 것. 오류 신호는 {ok false error e} 맵 반환으로 (retry-result / retry-safe 패턴). ⚠️ with-retry는 v11 stdlib에 없음 — 수동 구현 필요
   safe_pattern: (defn -retry-core [fn opts] (loop [i 1] (let [r (try (hash-map "ok" true "v" (fn)) (catch e (hash-map "ok" false "e" e)))] (if (get r "ok") r (recur (+ i 1))))))
-  reproduction: 2026-06-21 실측 — max-tries=3 시 fn 6회 호출. (atom cnt) + 확인 → cnt=6. 단일 throw defn → fn 2회 실행 확인
+  reproduction: 2026-06-26 검증 — throw 발생 시 fn 2회 호출 확인. with-retry 함수 미존재 오류 (미지원)
   lint_detectable: false
-  scope: v11-interpreter-only  ;; cgc 는 미검증 (cgc에서는 throw shim이 다르게 작동할 수 있음)
+  scope: v11-interpreter-only
+  verification_status: partial-v11 (throw 재실행 O, retry 함수 미지원)
 
 @trap
   id: trap-defn-docstring-cgc
@@ -309,11 +320,14 @@
   type: trap
   claimed: v11에서 고차함수(HOF)의 function 파라미터를 클로저로 캡처하면 중첩 호출에서도 올바르게 사용할 수 있다
   observed: v11에서 defn A가 function 파라미터 body-fn을 받아 호출하고, body-fn 내부에서 다시 A를 같은 방식으로 호출할 때 inner A의 body-fn 파라미터가 클로저에서 누락됨. "Function not found: body-fn" 오류 또는 global atom이 심볼명 문자열로 반환됨
+  v11_status: ❌ UNVERIFIED (2026-06-26 직접 실행 검증: recursive-hof depth=2에서 callback 정상 호출, 파라미터 소실 없음)
+  cgc_status: ⚠️ CLAIMED (cgc는 top-level defn 방식으로 미검증)
   risk: debug-trace 패턴(재귀적 HOF 호출) v11에서 전면 불가. 인덱스 함수 파라미터가 무작위로 소실됨
   rule: v11에서 재귀적 HOF 패턴(body-fn을 받아 같은 함수를 다시 호출하는) 사용 금지. 대안: 인라인 (fn [] ...) 람다 사용(단일 레벨), 또는 global atom 대신 파라미터로 상태 전달
   lint_detectable: false
-  reproduction: 2026-06-21 실측 — debug-trace/use-atom 패턴: 3단계 중첩 시 inner body-fn="Function not found", global atom deref → 심볼명 문자열 반환 확인
-  scope: v11-interpreter-only  ;; cgc는 top-level defn 방식으로 정상 동작
+  reproduction: 2026-06-21 claimed (직접 재현 미완료) — debug-trace/use-atom 패턴: 3단계 중첩 시 inner body-fn="Function not found", global atom deref → 심볼명 문자열 반환 (미검증)
+  scope: unverified-v11  ;; 재현 불가능, cgc는 top-level defn 방식으로 미검증
+  verification_status: false (v11에서 재현 불가)
 
 ;; ─────────────────────── LOCKS ───────────────────────
 ;; 금지/필수 규칙. trap 보다 강하게, "하지 마라/반드시 하라".
