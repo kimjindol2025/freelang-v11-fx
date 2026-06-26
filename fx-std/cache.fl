@@ -1,0 +1,56 @@
+;; fx-std/cache.fl — atom 기반 인메모리 캐시 (fx CGC 전용)
+;; (load "/home/kimjin/freelang-v11-fx/fx-std/cache.fl")
+;;
+;; v11 내장 cache-create/get/set은 cgc 런타임에 없음 → atom + 맵으로 구현
+;; 반환값: atom (deref으로 상태 확인)
+;;
+;; 사용법:
+;;   (define $ch (make-cache 100))
+;;   (cache-set! $ch "key" value)
+;;   (cache-get! $ch "key")         ;; nil if missing
+;;   (cache-has! $ch "key")         ;; true/false
+;;   (cache-del! $ch "key")
+;;   (cache-get-or-set! $ch "key" (fn [] expensive-call))
+;;   (cache-stats! $ch)             ;; {"size" N "hits" N "misses" N "hit-rate" N}
+
+(defn make-cache [$max-size]
+  (atom {"store" {} "hits" 0 "misses" 0 "max" $max-size}))
+
+(defn cache-get! [$ch $key]
+  ;; swap! 후 재조회: swap!이 GC를 트리거해 $val 참조가 무효화될 수 있음
+  (if (null? (get (get @$ch "store") $key))
+    (do (swap! $ch (fn [$s] (assoc $s "misses" (+ (get $s "misses") 1)))) nil)
+    (do (swap! $ch (fn [$s] (assoc $s "hits" (+ (get $s "hits") 1))))
+        (get (get @$ch "store") $key))))
+
+(defn cache-set! [$ch $key $val]
+  (swap! $ch (fn [$s]
+    (assoc $s "store" (assoc (get $s "store") $key $val)))))
+
+(defn cache-has! [$ch $key]
+  (not (null? (get (get @$ch "store") $key))))
+
+(defn cache-del! [$ch $key]
+  (swap! $ch (fn [$s]
+    (assoc $s "store" (dissoc (get $s "store") $key)))))
+
+(defn cache-clear! [$ch]
+  (swap! $ch (fn [$s] (assoc $s "store" {}))))
+
+(defn cache-get-or-set! [$ch $key $loader]
+  (let [[$v (cache-get! $ch $key)]]
+    (if (null? $v)
+      (let [[$new ($loader)]]
+        (cache-set! $ch $key $new)
+        $new)
+      $v)))
+
+(defn cache-stats! [$ch]
+  (let [[$s     @$ch]
+        [$hits  (get $s "hits")]
+        [$miss  (get $s "misses")]
+        [$total (+ $hits $miss)]]
+    {"size"     (length (keys (get $s "store")))
+     "hits"     $hits
+     "misses"   $miss
+     "hit-rate" (if (= $total 0) 0 (/ $hits $total))}))

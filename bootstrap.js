@@ -26029,18 +26029,39 @@ function sisRingPush(type, payload) {
   if (next === sisTail) return false;
   sisRing[sisHead] = { ts: Date.now(), type, payload }; sisHead = next; sisReceived++; return true;
 }
+// SIS Phase 3 (fx): L3-minimal immune response (Observe→Classify→React). 얇게: score++/quarantine 판정만.
+var SIS_QUARANTINE_THRESHOLD = 3;
+var sisPolicyState = new Map();
+var sisPolicyEventCount = 0, sisPolicyFireCount = 0, sisQuarantineCount = 0, sisPolicyErrorCount = 0;
+function sisPolicyOnEvent(type, payload) {
+  sisPolicyEventCount++;
+  if (type !== SIS_E_TIMER_EXCEPTION) return;
+  var tid = (payload && payload.timer_id) || 0;
+  var s = sisPolicyState.get(tid);
+  if (!s) { s = { score: 0, quarantined: false }; sisPolicyState.set(tid, s); }
+  s.score++;
+  if (s.score >= SIS_QUARANTINE_THRESHOLD && !s.quarantined) {
+    s.quarantined = true; sisQuarantineCount++; sisPolicyFireCount++;
+    console.error(`[SIS] event=E_TIMER_EXCEPTION score=${s.score} quarantined=true action=QUARANTINE timer=${tid}`);
+  }
+}
 function sisEmit(type, payload) {
   sisEmitCount++;
   if (sisDropSince > 0 && type !== SIS_E_EVENT_DROPPED) {
     if (sisRingPush(SIS_E_EVENT_DROPPED, { emit_count: sisEmitCount, dropped_count: sisDropped })) sisDropSince = 0;
   }
-  if (!sisRingPush(type, payload)) { sisDropped++; sisDropSince++; sisDropLatchSeq++; return false; }
-  return true;
+  var ok = sisRingPush(type, payload);
+  if (!ok) { sisDropped++; sisDropSince++; sisDropLatchSeq++; }
+  // I4: subscriber(정책) 격리 — 정책 오류가 Evidence Bus를 손상시키면 안 됨
+  try { sisPolicyOnEvent(type, payload); } catch (e) { sisPolicyErrorCount++; }
+  return ok;
 }
 function sisStats() {
   return { emit_count: sisEmitCount, received_count: sisReceived, dropped_count: sisDropped,
     queued: (sisHead + SIS_CAP - sisTail) % SIS_CAP, drop_latch_seq: sisDropLatchSeq,
-    invariant_ok: sisEmitCount === sisReceived + sisDropped };
+    invariant_ok: sisEmitCount === sisReceived + sisDropped,
+    policy_event_count: sisPolicyEventCount, policy_fire_count: sisPolicyFireCount,
+    quarantine_count: sisQuarantineCount, policy_error_count: sisPolicyErrorCount };
 }
 function createTimerModule(interpreter) {
   return {

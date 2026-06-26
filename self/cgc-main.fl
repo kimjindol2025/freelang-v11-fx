@@ -1230,13 +1230,18 @@
   [(= $op "json-stringify")  (str "fl_json_stringify(" (cgc (get $args 0)) ")")]
   ;; 병렬 실행
   [(= $op "run-parallel")      (str "fl_run_parallel(" (cgc (get $args 0)) ", " (if (>= (length $args) 2) (cgc (get $args 1)) "fl_int(0)") ")")]
-  ;; HTTP 클라이언트 (libcurl) — {:status N :body "..." :headers {}}
-  [(= $op "http-get")          (str "fl_http_get(" (cgc (get $args 0)) ")")]
-  [(= $op "http-post")         (str "fl_http_post(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
-  [(= $op "http-get-headers")  (str "fl_http_get_headers(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
-  [(= $op "http-post-headers") (str "fl_http_post_headers(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
-  [(= $op "http-post-stream")     (str "fl_http_post_stream(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ", " (cgc (get $args 3)) ")")]
-  [(= $op "http-stream-collect") (str "fl_http_stream_collect(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  ;; HTTP 클라이언트 (http_client.c) — {status body headers} 맵 반환
+  [(= $op "http-get")          (str "http_get(" (cgc (get $args 0)) ")")]
+  [(= $op "http-post")         (str "http_post(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "http-put")          (str "http_put(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "http-del")          (str "http_del(" (cgc (get $args 0)) ")")]
+  [(= $op "http-patch")        (str "http_patch(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "http-get-headers")  (str "http_get_h(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "http-post-headers") (str "http_post_h(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "http-req")          (str "http_req(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ", " (cgc (get $args 3)) ")")]
+  [(= $op "http-body")         (str "http_body(" (cgc (get $args 0)) ")")]
+  [(= $op "http-status")       (str "http_status(" (cgc (get $args 0)) ")")]
+  [(= $op "http-ok?")          (str "http_ok_p(" (cgc (get $args 0)) ")")]
   ;; 유틸 — sleep/now
   [(= $op "sleep")   (str "fl_sleep_ms(" (cgc (get $args 0)) ")")]
   [(= $op "now-ms")  "fl_now_ms()"]
@@ -1304,6 +1309,10 @@
   ;; case: (case val k1 v1 k2 v2 ... default) → if/else chain
   [(= $op "case")  (cgc-case $args)]
   [(= $op "match") (cgc-match $args)]
+  ;; if-let: (if-let [$v expr] then else?) → bind 후 nil 체크
+  [(= $op "if-let")  (cgc-if-let $args)]
+  ;; when-let: (when-let [$v expr] body...) → nil 체크 후 body
+  [(= $op "when-let") (cgc-when-let $args)]
   ;; doseq: (doseq [$var coll] body...) → for loop (부작용 전용)
   [(= $op "doseq")   (cgc-doseq $args)]
   ;; dotimes: (dotimes $i n body...) → for loop
@@ -1775,6 +1784,31 @@
 ;;   $var       → 항상 매칭 + 바인딩 (단독 변수)
 ;;   리터럴     → 동등성 체크
 ;;   벡터 패턴  → 길이 + 원소 체크 + 변수 바인딩
+
+;; ── if-let ──────────────────────────────────────────────────────────────────
+;; (if-let [$v expr] then)         → bind $v = expr, if not-nil: then else nil
+;; (if-let [$v expr] then else)    → bind $v = expr, if not-nil: then else else
+(defn cgc-if-let [$args]
+  (let [[$binding (get $args 0)]
+        [$then    (get $args 1)]
+        [$has-else (> (length $args) 2)]
+        [$else-c  (if $has-else (cgc (get $args 2)) "fl_nil()")]
+        [$items   (get-block-items $binding)]
+        [$var-c   (c-name (get (get $items 0) :name))]
+        [$init-c  (cgc (get $items 1))]]
+    (str "(__extension__ ({ FLValue " $var-c " = " $init-c ";"
+         " !fl_truthy(null_p(" $var-c ")) ? (" (cgc $then) ") : " $else-c "; }))")))
+
+;; ── when-let ─────────────────────────────────────────────────────────────────
+;; (when-let [$v expr] body...) → bind $v = expr, if not-nil: run body, else nil
+(defn cgc-when-let [$args]
+  (let [[$binding (get $args 0)]
+        [$items   (get-block-items $binding)]
+        [$var-c   (c-name (get (get $items 0) :name))]
+        [$init-c  (cgc (get $items 1))]
+        [$body-c  (cgc-body $args 1 "")]]
+    (str "(__extension__ ({ FLValue " $var-c " = " $init-c ";"
+         " !fl_truthy(null_p(" $var-c ")) ? (" $body-c ") : fl_nil(); }))")))
 
 ;; match 패턴이 와일드카드인지
 (defn match-wildcard? [$node]

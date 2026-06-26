@@ -616,6 +616,10 @@ static int check_keep_alive(HttpRequest* hr, const char* raw) {
 extern int ws_is_upgrade_request(const char* raw);
 extern int ws_handle_upgrade(int fd, const char* raw, int raw_len);
 
+/* sse.c에서 선언 */
+extern int sse_is_sse_request(const char* raw);
+extern int sse_handle_request(int fd, const char* raw, int raw_len);
+
 static void* handle_connection(void* arg) {
     ConnArg* ca = (ConnArg*)arg;
     int client_fd = ca->fd;
@@ -662,11 +666,20 @@ static void* handle_connection(void* arg) {
         }
         if (total <= 0) break;   /* 연결 종료 or 타임아웃 */
 
-        /* ── 2. WebSocket 업그레이드 감지 (파싱 전에 체크) ── */
+        /* ── 2a. SSE 감지 (WS보다 먼저 체크) ── */
+        if (sse_is_sse_request(raw)) {
+            if (!sse_handle_request(client_fd, raw, total))
+                goto normal_http;   /* 등록된 라우트 없으면 일반 HTTP */
+            break;  /* SSE는 keep-alive 루프 탈출 */
+        }
+
+        /* ── 2b. WebSocket 업그레이드 감지 ── */
         if (ws_is_upgrade_request(raw)) {
             ws_handle_upgrade(client_fd, raw, total);
             break;  /* WS는 keep-alive 루프 탈출 (핸들러가 fd 관리) */
         }
+
+        normal_http:;
 
         /* ── 3. 아레나 시작 (요청 단위 메모리 관리) ── */
         fl_arena_begin();

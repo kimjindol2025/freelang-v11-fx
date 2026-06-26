@@ -386,6 +386,14 @@ FLValue ws_send(FLValue ws, FLValue msg);
 FLValue ws_close(FLValue ws);
 FLValue ws_conn_id(FLValue ws);
 
+/* ── sse.c — Server-Sent Events ── */
+FLValue server_sse(FLValue path, FLValue handler);
+FLValue sse_send(FLValue conn, FLValue data);
+FLValue sse_close(FLValue conn);
+FLValue sse_alive(FLValue conn);
+int sse_is_sse_request(const char* raw);
+int sse_handle_request(int fd, const char* raw, int raw_len);
+
 /* ── aliases.c — cgc-bin 생성 함수 bridge ── */
 /* 환경 */
 FLValue env_get(FLValue key);
@@ -411,6 +419,7 @@ FLValue str_pad_left(FLValue s, FLValue width, FLValue ch);
 FLValue str_pad_right(FLValue s, FLValue width, FLValue ch);
 FLValue str_repeat(FLValue s, FLValue n);
 FLValue str_contains(FLValue s, FLValue sub);
+FLValue str_includes(FLValue s, FLValue sub);
 FLValue parse_int(FLValue s);
 FLValue parse_float(FLValue s);
 FLValue to_string(FLValue v);
@@ -670,3 +679,20 @@ FLValue fl_map_get(FLValue map, FLValue key);
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val);
 FLValue pdf_img_load(FLValue path);
 FLValue pdf_img_obj(FLValue img, FLValue obj_id);
+
+/* ── FL:USER_SECTION:BEGIN ── fl-source-manager가 관리 ── */
+
+/* FL:USER_SECTION:BEGIN */
+
+
+
+
+
+
+
+
+
+
+FLValue ufl_str_indent(FLValue a0, FLValue a1);
+FLValue str_indent(FLValue a0, FLValue a1);
+/* FL:USER_SECTION:END */

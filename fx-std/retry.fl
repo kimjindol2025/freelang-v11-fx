@@ -1,0 +1,62 @@
+;; fx-std/retry.fl — 재시도 유틸 (fx CGC 전용)
+;; (load "/home/kimjin/freelang-v11-fx/fx-std/retry.fl")
+;;
+;; 사용법:
+;;   (retry fn {"max-tries" 3 "delay-ms" 100 "backoff" "expo"})
+;;   (retry-fixed fn 3 100)    ;; 3회, 100ms 고정
+;;   (retry-expo fn 3 100)     ;; 3회, 100ms 지수 백오프
+;;   (retry-result fn opts)    ;; {"ok" bool "value"/"error" ...} 반환
+;;
+;; 주의: throw 금지 → 실패 시 nil 반환 (retry-result 패턴 권장)
+;; 주의: 키는 string ("max-tries" not :max-tries)
+
+(defn -retry-calc-delay [$backoff $base $attempt]
+  (if (= $backoff "fixed") $base
+    (if (= $backoff "linear") (* $base $attempt)
+      (if (= $backoff "expo")
+        (to-int (* $base (math-pow 2 (- $attempt 1))))
+        $base))))
+
+(defn retry [$fn $opts]
+  (let [[$max     (let [[$m (get $opts "max-tries")]]  (if (null? $m) 3 $m))]
+        [$delay   (let [[$d (get $opts "delay-ms")]]   (if (null? $d) 100 $d))]
+        [$backoff (let [[$b (get $opts "backoff")]]    (if (null? $b) "expo" $b))]]
+    (loop [$attempt 1]
+      (let [[$r (try
+                  (let [[$v ($fn)]] {"ok" true "value" $v})
+                  (catch $err {"ok" false "error" $err}))]]
+        (if (get $r "ok")
+          (get $r "value")
+          (if (>= $attempt $max)
+            nil
+            (do
+              (let [[$d (-retry-calc-delay $backoff $delay $attempt)]]
+                (if (> $d 0) (sleep $d) nil))
+              (recur (+ $attempt 1)))))))))
+
+(defn retry-result [$fn $opts]
+  (let [[$max     (let [[$m (get $opts "max-tries")]]  (if (null? $m) 3 $m))]
+        [$delay   (let [[$d (get $opts "delay-ms")]]   (if (null? $d) 100 $d))]
+        [$backoff (let [[$b (get $opts "backoff")]]    (if (null? $b) "expo" $b))]]
+    (loop [$attempt 1]
+      (let [[$r (try
+                  (let [[$v ($fn)]] {"ok" true "value" $v})
+                  (catch $err {"ok" false "error" $err}))]]
+        (if (get $r "ok")
+          $r
+          (if (>= $attempt $max)
+            $r
+            (do
+              (let [[$d (-retry-calc-delay $backoff $delay $attempt)]]
+                (if (> $d 0) (sleep $d) nil))
+              (recur (+ $attempt 1)))))))))
+
+(defn retry-fixed [$fn $max $delay]
+  (retry $fn {"max-tries" $max "delay-ms" $delay "backoff" "fixed"}))
+
+(defn retry-expo [$fn $max $delay]
+  (retry $fn {"max-tries" $max "delay-ms" $delay "backoff" "expo"}))
+
+(defn retry-safe [$fn $opts $default]
+  (let [[$v (retry $fn $opts)]]
+    (if (null? $v) $default $v)))

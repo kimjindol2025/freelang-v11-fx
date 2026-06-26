@@ -321,3 +321,56 @@
           [$placeholders (str-join (map (fn [$_] "?") $cols) ",")]
           [$sql (str "INSERT OR REPLACE INTO " $table "(" $col-list ") VALUES (" $placeholders ")")]]
       (fxb_sqlite_exec_p $db $sql $vals))))
+
+;; ─── 11. 고차 함수 유틸 ──────────────────────────────────────────────────
+
+;; identity: 입력 그대로 반환
+(defn identity [$x] $x)
+
+;; constantly: 항상 같은 값을 반환하는 함수
+(defn constantly [$v] (fn [$_] $v))
+
+;; partial: 부분 적용 (1~3개 인자 고정)
+;;   (partial + 1)      → (fn [$x] (+ 1 $x))
+;;   (partial str "A" "B") → (fn [$x] (str "A" "B" $x))
+(defn partial [$f $a1]
+  (fn [$x] ($f $a1 $x)))
+
+(defn partial2 [$f $a1 $a2]
+  (fn [$x] ($f $a1 $a2 $x)))
+
+(defn partial3 [$f $a1 $a2 $a3]
+  (fn [$x] ($f $a1 $a2 $a3 $x)))
+
+;; complement: 함수의 논리 반전
+(defn complement [$f]
+  (fn [$x] (not ($f $x))))
+
+;; juxt: 여러 함수를 같은 인자에 적용해 벡터로 반환
+;;   ((juxt first last) [1 2 3]) → [1 3]
+(defn juxt [$f $g]
+  (fn [$x] [($f $x) ($g $x)]))
+
+(defn juxt3 [$f $g $h]
+  (fn [$x] [($f $x) ($g $x) ($h $x)]))
+
+;; flip: 두 인자 순서 뒤집기
+(defn flip [$f]
+  (fn [$a $b] ($f $b $a)))
+
+;; memoize: 결과 캐시 (atom 기반)
+;;   (define fib-m (memoize fib))
+(defn memoize [$f]
+  (let [$cache (atom {})]
+    (fn [$x]
+      (let [$k (str $x)
+            $v (get (deref $cache) $k)]
+        (if (not (null? $v)) $v
+          (let [$result ($f $x)]
+            (swap! $cache assoc $k $result)
+            $result))))))
+
+;; pipe2/pipe3: 값을 N개 함수에 순차 적용 (가변인자 미지원으로 고정 arity)
+;;   (pipe2 5 (partial * 2) (partial + 1)) → 11
+(defn pipe2 [$v $f1 $f2]   ($f2 ($f1 $v)))
+(defn pipe3 [$v $f1 $f2 $f3] ($f3 ($f2 ($f1 $v))))
