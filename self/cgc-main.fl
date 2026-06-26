@@ -726,8 +726,9 @@
 (define global-decls-atom  (atom []))
 ;; W1: arity check — defn 이름 → 파라미터 수 맵
 (define defn-arity-atom    (atom {}))
-;; P1-8: nested defn 깊이 추적
+;; P1-8: nested defn hoisting
 (define cgc-defn-depth-atom (atom 0))
+(define cgc-hoisted-fns-atom (atom []))
 
 ;; ── 유틸 ──
 
@@ -2027,7 +2028,7 @@
              "(FLClosure* _s, int _ac, FLValue* argv) {\n"
              "    (void)_s; (void)_ac;\n"
              "    return " $name "(" $call-args ");\n}"))
-      (if $has-recur
+      (let [[$func-def (if $has-recur
         ;; TCO 경로: goto 루프로 직접재귀 제거
         (let [[$label (str "__fl_tco_" $name)]
               [$stmts (cgc-defn-stmts-tco $args $pnames $label 2 "")]]
@@ -2041,10 +2042,18 @@
           (str $line-directive
                "FLValue " $name "(" $ps ") {\n"
                "    fl_push_frame_ln(\"" $name "\", __LINE__);\n"
-               $stmts "}"))))]
-      ;; P1-8: nested defn 추적 종료
-      (swap! cgc-defn-depth-atom - 1)
-      $result))))
+               $stmts "}")))]
+        (let [[$result-str (if $is-nested
+          ;; nested: hoisted-fns에 저장, nil 반환
+          (do
+            (swap! cgc-hoisted-fns-atom append $func-def)
+            "fl_nil()")
+          ;; top-level: 그냥 반환
+          $func-def)]]
+        ;; P1-8: nested defn 추적 종료
+        (swap! cgc-defn-depth-atom - 1)
+        $result-str))))))
+
 
 ;; ── define (전역 변수) ──
 
@@ -2137,7 +2146,13 @@
 
 (defn cgc-top-level [$_nodes $_i $_stmts $_fns]
   (loop [$i $_i $stmts $_stmts $fns $_fns]
-    (if (>= $i (length $_nodes)) {:stmts $stmts :fns $fns}
+    (if (>= $i (length $_nodes))
+      ;; P1-8: hoisted fns를 top-level fns 앞에 추가
+      (let [[$hoisted (str-join "\n\n" @cgc-hoisted-fns-atom)]
+            [$all-fns (if (> (length @cgc-hoisted-fns-atom) 0)
+                        (str $hoisted "\n\n" $fns)
+                        $fns)]]
+        {:stmts $stmts :fns $all-fns})
     (let [[$n (get $_nodes $i)]
           [$k (get $n :kind)]
           [$is-defn (and (= $k "sexpr") (= (get $n :op) "defn"))]
