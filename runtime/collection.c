@@ -403,3 +403,17 @@ FLValue fl_map_merge(FLValue a, FLValue b) {
         r = fl_map_set(r, mb->entries[i].key, mb->entries[i].val);
     return r;
 }
+
+FLValue append(FLValue v1, FLValue v2) {
+    if (v1.tag != FL_VECTOR) return v2;
+    if (v2.tag != FL_VECTOR) return v1;
+    FLVector* va = (FLVector*)v1.obj;
+    FLVector* vb = (FLVector*)v2.obj;
+    FLValue r = fl_vec_new();
+    FLVector* vr = (FLVector*)r.obj;
+    for (uint32_t i = 0; i < va->len; i++)
+        vr = (FLVector*)fl_vec_push(r, va->data[i]).obj;
+    for (uint32_t i = 0; i < vb->len; i++)
+        vr = (FLVector*)fl_vec_push(r, vb->data[i]).obj;
+    return r;
+}

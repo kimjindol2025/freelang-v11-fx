@@ -294,6 +294,7 @@ FLValue fl_vec_last(FLValue vec);
 FLValue fl_map_del(FLValue map, FLValue key);
 FLValue fl_map_merge(FLValue a, FLValue b);
 FLValue fl_concat(FLValue a, FLValue b);
+FLValue append(FLValue v1, FLValue v2);
 
 /* ── S27: FL 소스 → AST (cgc-bridge.c + parser.c에서 제공) ── */
 FLValue fl_parse(FLValue src);
