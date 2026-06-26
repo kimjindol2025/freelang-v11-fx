@@ -726,6 +726,8 @@
 (define global-decls-atom  (atom []))
 ;; W1: arity check — defn 이름 → 파라미터 수 맵
 (define defn-arity-atom    (atom {}))
+;; P1-8: nested defn 깊이 추적
+(define cgc-defn-depth-atom (atom 0))
 
 ;; ── 유틸 ──
 
@@ -2005,18 +2007,21 @@
       (cgc-defn-stmts-tco $args $vars $label (+ $i 1) (str $acc "    (void)(" $c ");\n"))))))
 
 (defn cgc-defn [$args]
-  (let [[$name (c-name (cgc-extract-name (get $args 0)))]
-        [$param-items (get-block-items (get $args 1))]
-        [$ps (cgc-params $param-items)]
-        [$pnames (cgc-fn-param-names $param-items 0 [])]
-        ;; FL 소스 라인 번호 (에러 추적용)
-        [$src-line (get (get $args 0) :line)]]
-    (reset! outer-params-atom $pnames)
-    (let [[$call-args (cgc-wrapper-call-args $param-items 0 "")]
-          [$has-recur (cgc-any-has-recur $args 2)]
-          ;; #line 지시자 — GCC가 FL 소스 라인으로 오류 위치 보고
-          [$line-directive (if (null? $src-line) ""
-                             (str "#line " $src-line " \"<fl>\"\n"))]]
+  ;; P1-8: nested defn 추적 시작
+  (let [[$is-nested (> @cgc-defn-depth-atom 0)]]
+    (swap! cgc-defn-depth-atom + 1)
+    (let [[$name (c-name (cgc-extract-name (get $args 0)))]
+          [$param-items (get-block-items (get $args 1))]
+          [$ps (cgc-params $param-items)]
+          [$pnames (cgc-fn-param-names $param-items 0 [])]
+          ;; FL 소스 라인 번호 (에러 추적용)
+          [$src-line (get (get $args 0) :line)]]
+      (reset! outer-params-atom $pnames)
+      (let [[$call-args (cgc-wrapper-call-args $param-items 0 "")]
+            [$has-recur (cgc-any-has-recur $args 2)]
+            ;; #line 지시자 — nested defn에서는 생략 (P1-8 fix)
+            [$line-directive (if (or $is-nested (null? $src-line)) ""
+                               (str "#line " $src-line " \"<fl>\"\n"))]]]
       (swap! wrapper-defs-atom append
         (str "static FLValue __fl_wrap_" $name
              "(FLClosure* _s, int _ac, FLValue* argv) {\n"
@@ -2036,7 +2041,10 @@
           (str $line-directive
                "FLValue " $name "(" $ps ") {\n"
                "    fl_push_frame_ln(\"" $name "\", __LINE__);\n"
-               $stmts "}"))))))
+               $stmts "}"))))]
+      ;; P1-8: nested defn 추적 종료
+      (swap! cgc-defn-depth-atom - 1)
+      $result))))
 
 ;; ── define (전역 변수) ──
 
