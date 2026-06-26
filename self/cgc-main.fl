@@ -728,7 +728,7 @@
 (define defn-arity-atom    (atom {}))
 ;; P1-8: nested defn hoisting
 (define cgc-defn-depth-atom (atom 0))
-(define cgc-hoisted-fns-atom (atom []))
+(define cgc-hoisted-fns-atom (atom ""))
 
 ;; ── 유틸 ──
 
@@ -2046,7 +2046,7 @@
         (let [[$result-str (if $is-nested
           ;; nested: hoisted-fns에 저장, nil 반환
           (do
-            (swap! cgc-hoisted-fns-atom append $func-def)
+            (swap! cgc-hoisted-fns-atom (fn [$acc] (str $acc $func-def "\n\n")))
             "fl_nil()")
           ;; top-level: 그냥 반환
           $func-def)]]
@@ -2148,8 +2148,8 @@
   (loop [$i $_i $stmts $_stmts $fns $_fns]
     (if (>= $i (length $_nodes))
       ;; P1-8: hoisted fns를 top-level fns 앞에 추가
-      (let [[$hoisted (str-join "\n\n" @cgc-hoisted-fns-atom)]
-            [$all-fns (if (> (length @cgc-hoisted-fns-atom) 0)
+      (let [[$hoisted @cgc-hoisted-fns-atom]
+            [$all-fns (if (> (length $hoisted) 0)
                         (str $hoisted "\n\n" $fns)
                         $fns)]]
         {:stmts $stmts :fns $all-fns})
