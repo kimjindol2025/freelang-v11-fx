@@ -2,15 +2,16 @@
 
 ## 📊 함정 분류 (27개)
 
-### 🔴 P0: 치명적 (3개) — 즉시 수정 필수
+### ✅ P0: 치명적 (3개) — **2026-06-26 검증 완료 (cgc-bin 469KB)**
 
-| ID | 문제 | 영향 | 난이도 |
+| ID | 문제 | 상태 | 비고 |
 |----|----|------|--------|
-| **P0-3** | trap-defn-docstring-cgc | 함수가 docstring만 반환 | ⭐⭐ |
-| **P0-2** | trap-try-map-literal | try 본문에 맵 파싱 오류 | ⭐⭐⭐ |
-| **P0-1** | trap-defn-do | defn 첫 줄만 실행 | ⭐⭐ |
+| **P0-3** | trap-defn-docstring-cgc | ✅ RESOLVED | 469KB cgc-bin에서 정상 동작 확인 |
+| **P0-2** | trap-try-map-literal | ✅ RESOLVED | `{"key" val}` 직접 사용 가능 |
+| **P0-1** | trap-defn-do | ✅ RESOLVED | cgc-defn-stmts 다중 표현식 처리 |
 
-**작업량**: 6-7시간 | **우선도**: ++++++
+**증거**: test-p0.fl → `user-42 / step1 / step2 / 15 / true` 출력 확인  
+**작업량**: 0시간 (이미 해결됨) | **우선도**: ~~++++++~~
 
 ---
 
