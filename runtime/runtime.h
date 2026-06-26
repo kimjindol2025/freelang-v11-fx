@@ -474,6 +474,11 @@ FLValue even_p(FLValue v);
 FLValue odd_p(FLValue v);
 FLValue inc(FLValue v);
 FLValue dec(FLValue v);
+FLValue __fl_kw_inc(FLValue v);
+FLValue __fl_kw_dec(FLValue v);
+FLValue eq(FLValue a, FLValue b);
+FLValue sub(FLValue a, FLValue b);
+FLValue nil(FLValue ignored);
 /* fl_vec_* aliases (cgc-bin 내부 이름) */
 FLValue fl_vec_first(FLValue vec);
 FLValue fl_vec_last(FLValue vec);
@@ -605,15 +610,20 @@ FLValue pad_zero(FLValue n, FLValue width);
 /* 수학 유틸 */
 FLValue fl_clamp(FLValue val, FLValue lo, FLValue hi);
 
-/* ── fx builtin shim ── */
-extern FLValue sqlite_open, sqlite_query, sqlite_exec, sqlite_one;
-extern FLValue sqlite_query_p, sqlite_exec_p, sqlite_one_p, sqlite_close;
-extern FLValue server_req_body;
-/* throw: old cgc-bin generates fl_fn_call(throw,...) — shim maps to fl_throw() */
-/* In C (not C++), 'throw' is a valid identifier */
+/* ── fx builtin shim (구 cgc: fl_fn_call 전용 — throw/hash_map) ── */
 extern FLValue throw;
-/* hash_map: old cgc-bin generates fl_fn_call(hash_map,...) for (hash-map ...) */
 extern FLValue hash_map;
+
+/* cgc-bin direct-call aliases */
+FLValue sqlite_open(FLValue path);
+FLValue sqlite_query(FLValue conn, FLValue sql);
+FLValue sqlite_exec(FLValue conn, FLValue sql);
+FLValue sqlite_one(FLValue conn, FLValue sql);
+FLValue sqlite_query_p(FLValue conn, FLValue sql, FLValue p);
+FLValue sqlite_exec_p(FLValue conn, FLValue sql, FLValue p);
+FLValue sqlite_one_p(FLValue conn, FLValue sql, FLValue p);
+FLValue sqlite_close(FLValue conn);
+FLValue server_req_body(FLValue req);
 
 /* fx 독립 언어 — 투명 alias 선언 */
 FLValue sqlite_open_v2(FLValue path);

@@ -15,23 +15,23 @@
 
 ---
 
-### 🟡 P1: 심각 (11개) — 빌드 실패 또는 false-200
+### 🟡 P1: 심각 (11개) — **2026-06-26 실측 결과**
 
-| ID | 문제 | 타입 | 해결책 |
+| ID | 문제 | 상태 | 비고 |
 |----|----|------|---------|
-| **P1-1** | trap-count-type | cgc가 count를 모름 → 빌드 실패 | aliases.c에 count 추가 |
-| **P1-2** | trap-kebab-symbol | kebab-case 함수명이 미정의 | 언더스코어 강제 또는 자동 변환 |
-| **P1-3** | trap-str-includes-int | 0/1 반환 (진리값 아님) | 자동으로 boolean 변환 |
-| **P1-4** | trap-throw-invalid-initializer | throw가 잘못된 C 초기화자 생성 | codegen 수정 |
-| **P1-5** | trap-server-json-string | 맵 직접 전달 시 false-200 | 타입 체크 + 에러 메시지 |
-| **P1-6** | trap-server-html-quote | HTML 안의 " 가 문자열 파서 혼동 | 문자열 이스케이프 강화 |
-| **P1-7** | trap-string-literal-1024 | 1024B+ 리터럴이 PRoot에서 tmpfile 실패 | 자동 청크 분할 |
-| **P1-8** | trap-nested-defn-skip | 중첩 defn이 컴파일되지 않음 | cgc 에러 또는 자동 최상위 이동 |
-| **P1-9** | trap-inc-dec-missing | inc/dec 함수가 없음 | stdlib에 구현 추가 |
-| **P1-10** | trap-cache-cgc-missing | cache.fl이 v11 전용 함수 사용 | cgc용 구현 제공 또는 경고 |
-| **P1-11** | trap-parallel-run-missing | parallel.fl이 미구현 함수 사용 | 미구현 플래그 또는 구현 |
+| **P1-1** | trap-count-type | ✅ RESOLVED | cgc 특수 처리 (`count` → `length()`) |
+| **P1-2** | trap-kebab-symbol | ✅ RESOLVED | kebab-case 자동 underscore 변환 |
+| **P1-3** | trap-str-includes-int | ✅ RESOLVED | truthy 값 정상 반환 |
+| **P1-4** | trap-throw-invalid-initializer | ✅ RESOLVED | throw/try/catch 정상 동작 |
+| **P1-5** | trap-server-json-string | ⚠️ 미확인 | 서버 환경 테스트 필요 |
+| **P1-6** | trap-server-html-quote | ✅ RESOLVED | HTML 내 `"` 정상 처리 |
+| **P1-7** | trap-string-literal-1024 | ✅ RESOLVED | 1030B+ 문자열 빌드/실행 성공 |
+| **P1-8** | trap-nested-defn-skip | ❌ BROKEN | `#line` 지시자가 expression 내부 삽입 → C 파서 오류. cgc-defn 최상위 리프팅 수정 필요 |
+| **P1-9** | trap-inc-dec-missing | ✅ **수정** | `aliases.c` + `runtime.h`에 `__fl_kw_inc`/`__fl_kw_dec` 추가 |
+| **P1-10** | trap-cache-cgc-missing | ✅ RESOLVED | 순수 FL 재구현으로 해결 (VERIFIED-MATRIX) |
+| **P1-11** | trap-parallel-run-missing | ❌ BROKEN | 재구현 필요 |
 
-**작업량**: 20-25시간 | **우선도**: +++++
+**해결**: 8/11 (73%) | **잔여**: P1-5(미확인), P1-8(컴파일러 수정), P1-11(재구현)
 
 ---
 

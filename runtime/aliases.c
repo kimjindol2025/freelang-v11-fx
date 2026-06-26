@@ -388,6 +388,14 @@ FLValue even_p(FLValue v)   { return fl_bool(v.tag == FL_INT && v.i % 2 == 0); }
 FLValue odd_p(FLValue v)    { return fl_bool(v.tag == FL_INT && v.i % 2 != 0); }
 FLValue inc(FLValue v)      { return fl_add(v, fl_int(1)); }
 FLValue dec(FLValue v)      { return fl_sub(v, fl_int(1)); }
+/* P1-9: cgc-bin이 inc/dec를 __fl_kw_inc/dec로 emit → alias */
+FLValue __fl_kw_inc(FLValue v) { return fl_add(v, fl_int(1)); }
+FLValue __fl_kw_dec(FLValue v) { return fl_sub(v, fl_int(1)); }
+
+/* stale cgc-bin bridge (trap-cgc-stale-node): 구 cgc-bin이 eq/sub/nil을 C 직접 호출로 emit */
+FLValue eq(FLValue a, FLValue b)   { return fl_eq(a, b); }
+FLValue sub(FLValue a, FLValue b)  { return fl_sub(a, b); }
+FLValue nil(FLValue ignored)       { (void)ignored; return fl_nil(); }
 
 /* list = vec 생성 (cgc-bin이 list를 fl_vec_from으로 emit하므로 alias 불필요할 수 있음) */
 /* 하지만 혹시 필요할 경우를 위해 */
