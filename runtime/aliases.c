@@ -1181,6 +1181,36 @@ FLValue fl_future_done(FLValue handle) {
     return fl_bool(done);
 }
 
+/* fl_run_parallel(fn_list, _unused) → results vector
+   fn_list: 호출 가능한 함수들의 벡터
+   _unused: 예약 (cgc 디스패치용)
+   반환: 각 함수의 결과를 담은 벡터 (완료 대기) */
+FLValue fl_run_parallel(FLValue fn_list, FLValue _unused) {
+    if (fn_list.tag != FL_VECTOR || !fn_list.obj) return fl_nil();
+    FLVector* vec = (FLVector*)fn_list.obj;
+    int n = vec->len;
+
+    if (n == 0) return fl_vec_new();
+
+    /* future 배열 생성 */
+    FLValue* futures = malloc(n * sizeof(FLValue));
+    if (!futures) return fl_nil();
+
+    for (int i = 0; i < n; i++) {
+        futures[i] = fl_future(vec->data[i]);
+    }
+
+    /* 결과 벡터 생성 및 deref로 완료 대기 */
+    FLValue results = fl_vec_new();
+    for (int i = 0; i < n; i++) {
+        FLValue result = fl_deref(futures[i]);
+        results = fl_vec_push(results, result);
+    }
+
+    free(futures);
+    return results;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    stdlib 확장 — v11 동등 함수 (2026-06-15)
    ═══════════════════════════════════════════════════════════════ */

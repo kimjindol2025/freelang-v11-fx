@@ -584,6 +584,7 @@ FLValue str_test(FLValue str_v, FLValue pat_v);
 FLValue fl_future(FLValue fn);
 FLValue fl_deref(FLValue handle);
 FLValue fl_future_done(FLValue handle);
+FLValue fl_run_parallel(FLValue fn_list, FLValue _unused);
 /* 날짜/시간 */
 FLValue date_format(FLValue ts, FLValue fmt);
 FLValue date_now_str(void);
@@ -614,16 +615,16 @@ FLValue fl_clamp(FLValue val, FLValue lo, FLValue hi);
 extern FLValue throw;
 extern FLValue hash_map;
 
-/* cgc-bin direct-call aliases */
-FLValue sqlite_open(FLValue path);
-FLValue sqlite_query(FLValue conn, FLValue sql);
-FLValue sqlite_exec(FLValue conn, FLValue sql);
-FLValue sqlite_one(FLValue conn, FLValue sql);
-FLValue sqlite_query_p(FLValue conn, FLValue sql, FLValue p);
-FLValue sqlite_exec_p(FLValue conn, FLValue sql, FLValue p);
-FLValue sqlite_one_p(FLValue conn, FLValue sql, FLValue p);
-FLValue sqlite_close(FLValue conn);
-FLValue server_req_body(FLValue req);
+/* cgc-bin direct-call aliases — global closure shims (fx-builtin-shim.c) */
+extern FLValue sqlite_open;
+extern FLValue sqlite_query;
+extern FLValue sqlite_exec;
+extern FLValue sqlite_one;
+extern FLValue sqlite_query_p;
+extern FLValue sqlite_exec_p;
+extern FLValue sqlite_one_p;
+extern FLValue sqlite_close;
+extern FLValue server_req_body;
 
 /* fx 독립 언어 — 투명 alias 선언 */
 FLValue sqlite_open_v2(FLValue path);

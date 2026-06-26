@@ -166,7 +166,15 @@ FLValue server_text(FLValue text) {
 }
 
 FLValue server_json(FLValue json_str) {
-    return make_response(200, "application/json; charset=utf-8", strval(json_str));
+    const char* body;
+    if (json_str.tag == FL_STRING && json_str.obj) {
+        body = ((FLString*)json_str.obj)->data;
+    } else {
+        // 맵/벡터면 자동 stringify
+        FLValue s = fl_json_stringify(json_str);
+        body = (s.tag == FL_STRING && s.obj) ? ((FLString*)s.obj)->data : "{}";
+    }
+    return make_response(200, "application/json; charset=utf-8", body);
 }
 
 FLValue server_status(FLValue code, FLValue body) {
