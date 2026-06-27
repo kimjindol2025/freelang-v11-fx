@@ -1,0 +1,107 @@
+;; fx-std/safe.fl — 조용한 실패 방어 래퍼
+;; 사전 로드 필수: (load ".../fx-std.fl")  ← result-ok/result-fail/result-err? 의존
+;;
+;; 커버 범위:
+;;   A. safe-nth      — nth 범위밖 → nil 방어
+;;   B. safe-interval — set_interval 콜백 throw 삼킴 방어
+;;   C. require-*     — nil 전파 명시 차단
+;;   D. assert-*      — 불변식 런타임 검사
+;;
+;; fx-std.fl이 이미 커버하는 것 (중복 금지):
+;;   db-query-safe / db-exec-safe / db-one-safe
+;;   http-get-safe / json-parse-safe
+;;   json_safe_get / get-in-2
+
+;; ── A. safe-nth ──────────────────────────────────────────────────────────────
+;;
+;; 문제: (nth $col 99) → 범위 밖이면 빈값(nil) 조용히 반환
+;; 영향: 다운스트림 코드가 nil을 정상값으로 처리 → 데이터 오염
+;;
+;; (safe-nth $list 5)   → Result  (범위 밖이면 result-fail)
+;; (safe-nth-or $list 5 0) → 기본값 (Result 없이 편의용)
+
+(defn safe-nth [$col $i]
+  (do
+    (let [$n (if (null? $col) 0 (length $col))]
+      (if (or (null? $col) (< $i 0) (>= $i $n))
+        (result-fail (str "nth out of bounds: index=" $i " len=" $n))
+        (result-ok (get $col $i))))))
+
+(defn safe-nth-or [$col $i $default]
+  (do
+    (let [$n (if (null? $col) 0 (length $col))]
+      (if (or (null? $col) (< $i 0) (>= $i $n))
+        $default
+        (get $col $i)))))
+
+;; ── B. safe-interval ─────────────────────────────────────────────────────────
+;;
+;; 문제: set_interval 콜백 안에서 throw 발생 시 그 틱만 조용히 건너뜀
+;;        → 배경 작업이 소리 없이 멈출 수 있음
+;;
+;; 해법: 틱 함수 본문을 반드시 try/catch로 감싸야 함
+;;       set_interval은 문자열 함수명을 받아 직접 래핑 불가
+;;       → make-safe-tick 은 "감싸인 람다"를 반환함
+;;          실제 등록은 아래 패턴 사용:
+;;
+;;   ;; ✅ 권장 패턴
+;;   (defn my-work []
+;;     ... 실제 작업 ...
+;;   )
+;;   (defn my-tick []
+;;     (safe-tick-run "my-work" my-work))
+;;   (set_interval "my-tick" 2000)
+
+(defn safe-tick-run [$label $fn]
+  (try
+    ($fn)
+    (catch $e
+      (println (str "[TICK-ERROR][" $label "] " (str $e))))))
+
+;; ── C. require-* — nil 전파 명시 차단 ──────────────────────────────────────
+;;
+;; 문제: nil이 체인을 타고 흘러가 아무데서나 조용히 깨짐
+;;       (get nil "id") → nil, (str nil "x") → "nullx" 등
+;;
+;; require-val: 단일 값이 nil이면 result-fail 즉시 반환
+;; require-row: DB one 결과 nil → not-found fail
+;; require-fields: 맵에서 필수 필드 한 번에 검사
+
+(defn require-val [$v $field]
+  (if (null? $v)
+    (result-fail (str $field " is required"))
+    (result-ok $v)))
+
+(defn require-row [$row $entity]
+  (if (null? $row)
+    (result-fail (str $entity " not found"))
+    (result-ok $row)))
+
+;; require-fields: 맵 $m 에서 $fields 목록의 값이 모두 비어있지 않아야 성공
+;; 실패 시 첫 번째 누락 필드명과 함께 fail 반환
+(defn require-fields [$m $fields]
+  (reduce
+    (fn [$xacc $k]
+      (if (result-err? $xacc) $xacc
+        (let [$xv (get $m $k)]
+          (if (or (null? $xv) (= (str-trim (str $xv)) ""))
+            (result-fail (str $k " is required"))
+            $xacc))))
+    (result-ok $m)
+    $fields))
+
+;; ── D. assert-* — 불변식 런타임 검사 ────────────────────────────────────────
+;;
+;; assert-not-nil: nil이면 즉시 throw — 버그를 조용히 넘기지 않음
+;;                 uncaught throw → 재실행 함정 주의: HTTP 핸들러 안에서만 사용
+;;                 배경 틱에서는 safe-tick-run 과 함께 써야 함
+(defn assert-not-nil [$v $msg]
+  (if (null? $v)
+    (throw (str "[assert-not-nil] " $msg))
+    $v))
+
+;; assert-ok: Result가 실패면 throw
+(defn assert-ok [$r $ctx]
+  (if (result-err? $r)
+    (throw (str "[assert-ok] " $ctx ": " (result-msg $r)))
+    (result-val $r)))
