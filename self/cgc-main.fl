@@ -2022,7 +2022,7 @@
             [$has-recur (cgc-any-has-recur $args 2)]
             ;; #line 지시자 — nested defn에서는 생략 (P1-8 fix)
             [$line-directive (if (or $is-nested (null? $src-line)) ""
-                               (str "#line " $src-line " \"<fl>\"\n"))]]]
+                               (str "#line " $src-line " \"<fl>\"\n"))]]
       (swap! wrapper-defs-atom append
         (str "static FLValue __fl_wrap_" $name
              "(FLClosure* _s, int _ac, FLValue* argv) {\n"
@@ -2042,7 +2042,7 @@
           (str $line-directive
                "FLValue " $name "(" $ps ") {\n"
                "    fl_push_frame_ln(\"" $name "\", __LINE__);\n"
-               $stmts "}")))]
+               $stmts "}")))]]
         (let [[$result-str (if $is-nested
           ;; nested: hoisted-fns에 저장, nil 반환
           (do
