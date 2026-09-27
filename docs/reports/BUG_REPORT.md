@@ -395,11 +395,12 @@ const char* ks = (key.tag == FL_STRING && key.obj)
 
 > cgc-main.fl 변경 시 반드시:
 > ```bash
-> bash /home/kimjin/freelang-v11-fx/verify-fixpoint.sh
+> ./verify-fixpoint.sh
 > # gen-a == gen-b == gen-c PASS 후에만 커밋
 > ```
 >
-> 현재 고정점 SHA: `594caca1`
+> 현재 검증 산출물 SHA-256: `aa8bed315d2bae91630fcff72d7edcafb9afafd84dc357133bb271c3d1bda4fd`
+> 검증 커밋: `10848c4`
 
 ---
 

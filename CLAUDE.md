@@ -1,8 +1,8 @@
 # FreeLang fx (C Native) — Claude 레퍼런스
 
-> **상태**: 프로덕션 사용 가능 (2026-06-15 기준)  
+> **상태**: 프로덕션 사용 가능 · C 셀프호스팅 3세대 고정점 검증 완료 (2026-09-27)
 > **런타임**: C 네이티브 ELF 바이너리 (Node.js 불필요)  
-> **빌드**: `bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl output-binary`
+> **빌드**: `bash ./fl-build.sh server.fl output-binary`
 
 ---
 
@@ -10,17 +10,18 @@
 
 | 항목 | 경로 / URL |
 |------|-----------|
-| **컴파일러 소스** | `/home/kimjin/freelang-v11/self/cgc-main.fl` |
-| **컴파일러 바이너리** | `/home/kimjin/freelang-v11/bin/cgc-bin` |
-| **런타임 소스** | `/home/kimjin/freelang-v11-fx/runtime/` |
-| **빌드 스크립트** | `/home/kimjin/freelang-v11-fx/fl-build.sh` |
-| **신규 앱 생성** | `/home/kimjin/freelang-v11-fx/fl-new.sh <앱명> <포트>` |
-| **고정점 검증** | `/home/kimjin/freelang-v11-fx/verify-fixpoint.sh` |
-| **고정점 로그** | `/home/kimjin/freelang-v11-fx/FIXPOINT_LOG.md` |
+| **컴파일러 소스** | `self/cgc-main.fl` |
+| **컴파일러 바이너리** | `CGC_BIN` 또는 `../freelang-afj/bin/cgc-bin` |
+| **런타임 소스** | `runtime/` |
+| **빌드 스크립트** | `./fl-build.sh` |
+| **신규 앱 생성** | `./fl-new.sh <앱명> <포트>` |
+| **고정점 검증** | `./verify-fixpoint.sh` |
+| **고정점 로그** | `FIXPOINT_LOG.md` (historical) |
 | **Gogs (컴파일러)** | `https://gogs.dclub.kr/kim/freelang-v11` |
 | **Gogs (런타임/fx)** | `https://gogs.dclub.kr/kim/freelang-v11-fx` |
 
-**현재 고정점 SHA**: `691b0aae79206814` (2026-06-15, ✅ 완전)
+**현재 검증 산출물 SHA-256**: `aa8bed315d2bae91630fcff72d7edcafb9afafd84dc357133bb271c3d1bda4fd`
+**검증 커밋**: `10848c4` · `gen-a == gen-b == gen-c` ✅
 
 ---
 
@@ -30,7 +31,7 @@
 
 ```bash
 # fl-new.sh 로 보일러플레이트 자동 생성
-bash /home/kimjin/freelang-v11-fx/fl-new.sh my-app 40290
+bash ./fl-new.sh my-app 40290
 # → 폴더 생성 + server.fl 템플릿 + .projectrc.json + PM2 등록
 
 # 또는 수동
@@ -56,30 +57,30 @@ cd ~/kim/Desktop/kim/01_Active_Projects/my-app
 
 ```bash
 # 빌드
-bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app
+bash ./fl-build.sh server.fl my-app
 
 # PM2 배포
 pm2 start ./my-app --name my-app
 
 # 재빌드 + 무중단 재시작
-bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app && pm2 reload my-app
+bash ./fl-build.sh server.fl my-app && pm2 reload my-app
 ```
 
 ### 4. 컴파일러 변경 후 반드시
 
 ```bash
 # cgc-main.fl 수정 시 — 고정점 검증 필수 (커밋 전)
-bash /home/kimjin/freelang-v11-fx/verify-fixpoint.sh
-# ✅ 완전: gen-a == gen-b == gen-c → 커밋 OK
-# ⚠️ 부분: gen-b == gen-c → cgc-bin 교체 후 재검증
-# ❌ 붕괴: gen-b != gen-c → 디버그 (커밋 금지)
+./verify-fixpoint.sh
+# ✅ gen-a == gen-b == gen-c → 커밋 가능
+# ✅ 배열형 loop 회귀·clean checkout 재현
+# 라벨형 loop는 현재 FX AST 구조 범위 밖
 ```
 
 ### 5. 멀티파일 프로젝트 — (load "file.fl")
 
 ```lisp
 ;; 절대 경로 또는 상대 경로 모두 OK
-(load "/home/kimjin/freelang-v11-fx/runtime/fx-std.fl")
+(load "./runtime/fx-std.fl")
 (load "./helpers.fl")
 
 ;; 순환 참조 → 자동 감지·무시 (2026-06-15 cgc-bin)
@@ -388,13 +389,13 @@ cgc-bin이 해당 키를 자유변수로 분류해 클로저 env에 추가한다
 
 ```bash
 # 빌드
-bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl output-name
+bash ./fl-build.sh server.fl output-name
 
 # PM2 배포
 pm2 start ./output-name --name my-app
 
 # 재빌드 후 재시작
-bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app && pm2 reload my-app
+bash ./fl-build.sh server.fl my-app && pm2 reload my-app
 ```
 
 ### .projectrc.json 예시
@@ -408,7 +409,7 @@ bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl my-app && pm2 reload my-
   "ports": [40284],
   "entry": "server.fl",
   "commands": {
-    "build": "bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl fx-notes",
+    "build": "bash ./fl-build.sh server.fl fx-notes",
     "start": "pm2 start ./fx-notes --name fx-notes"
   }
 }

@@ -46,3 +46,12 @@
 | 2026-06-21 02:13 | c342a378 | e52da6afe070161c | e52da6afe070161c | e52da6afe070161c | ✅ 완전 |
 | 2026-06-21 02:38 | c342a378 | e52da6afe070161c | e52da6afe070161c | e52da6afe070161c | ✅ 완전 |
 | 2026-06-21 02:43 | c342a378 | e52da6afe070161c | e52da6afe070161c | e52da6afe070161c | ✅ 완전 |
+| 2026-09-27 | 10848c4 | aa8bed315d2bae91 | aa8bed315d2bae91 | aa8bed315d2bae91 | ✅ 완전 · clean checkout 재현 |
+
+## 2026-09-27 공식 검증
+
+- 검증기: `./verify-fixpoint.sh`
+- `runtime/user-fns.c` 포함 필수
+- 배열형 loop 회귀: PASS
+- 라벨형 loop: 현재 FX AST 구조 범위 밖
+- `cgc-bin` 교체: 없음

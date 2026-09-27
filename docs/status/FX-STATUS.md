@@ -1,8 +1,8 @@
 # FreeLang fx — 현황 문서 (단일 진실)
 
-> **생성**: 2026-06-16  
-> **고정점**: `2dd57513` (cgc-main.fl gen-a==gen-b==gen-c)  
-> **커밋**: `d582511`  
+> **생성**: 2026-06-16 · **최종 갱신**: 2026-09-27
+> **고정점**: `aa8bed315d2bae91630fcff72d7edcafb9afafd84dc357133bb271c3d1bda4fd` (gen-a==gen-b==gen-c)
+> **검증 커밋**: `10848c4` · 상태 **VERIFIED**
 > **읽어야 하는 대상**: fx로 앱을 작성하거나, 컴파일러를 수정하거나, 다음 세션을 이어받는 Claude
 
 ---
@@ -11,10 +11,10 @@
 
 ```bash
 # 1. 현재 고정점 확인 (컴파일러 수정 전 필수)
-bash /home/kimjin/freelang-v11-fx/verify-fixpoint.sh
+./verify-fixpoint.sh
 
 # 2. 앱 빌드
-bash /home/kimjin/freelang-v11-fx/fl-build.sh server.fl ./my-app
+bash ./fl-build.sh server.fl ./my-app
 
 # 3. PM2 등록
 pm2 start ./my-app --name my-app
@@ -422,29 +422,31 @@ Stack trace:
 ```bash
 # 1. cgc-main.fl 수정
 # 2. 고정점 검증
-bash /home/kimjin/freelang-v11-fx/fx-upgrade-cgc.sh
-# → ✅ 이면 완료
+./verify-fixpoint.sh
+# → gen-a == gen-b == gen-c PASS이면 완료
+# → cgc-bin은 자동 교체하지 않음
 ```
 
 ### top-level 코드 생성 방식 변경 시 (cgc-top-level, cgc-defn-stmts 등)
 
-반드시 **2단계 부트스트랩** 사용 (fx-upgrade-cgc.sh로는 불충분):
+동일한 `verify-fixpoint.sh` 흐름으로 3세대 재현을 확인한다:
 
 ```bash
-CGC_MAIN="/home/kimjin/freelang-v11-fx/self/cgc-main.fl"
-CGC_BIN="/home/kimjin/freelang-v11/bin/cgc-bin"
-RUNTIME="/home/kimjin/freelang-v11-fx/runtime"
+CGC_MAIN="$(pwd)/self/cgc-main.fl"
+CGC_BIN="${CGC_BIN:-../freelang-afj/bin/cgc-bin}"
+RUNTIME="$(pwd)/runtime"
 TMPDIR=$(mktemp -d /tmp/cgc-2stage-XXXXXX)
 RUNTIME_SRCS="$RUNTIME/core.c $RUNTIME/collection.c $RUNTIME/io.c $RUNTIME/math.c \
   $RUNTIME/error.c $RUNTIME/process.c $RUNTIME/json.c $RUNTIME/aliases.c \
+  $RUNTIME/user-fns.c \
   $RUNTIME/cgc-bridge.c $RUNTIME/gc.c $RUNTIME/http.c $RUNTIME/websocket.c \
   $RUNTIME/sqlite.c $RUNTIME/mariadb.c $RUNTIME/debug.c $RUNTIME/http_client.c \
   $RUNTIME/regex.c $RUNTIME/smtp.c"
 LINK="-lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl"
 
-# Stage 1-5: OLD → gen-a-bin → gen-b → gen-b-bin → gen-c
-# 검증: SHA(gen-b) == SHA(gen-c)
-# 통과 시: cp gen-b-bin → cgc-bin
+# 검증 흐름: cgc-bin → gen-a → gen-a-bin → gen-b → gen-b-bin → gen-c
+# 검증: SHA(gen-a) == SHA(gen-b) == SHA(gen-c)
+# cgc-bin 공식 교체는 자동으로 수행하지 않음
 ```
 
 ### 새 런타임 함수 추가 시 체크리스트
@@ -463,15 +465,15 @@ LINK="-lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl"
 
 | 항목 | 경로 |
 |------|------|
-| 컴파일러 소스 | `/home/kimjin/freelang-v11-fx/self/cgc-main.fl` |
-| 컴파일러 바이너리 | `/home/kimjin/freelang-v11/bin/cgc-bin` |
-| 런타임 소스 | `/home/kimjin/freelang-v11-fx/runtime/` |
-| 별칭/헬퍼 함수 | `/home/kimjin/freelang-v11-fx/runtime/aliases.c` |
-| 빌드 스크립트 | `/home/kimjin/freelang-v11-fx/fl-build.sh` |
-| 신규 앱 생성 | `bash /home/kimjin/freelang-v11-fx/fl-new.sh <앱명> <포트>` |
-| 고정점 검증 | `bash /home/kimjin/freelang-v11-fx/verify-fixpoint.sh` |
-| 트랩 명세 (AIRC) | `/home/kimjin/freelang-v11-fx/FX-TRAPS.airc` |
-| 기존 CLAUDE.md | `/home/kimjin/freelang-v11-fx/CLAUDE.md` (API 레퍼런스) |
+| 컴파일러 소스 | `self/cgc-main.fl` |
+| 컴파일러 바이너리 | `CGC_BIN` 또는 `../freelang-afj/bin/cgc-bin` |
+| 런타임 소스 | `runtime/` |
+| 별칭/헬퍼 함수 | `runtime/aliases.c` |
+| 빌드 스크립트 | `./fl-build.sh` |
+| 신규 앱 생성 | `bash ./fl-new.sh <앱명> <포트>` |
+| 고정점 검증 | `./verify-fixpoint.sh` |
+| 트랩 명세 (AIRC) | `FX-TRAPS.airc` |
+| 기존 CLAUDE.md | `CLAUDE.md` (API 레퍼런스) |
 | Gogs (컴파일러) | `https://gogs.dclub.kr/kim/freelang-v11` |
 | Gogs (런타임/fx) | `https://gogs.dclub.kr/kim/freelang-v11-fx` |
 
@@ -481,11 +483,12 @@ LINK="-lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl"
 
 | SHA | 날짜 | 내용 |
 |-----|------|------|
+| `10848c4` | 2026-09-27 | 검증기 경로·user-fns.c 수정, 3세대 SHA 고정점·clean checkout 재현 ✅ |
 | `d676d4bb` | 2026-06-16 | W1/W2/W3 경고 추가 |
 | `dd1784c7` | 2026-06-16 | loop 변수 false positive 수정 + #line 지시자 |
-| `2dd57513` | 2026-06-16 | 스택 트레이스 + assoc-in + inspect/pp ← **현재** |
+| `2dd57513` | 2026-06-16 | 스택 트레이스 + assoc-in + inspect/pp (historical) |
 
 ---
 
 _이 문서는 fx 상태가 변경될 때마다 업데이트한다._  
-_최신 상태: `git log --oneline -5 /home/kimjin/freelang-v11-fx/self/cgc-main.fl`_
+_최신 상태: `git log --oneline -5 self/cgc-main.fl`_
