@@ -1,0 +1,8 @@
+;; Minimal native loop regression used by verify-fixpoint.sh.
+(defn fixpoint-array-loop []
+  (loop [$i 0]
+    (if (= $i 3)
+      $i
+      (recur (+ $i 1)))))
+
+(println (fixpoint-array-loop))
