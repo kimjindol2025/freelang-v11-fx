@@ -34,6 +34,7 @@ array loop C 실행           PASS
 clean checkout 재현         PASS
 Node/npm/TS/JS/cgc-bin 호출   0
 AFJ 파일 접근                 0
+GitHub Actions 필수 gate      PASS
 ```
 
 검증기는 저장소 기준 경로를 사용하고 `runtime/user-fns.c`를 포함한다.

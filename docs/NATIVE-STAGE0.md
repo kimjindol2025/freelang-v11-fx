@@ -12,6 +12,25 @@ stage0 실행 이후의 compiler chain에는 참여하지 않는다.
 - 회귀 입력: `tests/native-bootstrap/array-loop.fl`
 - 공식 tag: `v11.0.0-native-stage0`
 
+## GitHub Actions 검증 기록
+
+GitHub master에서도 동일한 필수 gate를 실행해 PASS를 확인했다.
+
+```text
+WORKFLOW=Native Stage 0
+RUN_ID=36330069714
+HEAD=94a477402b7de8715519cf5c4ee4c680e4e5d859
+STATUS=completed
+CONCLUSION=success
+DURATION=56s
+```
+
+실행 기록: https://github.com/kimjindol2025/freelang-v11-fx/actions/runs/36330069714
+
+Checkout, 의존성 설치, `verify-native-bootstrap.sh`, Complete job이 모두
+성공했다. Node.js 20 deprecated 및 Ubuntu 26 예정 안내는 runner 경고이며
+검증 실패가 아니다.
+
 검증 명령:
 
 ```bash
