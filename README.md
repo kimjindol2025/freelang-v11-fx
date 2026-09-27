@@ -5,6 +5,8 @@ FL v11 **fx C 네이티브 런타임** + 앱 생태계. (원칙: 기록이 증�
 - **빌드**: `bash fl-build.sh <app>/server.fl <out>` (이 노드 aarch64: `.fl-build-root.sh`)
 - **문서**: `docs/{status,decisions,reports,architecture}/`
 
+🌐 **프로젝트 홈페이지**: [FreeLang v11 소개 및 Native Stage 0](https://kimjindol2025.github.io/freelang-v11-fx/)
+
 ## ✅ Native Stage 0 및 C 셀프호스팅 고정점 — 공식 검증 완료
 
 > FreeLang v11은 검증된 Native C Stage 0에서 시작해 Node·npm·TypeScript·JavaScript·기존 `cgc-bin` 없이 자기 compiler를 재생성하며, Stage 1부터 canonical fixed point로 수렴한다.
