@@ -7,6 +7,8 @@ FL v11 **fx C 네이티브 런타임** + 앱 생태계. (원칙: 기록이 증�
 
 ## ✅ Native Stage 0 및 C 셀프호스팅 고정점 — 공식 검증 완료
 
+> FreeLang v11은 검증된 Native C Stage 0에서 시작해 Node·npm·TypeScript·JavaScript·기존 `cgc-bin` 없이 자기 compiler를 재생성하며, Stage 1부터 canonical fixed point로 수렴한다.
+
 FreeLang C native compiler는 자기 자신의 소스를 연속 3세대 생성하고 동일한
 SHA-256 산출물로 수렴한다. 검증기와 배열형 loop 회귀 테스트는 다음 파일에
 있다.
