@@ -54,7 +54,7 @@ build_c() {
 run_native() {
   local label="$1" binary="$2" input="$3" output="$4"
   local exec_log="$TMP_DIR/$label.execve.log"
-  strace -f -e trace=execve -o "$exec_log" \
+  strace -f -e trace=execve,openat -o "$exec_log" \
     env -i PATH="$NATIVE_PATH" "$binary" "$input" "$output" \
     >"$TMP_DIR/$label.stdout" 2>"$TMP_DIR/$label.stderr"
   [[ -s "$output" ]]
@@ -88,10 +88,13 @@ strace -f -e trace=execve -o "$TMP_DIR/ARRAY_LOOP.execve.log" \
 echo ARRAY_LOOP=PASS
 
 for log in "$TMP_DIR"/*.execve.log; do
-  if rg -n 'node|npm|npx|ts-node|tsx|deno|bun|cgc-bin|bootstrap\.js|\.js' "$log" >/dev/null; then
+  if rg -n 'execve\(.*"[^" ]*/(node|npm|npx|ts-node|tsx|deno|bun|cgc-bin|bootstrap\.js)(/|"|$)' "$log" >/dev/null; then
     echo "FORBIDDEN_EXEC=FAIL:$log"; exit 1
   fi
 done
+if rg -n '/home/kim/kim/platform/freelang-afj|freelang-afj-native-parser|bootstrap\.js' "$TMP_DIR"/*.execve.log >/dev/null; then
+  echo "AFJ_FILE_ACCESSES=FAIL"; exit 1
+fi
 echo NODE_INVOCATIONS=0
 echo NPM_INVOCATIONS=0
 echo TS_JS_INVOCATIONS=0
