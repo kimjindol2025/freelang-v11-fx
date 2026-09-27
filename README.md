@@ -5,6 +5,36 @@ FL v11 **fx C 네이티브 런타임** + 앱 생태계. (원칙: 기록이 증�
 - **빌드**: `bash fl-build.sh <app>/server.fl <out>` (이 노드 aarch64: `.fl-build-root.sh`)
 - **문서**: `docs/{status,decisions,reports,architecture}/`
 
+## ✅ C 셀프호스팅 고정점 — 공식 검증 완료
+
+FreeLang C native compiler는 자기 자신의 소스를 연속 3세대 생성하고 동일한
+SHA-256 산출물로 수렴한다. 검증기와 배열형 loop 회귀 테스트는 다음 파일에
+있다.
+
+```text
+verify-fixpoint.sh
+tests/fixpoint-loop-array.fl
+```
+
+검증 명령:
+
+```bash
+./verify-fixpoint.sh
+```
+
+검증 결과:
+
+```text
+gen-a → gen-b → gen-c       PASS
+gen-a == gen-b == gen-c     PASS
+array loop C 실행           PASS
+clean checkout 재현         PASS
+user-fns.c 누락 음성 테스트  FAIL_AS_EXPECTED
+```
+
+검증기는 저장소 기준 경로를 사용하고 `runtime/user-fns.c`를 포함한다.
+`cgc-bin`은 교체하지 않으며, 라벨형 loop는 현재 FX AST 구조 범위 밖이다.
+
 ## 🗂 fx 앱 카탈로그
 
 | 앱 | 포트 | 설명 |
