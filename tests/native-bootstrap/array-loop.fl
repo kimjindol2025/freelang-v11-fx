@@ -1,0 +1,8 @@
+;; Native stage bootstrap regression: array-style loop AST.
+(defn native-array-loop []
+  (loop [$i 0]
+    (if (= $i 3)
+      $i
+      (recur (+ $i 1)))))
+
+(println (native-array-loop))
