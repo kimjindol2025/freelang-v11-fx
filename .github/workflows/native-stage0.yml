@@ -1,0 +1,23 @@
+name: Native Stage 0
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  native-stage0:
+    name: native stage0 fixed point gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install native verifier dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc strace libsqlite3-dev libssl-dev libcurl4-openssl-dev
+
+      - name: Verify Node-free native bootstrap
+        run: ./scripts/verify-native-bootstrap.sh

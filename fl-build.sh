@@ -9,7 +9,7 @@ set -e
 SCRIPT_REAL="$(readlink -f "$0")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_REAL")" && pwd)"
 RUNTIME_DIR="$SCRIPT_DIR/runtime"
-CGC_BIN="/home/kimjin/freelang-v11/bin/cgc-bin"
+CGC_BIN="${CGC_BIN:-$SCRIPT_DIR/bootstrap/stage0-bin}"
 
 # --no-net 플래그: openssl/curl 없이 stub으로 빌드
 NO_NET=0
@@ -27,6 +27,11 @@ fi
 FL_BASE="$(basename "$FL_INPUT" .fl)"
 OUTPUT="${ARGS[1]:-$FL_BASE}"
 C_FILE="/tmp/fl_build_$$.c"
+
+if [ ! -x "$CGC_BIN" ]; then
+  echo "⚙️  Native Stage 0 compiler 설치: $CGC_BIN"
+  "$SCRIPT_DIR/scripts/install-native-stage0.sh" "$CGC_BIN"
+fi
 
 echo "🔨 FreeLang 네이티브 빌드"
 echo "   입력: $FL_INPUT"
