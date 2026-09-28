@@ -1,6 +1,8 @@
 # freelang-v11-fx
 
-FL v11 **fx C 네이티브 런타임** + 앱 생태계. (원칙: 기록이 증명이다)
+FreeLang v11 조상 계열에서 분기한 **FX C 네이티브 언어 계열** + 앱 생태계.
+AFJ Language와 같은 언어가 아니며, 공통 S-expression 뿌리만 공유한다.
+(원칙: 기록이 증명이다)
 - **언어/빌드 입문**: `FX-FOR-CLAUDE.md` · **API 레퍼런스**: `CLAUDE.md` · **함정 명세**: `FX-TRAPS.airc`
 - **빌드**: `bash fl-build.sh <app>/server.fl <out>` (이 노드 aarch64: `.fl-build-root.sh`)
 - **문서**: `docs/{status,decisions,reports,architecture}/`
