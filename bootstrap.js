@@ -25677,6 +25677,14 @@ function validateFilePath(filePath) {
   }
   return resolved;
 }
+function decodeUtf8StrictBase64(value) {
+  const encoded = String(value ?? "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) {
+    throw new Error("invalid base64 input");
+  }
+  const bytes = Buffer.from(encoded, "base64");
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
 function createFileModule() {
   return {
     // file_read filePath -> string (read file content)
@@ -25687,6 +25695,9 @@ function createFileModule() {
         throw new Error(`file_read failed for '${filePath}': ${err4.message}`);
       }
     },
+    // utf8_decode_strict base64 -> UTF-8 string; invalid sequences throw.
+    "utf8_decode_strict": decodeUtf8StrictBase64,
+    "utf8-decode-strict": decodeUtf8StrictBase64,
     // file_write filePath content -> boolean (write content to file)
     "file_write": (filePath, content) => {
       try {
@@ -33429,7 +33440,9 @@ function _concat(...args) {
 function _fl_null_q(v) { return v === null || v === undefined; }
 function _fl_true_q(v) { return v === true; }
 function _fl_false_q(v) { return v === false; }
+function _fl_boolean_q(v) { return typeof v === 'boolean'; }
 function _fl_number_q(v) { return typeof v === 'number'; }
+function _fl_integer_q(v) { return Number.isInteger(v); }
 function _fl_string_q(v) { return typeof v === 'string'; }
 function _fl_list_q(v) { return Array.isArray(v); }
 function _fl_array_q(v) { return Array.isArray(v); }
@@ -33497,6 +33510,13 @@ function _fl_slice(l, a, b) { return (l || []).slice(a, b); }
 function _fl_print(v) { console.log(v); return v; }
 function _fl_get_argv() { return (typeof process !== "undefined" ? process.argv.slice(2) : []); }
 function _fl_file_read(p) { return require("fs").readFileSync(p, "utf8"); }
+function _fl_file_read_base64(p) { return require("fs").readFileSync(p).toString("base64"); }
+function _fl_file_realpath(p) { return require("fs").realpathSync(p); }
+function _fl_utf8_decode_strict(value) {
+  const encoded = String(value ?? "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) throw new Error("invalid base64 input");
+  return new TextDecoder("utf-8", { fatal: true }).decode(Buffer.from(encoded, "base64"));
+}
 function _fl_file_write(p, c) { return require("fs").writeFileSync(p, c); }
 function _fl_file_exists(p) { return require("fs").existsSync(p); }
 function _fl_file_delete(p) { try { require("fs").unlinkSync(p); } catch(e) {} }
@@ -33541,6 +33561,88 @@ function _fl_readline(prompt) {
     }
     return parts.join("");
   } catch(e) { return null; }
+}
+function _fl_stdin_on_line(callback, intervalMs) {
+  const delay = typeof intervalMs === "number" && intervalMs >= 1 ? intervalMs : 1000;
+  let closed = false;
+  let pending = Buffer.alloc(0);
+  const maxLineBytes = 1024 * 1024;
+  const invoke = (event) => { if (!closed && typeof callback === "function") callback(event); };
+  const cleanup = () => {
+    process.stdin.off("data", onData);
+    process.stdin.off("end", onEnd);
+    process.stdin.off("error", onError);
+  };
+  const fail = (message) => {
+    if (closed) return;
+    closed = true;
+    clearInterval(timer);
+    cleanup();
+    process.stdin.pause();
+    process.exitCode = 1;
+    console.error("stdin-on-line: " + message);
+  };
+  const emitPendingLines = () => {
+    while (true) {
+      const newline = pending.indexOf(0x0a);
+      if (newline < 0) break;
+      const rawLine = pending.subarray(0, newline);
+      pending = pending.subarray(newline + 1);
+      if (rawLine.length > maxLineBytes) {
+        fail("line exceeds " + maxLineBytes + " bytes");
+        return;
+      }
+      let line;
+      try {
+        line = new TextDecoder("utf-8", { fatal: true }).decode(rawLine);
+      } catch {
+        fail("invalid UTF-8");
+        return;
+      }
+      if (line.endsWith("\\r")) line = line.slice(0, -1);
+      invoke({ kind: "line", line });
+      if (closed) return;
+    }
+    if (pending.length > maxLineBytes) fail("line exceeds " + maxLineBytes + " bytes");
+  };
+  const onData = (chunk) => {
+    if (closed) return;
+    pending = Buffer.concat([pending, Buffer.from(chunk)]);
+    emitPendingLines();
+  };
+  const onEnd = () => {
+    if (closed) return;
+    if (pending.length > maxLineBytes) {
+      fail("line exceeds " + maxLineBytes + " bytes");
+      return;
+    }
+    if (pending.length > 0) {
+      let line;
+      try {
+        line = new TextDecoder("utf-8", { fatal: true }).decode(pending);
+      } catch {
+        fail("invalid UTF-8");
+        return;
+      }
+      if (line.endsWith("\\r")) line = line.slice(0, -1);
+      invoke({ kind: "line", line });
+    }
+    stop();
+  };
+  const onError = (error) => fail("stdin read failed: " + (error?.message || error));
+  const timer = setInterval(() => invoke({ kind: "tick" }), delay);
+  const stop = () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(timer);
+    cleanup();
+    process.stdin.pause();
+  };
+  process.stdin.on("data", onData);
+  process.stdin.on("end", onEnd);
+  process.stdin.on("error", onError);
+  process.stdin.resume();
+  return { stop };
 }
 function _fl_shell_capture(cmd) {
   try {
@@ -33697,12 +33799,25 @@ var BUILTIN_MAP = {
   "cli-args": "_fl_get_argv",
   "file_read": "_fl_file_read",
   "file-read": "_fl_file_read",
+  "file-read-base64": "_fl_file_read_base64",
+  "file_read_base64": "_fl_file_read_base64",
+  "file-realpath": "_fl_file_realpath",
+  "file_realpath": "_fl_file_realpath",
+  "utf8-decode-strict": "_fl_utf8_decode_strict",
+  "utf8_decode_strict": "_fl_utf8_decode_strict",
   "file_write": "_fl_file_write",
   "file-write": "_fl_file_write",
   "file-exists": "_fl_file_exists",
   "file_exists": "_fl_file_exists",
+  "shell-env": "_fl_shell_env",
+  "shell_env": "_fl_shell_env",
+  "shell-cwd": "_fl_shell_cwd",
+  "shell_cwd": "_fl_shell_cwd",
+  "shell-safe": "_fl_shell_safe",
+  "shell_safe": "_fl_shell_safe",
   "readline": "_fl_readline",
   "read-line": "_fl_readline",
+  "stdin-on-line": "_fl_stdin_on_line",
   "char_at": "_fl_char_at",
   "char-at": "_fl_char_at",
   "substring": "_fl_substring",
@@ -37425,12 +37540,116 @@ function createMatrixModule() {
   };
 }
 
+// stdin-on-line callback bridge used by protocol servers. The callback receives
+// {kind: "line", line} for input and {kind: "tick"} at the requested cadence.
+function createStdinModule(interpreter) {
+  let active = null;
+  return {
+    "stdin-on-line": (callback, intervalMs = 1000) => {
+      if (typeof intervalMs !== "number" || intervalMs < 1) {
+        throw new Error(`stdin-on-line interval must be positive, got ${intervalMs}`);
+      }
+      if (active) active.stop();
+      let closed = false;
+      let pending = Buffer.alloc(0);
+      const maxLineBytes = 1024 * 1024;
+      const invoke = (event) => {
+        try {
+          if (typeof callback === "function") callback(event);
+          else if (callback?.kind === "function-value") interpreter.callFunction(callback, [event]);
+          else throw new Error("stdin-on-line callback must be a function");
+        } catch (error) {
+          console.error(`stdin-on-line callback error (${event.kind}):`, error.message);
+        }
+      };
+      const cleanup = () => {
+        process.stdin.off("data", onData);
+        process.stdin.off("end", onEnd);
+        process.stdin.off("error", onError);
+      };
+      const fail = (message) => {
+        if (closed) return;
+        closed = true;
+        clearInterval(timer);
+        cleanup();
+        process.stdin.pause();
+        process.exitCode = 1;
+        console.error(`stdin-on-line: ${message}`);
+      };
+      const emitPendingLines = () => {
+        while (true) {
+          const newline = pending.indexOf(0x0a);
+          if (newline < 0) break;
+          const rawLine = pending.subarray(0, newline);
+          pending = pending.subarray(newline + 1);
+          if (rawLine.length > maxLineBytes) {
+            fail(`line exceeds ${maxLineBytes} bytes`);
+            return;
+          }
+          let line;
+          try {
+            line = new TextDecoder("utf-8", { fatal: true }).decode(rawLine);
+          } catch {
+            fail("invalid UTF-8");
+            return;
+          }
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          invoke({ kind: "line", line });
+          if (closed) return;
+        }
+        if (pending.length > maxLineBytes) fail(`line exceeds ${maxLineBytes} bytes`);
+      };
+      const onData = (chunk) => {
+        if (closed) return;
+        pending = Buffer.concat([pending, Buffer.from(chunk)]);
+        emitPendingLines();
+      };
+      const onEnd = () => {
+        if (closed) return;
+        if (pending.length > maxLineBytes) {
+          fail(`line exceeds ${maxLineBytes} bytes`);
+          return;
+        }
+        if (pending.length > 0) {
+          let line;
+          try {
+            line = new TextDecoder("utf-8", { fatal: true }).decode(pending);
+          } catch {
+            fail("invalid UTF-8");
+            return;
+          }
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          invoke({ kind: "line", line });
+        }
+        stop();
+      };
+      const onError = (error) => fail(`stdin read failed: ${error?.message || error}`);
+      const timer = setInterval(() => { if (!closed) invoke({ kind: "tick" }); }, intervalMs);
+      const stop = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(timer);
+        cleanup();
+        process.stdin.pause();
+        if (active?.stop === stop) active = null;
+      };
+      process.stdin.on("data", onData);
+      process.stdin.on("end", onEnd);
+      process.stdin.on("error", onError);
+      process.stdin.resume();
+      active = { stop };
+      return active;
+    }
+  };
+}
+
 // src/stdlib-loader.ts
 function loadAllStdlib(interp2) {
   interp2.registerModule(createFileModule());
   interp2.registerModule(createFdModule());
   interp2.registerModule(createBitsModule());
   interp2.registerModule(createTimerModule(interp2));
+  interp2.registerModule(createStdinModule(interp2));
   interp2.registerModule(createErrorModule());
   interp2.registerModule(createHttpModule());
   interp2.registerModule(createShellModule());
@@ -43422,6 +43641,29 @@ function cmdCodegen(args3) {
     console.error(`\x1B[31m\uC624\uB958\x1B[0m  ${formatError(err4, fs20.readFileSync(absInput, "utf-8"), absInput)}`);
     process.exit(1);
   }
+}
+function expandCompileLoads(filePath, seen = /* @__PURE__ */ new Set(), stack = []) {
+  const absPath = path18.resolve(filePath);
+  if (stack.includes(absPath)) {
+    throw new Error(`load cycle during compile: ${[...stack, absPath].join(" -> ")}`);
+  }
+  if (seen.has(absPath)) return [];
+  seen.add(absPath);
+  const source = fs20.readFileSync(absPath, "utf-8");
+  const ast = parse(lex(source));
+  const expanded = [];
+  for (const node of ast) {
+    if (node?.kind === "sexpr" && node.op === "load") {
+      const argument = node.args?.[0];
+      if (argument?.kind === "literal" && argument.type === "string") {
+        const child = path18.resolve(path18.dirname(absPath), argument.value);
+        expanded.push(...expandCompileLoads(child, seen, [...stack, absPath]));
+        continue;
+      }
+    }
+    expanded.push(node);
+  }
+  return expanded;
 }
 function cmdCompile(args3) {
   const outputIdx = args3.indexOf("-o");
