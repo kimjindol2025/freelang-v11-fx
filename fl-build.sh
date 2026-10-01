@@ -9,7 +9,24 @@ set -e
 SCRIPT_REAL="$(readlink -f "$0")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_REAL")" && pwd)"
 RUNTIME_DIR="$SCRIPT_DIR/runtime"
-CGC_BIN="${CGC_BIN:-$SCRIPT_DIR/bootstrap/stage0-bin}"
+
+# CGC 경로: 환경변수 → 로컬 후보 → 구 경로. 없으면 즉시 실패.
+if [ -z "${CGC_BIN:-}" ]; then
+  for candidate in \
+    "$SCRIPT_DIR/../freelang-afj/bin/cgc-bin" \
+    "/home/kim/kim/platform/freelang-afj/bin/cgc-bin" \
+    "/home/kimjin/freelang-v11/bin/cgc-bin"
+  do
+    if [ -x "$candidate" ]; then
+      CGC_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [ -z "${CGC_BIN:-}" ] || [ ! -x "$CGC_BIN" ]; then
+  echo "❌ cgc-bin 없음. CGC_BIN=/path/to/cgc-bin 을 지정하세요." >&2
+  exit 1
+fi
 
 # --no-net 플래그: openssl/curl 없이 stub으로 빌드
 NO_NET=0
@@ -27,11 +44,6 @@ fi
 FL_BASE="$(basename "$FL_INPUT" .fl)"
 OUTPUT="${ARGS[1]:-$FL_BASE}"
 C_FILE="/tmp/fl_build_$$.c"
-
-if [ ! -x "$CGC_BIN" ]; then
-  echo "⚙️  Native Stage 0 compiler 설치: $CGC_BIN"
-  "$SCRIPT_DIR/scripts/install-native-stage0.sh" "$CGC_BIN"
-fi
 
 echo "🔨 FreeLang 네이티브 빌드"
 echo "   입력: $FL_INPUT"
@@ -87,8 +99,19 @@ print(f"[fl-build] 전처리 완료", file=sys.stderr)
 PYEOF
 
 # ─── 2. 사전 검사 ────────────────────────────────────────────────
-CHECK_PARENS="/home/kimjin/freelang-v11/scripts/check-parens.py"
-if [ -f "$CHECK_PARENS" ]; then
+if [ -z "${CHECK_PARENS:-}" ]; then
+  for candidate in \
+    "$SCRIPT_DIR/../freelang-v11/scripts/check-parens.py" \
+    "/home/kim/kim/platform/freelang-v11/scripts/check-parens.py" \
+    "/home/kimjin/freelang-v11/scripts/check-parens.py"
+  do
+    if [ -f "$candidate" ]; then
+      CHECK_PARENS="$candidate"
+      break
+    fi
+  done
+fi
+if [ -n "${CHECK_PARENS:-}" ] && [ -f "$CHECK_PARENS" ]; then
   echo "🔍 괄호/브래킷 검사..."
   if ! python3 "$CHECK_PARENS" "$PREPROCESSED" 2>&1; then
     echo "❌ 사전 검사 실패 — 컴파일 중단"
