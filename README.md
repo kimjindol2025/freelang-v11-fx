@@ -4,6 +4,8 @@ FreeLang v11 조상 계열에서 분기한 **FX C 네이티브 언어 계열** +
 AFJ Language와 같은 언어가 아니며, 공통 S-expression 뿌리만 공유한다.
 (원칙: 기록이 증명이다)
 - **언어/빌드 입문**: `FX-FOR-CLAUDE.md` · **API 레퍼런스**: `CLAUDE.md` · **함정 명세**: `FX-TRAPS.airc`
+- **FX3 언어 프로젝트**: `/home/kim/kim/platform/freelang-fx3` — 준비만 된 새 언어. 이 저장소의 런타임은 가져가지 않는다.
+- **다음 세대 방향 기록**: [`docs/decisions/FX3-DIRECTION.md`](docs/decisions/FX3-DIRECTION.md), [`docs/decisions/COMPACT-FX-V0.md`](docs/decisions/COMPACT-FX-V0.md)
 - **빌드**: `bash fl-build.sh <app>/server.fl <out>` (이 노드 aarch64: `.fl-build-root.sh`)
 - **문서**: `docs/{status,decisions,reports,architecture}/`
 
@@ -101,3 +103,17 @@ npm install esbuild --no-save && node scripts/build.js   # bootstrap.js 재생�
 
 `stdlib/` 는 이 리포에 미포함(운영 `freelang-v11/stdlib` 에서 링크·복사).
 실행: `node bootstrap.js run <file.fl>` (stdlib 필요).
+
+## Generated JavaScript diagnostics
+
+`node bootstrap.js compile <file.fl> -o <file.js>` embeds a source map that
+maps generated top-level and function frames back to their FreeLang source
+files. Run the output with Node source-map support to see the original file and
+line in runtime stack traces:
+
+```sh
+node --enable-source-maps <file.js>
+```
+
+The map stores source paths and line mappings, not `sourcesContent`, so source
+text and embedded secrets are not copied into the generated artifact.

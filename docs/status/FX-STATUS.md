@@ -4,6 +4,7 @@
 > **고정점**: `aa8bed315d2bae91630fcff72d7edcafb9afafd84dc357133bb271c3d1bda4fd` (gen-a==gen-b==gen-c)
 > **검증 커밋**: `10848c4` · 상태 **VERIFIED**
 > **읽어야 하는 대상**: fx로 앱을 작성하거나, 컴파일러를 수정하거나, 다음 세션을 이어받는 Claude
+> **FX3**: `/home/kim/kim/platform/freelang-fx3` — 별도 언어 프로젝트. 준비 단계. 이 저장소의 런타임과 앱은 가져가지 않는다. 발견 기록은 [`../decisions/FX3-DIRECTION.md`](../decisions/FX3-DIRECTION.md).
 
 ---
 

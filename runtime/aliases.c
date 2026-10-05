@@ -25,6 +25,28 @@ static FLValue fl_apply_fn(FLValue fn, FLValue arg) {
 FLValue env_get(FLValue key)        { return _fl_env_get(key); }
 FLValue env_set(FLValue k, FLValue v) { return _fl_env_set(k, v); }
 
+/* ── Script ABI P1-A: argv / exit compatibility ── */
+FLValue get_arg(FLValue index) {
+    return fl_vec_get(fl_get_argv(), index);
+}
+
+FLValue sys(FLValue key) {
+    if (key.tag != FL_STRING) return fl_nil();
+    if (strcmp(((FLString*)key.obj)->data, "args") == 0) return fl_get_argv();
+    return fl_nil();
+}
+
+FLValue fl_script_exit(FLValue status) {
+    int code = 64;
+    if (status.tag == FL_INT && status.i >= 0 && status.i <= 255) {
+        code = (int)status.i;
+    } else {
+        fputs("FreeLang Script exit requires integer status 0..255\n", stderr);
+    }
+    fflush(NULL);
+    _Exit(code);
+}
+
 /* ── 수학 ── */
 FLValue math_floor(FLValue x)  { return fl_floor(x); }
 FLValue math_ceil(FLValue x)   { return fl_ceil(x); }

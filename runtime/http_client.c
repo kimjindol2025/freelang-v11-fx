@@ -128,7 +128,8 @@ static FLValue fx_http_exec(const char* method, const char* url,
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);  /* 자가서명 허용 */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "fx-http-client/1.0");
 
     /* 메서드별 설정 */

@@ -30,6 +30,7 @@ static inline void fl_check_abi(int expected_major) {
 #include <stdbool.h>
 #include <stdarg.h>
 #include <setjmp.h>
+#include <stdlib.h>
 
 /* ── ABI 헌법 (self/ABI.md) ── */
 
@@ -230,6 +231,22 @@ FLValue fl_map_entries(FLValue map);
 /* ── S22: argv ── */
 void    fl_init_argv(int argc, char** argv);
 FLValue fl_get_argv(void);
+
+/* ── Script ABI P1-A: legacy cgc symbol bridge ── */
+FLValue get_arg(FLValue index);
+FLValue sys(FLValue key);
+FLValue fl_script_exit(FLValue status) __attribute__((noreturn));
+
+/*
+ * Older cgc binaries emit exit(FLValue) directly. C's libc exit takes int,
+ * while runtime code legitimately calls exit(int). Dispatch by argument type
+ * so generated Script expressions use the Script ABI and runtime failures keep
+ * their normal libc behavior.
+ */
+#define exit(status) _Generic((status), \
+    FLValue: fl_script_exit, \
+    default: exit \
+)(status)
 
 /* ── S12: bridge builtins (FL generic) ── */
 FLValue null_p(FLValue v);

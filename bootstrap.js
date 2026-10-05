@@ -429,8 +429,8 @@ function makeOrPattern(alternatives) {
 function makeMatchCase(pattern, body, guard) {
   return { pattern, guard, body };
 }
-function makePatternMatch(value, cases, defaultCase) {
-  return { kind: "pattern-match", value, cases, defaultCase };
+function makePatternMatch(value, cases, defaultCase, line) {
+  return { kind: "pattern-match", value, cases, defaultCase, line };
 }
 function makeImportBlock(moduleName, source, selective, alias) {
   return { kind: "import", moduleName, source, selective, alias };
@@ -1168,7 +1168,7 @@ var init_parser = __esm({
           return throwExpr;
         }
         if (op === "match") {
-          const matchExpr = this.parsePatternMatch();
+          const matchExpr = this.parsePatternMatch(opToken.line);
           this.expect("RParen" /* RParen */);
           return matchExpr;
         }
@@ -1367,7 +1367,7 @@ var init_parser = __esm({
       }
       // Parse match expression: (match value (pattern body) (pattern body) ... [default])
       // Note: Opening paren '(' already consumed by parseSExpr
-      parsePatternMatch() {
+      parsePatternMatch(line) {
         const value = this.parseValue();
         const cases = [];
         let defaultCase;
@@ -1399,7 +1399,7 @@ var init_parser = __esm({
           cases.push(makeMatchCase(pattern, body, guard));
           this.expect("RParen" /* RParen */);
         }
-        return makePatternMatch(value, cases, defaultCase);
+        return makePatternMatch(value, cases, defaultCase, line);
       }
       // ===== Utility Methods =====
       peek() {
@@ -6154,7 +6154,8 @@ function evalLet(interp2, args3) {
 function evalCond(interp2, args3) {
   const ev = (node) => interp2.eval(node);
   const firstArg = args3[0];
-  const isBracketed = firstArg?.kind === "block" && firstArg?.type === "Array" || firstArg?.kind === "sexpr" && firstArg?.op === "do";
+  const isBracketed = firstArg?.kind === "sexpr" && firstArg?.op === "do" ||
+    firstArg?.kind === "block" && firstArg?.type === "Array" && flBlockItems(firstArg).length > 0;
   if (args3.length >= 2 && !isBracketed) {
     let i = 0;
     while (i < args3.length - 1) {
@@ -6250,6 +6251,10 @@ var init_eval_special_forms = __esm({
       ["file-delete", "file-write"],
       ["file_exists", "file-read"],
       ["file-exists", "file-read"],
+      ["file_read_base64", "file-read"],
+      ["file-read-base64", "file-read"],
+      ["file_realpath", "file-read"],
+      ["file-realpath", "file-read"],
       ["file_list", "file-read"],
       ["file_append_line", "file-write"],
       ["file-append-line", "file-write"],
@@ -15048,7 +15053,7 @@ function flExecOpNative(op, vals) {
     }
     case "!=":
     case "not=":
-      return v0 !== v1;
+      return !flDeepEq(v0, v1);
     case "<":
       return v0 < v1;
     case ">":
@@ -15827,17 +15832,24 @@ function evalBuiltin(interp2, op, args3, expr2) {
       const nsPrefix = args3[1] != null ? String(args3[1]) : null;
       const fs21 = require("fs");
       const path19 = require("path");
+      let resolvedPath = null;
+      let src = null;
+      let previousFilePath = null;
+      let filePathChanged = false;
       try {
         const currentFile = interp2.currentFilePath;
         const baseDir = currentFile && !path19.isAbsolute(filePath) ? path19.dirname(currentFile) : process.cwd();
-        const resolvedPath = path19.resolve(baseDir, filePath);
+        resolvedPath = path19.resolve(baseDir, filePath);
         const isWatchMode = process.argv.includes("--watch") || process.argv.includes("-w") || process.argv.includes("watch");
         if (!MODULE_CACHE_DISABLED && !isWatchMode && !nsPrefix) {
           if (!interp2.__loadCache) interp2.__loadCache = /* @__PURE__ */ new Set();
           if (interp2.__loadCache.has(resolvedPath)) return null;
           interp2.__loadCache.add(resolvedPath);
         }
-        const src = fs21.readFileSync(resolvedPath, "utf-8");
+        src = fs21.readFileSync(resolvedPath, "utf-8");
+        previousFilePath = interp2.currentFilePath;
+        interp2.currentFilePath = resolvedPath;
+        filePathChanged = true;
         const { lex: lex2 } = (init_lexer(), __toCommonJS(lexer_exports));
         const { parse: parse3 } = (init_parser(), __toCommonJS(parser_exports));
         const tokens = lex2(src, resolvedPath);
@@ -15852,9 +15864,18 @@ function evalBuiltin(interp2, op, args3, expr2) {
           }
           for (const [aliasName, def] of toAlias) ctx.functions.set(aliasName, def);
         }
+        interp2.currentFilePath = previousFilePath;
+        filePathChanged = false;
         return null;
       } catch (e) {
-        throw new Error(`load failed: '${filePath}': ${e.message}`);
+        if (filePathChanged) interp2.currentFilePath = previousFilePath;
+        if (e instanceof Error) {
+          if (!e.__flSourcePath && resolvedPath) e.__flSourcePath = resolvedPath;
+          if (!e.__flSourceContent && typeof src === "string") e.__flSourceContent = src;
+          e.message = `load failed: '${filePath}': ${e.message}`;
+          throw e;
+        }
+        throw new Error(`load failed: '${filePath}': ${String(e)}`);
       }
     }
     // ── v12 Hot Reload ─────────────────────────────────────────────────────────
@@ -16895,7 +16916,7 @@ sock.setTimeout(r.timeout,()=>{if(!done){sock.destroy();if(resp)process.stdout.w
       return args3[0] >= args3[1];
     case "!=":
     case "not=":
-      return args3[0] !== args3[1];
+      return !flDeepEq(args3[0], args3[1]);
     // Logical (evaluated versions — unevaluated short-circuit is in eval-special-forms.ts)
     case "and":
       return args3.every((a) => a);
@@ -18379,9 +18400,9 @@ sock.setTimeout(r.timeout,()=>{if(!done){sock.destroy();if(resp)process.stdout.w
         case "%":
           return typeof v0 === "number" && typeof v1 === "number" ? v0 % v1 : null;
         case "=":
-          return v0 === v1;
+          return flDeepEq(v0, v1);
         case "!=":
-          return v0 !== v1;
+          return !flDeepEq(v0, v1);
         case "<":
           return v0 < v1;
         case ">":
@@ -22450,6 +22471,14 @@ function bindParam(interp2, param, value) {
     }
   }
 }
+function attachFunctionSourceContext(error, func) {
+  if (!(error instanceof Error) || !func?.filePath) return;
+  if (!error.__flSourcePath) error.__flSourcePath = func.filePath;
+  if (!error.__flSourceContent) {
+    try { error.__flSourceContent = require("fs").readFileSync(func.filePath, "utf-8"); } catch {}
+  }
+  if (!error.__flSourceLine && Number.isInteger(func.body?.line)) error.__flSourceLine = func.body.line;
+}
 function callUserFunction(interp2, name, args3) {
   if (interp2.tcoMode) {
     return callUserFunctionTCO(interp2, name, args3);
@@ -22642,6 +22671,7 @@ ${tail}` : "")
       if (isReturnSignal(e)) {
         result = e.value;
       } else {
+        attachFunctionSourceContext(e, func);
         if (e instanceof Error && !e.__flCallStack) {
           e.__flCallStack = [..._callStack];
         }
@@ -22674,6 +22704,7 @@ ${tail}` : "")
         result = interp2.eval(func.body);
       } catch (e) {
         if (isReturnSignal(e)) return e.value;
+        attachFunctionSourceContext(e, func);
         if (e instanceof Error && !e.__flCallStack) {
           e.__flCallStack = [..._callStack];
         }
@@ -25695,6 +25726,22 @@ function createFileModule() {
         throw new Error(`file_read failed for '${filePath}': ${err4.message}`);
       }
     },
+    // file_read_base64 filePath -> base64 string
+    "file_read_base64": (filePath) => {
+      try {
+        return fs5.readFileSync(validateFilePath(filePath)).toString("base64");
+      } catch (err4) {
+        throw new Error(`file_read_base64 failed for '${filePath}': ${err4.message}`);
+      }
+    },
+    // file_realpath filePath -> canonical path
+    "file_realpath": (filePath) => {
+      try {
+        return fs5.realpathSync(validateFilePath(filePath));
+      } catch (err4) {
+        throw new Error(`file_realpath failed for '${filePath}': ${err4.message}`);
+      }
+    },
     // utf8_decode_strict base64 -> UTF-8 string; invalid sequences throw.
     "utf8_decode_strict": decodeUtf8StrictBase64,
     "utf8-decode-strict": decodeUtf8StrictBase64,
@@ -26026,6 +26073,116 @@ function createBitsModule() {
   };
 }
 
+// src/stdlib-binary.ts
+function createBinaryModule() {
+  const decode = (value, name) => {
+    if (typeof value !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+      throw new TypeError(`${name}: expected canonical base64`);
+    }
+    const bytes = Buffer.from(value, "base64");
+    if (bytes.toString("base64") !== value) throw new TypeError(`${name}: expected canonical base64`);
+    return bytes;
+  };
+  const uint32 = (value, name) => {
+    if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+      throw new RangeError(`${name}: expected an unsigned 32-bit integer`);
+    }
+    return value;
+  };
+  const range = (bytes, offset, length, name) => {
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) || length < 0 || offset + length > bytes.length) {
+      throw new RangeError(`${name}: byte range ${offset}+${length} is outside ${bytes.length} bytes`);
+    }
+  };
+  const crcTable = new Uint32Array(256);
+  for (let index = 0; index < 256; index++) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit++) value = value & 1 ? (value >>> 1) ^ 0xedb88320 : value >>> 1;
+    crcTable[index] = value >>> 0;
+  }
+  const functions = {
+    "buf_u8": (value) => {
+      if (!Number.isInteger(value) || value < 0 || value > 255) throw new RangeError("buf_u8: expected an unsigned byte");
+      return Buffer.from([value]).toString("base64");
+    },
+    "buf_u32be": (value) => {
+      const bytes = Buffer.alloc(4); bytes.writeUInt32BE(uint32(value, "buf_u32be")); return bytes.toString("base64");
+    },
+    "buf_u32le": (value) => {
+      const bytes = Buffer.alloc(4); bytes.writeUInt32LE(uint32(value, "buf_u32le")); return bytes.toString("base64");
+    },
+    "buf_f64le": (value) => {
+      if (typeof value !== "number") throw new TypeError("buf_f64le: expected a number");
+      const bytes = Buffer.alloc(8); bytes.writeDoubleLE(value); return bytes.toString("base64");
+    },
+    "buf_str": (value) => {
+      if (typeof value !== "string") throw new TypeError("buf_str: expected a string");
+      return Buffer.from(value, "utf8").toString("base64");
+    },
+    "buf_concat": (values) => {
+      if (!Array.isArray(values)) throw new TypeError("buf_concat: expected an array of base64 buffers");
+      return Buffer.concat(values.map((value) => decode(value, "buf_concat"))).toString("base64");
+    },
+    "buf_from_bytes": (value) => { decode(value, "buf_from_bytes"); return value; },
+    "buf_len": (value) => decode(value, "buf_len").length,
+    "buf_read_u8": (value, offset) => {
+      const bytes = decode(value, "buf_read_u8"); range(bytes, offset, 1, "buf_read_u8"); return bytes.readUInt8(offset);
+    },
+    "buf_read_u32be": (value, offset) => {
+      const bytes = decode(value, "buf_read_u32be"); range(bytes, offset, 4, "buf_read_u32be"); return bytes.readUInt32BE(offset);
+    },
+    "buf_read_u32le": (value, offset) => {
+      const bytes = decode(value, "buf_read_u32le"); range(bytes, offset, 4, "buf_read_u32le"); return bytes.readUInt32LE(offset);
+    },
+    "buf_read_f64le": (value, offset) => {
+      const bytes = decode(value, "buf_read_f64le"); range(bytes, offset, 8, "buf_read_f64le"); return bytes.readDoubleLE(offset);
+    },
+    "buf_read_str": (value, offset, length) => {
+      const bytes = decode(value, "buf_read_str"); range(bytes, offset, length, "buf_read_str");
+      try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(offset, offset + length)); }
+      catch (error) { throw new TypeError(`buf_read_str: invalid UTF-8: ${error.message}`); }
+    },
+    "buf_crc32": (value) => {
+      const bytes = decode(value, "buf_crc32");
+      let crc = 0xffffffff;
+      for (const byte of bytes) crc = (crc >>> 8) ^ crcTable[(crc ^ byte) & 0xff];
+      return (crc ^ 0xffffffff) >>> 0;
+    },
+    "buf_slice": (value, offset, length) => {
+      const bytes = decode(value, "buf_slice"); range(bytes, offset, length, "buf_slice");
+      return bytes.subarray(offset, offset + length).toString("base64");
+    },
+    "buf_check_stride_u8": (value, offset, count, stride, maxValue) => {
+      const bytes = decode(value, "buf_check_stride_u8");
+      if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(count) || count < 0
+          || !Number.isSafeInteger(stride) || stride < 1 || !Number.isInteger(maxValue) || maxValue < 0 || maxValue > 255) {
+        throw new RangeError("buf_check_stride_u8: expected non-negative offset/count, positive stride, and byte maxValue");
+      }
+      if (count === 0) return true;
+      const last = offset + (count - 1) * stride;
+      if (!Number.isSafeInteger(last) || last >= bytes.length) {
+        throw new RangeError(`buf_check_stride_u8: byte range ${offset}+${count}×${stride} is outside ${bytes.length} bytes`);
+      }
+      for (let index = offset; index <= last; index += stride) if (bytes[index] > maxValue) return false;
+      return true;
+    },
+    "zlib_inflate_bounded": (value, maxOutput) => {
+      const bytes = decode(value, "zlib_inflate_bounded");
+      if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 16777216) {
+        throw new RangeError("zlib_inflate_bounded: maxOutput must be an integer from 1 to 16777216");
+      }
+      try {
+        const result = require("zlib").inflateSync(bytes, { info: true, maxOutputLength: maxOutput });
+        if (result.engine.bytesWritten !== bytes.length) return { ok: false, error: "trailing compressed input" };
+        return { ok: true, data: result.buffer.toString("base64") };
+      } catch (error) {
+        return { ok: false, error: error?.code === "ERR_BUFFER_TOO_LARGE" ? "output limit exceeded" : "invalid compressed stream" };
+      }
+    }
+  };
+  return functions;
+}
+
 // src/stdlib-timer.ts
 var timerRegistry = /* @__PURE__ */ new Map();
 var nextTimerId = 2e3;
@@ -26339,8 +26496,33 @@ function nodeHttpRequest(url2, method = "GET", headers, body, timeoutMs = 1e4) {
     return { status: 0, body: "", error: err4.message };
   }
 }
+function nodeHttpGetBounded(url2, maxBytes = 65536, timeoutMs = 3e3) {
+  const max = Number(maxBytes);
+  const timeout = Number(timeoutMs);
+  if (!Number.isSafeInteger(max) || max < 1 || max > 1048576 ||
+      !Number.isSafeInteger(timeout) || timeout < 1 || timeout > 3e4) {
+    return { status: 0, body: "", headers: {}, error: "invalid HTTP response bounds" };
+  }
+  const blocked = flSsrfBlockReason(url2);
+  if (blocked) return { status: 0, body: "", headers: {}, error: blocked };
+  try {
+    const target = JSON.stringify(String(url2));
+    const script = `const target=${target};const max=${max};const timeout=${timeout};let done=false;const finish=value=>{if(done)return;done=true;process.stdout.write(JSON.stringify(value))};let u;try{u=new URL(target)}catch(e){finish({s:0,b:"",e:"invalid URL"});process.exit(0)}if(!["http:","https:"].includes(u.protocol)){finish({s:0,b:"",e:"unsupported URL scheme"});process.exit(0)}const mod=u.protocol==="https:"?require("https"):require("http");const req=mod.request(u,{method:"GET"},res=>{const chunks=[];let size=0;res.on("data",chunk=>{size+=chunk.length;if(size>max){finish({s:0,b:"",e:"HTTP response exceeds byte limit"});req.destroy();return}chunks.push(chunk)});res.on("end",()=>finish({s:res.statusCode||0,b:Buffer.concat(chunks,size).toString("utf8")}))});const fail=e=>finish({s:0,b:"",e:e.message||String(e)});req.on("error",fail);req.setTimeout(timeout,()=>{req.destroy(Error("HTTP request timed out"))});req.end();`;
+    const { spawnSync } = require("child_process");
+    const result = spawnSync(process.execPath, ["-e", script], {
+      encoding: "utf8", timeout: timeout + 2e3, maxBuffer: max * 6 + 8192,
+    });
+    if (result.error) return { status: 0, body: "", headers: {}, error: result.error.message };
+    const parsed = JSON.parse(result.stdout || "{}");
+    return { status: parsed.s || 0, body: parsed.b || "", headers: {}, ...parsed.e && { error: parsed.e } };
+  } catch (error) {
+    return { status: 0, body: "", headers: {}, error: error.message };
+  }
+}
 function createHttpModule() {
   return {
+    // http_get_bounded url max-bytes timeout-ms -> {:status :body :headers :error?}
+    "http_get_bounded": (url2, maxBytes, timeoutMs) => nodeHttpGetBounded(url2, maxBytes, timeoutMs),
     // http_get url -> {:status 200 :body "..."}
     "http_get": (url2) => {
       const result = nodeHttpRequest(url2, "GET");
@@ -28199,11 +28381,26 @@ function createCryptoRsaModule() {
     // crypto_rsa_verify public_pem data signature_b64url -> boolean
     "crypto_rsa_verify": (publicKeyPem, data, sigB64Url) => {
       try {
+        const publicKey = (0, import_crypto4.createPublicKey)(publicKeyPem);
+        if (publicKey.asymmetricKeyDetails?.modulusLength < 2048) return false;
         const verifier = (0, import_crypto4.createVerify)("RSA-SHA256");
         verifier.update(data);
         verifier.end();
         const sigBuf = Buffer.from(sigB64Url, "base64url");
-        return verifier.verify(publicKeyPem, sigBuf);
+        return verifier.verify(publicKey, sigBuf);
+      } catch {
+        return false;
+      }
+    },
+    // crypto_rsa_verify_jwk public_jwk data signature_b64url -> boolean
+    "crypto_rsa_verify_jwk": (publicJwk, data, sigB64Url) => {
+      try {
+        const key = (0, import_crypto4.createPublicKey)({ key: publicJwk, format: "jwk" });
+        if (key.asymmetricKeyDetails?.modulusLength < 2048) return false;
+        const verifier = (0, import_crypto4.createVerify)("RSA-SHA256");
+        verifier.update(data);
+        verifier.end();
+        return verifier.verify(key, Buffer.from(sigB64Url, "base64url"));
       } catch {
         return false;
       }
@@ -30088,8 +30285,13 @@ function createHttpServerModule(callFn, callFunctionValue2) {
   const routes = [];
   const middlewares = [];
   let server = null;
+  let bodyLimit = 10 * 1024 * 1024;
+  let configuredAllowedOrigins = [];
+  let rejectUnknownOrigins = false;
+  let rawBodyMode = false;
   let requestCounter = 0;
   const pendingResponses = /* @__PURE__ */ new Map();
+  const sseConnections = /* @__PURE__ */ new Map();
   let currentRequestId = null;
   let currentNonce = "";
   const wsPublicMap = /* @__PURE__ */ new Map();
@@ -30104,7 +30306,7 @@ function createHttpServerModule(callFn, callFunctionValue2) {
   }
   function logAccess(method, path19, status, duration, requestId) {
     const icon = status >= 400 ? "\u274C" : "\u2705";
-    console.log(`${icon} [${requestId}] ${method} ${path19} ${status} ${duration}ms`);
+    console.error(`${icon} [${requestId}] ${method} ${path19} ${status} ${duration}ms`);
   }
   function pathToRegex(path19) {
     const params = [];
@@ -30127,8 +30329,12 @@ function createHttpServerModule(callFn, callFunctionValue2) {
       req.on("data", (chunk) => chunks.push(chunk));
       req.on("end", () => {
         const raw = Buffer.concat(chunks);
+        if (raw.length > bodyLimit) {
+          resolve10({ __fl_body_too_large: true, bytes: raw.length, limit: bodyLimit });
+          return;
+        }
         const ct = (req.headers["content-type"] || "").toString();
-        if (ct.includes("application/json")) {
+        if (ct.includes("application/json") && !rawBodyMode) {
           try {
             resolve10(JSON.parse(raw.toString()));
             return;
@@ -30304,10 +30510,47 @@ function createHttpServerModule(callFn, callFunctionValue2) {
       rlWindowMs = Math.max(1e3, Math.floor(windowMs));
       return null;
     },
+    // server_body_limit bytes -> null; reject oversized request bodies before routing
+    "server_body_limit": (bytes) => {
+      const value = Number(bytes);
+      if (!Number.isFinite(value) || value < 1) throw new Error(`server-body-limit must be positive, got ${bytes}`);
+      bodyLimit = Math.floor(value);
+      return null;
+    },
+    "sse_alive": (connectionId) => {
+      const stream = sseConnections.get(String(connectionId));
+      return Boolean(stream && !stream.writableEnded);
+    },
+    "sse_send": (connectionId, message, eventId) => {
+      const stream = sseConnections.get(String(connectionId));
+      if (!stream || stream.writableEnded) return false;
+      if (eventId !== null && eventId !== void 0) stream.write(`id: ${eventId}\n`);
+      stream.write(`data: ${message}\n\n`);
+      return true;
+    },
+    "sse_close": (connectionId) => {
+      const key = String(connectionId);
+      const stream = sseConnections.get(key);
+      if (stream && !stream.writableEnded) stream.end();
+      sseConnections.delete(key);
+      return null;
+    },
     // server_get path handlerName -> null
     "server_get": (path19, handlerName) => {
       const [pattern, params] = pathToRegex(path19);
       routes.push({ method: "GET", path: path19, pattern, params, handler: handlerName });
+      return null;
+    },
+    // server_sse path openHandler authorizeHandler -> null
+    // The open handler receives [connectionId, request] after authorization.
+    "server_sse": (path19, openHandler, authorizeHandler) => {
+      const [pattern, params] = pathToRegex(path19);
+      routes.push({ method: "GET", path: path19, pattern, params, handler: openHandler, sse: true, authorize: authorizeHandler });
+      return null;
+    },
+    "server-sse": (path19, openHandler, authorizeHandler) => {
+      const [pattern, params] = pathToRegex(path19);
+      routes.push({ method: "GET", path: path19, pattern, params, handler: openHandler, sse: true, authorize: authorizeHandler });
       return null;
     },
     // server_post path handlerName -> null
@@ -30420,6 +30663,12 @@ function createHttpServerModule(callFn, callFunctionValue2) {
     // 기존 API:   (server_start 40090)
     "server_start": (portOrConfig) => {
       const port = portOrConfig !== null && typeof portOrConfig === "object" ? portOrConfig[":port"] ?? portOrConfig["port"] ?? 8080 : portOrConfig;
+      const host = portOrConfig !== null && typeof portOrConfig === "object" ? portOrConfig[":host"] ?? portOrConfig["host"] ?? "0.0.0.0" : "0.0.0.0";
+      configuredAllowedOrigins = portOrConfig !== null && typeof portOrConfig === "object" ? portOrConfig["allowedOrigins"] ?? portOrConfig[":allowedOrigins"] ?? [] : [];
+      if (!Array.isArray(configuredAllowedOrigins)) configuredAllowedOrigins = [];
+      configuredAllowedOrigins = configuredAllowedOrigins.map((origin) => String(origin).trim()).filter(Boolean);
+      rejectUnknownOrigins = Boolean(portOrConfig && typeof portOrConfig === "object" && (portOrConfig["rejectUnknownOrigins"] ?? portOrConfig[":rejectUnknownOrigins"]));
+      rawBodyMode = Boolean(portOrConfig && typeof portOrConfig === "object" && (portOrConfig["rawBody"] ?? portOrConfig[":rawBody"]));
       if (__activeServer.server) {
         try {
           __activeServer.server.close();
@@ -30437,6 +30686,17 @@ function createHttpServerModule(callFn, callFunctionValue2) {
         const { path: path19, query } = parseUrl(req.url || "/");
         const headers = req.headers;
         const body = await readBody(req);
+        if (body && body.__fl_body_too_large) {
+          res.writeHead(413, { "Content-Type": "application/json", "Connection": "close" });
+          res.end(JSON.stringify({ error: "Request body too large", limit: body.limit }));
+          return;
+        }
+        const requestOrigin = req.headers["origin"] || "";
+        if (rejectUnknownOrigins && requestOrigin && configuredAllowedOrigins.length > 0 && !configuredAllowedOrigins.includes(requestOrigin)) {
+          res.writeHead(403, { "Content-Type": "application/json", "Connection": "close" });
+          res.end(JSON.stringify({ error: "Origin not allowed" }));
+          return;
+        }
         const allowedOrigins = process.env.FL_ALLOWED_ORIGINS;
         if (allowedOrigins && allowedOrigins !== "*") {
           const reqOrigin = req.headers["origin"] || "";
@@ -30516,6 +30776,32 @@ function createHttpServerModule(callFn, callFunctionValue2) {
               params[route.params[i]] = match[i + 1];
             }
             const flReq = createFlRequest(method, path19, query, headers, body, params, requestId);
+            if (route.sse) {
+              let refusal = null;
+              if (route.authorize) refusal = callFn(route.authorize, [flReq]);
+              if (refusal instanceof Promise) refusal = await refusal;
+              if (refusal !== null && refusal !== void 0) {
+                const refusalStatus = refusal.status ?? refusal.__fl_status ?? 200;
+                const refusalBody = refusal.body ?? "";
+                const refusalHeaders = refusal.headers ?? {};
+                sendResponse(res, refusalStatus, refusalBody, refusal.contentType ?? "application/json", refusalHeaders);
+                logAccess(method, path19, refusalStatus, Date.now() - requestStart, requestId);
+                return;
+              }
+              res.writeHead(200, {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+              });
+              res.write("retry: 3000\n\n");
+              const connectionId = `sse_${requestId}`;
+              sseConnections.set(connectionId, res);
+              res.on("close", () => sseConnections.delete(connectionId));
+              let openResult = callFn(route.handler, [connectionId, flReq]);
+              if (openResult instanceof Promise) await openResult;
+              return;
+            }
             let rawResult;
             if (typeof route.handler === "string") {
               rawResult = callFn(route.handler, [flReq]);
@@ -30530,6 +30816,21 @@ function createHttpServerModule(callFn, callFunctionValue2) {
               throw new Error(`Invalid handler: expected string or function-value, got ${typeof route.handler}`);
             }
             const result = rawResult instanceof Promise ? await rawResult : rawResult;
+            const pendingSse = result instanceof Map
+              ? result.get("__fl_sse_pending") === true || result.get(":__fl_sse_pending") === true
+              : Boolean(result && typeof result === "object" && result.__fl_sse_pending === true);
+            if (pendingSse) {
+              res.writeHead(200, {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+              });
+              res.write("retry: 3000\n\n");
+              sseConnections.set(requestId, res);
+              res.on("close", () => sseConnections.delete(requestId));
+              return;
+            }
             if (pendingResponses.has(requestId)) {
               pendingResponses.delete(requestId);
             } else if (result && typeof result === "object" && result.__fl_wait_and_respond === true) {
@@ -30708,7 +31009,7 @@ function createHttpServerModule(callFn, callFunctionValue2) {
           console.error(`[server] \uC11C\uBC84 \uC624\uB958: ${err4.message}`);
         }
       });
-      server.listen(port);
+      server.listen(port, host);
       __activeServer.server = server;
       setInterval(() => {
       }, 1e4).unref();
@@ -30717,6 +31018,10 @@ function createHttpServerModule(callFn, callFunctionValue2) {
     // server_stop -> null
     "server_stop": () => {
       if (server) {
+        for (const stream of sseConnections.values()) {
+          if (!stream.writableEnded) stream.end();
+        }
+        sseConnections.clear();
         server.close();
         server = null;
       }
@@ -32568,11 +32873,16 @@ function createPubSubModule(callFn) {
 // src/stdlib-process.ts
 var fs10 = __toESM(require("fs"));
 var path11 = __toESM(require("path"));
-function createProcessModule() {
+function createProcessModule(callFn = null) {
   let sigtermRegistered = false;
+  let shutdownStarted = false;
   const shutdownCallbacks = [];
   function runShutdown(signal) {
-    Promise.all(shutdownCallbacks.map((cb) => Promise.resolve(cb()))).then(() => process.exit(0)).catch((err4) => {
+    if (shutdownStarted) return;
+    shutdownStarted = true;
+    Promise.all(shutdownCallbacks.map((cb) => Promise.resolve().then(() =>
+      typeof cb === "function" ? cb() : callFn ? callFn(cb, []) : null
+    ))).then(() => { process.exitCode = 0; }).catch((err4) => {
       console.error(`[FreeLang] Shutdown handler error (${signal}):`, err4);
       process.exit(1);
     });
@@ -33425,6 +33735,22 @@ function _slash(...args) { if (args.length === 0) return 1; if (args.length === 
 function _gt(a, b) { return a > b; }
 function _lt(a, b) { return a < b; }
 function _eq(a, b) { return a === b; }
+function _fl_deep_eq(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!_fl_deep_eq(a[i], b[i])) return false;
+    return true;
+  }
+  if (typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
+    const keysA = Object.keys(a), keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) if (!Object.prototype.hasOwnProperty.call(b, key) || !_fl_deep_eq(a[key], b[key])) return false;
+    return true;
+  }
+  return false;
+}
 function _gt_eq(a, b) { return a >= b; }
 function _lt_eq(a, b) { return a <= b; }
 function _not(a) { return !a; }
@@ -33481,22 +33807,52 @@ function _fl_values(o) { return o ? Object.values(o) : []; }
 var _fl_entries = (o) => o ? Object.entries(o).map(([k,v]) => [k,v]) : [];
 function _fl_map_set(o, ...args) { const result = {...(o || {})}; for (let i = 0; i + 1 < args.length; i += 2) { result[args[i]] = args[i + 1]; } return result; }
 function _fl_has_key_q(o, k) { return o ? (String(k) in o) : false; }
+function dissoc(o, ...keys) { const result = {...(o || {})}; for (const key of keys) { delete result[String(key).replace(/^:/, "")]; delete result[":" + String(key).replace(/^:/, "")]; } return result; }
+
+// Mutable reference primitives are shared by interpreter/generated paths.
+function atom(value) { return { value: value === undefined ? null : value }; }
+function deref(ref) { return ref && typeof ref === "object" && "value" in ref ? ref.value : ref; }
+function reset_bang(ref, value) {
+  if (ref && typeof ref === "object" && "value" in ref) ref.value = value;
+  return value;
+}
+function swap_bang(ref, fn, ...extra) {
+  if (!ref || typeof ref !== "object" || !("value" in ref) || typeof fn !== "function") return null;
+  ref.value = fn(ref.value, ...extra);
+  return ref.value;
+}
 
 // \u2500 \uBB38\uC790\uC5F4 \uC870\uC791 \u2500
 function _fl_str(...xs) { return xs.map(x => x === null || x === undefined ? "" : (typeof x === "object" ? JSON.stringify(x) : String(x))).join(""); }
 function _fl_char_at(s, i) { return (s && s[i]) || null; }
 function _fl_substring(s, a, b) { return s ? (b === undefined ? s.slice(a) : s.slice(a, b)) : ""; }
+function _fl_bit_and(a, b) { return (Number(a) & Number(b)) >>> 0; }
+function _fl_bit_or(a, b) { return (Number(a) | Number(b)) >>> 0; }
+function _fl_bit_xor(a, b) { return (Number(a) ^ Number(b)) >>> 0; }
+function _fl_bit_not(a) { return (~Number(a)) >>> 0; }
+function _fl_bit_shl(a, n) { return (Number(a) << Number(n)) >>> 0; }
+function _fl_bit_shr(a, n) { return Number(a) >>> Number(n); }
+function _fl_bit_sar(a, n) { return (Number(a) >> Number(n)) >>> 0; }
+function _fl_bit_popcount(a) { let v = Number(a) >>> 0, count = 0; while (v) { count += v & 1; v >>>= 1; } return count; }
+function _fl_bit_test(a, n) { return ((Number(a) >>> Number(n)) & 1) === 1; }
+function _fl_bit_set(a, n) { return (Number(a) | (1 << Number(n))) >>> 0; }
+function _fl_bit_clear(a, n) { return (Number(a) & ~(1 << Number(n))) >>> 0; }
+function _fl_bit_rotate_left(a, n) { const v = Number(a) >>> 0, shift = Number(n) % 32; return ((v << shift) | (v >>> (32 - shift))) >>> 0; }
+function _fl_bit_rotate_right(a, n) { const v = Number(a) >>> 0, shift = Number(n) % 32; return ((v >>> shift) | (v << (32 - shift))) >>> 0; }
 function _fl_lower(s) { return String(s || "").toLowerCase(); }
 function _fl_upper(s) { return String(s || "").toUpperCase(); }
 function _fl_trim(s) { return String(s || "").trim(); }
 function _fl_replace(s, a, b) { return String(s || "").split(a).join(b); }
 function _fl_str_index_of(s, sub) { return (s || "").indexOf(sub); }
 function _fl_contains_q(s, sub) { return (s || "").includes(sub); }
+function _fl_str_starts_with(s, prefix) { return String(s || "").startsWith(String(prefix || "")); }
+function _fl_str_ends_with(s, suffix) { return String(s || "").endsWith(String(suffix || "")); }
 function _fl_str_to_num(s) { const n = Number(s); return isNaN(n) ? null : n; }
 function _fl_join(arr, sep) { return (arr || []).join(sep !== undefined ? sep : ""); }
 function _fl_split(s, sep) { return (s || "").split(sep !== undefined ? sep : ""); }
 function _fl_repeat(s, n) { return (s || "").repeat(n || 0); }
 function _fl_range(a, b, s) { let r = []; let start = b === undefined ? 0 : a; let end = b === undefined ? a : b; let step = s || 1; if (step > 0) { for (let i = start; i < end; i += step) r.push(i); } else { for (let i = start; i > end; i += step) r.push(i); } return r; }
+function _fl_floor(v) { return Math.floor(Number(v)); }
 
 // \u2500 \uACE0\uCC28 \uD568\uC218 (Null-safe & Spread) \u2500
 function _fl_map(arr, fn) { return (arr || []).map(x => fn(x)); }
@@ -33517,6 +33873,54 @@ function _fl_utf8_decode_strict(value) {
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) throw new Error("invalid base64 input");
   return new TextDecoder("utf-8", { fatal: true }).decode(Buffer.from(encoded, "base64"));
 }
+function _fl_binary_decode(value, name) {
+  if (typeof value !== "string" || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) throw new TypeError(name + ": expected canonical base64");
+  const bytes = Buffer.from(value, "base64");
+  if (bytes.toString("base64") !== value) throw new TypeError(name + ": expected canonical base64");
+  return bytes;
+}
+function _fl_binary_range(bytes, offset, length, name) {
+  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) || length < 0 || offset + length > bytes.length) throw new RangeError(name + ": byte range " + offset + "+" + length + " is outside " + bytes.length + " bytes");
+}
+const _fl_crc_table = (() => {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < 256; index++) { let value = index; for (let bit = 0; bit < 8; bit++) value = value & 1 ? (value >>> 1) ^ 0xedb88320 : value >>> 1; table[index] = value >>> 0; }
+  return table;
+})();
+function _fl_buf_u8(value) { if (!Number.isInteger(value) || value < 0 || value > 255) throw new RangeError("buf_u8: expected an unsigned byte"); return Buffer.from([value]).toString("base64"); }
+function _fl_buf_u32be(value) { if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) throw new RangeError("buf_u32be: expected an unsigned 32-bit integer"); const bytes = Buffer.alloc(4); bytes.writeUInt32BE(value); return bytes.toString("base64"); }
+function _fl_buf_u32le(value) { if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) throw new RangeError("buf_u32le: expected an unsigned 32-bit integer"); const bytes = Buffer.alloc(4); bytes.writeUInt32LE(value); return bytes.toString("base64"); }
+function _fl_buf_f64le(value) { if (typeof value !== "number") throw new TypeError("buf_f64le: expected a number"); const bytes = Buffer.alloc(8); bytes.writeDoubleLE(value); return bytes.toString("base64"); }
+function _fl_buf_str(value) { if (typeof value !== "string") throw new TypeError("buf_str: expected a string"); return Buffer.from(value, "utf8").toString("base64"); }
+function _fl_buf_concat(values) { if (!Array.isArray(values)) throw new TypeError("buf_concat: expected an array of base64 buffers"); return Buffer.concat(values.map((value) => _fl_binary_decode(value, "buf_concat"))).toString("base64"); }
+function _fl_buf_from_bytes(value) { _fl_binary_decode(value, "buf_from_bytes"); return value; }
+function _fl_buf_len(value) { return _fl_binary_decode(value, "buf_len").length; }
+function _fl_buf_read_u8(value, offset) { const bytes = _fl_binary_decode(value, "buf_read_u8"); _fl_binary_range(bytes, offset, 1, "buf_read_u8"); return bytes.readUInt8(offset); }
+function _fl_buf_read_u32be(value, offset) { const bytes = _fl_binary_decode(value, "buf_read_u32be"); _fl_binary_range(bytes, offset, 4, "buf_read_u32be"); return bytes.readUInt32BE(offset); }
+function _fl_buf_read_u32le(value, offset) { const bytes = _fl_binary_decode(value, "buf_read_u32le"); _fl_binary_range(bytes, offset, 4, "buf_read_u32le"); return bytes.readUInt32LE(offset); }
+function _fl_buf_read_f64le(value, offset) { const bytes = _fl_binary_decode(value, "buf_read_f64le"); _fl_binary_range(bytes, offset, 8, "buf_read_f64le"); return bytes.readDoubleLE(offset); }
+function _fl_buf_read_str(value, offset, length) { const bytes = _fl_binary_decode(value, "buf_read_str"); _fl_binary_range(bytes, offset, length, "buf_read_str"); try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(offset, offset + length)); } catch (error) { throw new TypeError("buf_read_str: invalid UTF-8: " + error.message); } }
+function _fl_buf_crc32(value) { const bytes = _fl_binary_decode(value, "buf_crc32"); let crc = 0xffffffff; for (const byte of bytes) crc = (crc >>> 8) ^ _fl_crc_table[(crc ^ byte) & 0xff]; return (crc ^ 0xffffffff) >>> 0; }
+function _fl_buf_slice(value, offset, length) { const bytes = _fl_binary_decode(value, "buf_slice"); _fl_binary_range(bytes, offset, length, "buf_slice"); return bytes.subarray(offset, offset + length).toString("base64"); }
+function _fl_buf_check_stride_u8(value, offset, count, stride, maxValue) { const bytes = _fl_binary_decode(value, "buf_check_stride_u8"); if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(stride) || stride < 1 || !Number.isInteger(maxValue) || maxValue < 0 || maxValue > 255) throw new RangeError("buf_check_stride_u8: expected non-negative offset/count, positive stride, and byte maxValue"); if (count === 0) return true; const last = offset + (count - 1) * stride; if (!Number.isSafeInteger(last) || last >= bytes.length) throw new RangeError("buf_check_stride_u8: byte range " + offset + "+" + count + "×" + stride + " is outside " + bytes.length + " bytes"); for (let index = offset; index <= last; index += stride) if (bytes[index] > maxValue) return false; return true; }
+function _fl_zlib_inflate_bounded(value, maxOutput) { const bytes = _fl_binary_decode(value, "zlib_inflate_bounded"); if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 16777216) throw new RangeError("zlib_inflate_bounded: maxOutput must be an integer from 1 to 16777216"); try { const result = require("zlib").inflateSync(bytes, { info: true, maxOutputLength: maxOutput }); if (result.engine.bytesWritten !== bytes.length) return { ok: false, error: "trailing compressed input" }; return { ok: true, data: result.buffer.toString("base64") }; } catch (error) { return { ok: false, error: error?.code === "ERR_BUFFER_TOO_LARGE" ? "output limit exceeded" : "invalid compressed stream" }; } }
+function _fl_crypto_hash(algorithm, value) { return require("crypto").createHash(algorithm).update(value, "utf8").digest("hex"); }
+function _fl_sha256(value) { return _fl_crypto_hash("sha256", value); }
+function _fl_sha256_short(value) { return _fl_sha256(value).slice(0, 8); }
+function _fl_md5(value) { return _fl_crypto_hash("md5", value); }
+function _fl_sha1(value) { return _fl_crypto_hash("sha1", value); }
+function _fl_hmac_sha256(key, value) { return require("crypto").createHmac("sha256", key).update(value, "utf8").digest("hex"); }
+function _fl_hash_eq(left, right) {
+  if (left.length !== right.length) return false;
+  try { return require("crypto").timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex")); }
+  catch (_) { return false; }
+}
+function _fl_base64_encode(value) { return Buffer.from(value, "utf8").toString("base64"); }
+function _fl_base64_decode(value) { return Buffer.from(value, "base64").toString("utf8"); }
+function _fl_base64url_encode(value) { return Buffer.from(value, "utf8").toString("base64url"); }
+function _fl_base64url_decode(value) { return Buffer.from(value, "base64url").toString("utf8"); }
+function _fl_hex_encode(value) { return Buffer.from(value, "utf8").toString("hex"); }
+function _fl_hex_decode(value) { return Buffer.from(value, "hex").toString("utf8"); }
 function _fl_file_write(p, c) { return require("fs").writeFileSync(p, c); }
 function _fl_file_exists(p) { return require("fs").existsSync(p); }
 function _fl_file_delete(p) { try { require("fs").unlinkSync(p); } catch(e) {} }
@@ -33546,7 +33950,24 @@ function _fl_process_getcwd() { return process.cwd(); }
 function _fl_process_chdir(p) { try { process.chdir(p); } catch(e) {} }
 function _fl_process_pid() { return process.pid; }
 function _fl_process_ppid() { return process.ppid || null; }
-function _fl_readline(prompt) {
+function _fl_shell_env(k) { return process.env[k] || null; }
+function _fl_shell_cwd() { return process.cwd(); }
+function _fl_shell_safe(program, args) {
+  const argv = (args || []).map(String);
+  // These common filesystem adapters must also work in restricted runners
+  // where child-process spawning is denied by the host sandbox.
+  if (String(program) === "realpath" && argv.length === 1) return require("fs").realpathSync(argv[0]) + String.fromCharCode(10);
+  if (String(program) === "base64" && argv.length >= 1) return require("fs").readFileSync(argv[argv.length - 1]).toString("base64");
+  const { spawnSync } = require("child_process");
+  const result = spawnSync(String(program), argv, { encoding: "utf8", timeout: 30000 });
+  if (result.error) throw result.error;
+  if ((result.status ?? 1) !== 0) throw new Error("shell_safe failed (exit " + (result.status ?? 1) + ")" + (result.stderr ? ": " + result.stderr.trim() : ""));
+  return result.stdout || "";
+}
+function _fl_readline(prompt, requireTerminatedLine = false) {
+  if (typeof requireTerminatedLine !== "boolean") {
+    throw new Error("readline requireTerminatedLine must be boolean, got " + typeof requireTerminatedLine);
+  }
   if (prompt) process.stdout.write(prompt);
   try {
     const fs = require("fs");
@@ -33554,7 +33975,15 @@ function _fl_readline(prompt) {
     const b = Buffer.alloc(1);
     while (true) {
       const n = fs.readSync(process.stdin.fd, b, 0, 1);
-      if (n === 0) return parts.length === 0 ? null : parts.join("");
+      if (n === 0) {
+        if (parts.length === 0) return null;
+        if (requireTerminatedLine) {
+          process.exitCode = 1;
+          console.error("readline: unterminated line at EOF");
+          return null;
+        }
+        return parts.join("");
+      }
       const c = b[0];
       if (c === 10) break;
       if (c !== 13) parts.push(String.fromCharCode(c));
@@ -33562,8 +33991,11 @@ function _fl_readline(prompt) {
     return parts.join("");
   } catch(e) { return null; }
 }
-function _fl_stdin_on_line(callback, intervalMs) {
+function _fl_stdin_on_line(callback, intervalMs, requireTerminatedLine = false) {
   const delay = typeof intervalMs === "number" && intervalMs >= 1 ? intervalMs : 1000;
+  if (typeof requireTerminatedLine !== "boolean") {
+    throw new Error("stdin-on-line requireTerminatedLine must be boolean, got " + typeof requireTerminatedLine);
+  }
   let closed = false;
   let pending = Buffer.alloc(0);
   const maxLineBytes = 1024 * 1024;
@@ -33617,6 +34049,10 @@ function _fl_stdin_on_line(callback, intervalMs) {
       return;
     }
     if (pending.length > 0) {
+      if (requireTerminatedLine) {
+        fail("unterminated line at EOF");
+        return;
+      }
       let line;
       try {
         line = new TextDecoder("utf-8", { fatal: true }).decode(pending);
@@ -33650,6 +34086,282 @@ function _fl_shell_capture(cmd) {
     return {stdout: execSync(cmd, {encoding: "utf8"}), stderr: "", code: 0, ok: true};
   } catch(e) {
     return {stdout: "", stderr: String(e), code: 1, ok: false};
+  }
+}
+
+// Generated-JS host bridge.  The interpreter registers these capabilities
+// through createHttpServerModule; generated programs need the same small
+// contract without depending on an unavailable external artifact.
+const __fl_fn_registry = new Map();
+function __fl_register_fn(name, fn) {
+  if (typeof name === "string" && typeof fn === "function") __fl_fn_registry.set(name, fn);
+  return fn;
+}
+function __fl_call_fn(name, args) {
+  const key = String(name);
+  const fn = __fl_fn_registry.get(key) || __fl_fn_registry.get(key.replace(/-/g, "_"));
+  if (typeof fn !== "function") throw new Error("generated host handler not registered: " + name);
+  return fn(...(args || []));
+}
+const __fl_http_routes = [];
+const __fl_http_sse = new Map();
+let __fl_http_server = null;
+let __fl_http_body_limit = 10 * 1024 * 1024;
+let __fl_http_allowed_origins = [];
+let __fl_http_reject_unknown_origins = false;
+let __fl_http_raw_body = false;
+let __fl_http_request_counter = 0;
+function __fl_http_path_match(pattern, value) {
+  const params = [];
+  const source = String(pattern).replace(/\\//g, "\\\\/").replace(/\\*/g, ".*").replace(/:(\\w+)/g, (_, key) => { params.push(key); return "([^\\\\/]+)"; });
+  const match = new RegExp("^" + source + "$").exec(value);
+  if (!match) return null;
+  const result = {};
+  params.forEach((key, index) => { result[key] = match[index + 1]; });
+  return result;
+}
+function __fl_http_header_map(headers) {
+  const result = {};
+  for (const [key, value] of Object.entries(headers || {})) result[String(key).toLowerCase()] = Array.isArray(value) ? value[0] : String(value ?? "");
+  return result;
+}
+function __fl_http_send(res, result) {
+  const response = result && typeof result === "object" ? result : { status: 200, body: result ?? "" };
+  const status = Number(response.status ?? 200);
+  const headers = { "Content-Type": response.contentType ?? response.content_type ?? "application/json" };
+  for (const [key, value] of Object.entries(response.headers || {})) headers[key] = String(value);
+  if (status === 202 && (response.body === "" || response.body == null)) {
+    res.writeHead(status, headers);
+    res.end();
+    return;
+  }
+  let body = response.body ?? "";
+  if (typeof body !== "string" && !Buffer.isBuffer(body)) body = JSON.stringify(body);
+  res.writeHead(status, headers);
+  res.end(body);
+}
+function server_get(path, handler) { __fl_http_routes.push({ method: "GET", path, handler }); return null; }
+function server_post(path, handler) { __fl_http_routes.push({ method: "POST", path, handler }); return null; }
+function server_delete(path, handler) { __fl_http_routes.push({ method: "DELETE", path, handler }); return null; }
+function server_put(path, handler) { __fl_http_routes.push({ method: "PUT", path, handler }); return null; }
+function server_patch(path, handler) { __fl_http_routes.push({ method: "PATCH", path, handler }); return null; }
+function server_sse(path, openHandler, authorizeHandler) { __fl_http_routes.push({ method: "GET", path, handler: openHandler, sse: true, authorize: authorizeHandler }); return null; }
+function server_body_limit(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value < 1) throw new Error("server-body-limit must be positive, got " + bytes);
+  __fl_http_body_limit = Math.floor(value);
+  return null;
+}
+function server_start(configOrPort) {
+  const config = configOrPort && typeof configOrPort === "object" ? configOrPort : { port: configOrPort };
+  const port = Number(config.port ?? config[":port"] ?? 8080);
+  const host = String(config.host ?? config[":host"] ?? "0.0.0.0");
+  __fl_http_allowed_origins = Array.isArray(config.allowedOrigins ?? config[":allowedOrigins"] ?? []) ? (config.allowedOrigins ?? config[":allowedOrigins"] ?? []).map((origin) => String(origin).trim()).filter(Boolean) : [];
+  __fl_http_reject_unknown_origins = Boolean(config.rejectUnknownOrigins ?? config[":rejectUnknownOrigins"]);
+  __fl_http_raw_body = Boolean(config.rawBody ?? config[":rawBody"]);
+  __fl_http_server = require("http").createServer(async (req, res) => {
+    const requestId = "req_" + Date.now() + "_" + (++__fl_http_request_counter);
+    const parsed = new URL(req.url || "/", "http://" + (req.headers.host || "localhost"));
+    const chunks = [];
+    let size = 0;
+    req.on("data", (chunk) => { size += chunk.length; chunks.push(chunk); });
+    req.on("end", async () => {
+      if (size > __fl_http_body_limit) {
+        res.writeHead(413, { "Content-Type": "application/json", Connection: "close" });
+        res.end(JSON.stringify({ error: "Request body too large", limit: __fl_http_body_limit }));
+        return;
+      }
+      const requestOrigin = req.headers["origin"] || "";
+      if (__fl_http_reject_unknown_origins && requestOrigin && __fl_http_allowed_origins.length > 0 && !__fl_http_allowed_origins.includes(requestOrigin)) {
+        res.writeHead(403, { "Content-Type": "application/json", Connection: "close" });
+        res.end(JSON.stringify({ error: "Origin not allowed" }));
+        return;
+      }
+      const allowedOrigins = process.env.FL_ALLOWED_ORIGINS;
+      if (allowedOrigins && allowedOrigins !== "*") {
+        const reqOrigin = req.headers["origin"] || "";
+        if (allowedOrigins.split(",").map((origin) => origin.trim()).includes(reqOrigin)) {
+          res.setHeader("Access-Control-Allow-Origin", reqOrigin);
+          res.setHeader("Vary", "Origin");
+        }
+      } else {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+      }
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      const raw = Buffer.concat(chunks).toString("utf8");
+      const contentType = String(req.headers["content-type"] || "");
+      let body = raw;
+      if (contentType.includes("application/json") && !__fl_http_raw_body) {
+        try { body = JSON.parse(raw); } catch { body = raw; }
+      }
+      const route = __fl_http_routes.find((candidate) => candidate.method === req.method && __fl_http_path_match(candidate.path, parsed.pathname));
+      if (!route) {
+        __fl_http_send(res, { status: 404, body: { error: "Not Found", path: parsed.pathname } });
+        return;
+      }
+      const params = __fl_http_path_match(route.path, parsed.pathname) || {};
+      const request = { __fl_request: true, method: req.method, path: parsed.pathname, query: Object.fromEntries(parsed.searchParams), headers: __fl_http_header_map(req.headers), body, params, request_id: requestId, timestamp: Date.now() };
+      try {
+        if (route.sse && route.authorize) {
+          const refusal = await __fl_call_fn(route.authorize, [request]);
+          if (refusal) { __fl_http_send(res, refusal); return; }
+          res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+          res.write("retry: 3000\\n\\n");
+          const connectionId = "sse_" + requestId;
+          __fl_http_sse.set(connectionId, res);
+          res.on("close", () => __fl_http_sse.delete(connectionId));
+          await __fl_call_fn(route.handler, [connectionId, request]);
+          return;
+        }
+        const result = await __fl_call_fn(route.handler, [request]);
+        if (result && result.__fl_sse_pending) {
+          res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+          res.write("retry: 3000\\n\\n");
+          __fl_http_sse.set(requestId, res);
+          res.on("close", () => __fl_http_sse.delete(requestId));
+          return;
+        }
+        __fl_http_send(res, result);
+      } catch (error) {
+        __fl_http_send(res, { status: 500, body: { error: error?.message || String(error) } });
+      }
+    });
+  });
+  __fl_http_server.on("error", (error) => console.error("[server] HTTP error: " + error.message));
+  __fl_http_server.listen(port, host);
+  return "server listening on :" + port;
+}
+function server_stop() {
+  const server = __fl_http_server;
+  if (!server || !server.listening) return Promise.resolve(null);
+  for (const response of __fl_http_sse.values()) response.end();
+  __fl_http_sse.clear();
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      __fl_http_server = null;
+      if (error) reject(error);
+      else resolve(null);
+    });
+  });
+}
+function on_exit(callback) {
+  if (typeof callback !== "function") throw new Error("on_exit requires a function");
+  let started = false;
+  const shutdown = () => {
+    if (started) return;
+    started = true;
+    Promise.resolve().then(() => callback()).then(() => { process.exitCode = 0; }).catch((error) => {
+      console.error("[generated host] shutdown handler error:", error?.message || String(error));
+      process.exitCode = 1;
+    });
+  };
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
+  return null;
+}
+function sse_alive(connectionId) { const res = __fl_http_sse.get(String(connectionId)); return Boolean(res && !res.writableEnded && !res.destroyed && res.writable); }
+function sse_send(connectionId, message, eventId) {
+  const res = __fl_http_sse.get(String(connectionId));
+  if (!res || res.writableEnded || res.destroyed || !res.writable) return false;
+  if (eventId != null) res.write("id: " + eventId + "\\n");
+  res.write("data: " + message + "\\n\\n");
+  return true;
+}
+function sse_close(connectionId) { const res = __fl_http_sse.get(String(connectionId)); if (res) { res.end(); __fl_http_sse.delete(String(connectionId)); } return null; }
+function set_interval(handler, ms) { return setInterval(() => { try { __fl_call_fn(handler, []); } catch (error) { console.error("[generated host] interval " + handler + ": " + error.message); } }, Number(ms)); }
+function clear_interval(timerId) { clearInterval(timerId); return true; }
+function uuid_v4() { return require("crypto").randomUUID(); }
+function base64url_decode(value) { return Buffer.from(String(value), "base64url").toString("utf8"); }
+function http_get_bounded(url, maxBytes, timeoutMs) {
+  const target = String(url ?? "");
+  const max = Number(maxBytes);
+  const timeout = Number(timeoutMs);
+  if (!Number.isSafeInteger(max) || max < 1 || max > 1048576 ||
+      !Number.isSafeInteger(timeout) || timeout < 1 || timeout > 3e4) {
+    return { status: 0, body: "", error: "invalid HTTP response bounds" };
+  }
+  let parsedUrl;
+  try { parsedUrl = new URL(target); }
+  catch { return { status: 0, body: "", error: "invalid URL" }; }
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return { status: 0, body: "", error: "unsupported URL scheme" };
+  }
+  let host = parsedUrl.hostname.toLowerCase();
+  if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+  if (host === "0.0.0.0" || host === "::" || host.startsWith("169.254.") || host.startsWith("fe80:")) {
+    return { status: 0, body: "", error: "SSRF blocked: " + host + " (reserved/metadata)" };
+  }
+  const allowEnv = (process.env.FL_HTTP_ALLOW || "").trim();
+  const allowed = allowEnv === "*" || allowEnv.split(",").map(value => value.trim().toLowerCase()).includes(host);
+  const privateV6 = host.includes(":") && (host === "::1" || host.startsWith("fc") || host.startsWith("fd"));
+  const octet172 = host.startsWith("172.") ? Number.parseInt(host.slice(4).split(".")[0], 10) : 0;
+  const privateV4 = host === "localhost" || host.startsWith("127.") || host.startsWith("10.") ||
+    host.startsWith("192.168.") || (host.startsWith("172.") && octet172 >= 16 && octet172 <= 31);
+  if (allowEnv !== "*" && !allowed && (privateV4 || privateV6)) {
+    return { status: 0, body: "", error: "SSRF blocked: " + host + " (private range; set FL_HTTP_ALLOW to permit)" };
+  }
+  try {
+    const script = "const target=" + JSON.stringify(target) + ";const max=" + max + ";const timeout=" + timeout + ";" +
+      "let done=false;const finish=value=>{if(done)return;done=true;process.stdout.write(JSON.stringify(value))};" +
+      "const u=new URL(target);const mod=u.protocol===\\\"https:\\\"?require(\\\"https\\\"):require(\\\"http\\\");" +
+      "const req=mod.request(u,{method:\\\"GET\\\"},res=>{const chunks=[];let size=0;res.on(\\\"data\\\",chunk=>{" +
+      "size+=chunk.length;if(size>max){finish({s:0,b:\\\"\\\",e:\\\"HTTP response exceeds byte limit\\\"});req.destroy();return}" +
+      "chunks.push(chunk)});res.on(\\\"end\\\",()=>finish({s:res.statusCode||0,b:Buffer.concat(chunks,size).toString(\\\"utf8\\\")}))});" +
+      "req.on(\\\"error\\\",error=>finish({s:0,b:\\\"\\\",e:error.message||String(error)}));" +
+      "req.setTimeout(timeout,()=>req.destroy(Error(\\\"HTTP request timed out\\\")));req.end();";
+    const { spawnSync } = require("child_process");
+    const result = spawnSync(process.execPath, ["-e", script], {
+      encoding: "utf8", timeout: timeout + 2e3, maxBuffer: max * 6 + 8192,
+    });
+    if (result.error) return { status: 0, body: "", error: result.error.message };
+    const response = JSON.parse(result.stdout || "{}");
+    return { status: response.s || 0, body: response.b || "", ...response.e && { error: response.e } };
+  } catch (error) {
+    return { status: 0, body: "", error: error.message };
+  }
+}
+function crypto_rsa_verify(publicKeyPem, data, signatureB64Url) {
+  try {
+    const crypto = require("crypto");
+    const publicKey = crypto.createPublicKey(String(publicKeyPem));
+    if (publicKey.asymmetricKeyDetails?.modulusLength < 2048) return false;
+    const verifier = crypto.createVerify("RSA-SHA256");
+    verifier.update(String(data), "utf8");
+    verifier.end();
+    return verifier.verify(publicKey, Buffer.from(String(signatureB64Url), "base64url"));
+  } catch {
+    return false;
+  }
+}
+function crypto_rsa_verify_jwk(publicJwk, data, signatureB64Url) {
+  try {
+    const crypto = require("crypto");
+    const key = crypto.createPublicKey({ key: publicJwk, format: "jwk" });
+    if (key.asymmetricKeyDetails?.modulusLength < 2048) return false;
+    const verifier = crypto.createVerify("RSA-SHA256");
+    verifier.update(String(data), "utf8");
+    verifier.end();
+    return verifier.verify(key, Buffer.from(String(signatureB64Url), "base64url"));
+  } catch {
+    return false;
+  }
+}
+function auth_jwt_verify(token, secret) {
+  try {
+    if (typeof token !== "string" || typeof secret !== "string") return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const crypto = require("crypto");
+    const expected = crypto.createHmac("sha256", secret)
+      .update(parts[0] + "." + parts[1], "utf8").digest();
+    const actual = Buffer.from(parts[2], "base64url");
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
   }
 }
 
@@ -33826,6 +34538,7 @@ var BUILTIN_MAP = {
   "false?": "_fl_false_q",
   "string?": "_fl_string_q",
   "number?": "_fl_number_q",
+  "integer?": "_fl_integer_q",
   "list?": "_fl_list_q",
   "array?": "_fl_array_q",
   "map?": "_fl_map_q",
@@ -33874,6 +34587,15 @@ var BUILTIN_MAP = {
   "str-replace": "_fl_replace",
   "str-index-of": "_fl_str_index_of",
   "str_index_of": "_fl_str_index_of",
+  "str-starts-with": "_fl_str_starts_with",
+  "str_starts_with": "_fl_str_starts_with",
+  "starts-with?": "_fl_str_starts_with",
+  "str-ends-with": "_fl_str_ends_with",
+  "str_ends_with": "_fl_str_ends_with",
+  "ends-with?": "_fl_str_ends_with",
+  "str-trim": "_fl_trim",
+  "str_trim": "_fl_trim",
+  "floor": "_fl_floor",
   "join": "_fl_join",
   "str-join": "_fl_join",
   "split": "_fl_split",
@@ -33886,6 +34608,60 @@ var BUILTIN_MAP = {
   "json-stringify": "JSON.stringify",
   "json_parse": "JSON.parse",
   "json_stringify": "JSON.stringify",
+  "bit-and": "_fl_bit_and",
+  "bit_and": "_fl_bit_and",
+  "bit-or": "_fl_bit_or",
+  "bit_or": "_fl_bit_or",
+  "bit-xor": "_fl_bit_xor",
+  "bit_xor": "_fl_bit_xor",
+  "bit-not": "_fl_bit_not",
+  "bit_not": "_fl_bit_not",
+  "bit-shl": "_fl_bit_shl",
+  "bit_shl": "_fl_bit_shl",
+  "bit-shr": "_fl_bit_shr",
+  "bit_shr": "_fl_bit_shr",
+  "bit-sar": "_fl_bit_sar",
+  "bit_sar": "_fl_bit_sar",
+  "bit-popcount": "_fl_bit_popcount",
+  "bit_popcount": "_fl_bit_popcount",
+  "bit-test": "_fl_bit_test",
+  "bit_test": "_fl_bit_test",
+  "bit-set": "_fl_bit_set",
+  "bit_set": "_fl_bit_set",
+  "bit-clear": "_fl_bit_clear",
+  "bit_clear": "_fl_bit_clear",
+  "bit-rotate-left": "_fl_bit_rotate_left",
+  "bit_rotate_left": "_fl_bit_rotate_left",
+  "bit-rotate-right": "_fl_bit_rotate_right",
+  "bit_rotate_right": "_fl_bit_rotate_right",
+  "buf-u8": "_fl_buf_u8", "buf_u8": "_fl_buf_u8",
+  "buf-u32be": "_fl_buf_u32be", "buf_u32be": "_fl_buf_u32be",
+  "buf-u32le": "_fl_buf_u32le", "buf_u32le": "_fl_buf_u32le",
+  "buf-f64le": "_fl_buf_f64le", "buf_f64le": "_fl_buf_f64le",
+  "buf-str": "_fl_buf_str", "buf_str": "_fl_buf_str",
+  "buf-concat": "_fl_buf_concat", "buf_concat": "_fl_buf_concat",
+  "buf-from-bytes": "_fl_buf_from_bytes", "buf_from_bytes": "_fl_buf_from_bytes",
+  "buf-len": "_fl_buf_len", "buf_len": "_fl_buf_len",
+  "buf-read-u8": "_fl_buf_read_u8", "buf_read_u8": "_fl_buf_read_u8",
+  "buf-read-u32be": "_fl_buf_read_u32be", "buf_read_u32be": "_fl_buf_read_u32be",
+  "buf-read-u32le": "_fl_buf_read_u32le", "buf_read_u32le": "_fl_buf_read_u32le",
+  "buf-read-f64le": "_fl_buf_read_f64le", "buf_read_f64le": "_fl_buf_read_f64le",
+  "buf-read-str": "_fl_buf_read_str", "buf_read_str": "_fl_buf_read_str",
+  "buf-crc32": "_fl_buf_crc32", "buf_crc32": "_fl_buf_crc32",
+  "buf-slice": "_fl_buf_slice", "buf_slice": "_fl_buf_slice",
+  "buf-check-stride-u8": "_fl_buf_check_stride_u8", "buf_check_stride_u8": "_fl_buf_check_stride_u8",
+  "zlib-inflate-bounded": "_fl_zlib_inflate_bounded", "zlib_inflate_bounded": "_fl_zlib_inflate_bounded",
+  "sha256": "_fl_sha256",
+  "sha256-short": "_fl_sha256_short", "sha256_short": "_fl_sha256_short",
+  "md5": "_fl_md5", "sha1": "_fl_sha1",
+  "hmac-sha256": "_fl_hmac_sha256", "hmac_sha256": "_fl_hmac_sha256",
+  "hash-eq": "_fl_hash_eq", "hash_eq": "_fl_hash_eq",
+  "base64-encode": "_fl_base64_encode", "base64_encode": "_fl_base64_encode",
+  "base64-decode": "_fl_base64_decode", "base64_decode": "_fl_base64_decode",
+  "base64url-encode": "_fl_base64url_encode", "base64url_encode": "_fl_base64url_encode",
+  "base64url-decode": "_fl_base64url_decode", "base64url_decode": "_fl_base64url_decode",
+  "hex-encode": "_fl_hex_encode", "hex_encode": "_fl_hex_encode",
+  "hex-decode": "_fl_hex_decode", "hex_decode": "_fl_hex_decode",
   "keys": "_fl_keys",
   "json_keys": "_fl_keys",
   "values": "_fl_values",
@@ -33962,6 +34738,32 @@ var JS_RESERVED = /* @__PURE__ */ new Set([
   "with",
   "yield"
 ]);
+function encodeSourceMapVLQ(value) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let vlq = value < 0 ? (-value * 2) + 1 : value * 2;
+  let encoded = "";
+  do {
+    let digit = vlq % 32;
+    vlq = Math.floor(vlq / 32);
+    if (vlq > 0) digit |= 32;
+    encoded += alphabet[digit];
+  } while (vlq > 0);
+  return encoded;
+}
+function sourceMapOriginalLine(node) {
+  if (node?.kind === "sexpr" && (node.op === "defn" || node.op === "defun")) {
+    let bodyIndex = 2;
+    const metadata = node.args?.[bodyIndex];
+    const hasMetadata = metadata?.kind === "block"
+      && metadata.type === "Map"
+      && metadata.fields instanceof Map
+      && [...metadata.fields.keys()].some(key => ["doc", "returns", "context", "effects", "examples", "property"].includes(String(key).replace(/^:/, "")));
+    if (hasMetadata) bodyIndex++;
+    const body = node.args?.[bodyIndex];
+    if (Number.isInteger(body?.line) && body.line > 0) return body.line - 1;
+  }
+  return Number.isInteger(node?.line) && node.line > 0 ? node.line - 1 : null;
+}
 function flNameToJs(name) {
   if (BUILTIN_MAP[name]) {
     return BUILTIN_MAP[name];
@@ -33976,11 +34778,13 @@ function flNameToJs(name) {
 var JSCodegen = class {
   constructor() {
     this.exportedNames = [];
+    this.tempCounter = 0;
     this.opts = { ...DEFAULT_OPTIONS };
   }
   generate(nodes, opts) {
     this.opts = { ...DEFAULT_OPTIONS, ...opts };
     this.exportedNames = [];
+    this.tempCounter = 0;
     const parts = [];
     parts.push(generateRuntimePreamble());
     parts.push("");
@@ -33989,10 +34793,24 @@ var JSCodegen = class {
       parts.push("");
     }
     const bodyParts = [];
+    const sourceMappings = [];
+    const sourceIndexes = new Map();
+    const sourceNames = [];
+    let generatedLine = parts.reduce((count, part) => count + (part.match(/\n/g) || []).length, 0) + parts.length + 1;
     for (const node of nodes) {
       const code = this.genNode(node);
       if (code !== "") {
         bodyParts.push(code.endsWith(";") ? code : code + ";");
+        const sourcePath = node.__flSourcePath;
+        const originalLine = sourceMapOriginalLine(node);
+        if (this.opts.sourceMap && sourcePath && originalLine !== null) {
+          if (!sourceIndexes.has(sourcePath)) {
+            sourceIndexes.set(sourcePath, sourceNames.length);
+            sourceNames.push(sourcePath);
+          }
+          sourceMappings.push({ generatedLine, sourceIndex: sourceIndexes.get(sourcePath), originalLine });
+        }
+        generatedLine += (code.match(/\n/g) || []).length + 1;
       }
     }
     parts.push(...bodyParts);
@@ -34022,7 +34840,35 @@ ${exportsStr}
         }
       }
     }
-    const result = parts.join("\n");
+    let result = parts.join("\n");
+    if (this.opts.sourceMap && sourceMappings.length > 0) {
+      const outputDirectory = this.opts.sourceMapBase || process.cwd();
+      const sources = sourceNames.map(source => path18.relative(outputDirectory, source).split(path18.sep).join("/"));
+      const mappingsByLine = new Map(sourceMappings.map(entry => [entry.generatedLine, entry]));
+      const mappingLines = [];
+      let previousSource = 0;
+      let previousOriginalLine = 0;
+      let previousOriginalColumn = 0;
+      const generatedLineCount = result.split("\n").length;
+      for (let line = 1; line <= generatedLineCount; line++) {
+        const entry = mappingsByLine.get(line);
+        if (!entry) {
+          mappingLines.push("");
+          continue;
+        }
+        const segment = encodeSourceMapVLQ(0)
+          + encodeSourceMapVLQ(entry.sourceIndex - previousSource)
+          + encodeSourceMapVLQ(entry.originalLine - previousOriginalLine)
+          + encodeSourceMapVLQ(-previousOriginalColumn);
+        mappingLines.push(segment);
+        previousSource = entry.sourceIndex;
+        previousOriginalLine = entry.originalLine;
+        previousOriginalColumn = 0;
+      }
+      const sourceMap = { version: 3, sources, names: [], mappings: mappingLines.join(";") };
+      const encodedMap = Buffer.from(JSON.stringify(sourceMap), "utf8").toString("base64");
+      result += `\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,${encodedMap}`;
+    }
     return this.opts.minify ? this.minify(result) : result;
   }
   genNode(node) {
@@ -34041,8 +34887,15 @@ ${exportsStr}
         return this.genKeyword(node);
       case "try-block":
         return this.genTryBlock(node);
+      case "pattern-match":
+        return this.genPatternMatch(node);
+      case "throw": {
+        const valueName = `__fl_thrown_${this.tempCounter++}`;
+        const value = this.genNode(node.argument);
+        return `(( ${valueName} ) => { if (${valueName} instanceof Error) throw ${valueName}; if (${valueName} && typeof ${valueName} === "object" && ${valueName}.message) throw new Error(${valueName}.message); throw new Error(typeof ${valueName} === "string" ? ${valueName} : String(${valueName})); })(${value})`;
+      }
       default:
-        return `/* unsupported: ${node.kind} */`;
+        throw new Error(`codegen: unsupported AST node "${node.kind}"${Number.isInteger(node.line) ? ` at line ${node.line}` : ""}`);
     }
   }
   genLiteral(node) {
@@ -34104,11 +34957,19 @@ ${exportsStr}
       return "(" + args3.map((a) => this.genNode(a)).join(" && ") + ")";
     }
     if (op === "or") {
-      if (args3.length === 0) return "false";
-      return "(" + args3.map((a) => this.genNode(a)).join(" || ") + ")";
+      if (args3.length === 0) return "null";
+      const lastName = `__fl_or_last_${this.tempCounter++}`;
+      const steps = args3.map(arg => `${lastName} = ${this.genNode(arg)}; if (${lastName} !== null && ${lastName} !== undefined && ${lastName} !== false) return ${lastName};`).join(" ");
+      return `(( ) => { let ${lastName} = null; ${steps} return ${lastName}; })()`;
     }
     if (op === "cond") return this.genCond(args3);
     if (op === "while") return this.genWhile(args3);
+    if (op === "case") return this.genCase(args3);
+    if (op === "for") return this.genFor(args3);
+    if (op === "call") {
+      if (args3.length === 0) throw new Error("codegen: call requires a function expression");
+      return `${this.genNode(args3[0])}(${args3.slice(1).map(arg => this.genNode(arg)).join(", ")})`;
+    }
     if (op === "->") {
       if (args3.length === 0) return "null";
       let acc = this.genNode(args3[0]);
@@ -34221,6 +35082,16 @@ ${exportsStr}
       return "(() => null)()";
     }
     if (op === "do") return this.genDo(args3);
+    if (op === "=" && args3.length === 2) {
+      const left = this.genNode(args3[0]);
+      const right = this.genNode(args3[1]);
+      return `_fl_deep_eq(${left}, ${right})`;
+    }
+    if ((op === "!=" || op === "not=") && args3.length === 2) {
+      const left = this.genNode(args3[0]);
+      const right = this.genNode(args3[1]);
+      return `(!_fl_deep_eq(${left}, ${right}))`;
+    }
     const BINARY_OPS = {
       "+": "+",
       "-": "-",
@@ -34232,8 +35103,7 @@ ${exportsStr}
       "<=": "<=",
       ">=": ">=",
       "==": "===",
-      "!=": "!==",
-      "=": "==="
+      "!=": "!=="
     };
     if (op in BINARY_OPS && args3.length === 2) {
       const left = this.genNode(args3[0]);
@@ -34265,10 +35135,16 @@ ${exportsStr}
     if (op === "defn" || op === "defun") {
       const name = this.extractVarName(args3[0]);
       const { params, preamble } = this.extractParamListWithDestructuring(args3[1]);
-      const bodyNode = args3[2];
-      const body = bodyNode ? this.genNode(bodyNode) : "null";
+      // Function metadata is interpreter-only and must not become the JS body.
+      // Keep the generated path aligned with the interpreter's defn handling.
+      let bodyIndex = 2;
+      const metadataNode = args3[bodyIndex];
+      const isMetadata = metadataNode?.kind === "block" && metadataNode?.type === "Map" && metadataNode.fields instanceof Map && [...metadataNode.fields.keys()].some((key) => ["doc", "returns", "context", "effects", "examples", "property"].includes(String(key).replace(/^:/, "")));
+      if (isMetadata) bodyIndex += 1;
+      const bodyNodes = args3.slice(bodyIndex);
+      const body = bodyNodes.length === 0 ? "null" : bodyNodes.length === 1 ? this.genNode(bodyNodes[0]) : this.genDo(bodyNodes);
       const finalBody = preamble ? `((() => { ${preamble} return ${body}; })())` : body;
-      return `const ${name} = (${params.join(", ")}) => ${finalBody}`;
+      return `const ${name} = (${params.join(", ")}) => ${finalBody}; __fl_register_fn(${JSON.stringify(name)}, ${name})`;
     }
     if (op === "fn") return this.genFn(args3);
     if (op === "list") {
@@ -34334,6 +35210,146 @@ ${exportsStr}
     }
     return this.genFuncCall(op, args3);
   }
+  genCase(args3) {
+    if (args3.length === 0) return "null";
+    const valueName = `__fl_case_${this.tempCounter++}`;
+    const hasDefault = args3.length % 2 === 0;
+    let result = hasDefault ? this.genNode(args3[args3.length - 1]) : "null";
+    const pairEnd = hasDefault ? args3.length - 1 : args3.length;
+    for (let index = pairEnd - 2; index >= 1; index -= 2) {
+      result = `(${valueName} === ${this.genNode(args3[index])} ? ${this.genNode(args3[index + 1])} : ${result})`;
+    }
+    return `(( ${valueName} ) => ${result})(${this.genNode(args3[0])})`;
+  }
+  genFor(args3) {
+    const bindings = args3[0];
+    const items = bindings?.kind === "block" && bindings.type === "Array"
+      ? bindings.fields.get("items") || [] : [];
+    if (items.length < 2 || (items.length !== 2 && items.length !== 4)) {
+      throw new Error("codegen: for expects [variable collection] or [variable collection :when predicate]");
+    }
+    const variable = items[0]?.name ?? items[0]?.value ?? null;
+    if (!variable) throw new Error("codegen: for binding must be a variable");
+    const collectionName = `__fl_for_${this.tempCounter++}`;
+    const collection = this.genNode(items[1]);
+    const body = args3[1] ? this.genNode(args3[1]) : "null";
+    let source = collectionName;
+    if (items.length === 4) {
+      const marker = String(items[2]?.name ?? items[2]?.value ?? "").replace(/^:/, "");
+      if (marker !== "when") throw new Error(`codegen: unsupported for qualifier ${marker}`);
+      source = `_fl_filter(${source}, (${flNameToJs(variable)}) => ${this.genNode(items[3])})`;
+    }
+    return `(( ${collectionName} ) => Array.isArray(${collectionName}) ? _fl_map(${source}, (${flNameToJs(variable)}) => ${body}) : [])(${collection})`;
+  }
+  patternDescriptor(pattern) {
+    if (!pattern || typeof pattern !== "object") return { kind: "unsupported" };
+    switch (pattern.kind) {
+      case "literal-pattern":
+        return { kind: "literal", value: pattern.value };
+      case "variable-pattern":
+        return { kind: "variable", name: pattern.name };
+      case "wildcard-pattern":
+        return { kind: "wildcard" };
+      case "list-pattern":
+        return {
+          kind: "list",
+          elements: (pattern.elements || []).map(item => this.patternDescriptor(item)),
+          restElement: pattern.restElement || null
+        };
+      case "struct-pattern":
+        return {
+          kind: "struct",
+          fields: [...(pattern.fields || new Map()).entries()].map(([key, value]) => [key, this.patternDescriptor(value)]),
+          asBinding: pattern.asBinding || null
+        };
+      case "range-pattern":
+        return { kind: "range", min: pattern.min, max: pattern.max };
+      case "or-pattern":
+        return { kind: "or", alternatives: (pattern.alternatives || []).map(item => this.patternDescriptor(item)) };
+      default:
+        return { kind: "unsupported" };
+    }
+  }
+  genPatternMatch(node) {
+    const valueName = `__fl_match_value_${this.tempCounter++}`;
+    const matcherName = `__fl_match_pattern_${this.tempCounter++}`;
+    const casesName = `__fl_match_cases_${this.tempCounter++}`;
+    const matchResultName = `__fl_match_result_${this.tempCounter++}`;
+    const descriptors = node.cases.map(item => this.patternDescriptor(item.pattern));
+    const cases = node.cases.map((item, index) => {
+      const bindingNames = new Set();
+      const collect = pattern => {
+        if (!pattern || typeof pattern !== "object") return;
+        if (pattern.kind === "variable-pattern") bindingNames.add(pattern.name);
+        if (pattern.kind === "list-pattern") {
+          for (const element of pattern.elements || []) collect(element);
+          if (pattern.restElement) bindingNames.add(pattern.restElement);
+        }
+        if (pattern.kind === "struct-pattern") {
+          for (const child of (pattern.fields || new Map()).values()) collect(child);
+          if (pattern.asBinding) bindingNames.add(pattern.asBinding);
+        }
+        if (pattern.kind === "or-pattern") for (const child of pattern.alternatives || []) collect(child);
+      };
+      collect(item.pattern);
+      if (item.pattern?.kind === "struct-pattern" && item.pattern.asBinding) bindingNames.add(item.pattern.asBinding);
+      const bindings = [...bindingNames].map(name => `const ${flNameToJs(`$${name}`)} = ${matchResultName}.bindings[${JSON.stringify(name)}];`).join(" ");
+      const guard = item.guard ? this.genNode(item.guard) : "true";
+      const body = this.genNode(item.body);
+      return `{
+        const ${matchResultName} = ${matcherName}(${casesName}[${index}], ${valueName});
+        if (${matchResultName}.matched) {
+          ${bindings}
+          if (${guard}) return ${body};
+        }
+      }`;
+    }).join("\n");
+    const fallback = node.defaultCase
+      ? `return ${this.genNode(node.defaultCase)};`
+      : `throw new Error("Pattern match exhausted without matching case");`;
+    const descriptorLiteral = JSON.stringify(descriptors);
+    return `(( ${valueName} ) => {
+      const ${casesName} = ${descriptorLiteral};
+      const ${matcherName} = (pattern, value) => {
+        const no = () => ({ matched: false, bindings: Object.create(null) });
+        const yes = (bindings = Object.create(null), asBinding = null) => ({ matched: true, bindings, asBinding });
+        if (pattern.kind === "literal") return pattern.value === value ? yes() : no();
+        if (pattern.kind === "variable") return yes({ [pattern.name]: value });
+        if (pattern.kind === "wildcard") return yes();
+        if (pattern.kind === "range") return typeof value === "number" && value >= pattern.min && value < pattern.max ? yes() : no();
+        if (pattern.kind === "or") {
+          for (const alternative of pattern.alternatives) { const result = ${matcherName}(alternative, value); if (result.matched) return result; }
+          return no();
+        }
+        if (pattern.kind === "list") {
+          if (!Array.isArray(value) || (!pattern.restElement && value.length !== pattern.elements.length) || value.length < pattern.elements.length) return no();
+          const bindings = Object.create(null);
+          for (let index = 0; index < pattern.elements.length; index++) {
+            const result = ${matcherName}(pattern.elements[index], value[index]);
+            if (!result.matched) return no();
+            Object.assign(bindings, result.bindings);
+          }
+          if (pattern.restElement) bindings[pattern.restElement] = value.slice(pattern.elements.length);
+          return yes(bindings);
+        }
+        if (pattern.kind === "struct") {
+          if (value === null || typeof value !== "object") return no();
+          const bindings = Object.create(null);
+          for (const [field, child] of pattern.fields) {
+            const fieldValue = value[field] !== undefined ? value[field] : value[\`:\${field}\`];
+            const result = ${matcherName}(child, fieldValue);
+            if (!result.matched) return no();
+            Object.assign(bindings, result.bindings);
+          }
+          if (pattern.asBinding) bindings[pattern.asBinding] = value;
+          return yes(bindings);
+        }
+        return no();
+      };
+      ${cases}
+      ${fallback}
+    })(${this.genNode(node.value)})`;
+  }
   genDo(args3) {
     if (args3.length === 0) return "(() => undefined)()";
     if (args3.length === 1) return `(() => ${this.genNode(args3[0])})()`;
@@ -34346,19 +35362,22 @@ ${exportsStr}
   }
   genCond(args3) {
     if (args3.length === 0) return "null";
-    let isNested = false;
-    if (args3[0].kind === "block" && args3[0].type === "Array") {
-      const items = args3[0].fields.get("items");
-      if (Array.isArray(items) && items.length >= 1) {
-        isNested = true;
-      }
-    }
+    const firstArg = args3[0];
+    const firstItems = firstArg?.kind === "block" && firstArg?.type === "Array"
+      ? firstArg.fields.get("items") || []
+      : [];
+    const isNested = firstItems.length >= 1 || firstArg?.kind === "sexpr" && firstArg?.op === "do";
     let pairs;
     if (isNested) {
       pairs = args3.map((arg) => {
         if (arg.kind === "block" && arg.type === "Array") {
           const items = arg.fields.get("items") || [];
-          return [items[0], items[1]];
+          const body = items.slice(1);
+          return [items[0], body.length === 0 ? null : body.length === 1 ? body[0] : { kind: "sexpr", op: "do", args: body }];
+        }
+        if (arg.kind === "sexpr" && arg.op === "do") {
+          const body = arg.args.slice(1);
+          return [arg.args[0], body.length === 0 ? null : body.length === 1 ? body[0] : { kind: "sexpr", op: "do", args: body }];
         }
         return [arg, null];
       });
@@ -34371,13 +35390,23 @@ ${exportsStr}
         pairs.push([{ kind: "literal", type: "boolean", value: true }, args3[args3.length - 1]]);
       }
     }
+    pairs = pairs.map(([testNode, bodyNode]) => {
+      const testName = testNode?.kind === "variable"
+        ? testNode.name.replace(/^\$/, "")
+        : testNode?.kind === "literal" && testNode.type === "symbol"
+          ? String(testNode.value).replace(/^\$/, "")
+          : null;
+      const isElse = testName === "else" || testName === ":else";
+      return [isElse ? { kind: "literal", type: "boolean", value: true } : testNode, bodyNode];
+    });
     let res = "null";
     for (let i = pairs.length - 1; i >= 0; i--) {
       const [testNode, bodyNode] = pairs[i];
       if (!testNode) continue;
       const test = this.genNode(testNode);
       const body = bodyNode ? this.genNode(bodyNode) : "null";
-      res = "(" + test + " ? " + body + " : " + res + ")";
+      const testName = `__fl_cond_test_${this.tempCounter++}`;
+      res = `(( ${testName} ) => ${testName} !== null && ${testName} !== undefined && ${testName} !== false ? ${body} : ${res})(${test})`;
     }
     return res;
   }
@@ -37545,9 +38574,55 @@ function createMatrixModule() {
 function createStdinModule(interpreter) {
   let active = null;
   return {
-    "stdin-on-line": (callback, intervalMs = 1000) => {
+    "readline": (prompt = "", requireTerminatedLine = false) => {
+      if (typeof requireTerminatedLine !== "boolean") {
+        throw new Error(`readline requireTerminatedLine must be boolean, got ${typeof requireTerminatedLine}`);
+      }
+      if (prompt) process.stdout.write(String(prompt));
+      try {
+        const fs = require("fs");
+        const parts = [];
+        const byte = Buffer.alloc(1);
+        while (true) {
+          const count = fs.readSync(process.stdin.fd, byte, 0, 1);
+          if (count === 0) {
+            if (parts.length === 0) return null;
+            if (requireTerminatedLine) {
+              process.exitCode = 1;
+              console.error("readline: unterminated line at EOF");
+              return null;
+            }
+            return parts.join("");
+          }
+          if (byte[0] === 10) return parts.join("");
+          if (byte[0] !== 13) parts.push(String.fromCharCode(byte[0]));
+        }
+      } catch {
+        return null;
+      }
+    },
+    "read-line": (prompt = "") => {
+      if (prompt) process.stdout.write(String(prompt));
+      try {
+        const fs = require("fs");
+        const parts = [];
+        const byte = Buffer.alloc(1);
+        while (true) {
+          const count = fs.readSync(process.stdin.fd, byte, 0, 1);
+          if (count === 0) return parts.length === 0 ? null : parts.join("");
+          if (byte[0] === 10) return parts.join("");
+          if (byte[0] !== 13) parts.push(String.fromCharCode(byte[0]));
+        }
+      } catch {
+        return null;
+      }
+    },
+    "stdin-on-line": (callback, intervalMs = 1000, requireTerminatedLine = false) => {
       if (typeof intervalMs !== "number" || intervalMs < 1) {
         throw new Error(`stdin-on-line interval must be positive, got ${intervalMs}`);
+      }
+      if (typeof requireTerminatedLine !== "boolean") {
+        throw new Error(`stdin-on-line requireTerminatedLine must be boolean, got ${typeof requireTerminatedLine}`);
       }
       if (active) active.stop();
       let closed = false;
@@ -37611,6 +38686,10 @@ function createStdinModule(interpreter) {
           return;
         }
         if (pending.length > 0) {
+          if (requireTerminatedLine) {
+            fail("unterminated line at EOF");
+            return;
+          }
           let line;
           try {
             line = new TextDecoder("utf-8", { fatal: true }).decode(pending);
@@ -37648,6 +38727,7 @@ function loadAllStdlib(interp2) {
   interp2.registerModule(createFileModule());
   interp2.registerModule(createFdModule());
   interp2.registerModule(createBitsModule());
+  interp2.registerModule(createBinaryModule());
   interp2.registerModule(createTimerModule(interp2));
   interp2.registerModule(createStdinModule(interp2));
   interp2.registerModule(createErrorModule());
@@ -37677,7 +38757,7 @@ function loadAllStdlib(interp2) {
   interp2.registerModule(createAuthModule());
   interp2.registerModule(createCacheModule());
   interp2.registerModule(createPubSubModule((n, a) => interp2.callUserFunction(n, a)));
-  interp2.registerModule(createProcessModule());
+  interp2.registerModule(createProcessModule((fnValue, args3) => interp2.callFunctionValue(fnValue, args3)));
   interp2.registerModule(createAsyncModule((n, a) => interp2.callUserFunction(n, a)));
   interp2.registerModule(createModuleSystem());
   interp2.registerModule(createChannelModule());
@@ -40771,6 +41851,9 @@ var Interpreter = class _Interpreter {
       } else {
         const e2 = new Error(enhancedMsg);
         e2.__flCallStack = err4.__flCallStack ?? (this.callStack.length > 0 ? [...this.callStack] : void 0);
+        for (const key of ["__flSourcePath", "__flSourceContent", "__flSourceLine"]) {
+          if (err4[key] !== void 0) e2[key] = err4[key];
+        }
         throw e2;
       }
     }
@@ -41224,6 +42307,8 @@ var STDLIB_ARITY = /* @__PURE__ */ new Map([
   ["auth-hmac", { min: 2, max: 2 }],
   ["math-round-dec", { min: 2, max: 2 }],
   ["server-get", { min: 2, max: 2 }],
+  ["server-sse", { min: 3, max: 3 }],
+  ["server_sse", { min: 3, max: 3 }],
   ["server-post", { min: 2, max: 2 }],
   ["server-put", { min: 2, max: 2 }],
   ["server-json", { min: 1, max: 2 }]
@@ -41324,6 +42409,11 @@ function collectDefns(ast) {
     const paramsNode = args3[idx];
     const params = [];
     let variadic = false;
+    const paramName = (item) => {
+      if (item?.kind === "variable") return item.name;
+      if (item?.kind === "literal" && item?.type === "symbol") return String(item.value ?? "");
+      return "";
+    };
     if (paramsNode?.kind === "block" && paramsNode?.type === "Array") {
       const items = paramsNode.fields?.get?.("items") ?? [];
       let i = 0;
@@ -41333,11 +42423,14 @@ function collectDefns(ast) {
           const paramType = hintToType(String(item.value));
           i++;
           const paramNode = items[i];
-          if (paramNode?.kind === "variable") {
-            params.push({ name: paramNode.name, type: paramType });
+          const pname = paramName(paramNode);
+          if (pname) params.push({ name: pname, type: paramType });
+        } else {
+          const pname = paramName(item);
+          if (!pname) {
+            i++;
+            continue;
           }
-        } else if (item?.kind === "variable") {
-          const pname = item.name;
           if (pname.startsWith("...") || pname.startsWith("rest")) variadic = true;
           params.push({ name: pname, type: "any" });
         }
@@ -41408,7 +42501,7 @@ function checkCalls(ast, defs, varTypes) {
           if (actual === null) continue;
           if (!typesCompatible(param.type, actual)) {
             issues.push({
-              kind: "warning",
+              kind: "error",
               code: "type-mismatch",
               line,
               message: `(${op}) \u2014 $${param.name}: ^${param.type} \uD30C\uB77C\uBBF8\uD130\uC5D0 ${actual} \uC804\uB2EC`
@@ -43175,14 +44268,23 @@ var WebServer = class {
 // src/cli.ts
 init_eval_special_forms();
 init_stdlib_property();
+function formatDiagnosticPath(filePath) {
+  const absolutePath = path18.resolve(filePath);
+  const relativePath = path18.relative(process.cwd(), absolutePath);
+  const outsideWorkingDirectory = relativePath === ".."
+    || relativePath.startsWith(`..${path18.sep}`)
+    || path18.isAbsolute(relativePath);
+  return (outsideWorkingDirectory ? absolutePath : relativePath || path18.basename(absolutePath))
+    .split(path18.sep).join("/");
+}
 function formatCallStack(stack) {
   if (!stack || stack.length === 0) return "";
   const path19 = require("path");
   const frames = stack.slice().reverse().slice(0, 10);
   return "\n\x1B[2m\uCF5C \uC2A4\uD0DD:\x1B[0m\n" + frames.map((f, i) => {
     const fn = f.name ?? f.fn ?? "?";
-    const callFile = f.file ? path19.basename(f.file) : null;
-    const defFile  = f.defFile ? path19.basename(f.defFile) : null;
+    const callFile = f.file ? formatDiagnosticPath(f.file) : null;
+    const defFile  = f.defFile ? formatDiagnosticPath(f.defFile) : null;
     const loc = callFile ? `\x1B[36m${callFile}:${f.line ?? "?"}\x1B[0m` : `line ${f.line ?? "?"}`;
     const defHint = defFile && defFile !== callFile ? ` \x1B[2m[${defFile}\uC5D0\uC11C \uC815\uC758]\x1B[0m` : "";
     const arrow = i === 0 ? "\x1B[31m\u2192\x1B[0m" : "\x1B[2m \x1B[0m";
@@ -43204,7 +44306,7 @@ function mapJsError(msg) {
   return msg;
 }
 function formatError(err4, source, filePath, callStack) {
-  const fileName = filePath ? path18.basename(filePath) : "<stdin>";
+  const fileName = filePath ? formatDiagnosticPath(filePath) : "<stdin>";
   const lines = [];
   if (err4 instanceof ParserError) {
     lines.push(`
@@ -43221,7 +44323,7 @@ function formatError(err4, source, filePath, callStack) {
     lines.push(`  ${err4.message}`);
   } else if (err4 instanceof Error) {
     const lineMatch = err4.message.match(/^FreeLang line (\d+):\s*/);
-    const errLine = lineMatch ? parseInt(lineMatch[1]) : 0;
+    const errLine = Number.isInteger(err4.__flSourceLine) ? err4.__flSourceLine : lineMatch ? parseInt(lineMatch[1]) : 0;
     const cleanMsg = lineMatch ? err4.message.slice(lineMatch[0].length) : err4.message;
     lines.push(`
 \x1B[31m\uC2E4\uD589 \uC624\uB958\x1B[0m  ${fileName}${errLine ? `:${errLine}` : ""}`);
@@ -43294,7 +44396,7 @@ ${absPath}`);
       }
       ctx = interp2.interpret(ast);
     } catch (err4) {
-      console.error(formatError(err4, source, absPath));
+      console.error(formatError(err4, err4.__flSourceContent ?? source, err4.__flSourcePath ?? absPath));
       if (!watch2) process.exit(1);
       return;
     }
@@ -43661,6 +44763,7 @@ function expandCompileLoads(filePath, seen = /* @__PURE__ */ new Set(), stack = 
         continue;
       }
     }
+    node.__flSourcePath = absPath;
     expanded.push(node);
   }
   return expanded;
@@ -43681,15 +44784,15 @@ function cmdCompile(args3) {
     process.exit(1);
   }
   try {
-    const source = fs20.readFileSync(absInput, "utf-8");
-    const tokens = lex(source);
-    const ast = parse(tokens);
+    const ast = expandCompileLoads(absInput);
     const cg = new JSCodegen();
     const js = cg.generate(ast, {
       module: useEsm ? "esm" : "commonjs",
       runtime: withRuntime,
       minify: false,
-      target: "node"
+      target: "node",
+      sourceMap: true,
+      sourceMapBase: outputFile ? path18.dirname(path18.resolve(outputFile)) : process.cwd()
     });
     if (outputFile) {
       const absOutput = path18.resolve(outputFile);
