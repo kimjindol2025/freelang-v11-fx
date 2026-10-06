@@ -32321,6 +32321,24 @@ function createMariadbModule(callFn) {
     "db-transaction": (db, fn) => {
       if (isSqliteConfig(db)) {
         const sqliteDb = getSqliteDb(getSqlitePath(db));
+        if (Array.isArray(fn)) {
+          sqliteDb.exec("BEGIN");
+          const results = [];
+          try {
+            for (const statement of fn) {
+              const sql = statement instanceof Map ? statement.get("sql") : statement?.sql;
+              const params = statement instanceof Map ? statement.get("params") : statement?.params;
+              if (typeof sql !== "string" || !sql.trim()) throw new Error("[DB_TRANSACTION_INVALID] each statement needs sql");
+              const result = sqliteDb.prepare(sql).run(...(Array.isArray(params) ? params : []));
+              results.push({ affectedRows: result.changes ?? 0, insertId: Number(result.lastInsertRowid ?? 0) });
+            }
+            sqliteDb.exec("COMMIT");
+            return results;
+          } catch (e) {
+            try { sqliteDb.exec("ROLLBACK"); } catch {}
+            throw e;
+          }
+        }
         sqliteDb.exec("BEGIN");
         try {
           const result = callFlFn(fn);

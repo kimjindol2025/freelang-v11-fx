@@ -91,6 +91,55 @@ FLValue db(FLValue name_v) {
     return fxb_sqlite_open(fl_str_val(path));
 }
 
+/* (db-transaction db [{"sql" ... "params" [...] } ...])
+ * BEGIN/COMMIT/ROLLBACK을 하나의 native 경계로 묶는다. */
+FLValue db_transaction(FLValue conn_v, FLValue statements_v) {
+    if (conn_v.tag != FL_STRING || statements_v.tag != FL_VECTOR) {
+        fl_throw(fl_str_val("[DB_TRANSACTION_INVALID] handle and statements are required"));
+        return fl_nil();
+    }
+
+    FLValue begin = fxb_sqlite_exec(conn_v, fl_str_val("BEGIN"));
+    if (begin.tag == FL_STRING) {
+        fl_throw(begin);
+        return fl_nil();
+    }
+
+    FLValue results = fl_vec_new();
+    FLVector* statements = (FLVector*)statements_v.obj;
+    for (uint32_t i = 0; i < statements->len; i++) {
+        FLValue statement = statements->data[i];
+        if (statement.tag != FL_MAP) {
+            fxb_sqlite_exec(conn_v, fl_str_val("ROLLBACK"));
+            fl_throw(fl_str_val("[DB_TRANSACTION_INVALID] each statement must be a map"));
+            return fl_nil();
+        }
+        FLValue sql = fl_map_get(statement, fl_str_val("sql"));
+        FLValue params = fl_map_get(statement, fl_str_val("params"));
+        if (sql.tag != FL_STRING) {
+            fxb_sqlite_exec(conn_v, fl_str_val("ROLLBACK"));
+            fl_throw(fl_str_val("[DB_TRANSACTION_INVALID] each statement needs sql"));
+            return fl_nil();
+        }
+        if (params.tag != FL_VECTOR) params = fl_vec_new();
+        FLValue result = fxb_sqlite_exec_p(conn_v, sql, params);
+        if (result.tag == FL_STRING) {
+            fxb_sqlite_exec(conn_v, fl_str_val("ROLLBACK"));
+            fl_throw(result);
+            return fl_nil();
+        }
+        results = fl_vec_push(results, result);
+    }
+
+    FLValue commit = fxb_sqlite_exec(conn_v, fl_str_val("COMMIT"));
+    if (commit.tag == FL_STRING) {
+        fxb_sqlite_exec(conn_v, fl_str_val("ROLLBACK"));
+        fl_throw(commit);
+        return fl_nil();
+    }
+    return results;
+}
+
 static FLSQLiteConn* sq_find(const char* id) {
     for (int i = 0; i < sq_count; i++)
         if (strcmp(sq_pool[i].id, id) == 0) return &sq_pool[i];

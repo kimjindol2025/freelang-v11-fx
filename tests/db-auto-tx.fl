@@ -1,0 +1,11 @@
+;; Native DB transaction contract
+(define db1 (db "tx_smoke"))
+(db-exec db1 "DROP TABLE IF EXISTS tx_items" [])
+(db-exec db1 "CREATE TABLE tx_items (id INTEGER PRIMARY KEY, value TEXT)" [])
+(db-transaction db1 [{"sql" "INSERT INTO tx_items (id, value) VALUES (?, ?)" "params" [1 "committed"]}])
+(define rollback-result
+  (try
+    (db-transaction db1 [{"sql" "INSERT INTO tx_items (id, value) VALUES (?, ?)" "params" [2 "rolled-back"]}
+                        {"sql" "INSERT INTO missing_table VALUES (1)" "params" []}])
+    (catch err "rolled-back")))
+(println (str "tx=" rollback-result ", count=" (length (db-query db1 "SELECT * FROM tx_items" []))))
