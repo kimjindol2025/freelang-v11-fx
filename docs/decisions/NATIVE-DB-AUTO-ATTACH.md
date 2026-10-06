@@ -38,11 +38,11 @@
 - `tests/db-auto.fl`: 두 런타임에서 생성·쓰기·조회·핸들 재사용 PASS
 - `tests/db-auto-edge.fl`: traversal/공백 이름 차단 PASS
 - `tests/db-auto-tx.fl`: 두 런타임에서 COMMIT/ROLLBACK 일치 PASS
+- `verify-fixpoint.sh`: `db`/`db-transaction` compiler mapping 포함 3세대 hash 일치 PASS
 - 전체 상용 DB gate의 PASS는 이 언어 통합의 PASS로 대체하지 않는다.
 
 ## 남은 작업
 
 1. FreeLangScript conformance 테스트를 정식 저장소 테스트 목록에 추가
-2. FX self-host/compiler 정본에 `db` builtin mapping을 반영하고 bootstrap 산출물과 비교
-3. WAL·복구·동시 접근을 native DB 호출에서 회귀 검증
-4. 적대적 입력·경로·권한 검수 후 버전 판정
+2. WAL·복구·동시 접근을 native DB 호출에서 회귀 검증
+3. 적대적 입력·경로·권한 검수 후 버전 판정

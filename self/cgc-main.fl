@@ -1333,6 +1333,9 @@
   [(= $op "clamp")        (str "clamp(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "json-pretty")  (str "json_pretty(" (cgc (get $args 0)) ")")]
   [(= $op "file-exists?") (str "file_exists_p(" (cgc (get $args 0)) ")")]
+  ;; Native DB auto-attach — explicit compiler mapping (not fallback C call)
+  [(= $op "db")             (str "db(" (cgc (get $args 0)) ")")]
+  [(= $op "db-transaction") (str "db_transaction(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [true             (cgc-dispatch-fallback $op $args)]))
 
 (defn cgc-swap! [$args]
