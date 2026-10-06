@@ -1,0 +1,5 @@
+;; Native DB errors must escape as language exceptions, not successful values
+(define db1 (db "error_smoke"))
+(db-exec db1 "CREATE TABLE IF NOT EXISTS error_items (id INTEGER PRIMARY KEY)" [])
+(db-exec db1 "INSERT INTO missing_table VALUES (1)" [])
+(println "unreachable")

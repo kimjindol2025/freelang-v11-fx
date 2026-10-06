@@ -506,6 +506,8 @@ FLValue fl_vec_rest(FLValue vec);
 FLValue fxb_sqlite_open(FLValue path);
 /* 프로젝트 로컬 네이티브 DB 자동 연결: (db "name") */
 FLValue db(FLValue name);
+FLValue db_query(FLValue conn, FLValue sql, FLValue params);
+FLValue db_exec(FLValue conn, FLValue sql, FLValue params);
 FLValue db_transaction(FLValue conn, FLValue statements);
 FLValue fxb_sqlite_query(FLValue conn, FLValue sql);
 FLValue fxb_sqlite_exec(FLValue conn, FLValue sql);

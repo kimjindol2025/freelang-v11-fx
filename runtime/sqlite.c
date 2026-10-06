@@ -140,6 +140,26 @@ FLValue db_transaction(FLValue conn_v, FLValue statements_v) {
     return results;
 }
 
+/* 자동 연결 DB API는 SQLite 오류를 값으로 삼키지 않고 언어 예외로 전파한다.
+ * 기존 fxb_sqlite_* API의 호환 동작(오류 문자열 반환)은 유지한다. */
+FLValue db_query(FLValue conn_v, FLValue sql_v, FLValue params_v) {
+    FLValue result = fxb_sqlite_query_p(conn_v, sql_v, params_v);
+    if (result.tag == FL_STRING) {
+        fl_throw(result);
+        return fl_nil();
+    }
+    return result;
+}
+
+FLValue db_exec(FLValue conn_v, FLValue sql_v, FLValue params_v) {
+    FLValue result = fxb_sqlite_exec_p(conn_v, sql_v, params_v);
+    if (result.tag == FL_STRING) {
+        fl_throw(result);
+        return fl_nil();
+    }
+    return result;
+}
+
 static FLSQLiteConn* sq_find(const char* id) {
     for (int i = 0; i < sq_count; i++)
         if (strcmp(sq_pool[i].id, id) == 0) return &sq_pool[i];
@@ -181,7 +201,8 @@ FLValue fxb_sqlite_open(FLValue path_v) {
         return fl_str_val(buf);
     }
 
-    /* WAL 모드 활성화 (동시성 향상) */
+    /* WAL 모드와 bounded busy wait로 다중 프로세스 writer 충돌을 완화한다. */
+    sqlite3_busy_timeout(db, 5000);
     sqlite3_exec(db, "PRAGMA journal_mode=WAL", NULL, NULL, NULL);
     sqlite3_exec(db, "PRAGMA foreign_keys=ON",  NULL, NULL, NULL);
 
