@@ -38,6 +38,7 @@
 - `tests/db-auto.fl`: 두 런타임에서 생성·쓰기·조회·핸들 재사용 PASS
 - `tests/db-auto-edge.fl`: traversal/공백 이름 차단 PASS
 - `tests/db-auto-tx.fl`: 두 런타임에서 COMMIT/ROLLBACK 일치 PASS
+- `tests/db-auto-reopen.fl`: 프로세스 재시작 후 persisted row 재조회 PASS
 - `verify-fixpoint.sh`: `db`/`db-transaction` compiler mapping 포함 3세대 hash 일치 PASS
 - 전체 상용 DB gate의 PASS는 이 언어 통합의 PASS로 대체하지 않는다.
 

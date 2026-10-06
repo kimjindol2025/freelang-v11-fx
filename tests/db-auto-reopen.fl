@@ -1,0 +1,3 @@
+;; Native DB process-reopen persistence contract
+(define db1 (db "reopen_smoke"))
+(println (str "reopened=" (get (first (db-query db1 "SELECT value FROM reopen_items WHERE id = ?" (list 1))) "value")))
