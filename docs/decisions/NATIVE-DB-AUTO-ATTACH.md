@@ -44,6 +44,9 @@
 
 ## 남은 작업
 
-1. FreeLangScript conformance 테스트를 정식 저장소 테스트 목록에 추가
-2. WAL·복구·동시 접근을 native DB 호출에서 회귀 검증
-3. 적대적 입력·경로·권한 검수 후 버전 판정
+1. FX native 호출 경로에서 WAL·복구·동시 접근을 회귀 검증
+2. 적대적 입력·경로·권한 검수 후 버전 판정
+
+FreeLangScript conformance는 `freelang-script`의 정식 allowlist에 추가했고,
+CRUD·트랜잭션·권한 범위·위조 handle·재시작 persistence·동시 writer를 실제
+검증했다. 이 결과는 FX native 경로의 상용 release gate PASS를 의미하지 않는다.
