@@ -15,6 +15,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <ctype.h>
 
 /* SQLite3 헤더 직접 포함 (설치되어 있음) */
 #include <sqlite3.h>
@@ -33,6 +36,60 @@ typedef struct {
 static FLSQLiteConn sq_pool[MAX_SQLITE_CONN];
 static int sq_count = 0;
 static pthread_mutex_t sq_pool_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/*
+ * (db "name")의 경로 해석기.
+ *
+ * 자동 연결은 프로젝트 로컬만 허용한다. 이름은 파일 경로가 아니라
+ * 논리 DB 이름이며, 경로 분리 문자·절대 경로·숨은 traversal을 받지 않는다.
+ * FL_DB_DIR을 지정하면 테스트/배포에서 프로젝트 로컬 디렉터리를 명시할 수
+ * 있지만, 여전히 이름은 안전한 단일 component여야 한다.
+ */
+static int db_name_valid(const char* name) {
+    size_t n;
+    if (!name || !*name) return 0;
+    n = strlen(name);
+    if (n > 96) return 0;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char)name[i];
+        if (!(isalnum(c) || c == '_' || c == '-')) return 0;
+    }
+    return 1;
+}
+
+static int mkdir_if_missing(const char* path) {
+    if (mkdir(path, 0700) == 0 || errno == EEXIST) return 0;
+    return -1;
+}
+
+/* (db "name") → fxb_sqlite_open(<base>/<name>.db) */
+FLValue db(FLValue name_v) {
+    const char* name = (name_v.tag == FL_STRING)
+        ? ((FLString*)name_v.obj)->data : NULL;
+    if (!db_name_valid(name))
+        return fl_str_val("[DB_NAME_INVALID] db name must be 1-96 ASCII letters, digits, '_' or '-'");
+
+    const char* base = getenv("FL_DB_DIR");
+    if (!base || !*base) base = ".freelang/db";
+    if (base[0] == '/' || strstr(base, "..") != NULL)
+        return fl_str_val("[DB_PATH_INVALID] FL_DB_DIR must be a local relative path");
+    if (strlen(base) > 400)
+        return fl_str_val("[DB_PATH_INVALID] FL_DB_DIR is too long");
+
+    /* 기본 계약 경로만 자동 생성한다. 임의의 중첩 디렉터리는 생성하지 않는다. */
+    if (strcmp(base, ".freelang/db") == 0) {
+        if (mkdir_if_missing(".freelang") != 0)
+            return fl_str_val("[DB_PATH_CREATE_FAILED] cannot create .freelang");
+    }
+    if (mkdir_if_missing(base) != 0)
+        return fl_str_val("[DB_PATH_CREATE_FAILED] cannot create FL_DB_DIR");
+
+    char path[512];
+    int written = snprintf(path, sizeof(path), "%s/%s.db", base, name);
+    if (written < 0 || (size_t)written >= sizeof(path))
+        return fl_str_val("[DB_PATH_INVALID] resolved database path is too long");
+    return fxb_sqlite_open(fl_str_val(path));
+}
 
 static FLSQLiteConn* sq_find(const char* id) {
     for (int i = 0; i < sq_count; i++)

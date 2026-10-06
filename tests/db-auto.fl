@@ -1,0 +1,9 @@
+;; Native DB auto-attach contract
+(define db1 (db "smoke"))
+(define db2 (db "smoke"))
+
+(println (str "same-handle=" (= db1 db2)))
+(println (str "create=" (db-exec db1 "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)" [])))
+(println (str "insert=" (db-exec db1 "INSERT OR REPLACE INTO users (id, name) VALUES (?, ?)" (list 1 "Kim"))))
+(println (str "rows=" (db-query db2 "SELECT id, name FROM users WHERE id = ?" (list 1))))
+(println (str "name=" (get (first (db-query db2 "SELECT name FROM users WHERE id = ?" (list 1))) "name")))

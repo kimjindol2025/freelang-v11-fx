@@ -1,0 +1,4 @@
+;; Native DB auto-attach edge contract
+(println (str "bad-name=" (db "../escape")))
+(println (str "bad-space=" (db "has space")))
+(println (str "good-name=" (nil? (db "safe_name"))))

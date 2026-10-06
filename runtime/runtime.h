@@ -504,6 +504,8 @@ FLValue fl_vec_rest(FLValue vec);
 
 /* ── SQLite (sqlite.c — libsqlite3 직접 링크) ── */
 FLValue fxb_sqlite_open(FLValue path);
+/* 프로젝트 로컬 네이티브 DB 자동 연결: (db "name") */
+FLValue db(FLValue name);
 FLValue fxb_sqlite_query(FLValue conn, FLValue sql);
 FLValue fxb_sqlite_exec(FLValue conn, FLValue sql);
 FLValue fxb_sqlite_one(FLValue conn, FLValue sql);

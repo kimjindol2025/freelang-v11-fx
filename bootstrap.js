@@ -3341,6 +3341,7 @@ var init_builtin_effects = __esm({
       ["file-delete", tagged("io")],
       ["file-append-line", tagged("io")],
       ["file-exists", tagged("io")],
+      ["db", tagged("io")],
       ["db-exec", tagged("io")],
       ["db-query", tagged("io")],
       ["db-transaction", tagged("io")],
@@ -16355,7 +16356,7 @@ loop().catch(() => { Atomics.store(control, 0, -2); Atomics.notify(control, 0); 
     // Note: helpers are inlined per-case to avoid switch-jump TDZ issues.
     // (capability-list) → ["tcp" "file" "http" "db" "process" ...]
     case "capability-list": {
-      if (!globalThis.__flCapRegistry) globalThis.__flCapRegistry = { tcp: { enabled: true, builtins: ["tcp-server-start", "tcp-server-stop", "tcp-send", "tcp-server-running?", "fl-event-tick", "fl-event-drain", "fl-event-queue-size", "fl-error-drain", "fl-error-queue-size"] }, file: { enabled: true, builtins: ["file-read", "file-write", "file-append", "file-append-line", "file-exists?", "file-delete", "file-mkdir", "dir-list", "dir-exists?"] }, http: { enabled: true, builtins: ["http-get", "server-start", "server-html", "server-json", "server-status", "server-redirect", "server-file", "server-html-cookie", "server-set-cookie"] }, db: { enabled: true, builtins: ["db-query", "db-exec", "db-transaction"] }, process: { enabled: true, builtins: ["fl-env-get", "sleep", "now-ms", "uuid"] } };
+      if (!globalThis.__flCapRegistry) globalThis.__flCapRegistry = { tcp: { enabled: true, builtins: ["tcp-server-start", "tcp-server-stop", "tcp-send", "tcp-server-running?", "fl-event-tick", "fl-event-drain", "fl-event-queue-size", "fl-error-drain", "fl-error-queue-size"] }, file: { enabled: true, builtins: ["file-read", "file-write", "file-append", "file-append-line", "file-exists?", "file-delete", "file-mkdir", "dir-list", "dir-exists?"] }, http: { enabled: true, builtins: ["http-get", "server-start", "server-html", "server-json", "server-status", "server-redirect", "server-file", "server-html-cookie", "server-set-cookie"] }, db: { enabled: true, builtins: ["db", "db-query", "db-exec", "db-transaction"] }, process: { enabled: true, builtins: ["fl-env-get", "sleep", "now-ms", "uuid"] } };
       return Object.keys(globalThis.__flCapRegistry);
     }
     // (capability-enabled? name) → true | false
@@ -32033,6 +32034,24 @@ function createMariadbModule(callFn) {
     throw new Error("db-transaction: fn \uC778\uC790\uAC00 \uD638\uCD9C \uAC00\uB2A5\uD55C \uD568\uC218\uAC00 \uC544\uB2D9\uB2C8\uB2E4");
   }
   return {
+    // (db "name") → 프로젝트 로컬 SQLite 설정. 원격 연결은 지원하지 않음.
+    "db": (name) => {
+      const value = String(name ?? "");
+      if (!/^[A-Za-z0-9_-]{1,96}$/.test(value)) {
+        return "[DB_NAME_INVALID] db name must be 1-96 ASCII letters, digits, '_' or '-'";
+      }
+      const fs = require("fs");
+      const path = require("path");
+      const base = process.env.FL_DB_DIR || ".freelang/db";
+      if (path.isAbsolute(base) || base.split(path.sep).includes("..")) {
+        return "[DB_PATH_INVALID] FL_DB_DIR must be a local relative path";
+      }
+      fs.mkdirSync(base, { recursive: true, mode: 0o700 });
+      const config = new Map();
+      config.set("type", "sqlite");
+      config.set("path", path.join(base, `${value}.db`));
+      return config;
+    },
     // ── CLI 방식 (기존) — pool_* prefix → pool 자동 라우팅 ──────────────────
     "mariadb_exec": (db, sql, params = []) => {
       if (typeof db === "string" && db.startsWith("pool_")) {
