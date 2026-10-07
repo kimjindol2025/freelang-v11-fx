@@ -42468,7 +42468,7 @@ function collectDefns(ast) {
             i++;
             continue;
           }
-          if (pname.startsWith("...") || pname.startsWith("rest")) variadic = true;
+          if (pname === "&" || pname.startsWith("...") || pname.startsWith("rest")) variadic = true;
           params.push({ name: pname, type: "any" });
         }
         i++;
