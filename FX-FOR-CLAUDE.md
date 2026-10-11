@@ -44,12 +44,13 @@ node bootstrap.js run /tmp/h.fl     # 또는: bash fl-repl.sh (대화형)
 
 ## 반드시 지킬 규칙 5개
 
-1. **⭐ `defn` 본문은 단일 표현식.** 여러 줄 나열하면 첫 줄만 실행되고 **나머지가 조용히 사라진다**(에러도 없음). 다중 로직은 `(do ...)`로 감싸라.
+1. **`defn` 본문.** 현대 cgc는 다중 표현식을 순서대로 실행한다 (`cgc-defn-stmts`).  
+   `trap-defn-do`는 **RESOLVED** — 회귀 `bash tests/traps/run-trap-defn-do.sh`.  
+   구버전 cgc·불확실하면 `(do ...)`로 감싼다.
    ```lisp
-   (defn f [] (println "1") (println "2"))      ;; ❌ "1"만
-   (defn f [] (do (println "1") (println "2"))) ;; ✅
+   (defn f [] (println "1") (println "2"))      ;; 현대 cgc: 둘 다 실행
+   (defn f [] (do (println "1") (println "2"))) ;; 안전한 명시형
    ```
-   함수 중간 로직이 안 도는 것 같으면 **빌트인 의심 전에 `do`부터 확인.**
 
 2. **이 노드(/root)는 `.fl-build-root.sh`.** `fl-build.sh`는 다른 노드(`/home/kimjin`)용이라 여기선 cgc-bin을 못 찾는다.
 

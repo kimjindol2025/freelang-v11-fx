@@ -13,129 +13,35 @@
 ;; ============================================================
 
 @meta
-  version: 2.1
+  version: 2.2
   created: 2026-06-16
-  updated: 2026-06-26
+  updated: 2026-10-11
   source_of_truth: true
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction, verification_status]
-  trap_count: 27
+  trap_count: 7
+  resolved_count: 16
+  relocated_count: 5
   verified_count: 3
-  unverified_count: 24
+  unverified_count: 7
   unverified_stdlib: verified-stdlib.md
-  maturation_phase: phase1_partial (3/27 verified)
-  next_phases: [phase1b=comprehensive-v11-audit, phase2=cgc-isolated-test, phase3=stdlib-fixes, phase4=cgc-http-remap]
-  last_verification: 2026-06-26 by claude
+  maturation_phase: phase1 (16 resolved, 5 relocated, 7 active runtime)
+  reclass_phase0: 2026-10-11
+  reclass_doc: docs/decisions/FX-TRAPS-RECLASS-PHASE0.md
+  ops_checklist: docs/FX-OPS-CHECKLIST.md
+  dialect_placement: docs/decisions/SIX-ITEMS-BY-DIALECT.md
+  next_phases: [phase0-reverify-claimed, phase1-compiler-open-one-by-one]
+  last_verification: 2026-10-11 trap-extern-flvalue-defn RESOLVED; fixpoint SHA 63411319…
   verification_method: direct-execution + reproduction
+  note: active trap_count excludes @archive; see reclass_doc
 
 ;; ─────────────────────── TRAPS ───────────────────────
 ;; 우선순위 최상위. "이렇게 하면 조용히 깨진다"의 목록.
 
-@trap
-  id: trap-defn-do
-  type: trap
-  claimed: defn 본문은 Clojure식 implicit-do (다중 표현식 순차 실행)
-  observed: cgc는 본문을 단일 표현식으로 컴파일 — 첫 줄만 실행되고 나머지는 침묵 소멸 (exit 0, 에러 없음)
-  v11_status: ❌ UNVERIFIED (2026-06-26 실행 검증: implicit-do 정상 작동, 모든 표현식 실행됨)
-  cgc_status: ⚠️ CLAIMED (미검증 — cgc 빌드 환경 실패로 직접 재현 불가)
-  risk: 함수 중간 로직이 통째로 누락. 빌트인 버그로 오인하기 쉬움
-  rule: defn 본문에 표현식이 둘 이상이면 반드시 (do ...) 또는 let 본문으로 감싼다
-  safe_pattern: (defn f [] (do (a) (b) (c)))
-  lint_detectable: true
-  verification_status: cgc-only (v11에서는 거짓)
+;; trap-defn-do → @archive (2026-10-11). Active list starts below.
 
-@trap
-  id: trap-count-type
-  type: trap
-  claimed: count 는 fx 빌트인이라 native 호출된다
-  observed: 설치본 cgc 가 count 를 모름 → fl_fn_call(count) 생성 → C 함수 타입 불일치로 gcc 에러
-  cgc_status: ⚠️ CLAIMED (cgc 빌드 환경 실패로 미검증)
-  risk: 빌드 실패. map 은 fl_map_fn 으로 정상이라 더 헷갈림
-  rule: 길이는 SQL COUNT 또는 length 로. count 직접 사용 금지(설치본 cgc 기준)
-  safe_pattern: (get (sqlite_one db "SELECT COUNT(*) AS c FROM t") "c")
-  lint_detectable: true
-  verification_status: unverified-cgc
-
-@trap
-  id: trap-kebab-symbol
-  type: trap
-  claimed: server-get / json-stringify 등 kebab-case 가 fx 에서도 동작한다 (v11 습관)
-  observed: fx 는 underscore. kebab 심볼은 파서/코드젠에서 미정의 처리 또는 라우트 fn 인라인 거부
-  risk: 컴파일 오류 또는 미정의 이름. v11 코드 복붙 시 빈번
-  rule: fx API 는 underscore (server_get) + 핸들러는 문자열 이름. 인라인 fn 핸들러 금지
-  safe_pattern: (server_get "/" "handle-index")
-  lint_detectable: true
-
-@trap
-  id: trap-str-includes-int
-  type: trap
-  claimed: str_includes 는 boolean 을 반환한다
-  observed: str_includes 는 C int (0/1) 를 반환한다
-  risk: (if (str_includes ...)) 가 타입/진리값 불일치로 오작동
-  rule: if 에 직접 쓰지 말고 명시적으로 1 과 비교한다
-  safe_pattern: (if (= (str_includes x y) 1) ...)
-  lint_detectable: true
-
-@trap
-  id: trap-throw-invalid-initializer
-  type: trap
-  claimed: throw 는 정상 제어 흐름으로 컴파일된다
-  observed: throw 가 invalid C initializer 를 생성할 수 있다 (코드젠 깨짐)
-  risk: 빌드 실패 또는 정의되지 않은 동작
-  rule: throw 대신 nil/false 반환으로 오류 신호. (lock-no-throw 참조)
-  safe_pattern: (if 오류조건 nil 정상값)
-  lint_detectable: true
-
-@trap
-  id: trap-free-locale
-  type: trap
-  claimed: free 명령 출력은 고정 포맷이라 파싱 가능하다
-  observed: free 출력은 locale 에 의존한다 (헤더/단위가 환경마다 다름)
-  risk: 메모리 수치 파싱이 노드/locale 따라 깨짐
-  rule: free 출력 파싱 금지. /proc/meminfo 를 직접 읽는다 (MemTotal/MemAvailable)
-  safe_pattern: awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{print (1-a/t)*100}' /proc/meminfo
-  lint_detectable: false
-
-@trap
-  id: trap-runtime-header
-  type: trap
-  claimed: shell_run 같은 빌트인이 환경에 없다 (조사 시 안 보임)
-  observed: shell_run/future/sleep_ms 는 aliases.c 에 실재 — process.c 만 보고 결론낸 조사범위 한계였음
-  risk: 있는 기능을 "없다"로 단정 → 불필요한 우회 설계. (실제 2026-06-15 사례)
-  rule: 빌트인 부재를 단정하기 전 aliases.c(897줄) 전수 확인. 새 runtime 함수 추가 시 체크리스트 강제(lock-runtime-checklist)
-  safe_pattern: grep -rn 'FLValue <name>' runtime/*.c  ;; 결론 전 전수 확인
-  lint_detectable: false
-
-@trap
-  id: trap-extern-flvalue-defn
-  type: trap
-  claimed: sqlite_* / server_req_body 를 defn 내부에서 직접 호출하면 native call 된다
-  observed: 이들은 extern FLValue. 설치본 cgc 는 fl_fn_call 로 생성 → 함수 포인터 타입 불일치
-  risk: 빌드 실패. 신 cgc 노드는 fxb_ native, 구 cgc 노드(이 aarch64)는 shim 필요 = 노드별 분기
-  rule: 신 cgc 노드는 fxb_sqlite_* 직접. 구 cgc 노드는 sqlite_* + fx-builtin-shim.c. 어느 노드인지 먼저 확인
-  safe_pattern: (sqlite_query_p db "..." (list $id))  ;; + 빌드에 fx-builtin-shim.c
-  lint_detectable: false
-
-@trap
-  id: trap-server-json-string
-  type: trap
-  claimed: server_json 에 맵/벡터를 직접 줄 수 있다 (v11 습관)
-  observed: server_json 은 이미 직렬화된 문자열만 받는다. 맵 직접 전달 시 Content-Length 0 빈 응답
-  risk: 조용한 빈 응답 (false-200)
-  rule: 반드시 json_stringify 로 감싼다
-  safe_pattern: (server_json (json_stringify {"ok" true}))
-  lint_detectable: true
-
-@trap
-  id: trap-server-html-quote
-  type: trap
-  claimed: server_html 문자열 안에 \" 더블쿼트를 자유롭게 쓸 수 있다
-  observed: FL 문자열 파서가 HTML 안의 " 를 문자열 끝으로 인식 → 파싱 깨짐
-  risk: 컴파일/파싱 오류
-  rule: HTML 속성은 single-quote, JS 는 백틱/single-quote. FL 문자열 안엔 " 를 두지 않는다
-  safe_pattern: (server_html "<div onclick='f(p.id)'>...")
-  lint_detectable: true
+;; trap-extern-flvalue-defn → @archive (2026-10-11)
 
 @trap
   id: trap-lambda-capture
@@ -156,38 +62,6 @@
   rule: 문자열 변환 후 비교 또는 nil 체크
   safe_pattern: (if (or (nil? $cnt) (= (str $cnt) "0")) ...)
   lint_detectable: false
-
-@trap
-  id: trap-replace-all-rename
-  type: trap
-  claimed: replace_all 로 테이블명/문자열만 치환된다
-  observed: 함수명도 함께 치환됨 (plans → fx_plans 시 defn plans-all 오염)
-  risk: 함수명 오염으로 미정의 호출
-  rule: 치환 후 grep 으로 함수명 오염 확인. 패턴을 구체적으로 지정
-  safe_pattern: grep -n "defn fx_" *.fl  ;; 치환 후 확인
-  lint_detectable: false
-
-@trap
-  id: trap-string-literal-1024
-  type: trap
-  claimed: 임의 길이 문자열 리터럴을 한 토큰으로 쓸 수 있다
-  observed: 단일 문자열 리터럴 >1024B → cgc tmpfile() 폴백 → PRoot 에서 'cannot write temp file'
-  risk: 빌드 실패. 큰 HTML/JS 블록에서 발생
-  rule: 큰 문자열은 (str "조각1" "조각2" ...) 로 분할 (각 조각 <1024B)
-  safe_pattern: (server_html (str "<html>...\n" "...\n" "..."))
-  lint_detectable: true
-
-@trap
-  id: trap-cgc-stale-node
-  type: trap
-  claimed: 함정의 원인이 언어 설계 결함이다
-  observed: 대부분 이 aarch64 노드의 cgc-bin 이 구버전이라 발생 (소스 cgc-main.fl 엔 수리 존재) = 전파 지연
-  risk: 언어 탓으로 결론내고 우회 설계. 실제론 컴파일러 날짜 문제
-  rule: 함정을 언어 탓 하기 전 cgc-bin 날짜 + cgc-main.fl 소스 대조. runtime/*.c 는 노드에서 즉시 컴파일되니 런타임 레벨은 바로 고침
-  safe_pattern: ls -la /root/freelang-v11/bin/cgc-bin  ;; 날짜 먼저 확인
-  lint_detectable: false
-
-;; ─────────── TRAPS 추가 (2026-06-20 성숙화 실측) ───────────
 
 @trap
   id: trap-set-interval-swallow
@@ -212,50 +86,6 @@
   lint_detectable: false
 
 @trap
-  id: trap-try-map-literal
-  type: trap
-  claimed: try 본문에 맵 리터럴 {..} 을 직접 쓸 수 있다
-  observed: v11 파서가 try 본문 위치에서 LBrace 를 예상치 못해 E_PARSE_UNEXPECTED_TOKEN 발생
-  risk: try 안에서 맵 반환 패턴(ok/error 래핑) 전체 사용 불가
-  rule: try 본문에 {..} 직접 금지. (hash-map "k" v) 또는 변수를 앞에서 바인딩 후 사용
-  safe_pattern: (try (hash-map "ok" true "val" (fn-to-call)) (catch err (hash-map "ok" false "err" err)))
-  reproduction: 2026-06-20 실측 — (try {:ok true} (catch err ...)) → 파싱 오류
-  lint_detectable: true
-
-@trap
-  id: trap-nested-defn-skip
-  type: trap
-  claimed: defn 내부에 defn 을 중첩하면 로컬 함수처럼 동작한다
-  observed: cgc 가 "/* defn inside expr — skip */fl_nil()" 을 생성. 외부 defn 이 nil 반환
-  risk: retry, recursive helper 같은 중첩 함수 패턴 전체 silent-fail
-  rule: 모든 defn 은 최상위 레벨에 정의. 내부 함수가 필요하면 prefix 로 구분
-  safe_pattern: (defn retry-inner [attempt] ...) (defn retry [fn opts] (retry-inner 1))
-  reproduction: 2026-06-20 실측 — cgc 생성 C 코드에서 확인
-  lint_detectable: true
-
-@trap
-  id: trap-inc-dec-missing
-  type: trap
-  claimed: inc / dec 는 FreeLang 기본 빌트인이다 (Clojure 스타일)
-  observed: v11 인터프리터와 cgc 양쪽에서 'inc' 함수 없음 오류 발생
-  risk: queue/stack 구현, 카운터 증감 로직 전체가 런타임 오류
-  rule: (inc x) → (+ x 1) 로, (dec x) → (- x 1) 로 모두 대체
-  safe_pattern: (defn inc [n] (+ n 1))  ;; 또는 (+ $cnt 1) 직접 사용
-  reproduction: 2026-06-20 실측 — queue.fl 로드 시 [queue-push] [inc] 없음 오류
-  lint_detectable: true
-
-@trap
-  id: trap-cache-cgc-missing
-  type: trap
-  claimed: cache-create / cache-set / cache-get 등은 cgc 에서도 동작한다
-  observed: 이 함수들은 v11 인터프리터 전용 빌트인. cgc 런타임(runtime.h/aliases.c)에 없음 → 링크 실패 또는 fl_fn_call 타입 오류
-  risk: cache.fl 전체가 cgc 에서 dead code
-  rule: cgc 앱에서 캐시가 필요하면 SQLite 기반 또는 맵+atom 직접 구현
-  safe_pattern: (define *cache* (atom {})) (defn cache-get! [k] (get (deref *cache*) k))
-  reproduction: 2026-06-20 실측 — cgc 빌드 시 fl_fn_call(cache_create,...) 링크 오류
-  lint_detectable: false
-
-@trap
   id: trap-http-get-cgc-mapping
   type: trap
   claimed: (http_get url) 는 cgc 에서 {status body headers} 맵을 반환한다
@@ -265,17 +95,6 @@
   safe_pattern: (define $body (http_get "http://..."))  ;; string 반환, nil 체크 후 사용
   reproduction: 2026-06-20 실측 — cgc 생성 C에 fl_http_get 호출 확인, (get result "status") → nil
   lint_detectable: false
-
-@trap
-  id: trap-parallel-run-missing
-  type: trap
-  claimed: (parallel-run [fn1 fn2]) 로 병렬 실행이 가능하다 (stdlib/parallel.fl)
-  observed: parallel.fl 내부가 run-parallel 빌트인을 래핑하는데, run-parallel 자체가 존재하지 않음
-  risk: parallel.fl 전체 dead code. 로드는 성공하지만 호출 즉시 런타임 오류
-  rule: parallel.fl 사용 금지. 진짜 병렬 실행이 필요하면 shell_run 다중 호출 또는 다른 패턴
-  safe_pattern: ;; 현재 fx 에서 진짜 병렬 실행 방법 없음 — 순차 처리 또는 백그라운드 shell_run
-  reproduction: 2026-06-20 실측 — [run-parallel] 'run-parallel' 함수 없음 오류
-  lint_detectable: true
 
 @trap
   id: trap-atom-deref-gc
@@ -304,42 +123,6 @@
   scope: v11-interpreter-only
   verification_status: partial-v11 (throw 재실행 O, retry 함수 미지원)
 
-@trap
-  id: trap-defn-docstring-cgc
-  type: trap
-  claimed: defn 본문에 문서 목적 docstring을 첫 번째 표현식으로 넣어도 실제 구현이 실행된다
-  observed: old cgc-bin(cgc-bin.bak)은 defn 내 첫 번째 문자열 리터럴을 함수 본문으로 컴파일. 두 번째 이후 표현식(실제 구현)은 무시됨. 결과: 함수가 docstring 문자열을 반환하며 아무 동작도 안 함
-  risk: 모든 함수가 무출력 무동작. 증상=함수 호출 후 아무 출력 없음. 에러 메시지 없음
-  rule: cgc 대상 코드에서 defn 내 docstring 완전 제거. 주석(//)으로 대체
-  lint_detectable: true
-  reproduction: 2026-06-21 실측 — debug-tools.fl 7개 함수 전부 docstring을 body로 취급. inspect/assert 등 전부 docstring 반환하며 무동작 확인
-  scope: cgc-only  ;; v11은 docstring 이후 표현식도 실행
-
-@trap
-  id: trap-v11-hof-closure-bug
-  type: trap
-  claimed: v11에서 고차함수(HOF)의 function 파라미터를 클로저로 캡처하면 중첩 호출에서도 올바르게 사용할 수 있다
-  observed: v11에서 defn A가 function 파라미터 body-fn을 받아 호출하고, body-fn 내부에서 다시 A를 같은 방식으로 호출할 때 inner A의 body-fn 파라미터가 클로저에서 누락됨. "Function not found: body-fn" 오류 또는 global atom이 심볼명 문자열로 반환됨
-  v11_status: ❌ UNVERIFIED (2026-06-26 직접 실행 검증: recursive-hof depth=2에서 callback 정상 호출, 파라미터 소실 없음)
-  cgc_status: ⚠️ CLAIMED (cgc는 top-level defn 방식으로 미검증)
-  risk: debug-trace 패턴(재귀적 HOF 호출) v11에서 전면 불가. 인덱스 함수 파라미터가 무작위로 소실됨
-  rule: v11에서 재귀적 HOF 패턴(body-fn을 받아 같은 함수를 다시 호출하는) 사용 금지. 대안: 인라인 (fn [] ...) 람다 사용(단일 레벨), 또는 global atom 대신 파라미터로 상태 전달
-  lint_detectable: false
-  reproduction: 2026-06-21 claimed (직접 재현 미완료) — debug-trace/use-atom 패턴: 3단계 중첩 시 inner body-fn="Function not found", global atom deref → 심볼명 문자열 반환 (미검증)
-  scope: unverified-v11  ;; 재현 불가능, cgc는 top-level defn 방식으로 미검증
-  verification_status: false (v11에서 재현 불가)
-
-;; ─────────────────────── LOCKS ───────────────────────
-;; 금지/필수 규칙. trap 보다 강하게, "하지 마라/반드시 하라".
-
-@lock
-  id: lock-no-throw
-  type: lock
-  forbid: (throw ...)
-  reason: trap-throw-invalid-initializer — invalid C initializer 생성 위험
-  instead: nil/false 반환으로 오류 신호
-  lint_detectable: true
-
 @lock
   id: lock-no-free-memory
   type: lock
@@ -356,13 +139,9 @@
   rule: 새 runtime 빌트인 추가 시 위 5개 파일 모두 갱신했는지 확인
   lint_detectable: false
 
-@lock
-  id: lock-str-includes
-  type: lock
-  forbid: (if (str_includes ...))
-  reason: trap-str-includes-int — C int 반환을 진리값으로 직접 쓰면 오작동
-  instead: (if (= (str_includes x y) 1) ...)
-  lint_detectable: true
+;; lock-str-includes retired 2026-10-11 — trap-str-includes-int RESOLVED
+;; str_includes returns boolean true/false; (if (str_includes …)) is OK.
+;; Do NOT compare to 1 anymore.
 
 ;; ─────────────────────── FACTS ───────────────────────
 ;; 참조 사실 (함정도 규칙도 아니나 handoff 에 필요).
@@ -380,3 +159,271 @@
   statement: 이 명세의 출처는 CLAUDE.md 산문 함정 + 2026-06-14~16 실측 회고(#1076·1077·1081·1082·1107)
   consequence: v2 에서 CLAUDE.md 잔여 함정 + 신규 발견 흡수 예정
   source: fl-cycle handoff
+
+
+;; ─────────────────────── RELOCATED_TO_OPS ───────────────────────
+;; Not language traps. Full text + checkboxes live in docs/FX-OPS-CHECKLIST.md
+;; Keep these stubs so next AI can grep old trap ids and find the new home.
+
+@relocated
+  id: trap-free-locale
+  type: relocated
+  moved: 2026-10-11
+  former_type: trap
+  reason: DOCS_PROCESS — not FX language semantic
+  summary: free locale parsing → /proc/meminfo
+  moved_to: docs/FX-OPS-CHECKLIST.md#ops-free-locale
+  find: grep -n "trap-free-locale" docs/FX-OPS-CHECKLIST.md FX-TRAPS.airc
+
+@relocated
+  id: trap-runtime-header
+  type: relocated
+  moved: 2026-10-11
+  former_type: trap
+  reason: DOCS_PROCESS — not FX language semantic
+  summary: builtin absence before aliases.c scan
+  moved_to: docs/FX-OPS-CHECKLIST.md#ops-runtime-header
+  find: grep -n "trap-runtime-header" docs/FX-OPS-CHECKLIST.md FX-TRAPS.airc
+
+@relocated
+  id: trap-replace-all-rename
+  type: relocated
+  moved: 2026-10-11
+  former_type: trap
+  reason: DOCS_PROCESS — not FX language semantic
+  summary: bulk rename pollutes defn names
+  moved_to: docs/FX-OPS-CHECKLIST.md#ops-replace-all-rename
+  find: grep -n "trap-replace-all-rename" docs/FX-OPS-CHECKLIST.md FX-TRAPS.airc
+
+@relocated
+  id: trap-cgc-stale-node
+  type: relocated
+  moved: 2026-10-11
+  former_type: trap
+  reason: DOCS_PROCESS — not FX language semantic
+  summary: stale cgc-bin vs source
+  moved_to: docs/FX-OPS-CHECKLIST.md#ops-cgc-stale-node
+  find: grep -n "trap-cgc-stale-node" docs/FX-OPS-CHECKLIST.md FX-TRAPS.airc
+
+@relocated
+  id: trap-v11-hof-closure-bug
+  type: relocated
+  moved: 2026-10-11
+  former_type: trap
+  reason: DOCS_PROCESS — not FX language semantic
+  summary: v11 interpreter HOF scope — not FX
+  moved_to: docs/FX-OPS-CHECKLIST.md#ops-v11-hof-scope
+  find: grep -n "trap-v11-hof-closure-bug" docs/FX-OPS-CHECKLIST.md FX-TRAPS.airc
+
+;; ─────────────────────── ARCHIVE ───────────────────────
+;; Resolved traps kept for history. Not counted in trap_count.
+
+@archive
+  id: trap-defn-do
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  claimed: defn 본문은 Clojure식 implicit-do (다중 표현식 순차 실행)
+  observed_old: cgc는 본문을 단일 표현식으로 컴파일 — 첫 줄만 실행되고 나머지는 침묵 소멸
+  observed_now: cgc-defn-stmts 가 중간 식을 (void)(expr); 로, 마지막을 return 으로 생성. 다중 본문 전부 실행
+  resolution: modern cgc sequences multi-body defn without requiring (do)
+  regression: tests/traps/trap-defn-do.fl
+  regression_command: bash tests/traps/run-trap-defn-do.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-count-type
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: count returns length; builds and runs
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-kebab-symbol
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: kebab user defn names callable (hello-world)
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-str-includes-int
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: str_includes returns boolean true/false (no longer C int 0/1)
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-throw-invalid-initializer
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: throw/catch builds and runs
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-server-html-quote
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: FL string may contain HTML double-quotes
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-string-literal-1024
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: 1100B string literal builds (len=1100)
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-try-map-literal
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: map literal inside try works
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-inc-dec-missing
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: inc/dec builtins work
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-cache-cgc-missing
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: fx-std/cache.fl atom cache works
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-defn-docstring-cgc
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  resolution: leading docstring string then body returns last value 42
+  regression: tests/traps/reverify-claimed.fl
+  regression_command: bash tests/traps/run-reverify-claimed.sh
+  verification_status: resolved
+  lint_detectable: false
+
+@archive
+  id: trap-server-json-string
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  claimed: server_json accepts map/vector directly (v11 habit)
+  observed_old: map direct → Content-Length 0 empty body (false-200)
+  observed_now: runtime/http.c server_json auto-stringifies non-string; map and vector return JSON bodies
+  resolution: HTTP smoke /map /str /vec all 200 with non-empty JSON
+  regression: tests/traps/trap-server-json-string.fl
+  regression_command: bash tests/traps/run-trap-server-json-string.sh
+  verification_status: resolved
+  lint_detectable: false
+  fixpoint_at_resolve: PASS gen-a==gen-b==gen-c SHA bd5c0818… ; native stage2==stage3 same SHA
+
+@archive
+  id: trap-nested-defn-skip
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  phase: 1
+  claimed: nested defn works like a local function
+  observed_old: cgc emitted /* defn inside expr — skip */fl_nil() or inlined #line+body inside outer (void)(…)
+  observed_mid: P1-8 hoist existed but __fl_wrap_inner preceded undeclared inner → gcc int() conflict
+  resolution: hoist forward decls via cgc-hoisted-fwds-atom before wrappers; restore outer-params-atom after nested
+  regression: tests/traps/trap-nested-defn-skip.fl
+  regression_command: bash tests/traps/run-trap-nested-defn-skip.sh
+  verification_status: resolved
+  fixpoint_sha_before: bd5c08189640c5a6bb6df3c3b386c2d2a6c7dc98ad06dc228641f0090eaa785b
+  fixpoint_sha_after: 53542e964200ee34fe840a6949e8af62f4c3afd085a5966621e0e0e16e359db4
+  fixpoint_verify: SELF_HOST_FIXED_POINT=PASS ; STAGE2_EQ_STAGE3=PASS
+
+@archive
+  id: trap-parallel-run-missing
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  phase: 1
+  claimed: (parallel-run …) / stdlib parallel works
+  observed_old: parallel.fl wrapped missing run-parallel builtin → runtime error
+  observed_now: runtime fl_run_parallel exists; cgc maps run-parallel; fx-std/parallel.fl reimplemented with future
+  resolution: confirm + regression (no cgc-main.fl change this cycle)
+  regression: tests/traps/trap-parallel-run-missing.fl
+  regression_command: bash tests/traps/run-trap-parallel-run-missing.sh
+  verification_status: resolved
+  fixpoint_sha: 53542e964200ee34fe840a6949e8af62f4c3afd085a5966621e0e0e16e359db4
+  fixpoint_note: SHA unchanged (compiler source not modified this trap)
+  cgc_bin_upgrade: deferred — upgrade after app smoke, not in this step
+
+@archive
+  id: trap-user-define-runtime-symbol
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  phase: 1
+  claimed: user (define db …) builds without clashing runtime
+  observed_old: static FLValue db vs FLValue db(FLValue) → gcc fail
+  resolution: A안 — C symbol db → fl_rt_db; cgc maps op "db" → fl_rt_db(...); no app renames; no #define db
+  regression: tests/traps/trap-user-define-runtime-symbol.fl
+  regression_command: bash tests/traps/run-trap-user-define-runtime-symbol.sh
+  verification_status: resolved
+  fixpoint_sha_before: 53542e964200ee34fe840a6949e8af62f4c3afd085a5966621e0e0e16e359db4
+  fixpoint_sha_after: f9b43b1cdbef58bdcf4af7c6f53978f5abdd68b47ea7ac55d05e556895f5bda8
+  smoke_before: compile_pass=3/10
+  smoke_after: compile_pass=9/10 (fx-short still FAIL — unrelated)
+  cgc_bin_upgrade: done 2026-10-11 → SHA f9b43b1c… (then again after extern trap)
+
+@archive
+  id: trap-extern-flvalue-defn
+  type: archive
+  resolved: 2026-10-11
+  former_type: trap
+  phase: 1
+  claimed: sqlite_* / server_req_body inside defn compile as native calls
+  observed_old: cgc emitted sqlite_query(...) / server_req_body(...) but runtime.h declares those names as extern FLValue shim closures → gcc "not a function"
+  observed_now: cgc maps short names → fxb_sqlite_* / fxb_server_req_body; fxb_* still work; shim kept for legacy fl_fn_call
+  resolution: A안 — explicit cgc op mappings (same pattern as db → fl_rt_db); no app renames
+  regression: tests/traps/trap-extern-flvalue-defn.fl
+  regression_command: bash tests/traps/run-trap-extern-flvalue-defn.sh
+  verification_status: resolved
+  fixpoint_sha_before: f9b43b1cdbef58bdcf4af7c6f53978f5abdd68b47ea7ac55d05e556895f5bda8
+  fixpoint_sha_after: 634113190b96cc289776bc435b27b53c071e74fad1af59828a39850db8176aac
+  smoke_after: compile_pass=9/10 (fx-short FAIL unchanged)
+  cgc_bin_upgrade: done 2026-10-11 bak-20261011-234448
+

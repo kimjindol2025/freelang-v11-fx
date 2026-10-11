@@ -1,0 +1,114 @@
+;; Phase 0 — re-verify RESOLVED_CLAIMED traps (one binary, labeled lines).
+;; Runner greps for FAIL. Each check prints: PASS <id>  or  FAIL <id> <detail>
+;;
+;; Covered:
+;;   trap-count-type
+;;   trap-kebab-symbol
+;;   trap-str-includes-int
+;;   trap-throw-invalid-initializer
+;;   trap-server-html-quote
+;;   trap-string-literal-1024
+;;   trap-try-map-literal
+;;   trap-inc-dec-missing
+;;   trap-cache-cgc-missing  (via load fx-std/cache.fl)
+;;   trap-defn-docstring-cgc
+
+(load "../../fx-std/cache.fl")
+
+;; --- trap-count-type: (count coll) must build and return length ---
+(defn check-count []
+  (let [[$n (count [1 2 3 4])]]
+    (if (= $n 4)
+      (println "PASS trap-count-type")
+      (println (str "FAIL trap-count-type got=" $n)))))
+
+;; --- trap-kebab-symbol: user kebab defn name callable ---
+(defn hello-world []
+  7)
+
+(defn check-kebab []
+  (let [[$v (hello-world)]]
+    (if (= $v 7)
+      (println "PASS trap-kebab-symbol")
+      (println (str "FAIL trap-kebab-symbol got=" $v)))))
+
+;; --- trap-str-includes-int: usable in if (truthy) and (= … 1) ---
+(defn check-str-includes []
+  ;; Modern cgc returns boolean true/false (old trap: C int 0/1).
+  (let [[$raw (str_includes "abcdef" "cd")]
+        [$miss (str_includes "abcdef" "zz")]
+        [$ok (and $raw (not $miss) (if $raw true false))]]
+    (if $ok
+      (println "PASS trap-str-includes-int")
+      (println (str "FAIL trap-str-includes-int raw=" $raw " miss=" $miss)))))
+
+;; --- trap-throw-invalid-initializer: throw/catch builds and runs ---
+(defn check-throw []
+  (let [[$r (try
+              (do (throw "boom") "nope")
+              (catch $e "caught"))]]
+    (if (= $r "caught")
+      (println "PASS trap-throw-invalid-initializer")
+      (println (str "FAIL trap-throw-invalid-initializer got=" $r)))))
+
+;; --- trap-server-html-quote: FL string with HTML double-quotes ---
+(defn check-html-quote []
+  (let [[$s "<div class=\"x\" id=\"y\">ok</div>"]]
+    (if (str_includes $s "class=")
+      (println "PASS trap-server-html-quote")
+      (println "FAIL trap-server-html-quote"))))
+
+;; --- trap-string-literal-1024: >1024B literal builds ---
+(defn check-long-string []
+  (let [[$s "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"]
+        [$n (str-length $s)]]
+    (if (> $n 1024)
+      (println (str "PASS trap-string-literal-1024 len=" $n))
+      (println (str "FAIL trap-string-literal-1024 len=" $n)))))
+
+;; --- trap-try-map-literal: map literal inside try ---
+(defn check-try-map []
+  (let [[$r (try
+              {"ok" true "v" 1}
+              (catch $e {"ok" false}))]]
+    (if (get $r "ok")
+      (println "PASS trap-try-map-literal")
+      (println "FAIL trap-try-map-literal"))))
+
+;; --- trap-inc-dec-missing ---
+(defn check-inc-dec []
+  (if (and (= (inc 41) 42) (= (dec 43) 42))
+    (println "PASS trap-inc-dec-missing")
+    (println (str "FAIL trap-inc-dec-missing inc=" (inc 41) " dec=" (dec 43)))))
+
+;; --- trap-cache-cgc-missing: fx-std atom cache ---
+(defn check-cache []
+  (let [[$ch (make-cache 10)]]
+    (cache-set! $ch "k" 99)
+    (let [[$v (cache-get! $ch "k")]]
+      (if (= $v 99)
+        (println "PASS trap-cache-cgc-missing")
+        (println (str "FAIL trap-cache-cgc-missing got=" $v))))))
+
+;; --- trap-defn-docstring-cgc: leading string then real body ---
+(defn with-doc []
+  "this is a docstring"
+  42)
+
+(defn check-docstring []
+  (let [[$v (with-doc)]]
+    (if (= $v 42)
+      (println "PASS trap-defn-docstring-cgc")
+      (println (str "FAIL trap-defn-docstring-cgc got=" $v)))))
+
+;; --- run all ---
+(check-count)
+(check-kebab)
+(check-str-includes)
+(check-throw)
+(check-html-quote)
+(check-long-string)
+(check-try-map)
+(check-inc-dec)
+(check-cache)
+(check-docstring)

@@ -62,8 +62,10 @@ static int mkdir_if_missing(const char* path) {
     return -1;
 }
 
-/* (db "name") → fxb_sqlite_open(<base>/<name>.db) */
-FLValue db(FLValue name_v) {
+/* (db "name") → fxb_sqlite_open(<base>/<name>.db)
+ * C symbol is fl_rt_db (not bare db) so user `(define db …)` can compile.
+ * cgc maps FL op "db" → fl_rt_db(...). runtime.h may #define db fl_rt_db for C callers. */
+FLValue fl_rt_db(FLValue name_v) {
     const char* name = (name_v.tag == FL_STRING)
         ? ((FLString*)name_v.obj)->data : NULL;
     if (!db_name_valid(name))

@@ -6,6 +6,9 @@ AFJ Language와 같은 언어가 아니며, 공통 S-expression 뿌리만 공유
 - **언어/빌드 입문**: `FX-FOR-CLAUDE.md` · **API 레퍼런스**: `CLAUDE.md` · **함정 명세**: `FX-TRAPS.airc`
 - **FX3 언어 프로젝트**: `/home/kim/kim/platform/freelang-fx3` — 준비만 된 새 언어. 이 저장소의 런타임은 가져가지 않는다.
 - **다음 세대 방향 기록**: [`docs/decisions/FX3-DIRECTION.md`](docs/decisions/FX3-DIRECTION.md), [`docs/decisions/COMPACT-FX-V0.md`](docs/decisions/COMPACT-FX-V0.md)
+- **6항 × 언어별 배치 (LOCKED)**: [`docs/decisions/SIX-ITEMS-BY-DIALECT.md`](docs/decisions/SIX-ITEMS-BY-DIALECT.md)
+- **FX 함정 Phase 0 재분류**: [`docs/decisions/FX-TRAPS-RECLASS-PHASE0.md`](docs/decisions/FX-TRAPS-RECLASS-PHASE0.md)
+- **FX 운영 체크리스트** (옛 DOCS_PROCESS 함정): [`docs/FX-OPS-CHECKLIST.md`](docs/FX-OPS-CHECKLIST.md)
 - **빌드**: `bash fl-build.sh <app>/server.fl <out>` (이 노드 aarch64: `.fl-build-root.sh`)
 - **문서**: `docs/{status,decisions,reports,architecture}/`
 

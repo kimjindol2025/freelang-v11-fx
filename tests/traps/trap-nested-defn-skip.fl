@@ -1,0 +1,10 @@
+;; Regression: trap-nested-defn-skip (Phase 1)
+;; Nested defn must hoist to top-level C and remain callable.
+;; Expected stdout: 42
+
+(defn outer [$n]
+  (defn inner [$x]
+    (+ $x 1))
+  (inner $n))
+
+(println (outer 41))

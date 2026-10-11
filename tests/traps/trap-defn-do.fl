@@ -1,0 +1,17 @@
+;; Regression: trap-defn-do
+;; Multi-expression defn body WITHOUT (do …) must run every form;
+;; the last form is the return value.
+;; Expected stdout (exact, three lines):
+;; step-a
+;; step-b
+;; 42
+;;
+;; Old trap claimed only the first form ran (silent drop). Modern cgc
+;; (cgc-defn-stmts) sequences middle forms and returns the last.
+
+(defn multi-body []
+  (println "step-a")
+  (println "step-b")
+  42)
+
+(println (multi-body))

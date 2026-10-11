@@ -1,0 +1,26 @@
+;; Smoke: trap-server-json-string
+;; Compare map-direct vs json_stringify paths on a live HTTP server.
+;; Port from env TRAP_SERVER_JSON_PORT (default 18091).
+
+(defn handle-map-direct [$req]
+  ;; Old trap: empty body / Content-Length 0. Modern runtime auto-stringifies.
+  (server_json {"ok" true "via" "map-direct"}))
+
+(defn handle-stringify [$req]
+  (server_json (json_stringify {"ok" true "via" "stringify"})))
+
+(defn handle-vector [$req]
+  (server_json [1 2 3]))
+
+(server_get "/map" "handle-map-direct")
+(server_get "/str" "handle-stringify")
+(server_get "/vec" "handle-vector")
+
+(define $env-port (env_get "TRAP_SERVER_JSON_PORT"))
+(define PORT
+  (if (null? $env-port)
+    18091
+    (str-to-num $env-port)))
+
+(println (str "TRAP_SERVER_JSON_SMOKE listening " PORT))
+(server_start PORT)

@@ -55,3 +55,7 @@
 - 배열형 loop 회귀: PASS
 - 라벨형 loop: 현재 FX AST 구조 범위 밖
 - `cgc-bin` 교체: 없음
+| 2026-10-11 | phase1-nested-defn | 53542e964200ee34 | 53542e964200ee34 | 53542e964200ee34 | ✅ 완전 · trap-nested-defn-skip |
+| 2026-10-11 | phase1-parallel-run | 53542e964200ee34 | 53542e964200ee34 | 53542e964200ee34 | ✅ 동일 SHA · trap-parallel-run-missing (runtime/fx-std 확인, cgc 미변경) |
+| 2026-10-11 | phase1-db-name-clash | f9b43b1cdbef58bd | f9b43b1cdbef58bd | f9b43b1cdbef58bd | ✅ trap-user-define-runtime-symbol (fl_rt_db) |
+| 2026-10-11 | phase1-extern-flvalue | 634113190b96cc28 | 634113190b96cc28 | 634113190b96cc28 | ✅ trap-extern-flvalue-defn (sqlite_*/server_req_body → fxb_*) |

@@ -7,7 +7,10 @@
 #   2. 문자열 닫힘
 #   3. $ 파라미터 패턴 (Clojure 스타일 감지)
 #   4. 빈 defn/let 감지
-#   5. FX-TRAPS 탐지 (kebab/count/str-includes/throw/server-json/html-quote/string-1024/defn-do)
+#   5. FX-TRAPS / dialect 탐지 (active traps + FX naming card)
+#      archived 2026-10-11: defn-do, count-type, str-includes-int, throw-invalid,
+#      server-html-quote, string-literal-1024, try-map, inc-dec, cache, docstring
+#      2026-10-12: [dialect-marker] 방언 표지 없음 → 경고만 (거부 금지). docs/FX-NAME-CARD.md
 
 PASS=0
 FAIL=0
@@ -18,10 +21,16 @@ check_file() {
   local warnings=()
   local depth=0 bracket=0 in_str=0 escape=0
   local lineno=0 str_start=0
+  local has_dialect_marker=0
 
   while IFS= read -r line || [ -n "$line" ]; do
     lineno=$((lineno + 1))
     local i=0
+
+    # 방언 표지: ;; dialect: fx  (경고만, errors에 넣지 않음 — docs/FX-NAME-CARD.md)
+    if echo "$line" | grep -qiP '^\s*;;\s*dialect\s*:\s*fx\b'; then
+      has_dialect_marker=1
+    fi
 
     # 줄 단위 검사
     # ─ [W1] def 대신 define 써야 함
@@ -43,49 +52,13 @@ check_file() {
     # 원칙: lint 는 경고만 한다. 수정하지 않는다. (정책=FX-TRAPS / 탐지=lint / 수정=runtime)
     # 각 경고는 FX-TRAPS.airc 의 trap/lock id 를 출처로 단다.
 
-    # [trap-kebab-symbol] kebab API 호출 — fx 는 underscore
+    # [dialect-fx-api] AFJ-style kebab API — FX naming card (SIX-ITEMS-BY-DIALECT)
     if echo "$line" | grep -qP '\((server|json|res|http|sqlite|mariadb)-[a-z]'; then
-      warnings+=("  줄 $lineno [trap-kebab-symbol] kebab API — fx 는 underscore: $(echo "$line" | grep -oP '\((server|json|res|http|sqlite|mariadb)-[a-z!_?-]+' | head -1)")
+      warnings+=("  줄 $lineno [dialect-fx-api] FX API는 underscore: $(echo "$line" | grep -oP '\((server|json|res|http|sqlite|mariadb)-[a-z!_?-]+' | head -1)")
     fi
 
-    # [trap-count-type] count 직접 사용 — 설치본 cgc 미지원(fl_fn_call 타입에러)
-    if echo "$line" | grep -qP '\(count\s'; then
-      warnings+=("  줄 $lineno [trap-count-type] (count ...) — SQL COUNT 또는 length 로 (설치본 cgc 미지원)")
-    fi
+    # trap-server-json-string archived 2026-10-11 — runtime auto-stringifies map/vector
 
-    # [lock-str-includes / trap-str-includes-int] if 에 str_includes 직접
-    if echo "$line" | grep -qP '\(if\s+\(str[_-]includes'; then
-      warnings+=("  줄 $lineno [lock-str-includes] (if (str_includes ..)) 금지 — (= (str_includes x y) 1)")
-    fi
-
-    # [lock-no-throw / trap-throw-invalid-initializer]
-    if echo "$line" | grep -qP '\(throw\s'; then
-      warnings+=("  줄 $lineno [lock-no-throw] (throw ...) 금지 — nil/false 반환으로 (invalid C initializer 위험)")
-    fi
-
-    # [trap-server-json-string] server_json 에 맵/벡터 직접 전달
-    if echo "$line" | grep -qP '\(server_json\s+[\{\[]'; then
-      warnings+=("  줄 $lineno [trap-server-json-string] server_json 은 문자열만 — json_stringify 로 감싸기 (false-200)")
-    fi
-
-    # [trap-server-html-quote] server_html 줄에 이스케이프된 더블쿼트
-    if echo "$line" | grep -qP 'server_html' && echo "$line" | grep -qP '\\"'; then
-      warnings+=("  줄 $lineno [trap-server-html-quote] server_html 안 \\\" — HTML 속성은 single-quote 로")
-    fi
-
-    # [trap-string-literal-1024] 단일 문자열 리터럴 >1024B → tmpfile PRoot 실패
-    if echo "$line" | grep -qP '"[^"]{1024,}"'; then
-      warnings+=("  줄 $lineno [trap-string-literal-1024] 문자열 리터럴 >1024B — (str \"조각\" \"조각\") 로 분할")
-    fi
-
-    # [trap-defn-do] 한 줄 defn 본문 다중표현식(do/let 없이) — 보수적 휴리스틱(멀티라인은 v2)
-    if echo "$line" | grep -qP '\(defn\s+\S+\s+\[[^\]]*\]\s*\(' \
-       && ! echo "$line" | grep -qP '\(defn\s+\S+\s+\[[^\]]*\]\s*\((do|let|if|when|cond|case|try|->|->>)[\s)]'; then
-      body="${line#*]}"
-      if echo "$body" | grep -qP '\)\s*\('; then
-        warnings+=("  줄 $lineno [trap-defn-do] defn 본문이 다중표현식으로 보임 — (do ...) 로 감싸세요 (첫 줄만 실행 위험)")
-      fi
-    fi
     # 주의: trap-runtime-header / lock-runtime-checklist 는 단일 .fl 범위 밖
     #       (runtime 함수 추가 시 5파일 동기화) → 빌드/커밋 훅 영역, lint 비대상.
 
@@ -122,6 +95,11 @@ check_file() {
   [ $depth -ne 0 ] && errors+=("  EOF [E1] 괄호 미닫힘: 깊이 $depth")
   [ $bracket -ne 0 ] && errors+=("  EOF [E2] 브라켓 미닫힘: 깊이 $bracket")
   [ $in_str -ne 0 ] && errors+=("  EOF [E3] 문자열 미닫힘 (줄 $str_start 에서 시작)")
+
+  # [dialect-marker] 표지 없음 → 경고만 (errors 금지 — 빌드 거부 아님). docs/FX-NAME-CARD.md
+  if [ "$has_dialect_marker" -eq 0 ]; then
+    warnings+=("  줄 1 [dialect-marker] 방언 표지 없음 — 파일 상단에 \`;; dialect: fx\` 권장 (docs/FX-NAME-CARD.md)")
+  fi
 
   # 결과 출력
   local fname

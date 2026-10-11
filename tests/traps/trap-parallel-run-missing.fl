@@ -1,0 +1,24 @@
+;; Regression: trap-parallel-run-missing (Phase 1)
+;; Old trap: parallel.fl wrapped missing run-parallel → runtime error.
+;; Now: runtime fl_run_parallel + fx-std/parallel.fl (future-based) work.
+;;
+;; Expected stdout (exact):
+;; run-parallel=2
+;; parallel-run=3
+;; parallel-map=60
+
+(load "/home/kim/kim/platform/freelang-v11-fx/fx-std/parallel.fl")
+
+;; 1) Builtin run-parallel
+(define $a (atom 0))
+(run-parallel (list (fn [] (swap! $a + 1)) (fn [] (swap! $a + 1))) 0)
+(println (str "run-parallel=" @$a))
+
+;; 2) fx-std parallel-run (side effects)
+(define $b (atom 0))
+(parallel-run (list (fn [] (swap! $b + 1)) (fn [] (swap! $b + 1)) (fn [] (swap! $b + 1))))
+(println (str "parallel-run=" @$b))
+
+;; 3) fx-std parallel-map (values)
+(define $r (parallel-map (list (fn [] 10) (fn [] 20) (fn [] 30))))
+(println (str "parallel-map=" (+ (nth $r 0) (+ (nth $r 1) (nth $r 2)))))

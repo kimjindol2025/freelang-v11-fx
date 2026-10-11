@@ -1,0 +1,21 @@
+;; Regression: trap-extern-flvalue-defn
+;; Short names sqlite_* / server_req_body inside defn must compile to fxb_*
+;; (not call FLValue shim symbols as functions).
+;; Expected stdout after fix: ok-42
+
+(defn get-body [req]
+  (server_req_body req))
+
+(defn do-query [conn sql]
+  (sqlite_query conn sql))
+
+(defn do-exec [conn sql]
+  (sqlite_exec conn sql))
+
+(define conn (sqlite_open "/tmp/fx-trap-extern-flvalue.db"))
+(do-exec conn "CREATE TABLE IF NOT EXISTS t(x INTEGER)")
+(do-exec conn "DELETE FROM t")
+(do-exec conn "INSERT INTO t VALUES (42)")
+(define rows (do-query conn "SELECT x FROM t"))
+(println (str "ok-" (get (first rows) "x")))
+(sqlite_close conn)

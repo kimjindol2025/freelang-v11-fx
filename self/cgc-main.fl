@@ -729,6 +729,8 @@
 ;; P1-8: nested defn hoisting
 (define cgc-defn-depth-atom (atom 0))
 (define cgc-hoisted-fns-atom (atom ""))
+;; Forward decls for hoisted nested defns (must appear before __fl_wrap_* ).
+(define cgc-hoisted-fwds-atom (atom ""))
 
 ;; ── 유틸 ──
 
@@ -1334,8 +1336,28 @@
   [(= $op "json-pretty")  (str "json_pretty(" (cgc (get $args 0)) ")")]
   [(= $op "file-exists?") (str "file_exists_p(" (cgc (get $args 0)) ")")]
   ;; Native DB auto-attach — explicit compiler mapping (not fallback C call)
-  [(= $op "db")             (str "db(" (cgc (get $args 0)) ")")]
+  [(= $op "db")             (str "fl_rt_db(" (cgc (get $args 0)) ")")]
   [(= $op "db-transaction") (str "db_transaction(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  ;; trap-extern-flvalue-defn: short names collide with FLValue shim symbols.
+  ;; Map to fxb_* native functions (same pattern as db → fl_rt_db).
+  [(= $op "sqlite_open")      (str "fxb_sqlite_open(" (cgc (get $args 0)) ")")]
+  [(= $op "sqlite-open")      (str "fxb_sqlite_open(" (cgc (get $args 0)) ")")]
+  [(= $op "sqlite_query")     (str "fxb_sqlite_query(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "sqlite-query")     (str "fxb_sqlite_query(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "sqlite_exec")      (str "fxb_sqlite_exec(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "sqlite-exec")      (str "fxb_sqlite_exec(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "sqlite_one")       (str "fxb_sqlite_one(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "sqlite-one")       (str "fxb_sqlite_one(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "sqlite_query_p")   (str "fxb_sqlite_query_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "sqlite-query-p")   (str "fxb_sqlite_query_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "sqlite_exec_p")    (str "fxb_sqlite_exec_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "sqlite-exec-p")    (str "fxb_sqlite_exec_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "sqlite_one_p")     (str "fxb_sqlite_one_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "sqlite-one-p")     (str "fxb_sqlite_one_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "sqlite_close")     (str "fxb_sqlite_close(" (cgc (get $args 0)) ")")]
+  [(= $op "sqlite-close")     (str "fxb_sqlite_close(" (cgc (get $args 0)) ")")]
+  [(= $op "server_req_body")  (str "fxb_server_req_body(" (cgc (get $args 0)) ")")]
+  [(= $op "server-req-body")  (str "fxb_server_req_body(" (cgc (get $args 0)) ")")]
   [true             (cgc-dispatch-fallback $op $args)]))
 
 (defn cgc-swap! [$args]
@@ -2012,7 +2034,9 @@
 
 (defn cgc-defn [$args]
   ;; P1-8: nested defn 추적 시작
-  (let [[$is-nested (> @cgc-defn-depth-atom 0)]]
+  ;; Save outer param env so body after nested defn still sees outer params.
+  (let [[$is-nested (> @cgc-defn-depth-atom 0)]
+        [$saved-outer @outer-params-atom]]
     (swap! cgc-defn-depth-atom + 1)
     (let [[$name (c-name (cgc-extract-name (get $args 0)))]
           [$param-items (get-block-items (get $args 1))]
@@ -2047,14 +2071,21 @@
                "    fl_push_frame_ln(\"" $name "\", __LINE__);\n"
                $stmts "}")))]]
         (let [[$result-str (if $is-nested
-          ;; nested: hoisted-fns에 저장, nil 반환
+          ;; nested: forward decl (before wrappers) + hoist body; expr = nil
           (do
+            (swap! known-defns-atom append $name)
+            (swap! defn-arity-atom assoc $name (length $param-items))
+            (swap! cgc-hoisted-fwds-atom (fn [$acc]
+              (str $acc
+                   "FLValue " $name "(" $ps ");\n"
+                   "static FLValue __fl_wrap_" $name "(FLClosure*, int, FLValue*);\n")))
             (swap! cgc-hoisted-fns-atom (fn [$acc] (str $acc $func-def "\n\n")))
             "fl_nil()")
           ;; top-level: 그냥 반환
           $func-def)]]
-        ;; P1-8: nested defn 추적 종료
+        ;; P1-8: nested defn 추적 종료 + outer param env 복원
         (swap! cgc-defn-depth-atom - 1)
+        (reset! outer-params-atom $saved-outer)
         $result-str))))))
 
 
@@ -2196,29 +2227,36 @@
   (cgc-join-lambda-loop @global-decls-atom 0 ""))
 
 (defn generate-c [$nodes]
-  (let [[$fwd (cgc-forward-decls $nodes)]
-        [$parts (cgc-top-level $nodes 0 "" "")]
-        [$fns (get $parts :fns)]
-        [$stmts (get $parts :stmts)]
-        [$gdecls (cgc-join-globals)]
-        [$lfwd (cgc-lambda-fwds)]
-        [$ldefs (cgc-join-lambdas)]
-        [$wdefs (cgc-join-wrappers)]]
-  (str
-    "#include \"runtime.h\"\n"
-    "#pragma GCC diagnostic ignored \"-Wunused-function\"\n"
-    "#pragma GCC diagnostic ignored \"-Wunused-parameter\"\n\n"
-    $fwd
-    $gdecls "\n"
-    $lfwd "\n"
-    $ldefs
-    $wdefs "\n"
-    $fns
-    "int main(int argc, char** argv) {\n"
-    "    fl_init_argv(argc, argv);\n"
-    $stmts
-    "    return 0;\n"
-    "}\n")))
+  ;; Reset hoist state each compilation (cgc-bin is usually one-shot, but keep clean).
+  (do
+    (reset! cgc-defn-depth-atom 0)
+    (reset! cgc-hoisted-fns-atom "")
+    (reset! cgc-hoisted-fwds-atom "")
+    (let [[$fwd (cgc-forward-decls $nodes)]
+          [$parts (cgc-top-level $nodes 0 "" "")]
+          [$fns (get $parts :fns)]
+          [$stmts (get $parts :stmts)]
+          [$gdecls (cgc-join-globals)]
+          [$lfwd (cgc-lambda-fwds)]
+          [$ldefs (cgc-join-lambdas)]
+          [$wdefs (cgc-join-wrappers)]
+          [$hfwd @cgc-hoisted-fwds-atom]]
+      (str
+        "#include \"runtime.h\"\n"
+        "#pragma GCC diagnostic ignored \"-Wunused-function\"\n"
+        "#pragma GCC diagnostic ignored \"-Wunused-parameter\"\n\n"
+        $fwd
+        $hfwd
+        $gdecls "\n"
+        $lfwd "\n"
+        $ldefs
+        $wdefs "\n"
+        $fns
+        "int main(int argc, char** argv) {\n"
+        "    fl_init_argv(argc, argv);\n"
+        $stmts
+        "    return 0;\n"
+        "}\n"))))
 
 ;; ── S13: set! / loop / recur ──
 

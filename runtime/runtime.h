@@ -505,7 +505,10 @@ FLValue fl_vec_rest(FLValue vec);
 /* ── SQLite (sqlite.c — libsqlite3 직접 링크) ── */
 FLValue fxb_sqlite_open(FLValue path);
 /* 프로젝트 로컬 네이티브 DB 자동 연결: (db "name") */
-FLValue db(FLValue name);
+/* Formerly bare `db` — renamed to avoid clash with user `(define db …)` (trap-user-define-runtime-symbol).
+ * Do NOT #define db → fl_rt_db: that would rewrite user `static FLValue db`.
+ * FL call (db …) is mapped by cgc to fl_rt_db(...). */
+FLValue fl_rt_db(FLValue name);
 FLValue db_query(FLValue conn, FLValue sql, FLValue params);
 FLValue db_exec(FLValue conn, FLValue sql, FLValue params);
 FLValue db_transaction(FLValue conn, FLValue statements);

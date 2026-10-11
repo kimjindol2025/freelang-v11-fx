@@ -152,15 +152,17 @@ cgc-bin이 해당 키를 자유변수로 분류해 클로저 env에 추가한다
 **규칙**: `reduce` 상태 맵의 키는 lambda 내 변수명과 절대 겹치지 않게 짓는다.
 예: `"acc"` → `"xacc"/"istr"`, `"id"` → `"xid"/"iid"`.
 
-### 3. server_json은 JSON 문자열만 받음
+### 3. server_json — 맵/벡터 자동 stringify (`trap-server-json-string` RESOLVED)
 
 ```lisp
-;; ❌ 직접 맵 전달 → Content-Length: 0 (빈 응답)
+;; ✅ 현대 runtime: 맵/벡터 직접 OK (http.c 자동 stringify)
 (server_json {"ok" true "data" $rows})
 
-;; ✅ json_stringify 필수
+;; ✅ 명시 stringify도 OK
 (server_json (json_stringify {"ok" true "data" $rows}))
 ```
+
+회귀: `bash tests/traps/run-trap-server-json-string.sh`
 
 ### 4. WS 핸들러 시그니처 — 1인자, 내부 recv 루프
 
@@ -238,7 +240,8 @@ cgc-bin이 해당 키를 자유변수로 분류해 클로저 env에 추가한다
 ### 응답
 
 ```lisp
-;; JSON 응답 — json_stringify 필수!
+;; JSON 응답 — 맵 직접 또는 json_stringify
+(server_json {"ok" true "data" $rows})
 (server_json (json_stringify {"ok" true "data" $rows}))
 
 ;; HTML 응답
@@ -256,8 +259,8 @@ cgc-bin이 해당 키를 자유변수로 분류해 클로저 env에 추가한다
 (server_text "Hello World")
 ```
 
-> **⚠️ 함정**: `server_json`은 이미 직렬화된 문자열을 받음.  
-> v11처럼 `(server-json {"key" "val"})` 불가 → `(server_json (json_stringify {...}))` 필수.
+> **참고**: `server_json`은 문자열·맵·벡터를 받음 (맵/벡터는 자동 stringify).  
+> AFJ식 `(server-json …)` kebab은 FX에서 쓰지 않는다 → `server_json`.
 
 ---
 
@@ -470,25 +473,18 @@ bash ./fl-build.sh server.fl my-app && pm2 reload my-app
 
 ## ⚠️ 함정 목록 (실제 삽질로 발견)
 
-### 0. ⭐ `defn` 본문은 **단일 표현식** — 다중은 `do`/`let`로 감싸라
+### 0. `defn` 본문 (`trap-defn-do` RESOLVED)
 
-cgc-bin은 함수 본문을 단일 표현식으로 컴파일한다. 본문에 표현식을 여러 개
-나열하면 **첫 번째만 실행되고 나머지는 조용히 무시**된다 (Clojure식 implicit-do 아님).
+현대 cgc는 다중 표현식을 순서 실행한다 (`cgc-defn-stmts`).  
+회귀: `bash tests/traps/run-trap-defn-do.sh` → `step-a` / `step-b` / `42`.
 
 ```lisp
-;; ❌ "1"만 출력. "2" "3"은 사라짐 — 에러도 없이!
+;; 현대 cgc: 1 2 3 모두 실행
 (defn f [] (println "1") (println "2") (println "3"))
 
-;; ✅ do 로 감싸기
+;; 안전한 명시형 (구버전·불확실할 때)
 (defn f [] (do (println "1") (println "2") (println "3")))
-
-;; ✅ let 본문은 다중 표현식 OK (비대칭 주의)
-(defn f [] (let [[$x 1]] (println "1") (println "2") (println "3")))
 ```
-
-**증상**: 함수 중간 로직이 통째로 실행 안 됨. 디버깅하면 마치 그 줄에서
-프로그램이 죽은 것처럼 보이지만(exit 0), 실제로는 컴파일이 그 줄을 버린 것.
-fx 빌트인(`http_get` 등)을 의심하기 전에 **본문이 `do`로 감싸였는지 먼저 확인**.
 
 ---
 

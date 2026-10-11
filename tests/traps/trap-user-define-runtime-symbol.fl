@@ -1,0 +1,8 @@
+;; Regression: trap-user-define-runtime-symbol
+;; User (define db …) must not clash with runtime C symbol db().
+;; Expected stdout after fix: ok
+;;
+;; Before fix: gcc error — ‘db’ redeclared as different kind of symbol
+
+(define db 1)
+(println (str "ok-" db))
