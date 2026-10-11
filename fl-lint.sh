@@ -11,6 +11,8 @@
 #      archived 2026-10-11: defn-do, count-type, str-includes-int, throw-invalid,
 #      server-html-quote, string-literal-1024, try-map, inc-dec, cache, docstring
 #      2026-10-12: [dialect-marker] 방언 표지 없음 → 경고만 (거부 금지). docs/FX-NAME-CARD.md
+#      2026-10-12: [effect-anno] @in/@out/@effect 형식이 틀렸을 때만 경고 (부재는 무시).
+#                  docs/FX-BUILTIN-EFFECTS.airc
 
 PASS=0
 FAIL=0
@@ -55,6 +57,14 @@ check_file() {
     # [dialect-fx-api] AFJ-style kebab API — FX naming card (SIX-ITEMS-BY-DIALECT)
     if echo "$line" | grep -qP '\((server|json|res|http|sqlite|mariadb)-[a-z]'; then
       warnings+=("  줄 $lineno [dialect-fx-api] FX API는 underscore: $(echo "$line" | grep -oP '\((server|json|res|http|sqlite|mariadb)-[a-z!_?-]+' | head -1)")
+    fi
+
+    # [effect-anno] 주석을 썼는데 형식이 틀릴 때만 경고. 주석 없음 → 경고 없음.
+    # 규약: ;; @in … @out … @effect pure|io|net|db|process
+    if echo "$line" | grep -qP '^\s*;;.*@(in|out|effect)\b'; then
+      if ! echo "$line" | grep -qP '^\s*;;\s*@in\s+\S.*\s+@out\s+\S.*\s+@effect\s+(pure|io|net|db|process)\s*$'; then
+        warnings+=("  줄 $lineno [effect-anno] 형식: ;; @in … @out … @effect pure|io|net|db|process (docs/FX-BUILTIN-EFFECTS.airc)")
+      fi
     fi
 
     # trap-server-json-string archived 2026-10-11 — runtime auto-stringifies map/vector

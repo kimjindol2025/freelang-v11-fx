@@ -80,7 +80,7 @@ FX에서 C층(Result 강제, effect 문법 필수, 기본 core-only)은
    - **2항 이름 카드 — Phase 0 완료** → [`../FX-NAME-CARD.md`](../FX-NAME-CARD.md) · `fl-lint` `[dialect-marker]`  
    - **6항 번들 지도 — Phase 0 완료** → [`../FX-BUNDLE-MAP.md`](../FX-BUNDLE-MAP.md)  
    - **3항 Result 관례 — Phase 0 완료** → [`../FX-RESULT-CONVENTION.md`](../FX-RESULT-CONVENTION.md) (실패→nil은 실측분만)  
-   - 4항 효과 주석 — 대기
+   - **4항 효과 주석 — Phase 0 완료** → [`../FX-BUILTIN-EFFECTS.airc`](../FX-BUILTIN-EFFECTS.airc) · lint `[effect-anno]`(형식만)
 3. AFJ — Result·effect 계약 초안 (강제 실험 착수 조건 정리) · **AFJ 쪽은 따로**
 4. Script — 오류 스키마·capability 묶음을 공통 스키마에 맞출지 별도 안건
 
@@ -95,8 +95,10 @@ FX에서 C층(Result 강제, effect 문법 필수, 기본 core-only)은
 | **2항 FX 이름 카드 (FX Phase 0)** | **완료** — [`../FX-NAME-CARD.md`](../FX-NAME-CARD.md) |
 | **6항 번들 지도 (FX Phase 0)** | **완료** — [`../FX-BUNDLE-MAP.md`](../FX-BUNDLE-MAP.md) (`--bundle`=Phase 1) |
 | **3항 Result 관례 (FX Phase 0)** | **완료** — [`../FX-RESULT-CONVENTION.md`](../FX-RESULT-CONVENTION.md) |
+| **4항 효과 주석 (FX Phase 0)** | **완료** — [`../FX-BUILTIN-EFFECTS.airc`](../FX-BUILTIN-EFFECTS.airc) (20 builtins) |
 | AFJ Result 강제 | NOT_STARTED |
 | 전 계열 오류 스키마 | FX 문서 Phase 0 완료; AFJ/Script 구현은 따로 |
+| **FX Phase 0 6항 문서·lint** | **5/5 완료** (2026-10-12) |
 
 ## 6. 변경 규칙
 

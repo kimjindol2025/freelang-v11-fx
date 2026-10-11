@@ -1,0 +1,232 @@
+;; ============================================================
+;; FX-BUILTIN-EFFECTS.airc — Phase 0 빌트인 효과표 (20개)
+;; 기록일: 2026-10-12
+;; 상위: decisions/SIX-ITEMS-BY-DIALECT.md 4항
+;; 강제: 없음 (lint는 주석 형식만; 주석 부재는 경고 없음)
+;; ============================================================
+;;
+;; 함수 칸 주석 규약 (한 줄):
+;;   ;; @in <받는것> @out <돌리는것> @effect pure|io|net|db|process
+;;
+;; 예:
+;;   ;; @in path:string @out string|nil @effect io
+;;   ;; @in sql:string @out vector|string @effect db
+;;
+;; effect 토큰:
+;;   pure    — 외부 세계 안 건드림 (산술·순수 변환). throw 가능해도 IO 없으면 pure.
+;;   io      — 파일·콘솔 등 로컬 IO
+;;   net     — HTTP/WS/SSE/SMTP 등 네트워크
+;;   db      — SQLite/MariaDB/(db …)
+;;   process — env·프로세스·병렬 실행 등
+;;
+;; 원칙: claimed ≠ observed. 효과는 구현·실측 근거. 불확실하면 evidence: unverified
+
+@meta
+  version: 1.0
+  created: 2026-10-12
+  updated: 2026-10-12
+  phase: 0
+  builtin_count: 20
+  annotation_required: false
+  lint_rule: effect-anno (malformed only)
+  note: AFJ effect 강제 실험은 AFJ 쪽은 따로
+
+@builtin
+  id: fl_add
+  fl_names: [+, add]
+  c_symbol: fl_add
+  file: runtime/core.c
+  @in: a:number b:number
+  @out: number
+  @effect: pure
+  evidence: arithmetic only
+
+@builtin
+  id: fl_println
+  fl_names: [println]
+  c_symbol: fl_println
+  file: runtime/core.c
+  @in: v:any
+  @out: nil
+  @effect: io
+  evidence: writes stdout
+
+@builtin
+  id: fl_file_read
+  fl_names: [file-read]
+  c_symbol: fl_file_read
+  file: runtime/core.c
+  @in: path:string
+  @out: string|nil
+  @effect: io
+  evidence: fopen; missing path → nil (2026-10-12 probe)
+
+@builtin
+  id: fl_file_write
+  fl_names: [file-write]
+  c_symbol: fl_file_write
+  file: runtime/core.c
+  @in: path:string content:string
+  @out: nil|…
+  @effect: io
+  evidence: fopen write path
+
+@builtin
+  id: json_parse
+  fl_names: [json_parse, json-parse]
+  c_symbol: json_parse
+  file: runtime/json.c
+  @in: src:string
+  @out: any
+  @effect: pure
+  evidence: CPU parse; bad JSON throws (2026-10-12) — no file/net
+
+@builtin
+  id: json_stringify
+  fl_names: [json_stringify, json-stringify]
+  c_symbol: json_stringify
+  file: runtime/json.c
+  @in: val:any
+  @out: string
+  @effect: pure
+  evidence: CPU encode
+
+@builtin
+  id: server_get
+  fl_names: [server_get]
+  c_symbol: server_get
+  file: runtime/http.c
+  @in: path:string handler:string
+  @out: nil|…
+  @effect: net
+  evidence: registers HTTP route table
+
+@builtin
+  id: server_json
+  fl_names: [server_json]
+  c_symbol: server_json
+  file: runtime/http.c
+  @in: body:string|map|vector
+  @out: response
+  @effect: pure
+  evidence: builds response value; auto-stringify in http.c — no socket by itself
+
+@builtin
+  id: server_start
+  fl_names: [server_start]
+  c_symbol: server_start
+  file: runtime/http.c
+  @in: port:number
+  @out: …
+  @effect: net
+  evidence: listens socket
+
+@builtin
+  id: fxb_server_req_body
+  fl_names: [server_req_body, fxb_server_req_body]
+  c_symbol: fxb_server_req_body
+  file: runtime/http.c
+  @in: req
+  @out: string|nil
+  @effect: net
+  evidence: reads request body from HTTP context
+
+@builtin
+  id: http_get
+  fl_names: [http_get, http-get]
+  c_symbol: http_get
+  file: runtime/http_client.c
+  @in: url:string
+  @out: map{status,body,error?}
+  @effect: net
+  evidence: libcurl; connect fail → status 0 map (2026-10-12)
+
+@builtin
+  id: ws_send
+  fl_names: [ws_send]
+  c_symbol: ws_send
+  file: runtime/websocket.c
+  @in: ws msg
+  @out: …
+  @effect: net
+  evidence: websocket.c send frame
+
+@builtin
+  id: smtp_send
+  fl_names: [smtp_send]
+  c_symbol: smtp_send
+  file: runtime/smtp.c / aliases.c
+  @in: from to subject body
+  @out: bool
+  @effect: net
+  evidence: sendmail popen — classified net (mail egress); process overlap 확인 안 됨
+
+@builtin
+  id: fl_rt_db
+  fl_names: [db]
+  c_symbol: fl_rt_db
+  file: runtime/sqlite.c
+  @in: name:string
+  @out: handle|string
+  @effect: db
+  evidence: opens/reuses sqlite file; invalid name → error string (2026-10-12)
+
+@builtin
+  id: fxb_sqlite_query
+  fl_names: [sqlite_query, fxb_sqlite_query]
+  c_symbol: fxb_sqlite_query
+  file: runtime/sqlite.c
+  @in: conn sql
+  @out: vector|string
+  @effect: db
+  evidence: bad SQL → error string (2026-10-12)
+
+@builtin
+  id: fxb_sqlite_exec
+  fl_names: [sqlite_exec, fxb_sqlite_exec]
+  c_symbol: fxb_sqlite_exec
+  file: runtime/sqlite.c
+  @in: conn sql
+  @out: map|string|nil
+  @effect: db
+  evidence: sqlite exec path in sqlite.c
+
+@builtin
+  id: mariadb_query
+  fl_names: [mariadb_query]
+  c_symbol: mariadb_query
+  file: runtime/mariadb.c
+  @in: conn sql
+  @out: vector|string
+  @effect: db
+  evidence: mariadb.c query; connect fail returns string on this node (2026-10-12)
+
+@builtin
+  id: env_get
+  fl_names: [env_get, env-get]
+  c_symbol: env_get
+  file: runtime/aliases.c
+  @in: key:string
+  @out: string|nil
+  @effect: process
+  evidence: getenv; missing → nil (2026-10-12)
+
+@builtin
+  id: fl_run_parallel
+  fl_names: [run-parallel, parallel-run]
+  c_symbol: fl_run_parallel
+  file: runtime/aliases.c
+  @in: fn-list
+  @out: vector
+  @effect: process
+  evidence: spawns/joins futures — process/thread
+
+@builtin
+  id: regex_match
+  fl_names: [regex_match]
+  c_symbol: regex_match
+  file: runtime/regex.c
+  @in: pattern str
+  @out: bool
+  @effect: pure
+  evidence: no match → false not nil (2026-10-12)
