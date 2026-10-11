@@ -15,24 +15,24 @@
 @meta
   version: 2.2
   created: 2026-06-16
-  updated: 2026-10-11
+  updated: 2026-10-12
   source_of_truth: true
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction, verification_status]
-  trap_count: 7
-  resolved_count: 16
+  trap_count: 6
+  resolved_count: 17
   relocated_count: 5
   verified_count: 3
-  unverified_count: 7
+  unverified_count: 6
   unverified_stdlib: verified-stdlib.md
-  maturation_phase: phase1 (16 resolved, 5 relocated, 7 active runtime)
+  maturation_phase: phase1 (17 resolved, 5 relocated, 6 active runtime)
   reclass_phase0: 2026-10-11
   reclass_doc: docs/decisions/FX-TRAPS-RECLASS-PHASE0.md
   ops_checklist: docs/FX-OPS-CHECKLIST.md
   dialect_placement: docs/decisions/SIX-ITEMS-BY-DIALECT.md
   next_phases: [phase0-reverify-claimed, phase1-compiler-open-one-by-one]
-  last_verification: 2026-10-11 trap-extern-flvalue-defn RESOLVED; fixpoint SHA 63411319…
+  last_verification: 2026-10-12 trap-lambda-capture RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
   verification_method: direct-execution + reproduction
   note: active trap_count excludes @archive; see reclass_doc
 
@@ -42,16 +42,7 @@
 ;; trap-defn-do → @archive (2026-10-11). Active list starts below.
 
 ;; trap-extern-flvalue-defn → @archive (2026-10-11)
-
-@trap
-  id: trap-lambda-capture
-  type: trap
-  claimed: defn 파라미터를 람다 본문에서 그대로 참조할 수 있다
-  observed: defn 파라미터가 C 클로저 env 에 추가되지 않는 캡처 버그 (일부 cgc)
-  risk: 컴파일 에러(미등록 변수) 또는 잘못된 값
-  rule: 파라미터를 atom 에 저장 후 deref, 또는 fxb_ 패턴 회피. (BUG-04 로 cgc 수정 진행 중)
-  safe_pattern: (define $a (atom v)) ... (let [$m @$a] ...)
-  lint_detectable: false
+;; trap-lambda-capture → @archive (2026-10-12)
 
 @trap
   id: trap-mariadb-count-float
@@ -217,6 +208,20 @@
 
 ;; ─────────────────────── ARCHIVE ───────────────────────
 ;; Resolved traps kept for history. Not counted in trap_count.
+
+@archive
+  id: trap-lambda-capture
+  type: archive
+  resolved: 2026-10-12
+  former_type: trap
+  claimed: defn 파라미터를 람다 본문·중첩 defn에서 그대로 참조할 수 있다
+  observed_old: 중첩 defn 호출이 inner(\x02, …) 등으로 깨지거나 바깥 파라미터가 미등록
+  observed_now: nested free-vars → extra C params; /*CAP:name:…*/ in hoisted-fwds; fresh name copies before atom ops
+  resolution: cgc-defn env-stack + CAP marker call prepend; cgc-copy-names before atom mutation
+  regression: tests/traps/trap-lambda-capture.fl
+  regression_command: bash tests/traps/run-trap-lambda-capture.sh
+  verification_status: resolved
+  lint_detectable: false
 
 @archive
   id: trap-defn-do

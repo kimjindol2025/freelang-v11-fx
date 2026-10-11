@@ -1,0 +1,15 @@
+;; dialect: fx
+;; trap-lambda-capture: defn params captured by fn and by nested defn.
+(defn make-adder [$n]
+  (fn [$x] (+ $x $n)))
+(defn nest-add [$a]
+  (defn inner [$b]
+    (+ $a $b))
+  (inner 20))
+(defn nest-fn [$a]
+  (defn mid [$b]
+    (fn [$c] (+ $a $b $c)))
+  (mid 20))
+(println ((make-adder 5) 10))
+(println (nest-add 10))
+(println ((nest-fn 10) 3))

@@ -731,6 +731,8 @@
 (define cgc-hoisted-fns-atom (atom ""))
 ;; Forward decls for hoisted nested defns (must appear before __fl_wrap_* ).
 (define cgc-hoisted-fwds-atom (atom ""))
+;; Nested defn free-vars → extra C params. Caps registry: /*CAP:name:…*/ in hoisted-fwds.
+(define defn-env-stack-atom (atom []))
 
 ;; ── 유틸 ──
 
@@ -1411,14 +1413,20 @@
     [(= $op "rest")   (str "fl_vec_rest(" (cgc (get $args 0)) ")")]
     [true
      (let [[$cn (c-name $op)]
-           [$known-arity (get @defn-arity-atom $cn)]]
-       ;; W1: arity 불일치 경고
+           [$known-arity (get @defn-arity-atom $cn)]
+           [$cap-args (cgc-caps-lookup-fwd @cgc-hoisted-fwds-atom $cn)]]
+       ;; W1: arity 불일치 경고 (user arity only)
        (if (and (not (null? $known-arity)) (not (= (length $args) $known-arity)))
          (println (str "[FL Warn] arity: " $op " expects " $known-arity " args, got " (length $args)))
          nil)
        (if (includes-item @known-fncall-targets-atom $cn)
          (cgc-fncall $cn $args)
-         (str $cn "(" (cgc-args $args) ")")))]))
+         (let [[$user-args (cgc-args $args)]]
+           (if (or (null? $cap-args) (= $cap-args ""))
+             (str $cn "(" $user-args ")")
+             (if (or (null? $user-args) (= $user-args ""))
+               (str $cn "(" $cap-args ")")
+               (str $cn "(" $cap-args ", " $user-args ")"))))))]))
 
 ;; ── S19/S20: fn lambda → static FLClosure 추출 (capture 지원) ──
 
@@ -1481,6 +1489,55 @@
     (if (>= $i (length $_caps)) $acc
     (recur (+ $i 1)
       (if (= $i 0) (get $_caps 0) (str $acc ", " (get $_caps $i)))))))
+
+;; Nested defn free-var helpers (extra C params + call prepend)
+(defn cgc-flatten-env-stack [$_stack $_i $_acc]
+  (loop [$i $_i $acc $_acc]
+    (if (>= $i (length $_stack)) $acc
+      (recur (+ $i 1) (concat $acc (get $_stack $i))))))
+
+(defn cgc-collect-vars-from-args [$_args $_i $_acc]
+  (loop [$i $_i $acc $_acc]
+    (if (>= $i (length $_args)) $acc
+      (recur (+ $i 1) (cgc-collect-vars (get $_args $i) $acc)))))
+
+(defn cgc-caps-ordered [$outer $vars $pnames $i $acc]
+  (if (>= $i (length $outer)) $acc
+    (let [[$v (get $outer $i)]]
+      (cgc-caps-ordered $outer $vars $pnames (+ $i 1)
+        (if (and (includes-item $vars $v)
+                 (not (includes-item $pnames $v))
+                 (not (includes-item $acc $v)))
+          (push $acc $v)
+          $acc)))))
+
+(defn cgc-params-from-names [$_names $_i $_acc]
+  (loop [$i $_i $acc $_acc]
+    (if (>= $i (length $_names)) $acc
+      (let [[$entry (str "FLValue " (get $_names $i))]]
+        (recur (+ $i 1)
+          (if (= (length $acc) 0) $entry (str $acc ", " $entry)))))))
+
+(defn cgc-nil-pads [$n $i $acc]
+  (if (>= $i $n) $acc
+    (cgc-nil-pads $n (+ $i 1)
+      (if (= (length $acc) 0) "fl_nil()" (str $acc ", fl_nil()")))))
+
+;; Fresh string copies of names (shared get() can become STX after atom ops).
+(defn cgc-copy-names [$_names $_i $_acc]
+  (loop [$i $_i $acc $_acc]
+    (if (>= $i (length $_names)) $acc
+      (recur (+ $i 1) (push $acc (str "" (get $_names $i)))))))
+
+;; Parse /*CAP:name:caps*/ from hoisted-fwds registry string.
+(defn cgc-caps-lookup-fwd [$fwd $name]
+  (let [[$key (str "/*CAP:" $name ":")]
+        [$idx (str-index-of $fwd $key)]]
+    (if (= $idx -1) ""
+      (let [[$start (+ $idx (length $key))]
+            [$rest (substring $fwd $start (length $fwd))]
+            [$end (str-index-of $rest "*/")]]
+        (if (= $end -1) "" (substring $rest 0 $end))))))
 
 ;; 캡처 후보 필터 (closure 대신 loop — self-host 캡처 분석 회피)
 (defn cgc-fn-caps-filter [$all-vars $param-names $outer $i $acc]
@@ -2035,17 +2092,33 @@
 (defn cgc-defn [$args]
   ;; P1-8: nested defn 추적 시작
   ;; Save outer param env so body after nested defn still sees outer params.
+  ;; Nested free-vars from enclosing frames become extra leading C params.
   (let [[$is-nested (> @cgc-defn-depth-atom 0)]
-        [$saved-outer @outer-params-atom]]
+        [$saved-outer @outer-params-atom]
+        [$parent-flat (cgc-flatten-env-stack @defn-env-stack-atom 0 [])]]
     (swap! cgc-defn-depth-atom + 1)
     (let [[$name (c-name (cgc-extract-name (get $args 0)))]
           [$param-items (get-block-items (get $args 1))]
-          [$ps (cgc-params $param-items)]
           [$pnames (cgc-fn-param-names $param-items 0 [])]
+          [$body-vars (cgc-collect-vars-from-args $args 2 [])]
+          [$caps (if $is-nested
+                   (cgc-caps-ordered $parent-flat $body-vars $pnames 0 [])
+                   [])]
+          ;; Fresh name copies BEFORE any atom mutation (shared get() → STX after atom ops).
+          [$cap-joined (if (= (length $caps) 0) ""
+                         (str "" (cgc-env-arr $caps 0 "") ""))]
+          [$all-names (if (= (length $caps) 0) $pnames (concat $caps $pnames))]
+          [$scope-names (cgc-copy-names $all-names 0 [])]
+          [$stack-names (cgc-copy-names $pnames 0 [])]
+          [$ps (cgc-params-from-names $scope-names 0 "")]
           ;; FL 소스 라인 번호 (에러 추적용)
-          [$src-line (get (get $args 0) :line)]]
-      (reset! outer-params-atom $pnames)
+          [$src-line (get (get $args 0) :line)]
+          [$_stk (swap! defn-env-stack-atom push $stack-names)]
+          [$_out (reset! outer-params-atom $scope-names)]]
       (let [[$call-args (cgc-wrapper-call-args $param-items 0 "")]
+            [$pads (cgc-nil-pads (length $caps) 0 "")]
+            [$wrap-call (if (= (length $caps) 0) $call-args
+                          (if (= $call-args "") $pads (str $pads ", " $call-args)))]
             [$has-recur (cgc-any-has-recur $args 2)]
             ;; #line 지시자 — nested defn에서는 생략 (P1-8 fix)
             [$line-directive (if (or $is-nested (null? $src-line)) ""
@@ -2054,7 +2127,7 @@
         (str "static FLValue __fl_wrap_" $name
              "(FLClosure* _s, int _ac, FLValue* argv) {\n"
              "    (void)_s; (void)_ac;\n"
-             "    return " $name "(" $call-args ");\n}"))
+             "    return " $name "(" $wrap-call ");\n}"))
       (let [[$func-def (if $has-recur
         ;; TCO 경로: goto 루프로 직접재귀 제거
         (let [[$label (str "__fl_tco_" $name)]
@@ -2077,6 +2150,7 @@
             (swap! defn-arity-atom assoc $name (length $param-items))
             (swap! cgc-hoisted-fwds-atom (fn [$acc]
               (str $acc
+                   "/*CAP:" $name ":" $cap-joined "*/\n"
                    "FLValue " $name "(" $ps ");\n"
                    "static FLValue __fl_wrap_" $name "(FLClosure*, int, FLValue*);\n")))
             (swap! cgc-hoisted-fns-atom (fn [$acc] (str $acc $func-def "\n\n")))
@@ -2085,6 +2159,7 @@
           $func-def)]]
         ;; P1-8: nested defn 추적 종료 + outer param env 복원
         (swap! cgc-defn-depth-atom - 1)
+        (reset! defn-env-stack-atom (slice @defn-env-stack-atom 0 (- (length @defn-env-stack-atom) 1)))
         (reset! outer-params-atom $saved-outer)
         $result-str))))))
 
@@ -2232,6 +2307,7 @@
     (reset! cgc-defn-depth-atom 0)
     (reset! cgc-hoisted-fns-atom "")
     (reset! cgc-hoisted-fwds-atom "")
+    (reset! defn-env-stack-atom [])
     (let [[$fwd (cgc-forward-decls $nodes)]
           [$parts (cgc-top-level $nodes 0 "" "")]
           [$fns (get $parts :fns)]
