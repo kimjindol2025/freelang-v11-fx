@@ -84,6 +84,17 @@ v11 조상 계열에서 분기한 독립적인 언어·컴파일러·런타임 �
 - 정책: AFJ와 v11·FX를 같은 언어로 합치지 않는다.
 - 기본 구현 원칙: AFJ/FreeLang으로 구현하고 JS/TS는 도구 경계로 둔다.
 
+### 3.7 freelang-aios-core
+
+FreeLang Script 위에 올라가는 AI OS 계층이다. 언어가 아니라 Script를 사용하는 상위 계층이다. (2026-10-13 추가, 사장님 승인)
+
+- 역할: 스케줄러, 목표 DAG·위임, 권한(capability), DB/process/git native effect
+- 정본: Forgejo `kim/freelang-aios-core` main (2026-10-13 기준 `510321a`)
+- 위치: `/home/kim/freelang-script` (역사적 폴더 이름 유지, 폴더 이름 변경은 닫기)
+- 경계: 언어(문법, 실행기, 기본 라이브러리, 진단, 함정 회귀)는 FreeLang Script 소관이다. aios-core 안에서 언어를 따로 고치지 않는다.
+- 의존: aios-core → Script 한 방향만. Script는 aios-core를 사용하지 않는다.
+- 정책: Script와 병합하지 않는다. GitHub `kimjindol2025/freelang-script`는 정본이 아니다.
+
 ## 4. 계층 관계
 
 ```text
@@ -122,6 +133,7 @@ FX3는 Script나 AFJ를 대체하지 않는다. FX3가 정책을 표현하면 Sc
 | FX runtime/library 확장 | v11-fx2 |
 | AI용 정책·판단·계약 표면 | v11-fx3 |
 | 자동화·배치·운영 스크립트 | FreeLang Script |
+| AI OS·스케줄러·목표 위임 | freelang-aios-core |
 | 컴파일러·언어 기능·서비스 기반 | AFJ |
 | 저장·트랜잭션·인덱스·복구 | db95 |
 | 역사적 호환성·조상 의미 확인 | v11 |
@@ -201,3 +213,16 @@ FreeLang의 목표는 언어의 개수를 늘리는 것이 아니다.
 > **하나의 생태계 안에서 실행, 자동화, 정책, 저장, 컴파일, 분산 계층을 각자 가장 잘 표현하고, 서로 검증 가능하게 연결하는 것.**
 
 이 문서 이후 새 언어·새 세대·새 표면은 반드시 기존 계열과의 관계, 독립성이 필요한 이유, lowering/adapter 경계, 실제 검증 계획을 함께 제시해야 한다.
+
+## 11. 개정 기록
+
+### 2026-10-13 — freelang-aios-core 별도 계열 분리 (사장님 승인)
+
+기존 내용은 변경하지 않고 3.7 항목과 5장 표의 한 줄을 추가한다.
+
+1. freelang-script = Script 본체(언어, 실행기, 기본 라이브러리, 진단, 함정 회귀). 정본 fg `kim/freelang-script`, 위치 `/home/kim/kim/platform/freelang-script`.
+2. freelang-aios-core = AI OS(스케줄러, 목표 위임, 권한, DB/process/git 효과). 정본 fg `kim/freelang-aios-core` (`510321a`), 위치 `/home/kim/freelang-script` (폴더 이름 변경은 닫기).
+3. 의존은 aios-core → script 한 방향만. script는 aios-core를 쓰지 않는다.
+4. 언어 수정은 Script에서만 한다. aios-core 안에서 언어를 따로 고치지 않는다.
+5. 중복 라이브러리 2개(인계·재시도 `37d2381`/`7bee7d5`, AI 실행 `29d30de`/`3d5e375`)는 비교 전까지 보류하며 새 기능을 금지한다.
+6. 두 계열의 병합을 금지한다.
