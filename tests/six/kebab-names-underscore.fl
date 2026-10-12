@@ -1,0 +1,7 @@
+;; dialect: fx
+;; Phase1 ④ fixture — underscore만 (naming 경고 없어야 함)
+(defn main []
+  (do
+    (http_get "http://127.0.0.1/")
+    (println "ok")))
+(main)

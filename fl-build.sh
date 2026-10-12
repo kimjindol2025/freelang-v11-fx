@@ -30,12 +30,15 @@ fi
 
 # --no-net: openssl/curl 없이 stub
 # --bundle=core,net,db,mail : opt-in 선택 링크 (없으면 풀셋). docs/FX-BUNDLE-MAP.md
+# --strict-names: kebab API → cgc 거부 (기본은 경고만). docs/FX-NAME-CARD.md
 NO_NET=0
 BUNDLE_SPEC=""
+STRICT_NAMES=0
 ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --no-net) NO_NET=1 ;;
+    --strict-names) STRICT_NAMES=1 ;;
     --bundle=*) BUNDLE_SPEC="${arg#--bundle=}" ;;
     --bundle)
       echo "❌ --bundle=core,net,db,mail 형식으로 쓰세요" >&2
@@ -47,7 +50,7 @@ done
 
 FL_INPUT="${ARGS[0]}"
 if [ -z "$FL_INPUT" ]; then
-  echo "사용법: $0 <input.fl> [output-name] [--no-net] [--bundle=core,net,db,mail]"
+  echo "사용법: $0 <input.fl> [output-name] [--no-net] [--bundle=core,net,db,mail] [--strict-names]"
   exit 1
 fi
 
@@ -139,16 +142,31 @@ fi
 
 # ─── 3. cgc-bin: FL → C ──────────────────────────────────────────
 echo "⚙️  FL → C 컴파일..."
-COMPILE_OUT=$("$CGC_BIN" "$PREPROCESSED" "$C_FILE" 2>&1)
+CGC_ARGS=()
+if [ "$STRICT_NAMES" = "1" ]; then
+  CGC_ARGS+=(--strict-names)
+  echo "   + --strict-names (kebab API 거부)"
+fi
+set +e
+COMPILE_OUT=$("$CGC_BIN" "${CGC_ARGS[@]}" "$PREPROCESSED" "$C_FILE" 2>&1)
+CGC_EC=$?
+set -e
 echo "$COMPILE_OUT" | grep -v "^$" || true
 
-# W1/W2/W3 경고 있으면 강조 출력
+# naming / W1/W2/W3 경고 강조
+NAME_WARN_COUNT=$(echo "$COMPILE_OUT" | grep -c " | naming | " || true)
 WARN_COUNT=$(echo "$COMPILE_OUT" | grep -c "\[W[123]\]" || true)
-if [ "$WARN_COUNT" -gt 0 ]; then
+if [ "$NAME_WARN_COUNT" -gt 0 ] || [ "$WARN_COUNT" -gt 0 ]; then
   echo ""
-  echo "⚠️  컴파일 경고 ${WARN_COUNT}개:"
-  echo "$COMPILE_OUT" | grep "\[W[123]\]"
+  echo "⚠️  컴파일 경고 naming=${NAME_WARN_COUNT} W=${WARN_COUNT}:"
+  echo "$COMPILE_OUT" | grep -E ' \| naming \| |\[W[123]\]' || true
   echo ""
+fi
+
+if [ "$CGC_EC" -ne 0 ]; then
+  echo "❌ cgc 컴파일 실패 (exit $CGC_EC)" >&2
+  rm -f "$PREPROCESSED"
+  exit 1
 fi
 
 # ─── 3. gcc: C → ELF ─────────────────────────────────────────────

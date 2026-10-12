@@ -67,3 +67,4 @@
 | 2026-10-12 | six-①-error-oneline | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · ERROR-SCHEMA uncaught 한 줄 (runtime/error.c만) |
 | 2026-10-12 | six-②-result-api | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · *_result + fl_result_ok/fail (cgc-main 미변경) |
 | 2026-10-12 | six-③-bundle | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · fl-build --bundle (cgc-main 미변경; 고정점은 풀셋) |
+| 2026-10-12 | six-④-kebab-names | a3f41b5ef778200d | a3f41b5ef778200d | a3f41b5ef778200d | ✅ 수렴 · cgc kebab naming warn + --strict-names (01cf5f5b→a3f41b5e) |

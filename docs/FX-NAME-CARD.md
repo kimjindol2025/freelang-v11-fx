@@ -1,6 +1,6 @@
 # FX 이름 카드 (한 장)
 
-상태: `Phase 0`  
+상태: `Phase 1 PARTIAL` — cgc kebab API 경고 + `--strict-names` (2026-10-12)  
 기록일: 2026-10-12  
 상위: [`decisions/SIX-ITEMS-BY-DIALECT.md`](decisions/SIX-ITEMS-BY-DIALECT.md) 2항  
 목표: AI가 **한 줄로** 「이 파일은 FX다」를 알게 한다. AFJ kebab과 **합치지 않는다**. AFJ 쪽은 따로.
@@ -63,9 +63,15 @@ DB open 앱 API = (db …) 또는 (fxb_sqlite_open …)
 AFJ kebab 호출을 이 파일에 넣지 말 것
 ```
 
-## 6. Phase 0 / 이후
+## 6. Phase 0 / Phase 1
 
 | 층 | 내용 |
 |----|------|
-| Phase 0 (지금) | 이 카드 + lint 방언 표지 경고 + 기존 `[dialect-fx-api]` |
-| 하지 않음 | 앱 일괄 표지 삽입, AFJ/Script 수정, cgc 강제, 전 계열 이름 통합 |
+| Phase 0 | 이 카드 + lint 방언 표지 경고 + `[dialect-fx-api]` |
+| Phase 1 ④ | **cgc**가 `http-`/`server-`/`json-`/`res-`/`sqlite-`/`mariadb-` kebab 호출에 ERROR-SCHEMA 한 줄 경고: `파일:줄 \| naming \| http-get \| AFJ식 kebab API \| http_get 사용 (docs/FX-NAME-CARD.md)`. 기본은 경고만(컴파일 계속). 거부는 `cgc-bin --strict-names` 또는 `fl-build --strict-names`. 회귀 `tests/six/run-kebab-names.sh` |
+| 하지 않음 | 앱 일괄 표지 삽입, AFJ/Script 수정, 기본 거부, 전 계열 이름 통합 |
+
+## 7. Phase 1 ④ 완료 / 남은 것
+
+- 완료: cgc naming 경고 · `--strict-names` · fl-build 전달 · fx-world `http-get` 실측
+- 남음: 설치된 shared cgc-bin 교체(사장님 승인 후), 앱 kebab 일괄 수정(범위 밖)

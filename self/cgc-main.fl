@@ -733,6 +733,10 @@
 (define cgc-hoisted-fwds-atom (atom ""))
 ;; Nested defn free-vars → extra C params. Caps registry: /*CAP:name:…*/ in hoisted-fwds.
 (define defn-env-stack-atom (atom []))
+;; Phase1 ④: AFJ식 kebab API 이름 경고 / --strict-names 거부
+(define cgc-strict-names-atom (atom false))
+(define cgc-kebab-count-atom  (atom 0))
+(define cgc-input-file-atom   (atom "-"))
 
 ;; ── 유틸 ──
 
@@ -978,8 +982,35 @@
            (cgc-args $args) "};"
            " fl_fn_call(" $fn-c ", " $argc ", __fl_ca_" $id "); }))"))))
 
+;; Phase1 ④: fl-lint [dialect-fx-api] 와 같은 접두 — underscore 축 (FX-NAME-CARD)
+(defn cgc-kebab-api? [$op]
+  (and (string? $op)
+       (string-contains? $op "-")
+       (or (str-starts-with $op "http-")
+           (str-starts-with $op "server-")
+           (str-starts-with $op "json-")
+           (str-starts-with $op "res-")
+           (str-starts-with $op "sqlite-")
+           (str-starts-with $op "mariadb-"))))
+
+;; ERROR-SCHEMA 한 줄: 파일:줄 | naming | kebab | 이유 | underscore 고치는 법
+(defn cgc-warn-kebab-api [$op $line]
+  (if (not (cgc-kebab-api? $op))
+    nil
+    (do
+      (swap! cgc-kebab-count-atom + 1)
+      (let [[$fix  (c-name $op)]
+            [$lstr (if (null? $line) "—" (str $line))]
+            [$loc  (str @cgc-input-file-atom ":" $lstr)]]
+        (println (str $loc
+                      " | naming | "
+                      $op
+                      " | AFJ식 kebab API | "
+                      $fix
+                      " 사용 (docs/FX-NAME-CARD.md)"))))))
+
 (defn cgc-sexpr [$n]
-  (let [[$op (get $n :op)] [$args (get $n :args)]]
+  (let [[$op (get $n :op)] [$args (get $n :args)] [$line (get $n :line)]]
   (if (not (string? $op))
     (cgc-fncall (cgc $op) $args)
   (if (= $op "__apply__")
@@ -992,7 +1023,9 @@
                     (str "fl_fn_new(__fl_wrap_" $cn ", 0, NULL)")
                     $cn)
                   $args))
-    (cgc-dispatch $op $args))))))
+    (do
+      (cgc-warn-kebab-api $op $line)
+      (cgc-dispatch $op $args)))))))
 
 (defn cgc-dispatch [$op $args]
   (cond
@@ -2731,25 +2764,52 @@
     (println (str "AST_JSON:" $json))
     (println (str "AST_TREE:\n" $tree))))
 
-(defn cgc-run [$argv]
-  (let [[$input  (get $argv 0)]
-        [$output (get $argv 1)]]
-  (if (null? $input)
-    (println "usage: cgc-bin <input.fl> <output.c>\n       cgc-bin --ast <input.fl>")
-    (if (= $input "--ast")
-      (if (null? $output)
-        (println "usage: cgc-bin --ast <input.fl>")
-        (ast-emit $output))
-      (if (null? $output)
-        (println "usage: cgc-bin <input.fl> <output.c>")
-        (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]
-              [$src      (file-read $input)]
-              [$base-dir (path-dir $input)]
-              [$raw      (parse (lex $src))]
-              [$nodes    (expand-loads $raw $base-dir)]
-              [$_v      (ir-validate $nodes)]
-              [$c-code   (generate-c $nodes)]]
+(defn cgc-compile-to [$input $output]
+  (do
+    (reset! loaded-paths-atom [])
+    (reset! cgc-kebab-count-atom 0)
+    (reset! cgc-input-file-atom $input)
+    (let [[$src      (file-read $input)]
+          [$base-dir (path-dir $input)]
+          [$raw      (parse (lex $src))]
+          [$nodes    (expand-loads $raw $base-dir)]
+          [$_v       (ir-validate $nodes)]
+          [$c-code   (generate-c $nodes)]
+          [$nwarn    @cgc-kebab-count-atom]]
+      (if (and @cgc-strict-names-atom (> $nwarn 0))
+        (do
+          (println (str "strict-names: " $nwarn
+                        " kebab API — 컴파일 거부 (docs/FX-NAME-CARD.md)"))
+          (throw (str "strict-names: " $nwarn " kebab API")))
+        (do
           (file-write $output $c-code)
-          (println (str "Compiled " $input " -> " $output))))))))
+          (println (str "Compiled " $input " -> " $output)))))))
+
+(defn cgc-run [$argv]
+  (let [[$a0 (get $argv 0)]
+        [$a1 (get $argv 1)]
+        [$a2 (get $argv 2)]]
+  (do
+    (reset! cgc-strict-names-atom false)
+    (cond
+      [(null? $a0)
+       (println "usage: cgc-bin <input.fl> <output.c>\n       cgc-bin --ast <input.fl>\n       cgc-bin --strict-names <input.fl> <output.c>")]
+      [(= $a0 "--ast")
+       (if (null? $a1)
+         (println "usage: cgc-bin --ast <input.fl>")
+         (ast-emit $a1))]
+      [(= $a0 "--strict-names")
+       (do (reset! cgc-strict-names-atom true)
+           (if (or (null? $a1) (null? $a2))
+             (println "usage: cgc-bin --strict-names <input.fl> <output.c>")
+             (cgc-compile-to $a1 $a2)))]
+      [(= $a1 "--strict-names")
+       (do (reset! cgc-strict-names-atom true)
+           (if (null? $a2)
+             (println "usage: cgc-bin <input.fl> --strict-names <output.c>")
+             (cgc-compile-to $a0 $a2)))]
+      [(null? $a1)
+       (println "usage: cgc-bin <input.fl> <output.c>")]
+      [true (cgc-compile-to $a0 $a1)]))))
 
 (cgc-run (cli-args))

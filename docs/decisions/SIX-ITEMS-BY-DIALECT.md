@@ -95,6 +95,7 @@ FX에서 C층(Result 강제, effect 문법 필수, 기본 core-only)은
 | **5항 오류 한 줄 (FX Phase 1 ①)** | **완료** — `runtime/error.c`가 ERROR-SCHEMA 한 줄을 Uncaught 앞에 출력; `fl_make_error`에 value/fix; 자주 나는 5종 fix 문구. 회귀 `tests/six/run-error-oneline.sh` |
 | **3항 Result 병행 (FX Phase 1 ②)** | **완료** — `http_get_result` 등 `*_result` 5개 + `fl_result_ok/fail` + lint `[result-nil-http]`. 감시앱 목록만 [`../FX-RESULT-MONITOR-APPS.md`](../FX-RESULT-MONITOR-APPS.md). 회귀 `tests/six/run-result-api.sh` |
 | **6항 번들 (FX Phase 1 ③)** | **완료** — `fl-build --bundle=core,net,db,mail` opt-in; 기본 풀셋 유지; db/mail stub. 회귀 `tests/six/run-bundle.sh` (hello full→core 크기 감소) |
+| **2항 이름 cgc 경고 (FX Phase 1 ④)** | **완료** — cgc kebab API → ERROR-SCHEMA `naming` 한 줄 경고; 거부는 `--strict-names`만. 회귀 `tests/six/run-kebab-names.sh` (fx-world `http-get` 실측) |
 | **2항 FX 이름 카드 (FX Phase 0)** | **완료** — [`../FX-NAME-CARD.md`](../FX-NAME-CARD.md) |
 | **6항 번들 지도 (FX Phase 0)** | **완료** — [`../FX-BUNDLE-MAP.md`](../FX-BUNDLE-MAP.md) (`--bundle`=Phase 1) |
 | **3항 Result 관례 (FX Phase 0)** | **완료** — [`../FX-RESULT-CONVENTION.md`](../FX-RESULT-CONVENTION.md) |
