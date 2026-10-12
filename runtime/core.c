@@ -80,7 +80,7 @@ static void fl_type_error(const char* op, const char* expected, FLValue got) {
     char buf[256];
     snprintf(buf, sizeof(buf), "TypeError: %s — %s 필요, %s 제공",
              op, expected, fl_type_name(got));
-    fl_throw(fl_str_val(buf));
+    fl_throw(fl_make_error("builtin", buf, op, "인자 타입을 맞추거나 type_of로 확인"));
     exit(1); /* unreachable — fl_throw exits or longjmps */
 }
 
@@ -220,10 +220,14 @@ FLValue fl_div(FLValue a, FLValue b) {
     if (a.tag == FL_FLOAT || b.tag == FL_FLOAT) {
         double av = (a.tag == FL_FLOAT) ? a.f : (double)a.i;
         double bv = (b.tag == FL_FLOAT) ? b.f : (double)b.i;
-        if (bv == 0.0) fl_throw(fl_str_val("ArithmeticError: 0으로 나눌 수 없습니다"));
+        if (bv == 0.0)
+            fl_throw(fl_make_error("builtin", "ArithmeticError: 0으로 나눌 수 없습니다",
+                                   "0", "나눗셈 전에 분모가 0인지 확인"));
         return fl_float(av / bv);
     }
-    if (b.i == 0) fl_throw(fl_str_val("ArithmeticError: 0으로 나눌 수 없습니다"));
+    if (b.i == 0)
+        fl_throw(fl_make_error("builtin", "ArithmeticError: 0으로 나눌 수 없습니다",
+                               "0", "나눗셈 전에 분모가 0인지 확인"));
     return fl_int(a.i / b.i);
 }
 

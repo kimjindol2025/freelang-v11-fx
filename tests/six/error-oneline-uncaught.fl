@@ -1,0 +1,5 @@
+;; dialect: fx
+;; six/① uncaught throw — expect ERROR-SCHEMA one-liner first
+(defn boom []
+  (throw "demo-uncaught"))
+(boom)

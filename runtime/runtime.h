@@ -563,7 +563,9 @@ typedef struct { jmp_buf buf; FLValue err; } FLTryFrame;
 extern __thread FLTryFrame fl_try_stack[FL_TRY_MAX];
 extern __thread int fl_try_top;
 void fl_throw(FLValue err);
-FLValue fl_make_error(const char* type, const char* msg);
+/* ERROR-SCHEMA: type/message + optional value/fix (NULL → empty field). */
+FLValue fl_make_error(const char* type, const char* msg,
+                      const char* value, const char* fix);
 /* throw 시 FL 소스 라인 추적 (cgc-main이 설정, uncaught handler가 출력) */
 extern int __fl_throw_line;
 /* 콜스택 추적 */

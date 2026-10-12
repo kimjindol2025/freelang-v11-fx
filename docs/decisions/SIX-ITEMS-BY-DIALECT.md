@@ -91,7 +91,8 @@ FX에서 C층(Result 강제, effect 문법 필수, 기본 core-only)은
 | 배치 합의 | LOCKED (본 문서) |
 | FX 고정점 (기록일 전후 실측) | PASS — stage2==stage3; 2026-10-12 게이트 SHA `63411319…` |
 | 함정 목록 0 | IN_PROGRESS — 활성 7 RUNTIME_OPEN (1항 트랙) |
-| **5항 오류 한 줄 스키마 (FX Phase 0)** | **완료** — [`ERROR-SCHEMA.md`](ERROR-SCHEMA.md) (구현=Phase 1 `error.c`) |
+| **5항 오류 한 줄 스키마 (FX Phase 0)** | **완료** — [`ERROR-SCHEMA.md`](ERROR-SCHEMA.md) |
+| **5항 오류 한 줄 (FX Phase 1 ①)** | **완료** — `runtime/error.c`가 ERROR-SCHEMA 한 줄을 Uncaught 앞에 출력; `fl_make_error`에 value/fix; 자주 나는 5종 fix 문구. 회귀 `tests/six/run-error-oneline.sh` |
 | **2항 FX 이름 카드 (FX Phase 0)** | **완료** — [`../FX-NAME-CARD.md`](../FX-NAME-CARD.md) |
 | **6항 번들 지도 (FX Phase 0)** | **완료** — [`../FX-BUNDLE-MAP.md`](../FX-BUNDLE-MAP.md) (`--bundle`=Phase 1) |
 | **3항 Result 관례 (FX Phase 0)** | **완료** — [`../FX-RESULT-CONVENTION.md`](../FX-RESULT-CONVENTION.md) |

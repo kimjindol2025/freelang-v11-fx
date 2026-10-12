@@ -127,7 +127,7 @@ FLValue fl_json_parse(FLValue src) {
     if (*p != '\0') {
         char buf[128];
         snprintf(buf, sizeof(buf), "[json] 파싱 실패: 잘못된 JSON (위치: '%.20s')", p);
-        fl_throw(fl_str_val(buf));
+        fl_throw(fl_make_error("builtin", buf, p, "JSON 문자열 형식을 확인"));
     }
     return result;
 }

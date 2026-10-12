@@ -1,10 +1,10 @@
 # FX / FreeLang 공통 오류 한 줄 스키마
 
-상태: `Phase 0 DESIGN` (문서만)  
+상태: `Phase 1 PARTIAL` — FX `runtime/error.c` uncaught 한 줄 구현 (2026-10-12)  
 기록일: 2026-10-12  
-범위: FreeLang 계열 공통 스키마. **이번 단계 FX 문서만.** AFJ·Script 구현은 따로.  
+범위: FreeLang 계열 공통 스키마. FX runtime uncaught 적용. AFJ·Script·lint/compile 포맷은 따로.  
 상위: [`SIX-ITEMS-BY-DIALECT.md`](SIX-ITEMS-BY-DIALECT.md) 5항  
-구현: Phase 1 — FX `runtime/error.c` (이번 Phase 0에서 **수정하지 않음**)
+구현: `runtime/error.c` `print_uncaught` — 스키마 한 줄 먼저, 기존 Uncaught/스택 유지. 회귀 `tests/six/run-error-oneline.sh`
 
 ## 1. 한 줄 형식
 
@@ -138,12 +138,17 @@ fx-err-lint.fl:4 | lint | (server-json | FX API는 underscore 축 | (server_json
 | `trap` | FX-TRAPS 재현 (선택) | 예약 |
 | `builtin` | 빌트인 nil/실패 메시지 (선택) | 예약 · 확인 안 됨 |
 
-## 4. Phase 1에 넘기는 것 (이번 금지)
+## 4. Phase 1 ① 완료 / 남은 것
 
-- `runtime/error.c`의 `print_uncaught` / `fl_make_error` 포맷 변경
-- cgc가 파일 경로를 throw 지점에 심는 일
-- fl-lint 출력 포맷을 스키마 한 줄로 바꾸는 일 (원하면 별 지시)
-- AFJ stderr·Script 진단 CLI 구현 — **AFJ 쪽은 따로** ([`SIX-ITEMS-BY-DIALECT.md`](SIX-ITEMS-BY-DIALECT.md) §2)
+완료 (2026-10-12):
+- `print_uncaught`가 ERROR-SCHEMA 한 줄을 **먼저** 출력
+- `fl_make_error(type, msg, value, fix)` — value/fix 빈 칸 허용
+- 자주 나는 오류 5종(산술0, get nil, TypeError, json, DB/기본) fix 문구
+
+남은 것 (별 지시):
+- cgc가 파일 경로를 throw 지점에 심는 일 (`-:` → `file:line`)
+- fl-lint / gcc compile 출력을 스키마 한 줄로
+- AFJ stderr·Script 진단 CLI — **AFJ 쪽은 따로**
 
 ## 5. 검증 (Phase 0 ①)
 

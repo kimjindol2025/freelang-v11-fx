@@ -1,0 +1,2 @@
+;; dialect: fx
+(println (get nil "k"))
