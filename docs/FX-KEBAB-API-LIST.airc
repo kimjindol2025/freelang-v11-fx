@@ -1,0 +1,44 @@
+;; FX kebab API 닫힌 목록 (Phase1 ④ 보완)
+;; 정본: 이 파일. cgc-main.fl 의 cgc-kebab-api-list 와 동일해야 함.
+;; 출처: self/cgc-main.fl cgc-dispatch 에 있는 하이픈 API
+;;       (구 접두 http-/server-/json-/res-/sqlite-/mariadb- 와 겹치는 항목)
+;; 개수: 34
+;; 판정: 접두가 아니라 이 목록에 있을 때만 naming 경고.
+;; 사용자 함수(json-ok, http-get-body 등)는 목록 밖 → 경고 0.
+
+(kebab-api-list
+  json-parse
+  json-stringify
+  http-get
+  http-post
+  http-put
+  http-del
+  http-patch
+  http-get-headers
+  http-post-headers
+  http-req
+  http-body
+  http-status
+  http-ok?
+  server-start
+  server-stop
+  server-html
+  server-json
+  server-status
+  server-redirect
+  server-html-cookie
+  server-set-cookie
+  server-route
+  server-get
+  server-post
+  json-pretty
+  sqlite-open
+  sqlite-query
+  sqlite-exec
+  sqlite-one
+  sqlite-query-p
+  sqlite-exec-p
+  sqlite-one-p
+  sqlite-close
+  server-req-body
+)

@@ -68,3 +68,6 @@
 | 2026-10-12 | six-②-result-api | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · *_result + fl_result_ok/fail (cgc-main 미변경) |
 | 2026-10-12 | six-③-bundle | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · fl-build --bundle (cgc-main 미변경; 고정점은 풀셋) |
 | 2026-10-12 | six-④-kebab-names | a3f41b5ef778200d | a3f41b5ef778200d | a3f41b5ef778200d | ✅ 수렴 · cgc kebab naming warn + --strict-names (01cf5f5b→a3f41b5e) |
+| 2026-10-13 | six-④b-kebab-closed-list | f4685b6fd03b5949 | f4685b6fd03b5949 | f4685b6fd03b5949 | ✅ 수렴 · kebab 접두→닫힌 목록 34 (a3f41b5e→f4685b6f; docs/FX-KEBAB-API-LIST.airc) |
+
+> 고정점 SHA는 생성 C(gen-a/b/c)만 측정한다. 런타임만 바뀐 경우 SHA 동일은 안전 증거가 아니며, 근거는 스모크와 traps다.

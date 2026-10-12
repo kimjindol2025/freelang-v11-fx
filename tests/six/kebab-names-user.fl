@@ -1,0 +1,11 @@
+;; dialect: fx
+;; Phase1 ④ — user kebab helpers must NOT warn (closed list)
+(defn json-ok [$x] $x)
+(defn http-get-body [$u] $u)
+(defn my-helper [$x] $x)
+(defn main []
+  (do
+    (println (json-ok "a"))
+    (println (http-get-body "b"))
+    (println (my-helper "c"))))
+(main)

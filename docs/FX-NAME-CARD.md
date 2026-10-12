@@ -68,10 +68,10 @@ AFJ kebab 호출을 이 파일에 넣지 말 것
 | 층 | 내용 |
 |----|------|
 | Phase 0 | 이 카드 + lint 방언 표지 경고 + `[dialect-fx-api]` |
-| Phase 1 ④ | **cgc**가 `http-`/`server-`/`json-`/`res-`/`sqlite-`/`mariadb-` kebab 호출에 ERROR-SCHEMA 한 줄 경고: `파일:줄 \| naming \| http-get \| AFJ식 kebab API \| http_get 사용 (docs/FX-NAME-CARD.md)`. 기본은 경고만(컴파일 계속). 거부는 `cgc-bin --strict-names` 또는 `fl-build --strict-names`. 회귀 `tests/six/run-kebab-names.sh` |
-| 하지 않음 | 앱 일괄 표지 삽입, AFJ/Script 수정, 기본 거부, 전 계열 이름 통합 |
+| Phase 1 ④ | **cgc** naming 경고 — **접두가 아니라 닫힌 목록** [`FX-KEBAB-API-LIST.airc`](FX-KEBAB-API-LIST.airc) 34개만. 형식: `파일:줄 \| naming \| http-get \| AFJ식 kebab API \| http_get 사용 (docs/FX-NAME-CARD.md)`. 기본 경고만. 거부는 `--strict-names`. 회귀 `tests/six/run-kebab-names.sh` |
+| 하지 않음 | 앱 일괄 표지 삽입, AFJ/Script 수정, 기본 거부, 전 계열 이름 통합, 사용자 kebab(`json-ok` 등) 경고 |
 
 ## 7. Phase 1 ④ 완료 / 남은 것
 
-- 완료: cgc naming 경고 · `--strict-names` · fl-build 전달 · fx-world `http-get` 실측
+- 완료: 닫힌 목록 34 · `--strict-names` · fl-build 전달 · 사용자 함수 경고 0 · fx-world `http-get`만 API로 잡힘
 - 남음: 설치된 shared cgc-bin 교체(사장님 승인 후), 앱 kebab 일괄 수정(범위 밖)

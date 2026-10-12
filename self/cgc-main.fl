@@ -734,9 +734,22 @@
 ;; Nested defn free-vars → extra C params. Caps registry: /*CAP:name:…*/ in hoisted-fwds.
 (define defn-env-stack-atom (atom []))
 ;; Phase1 ④: AFJ식 kebab API 이름 경고 / --strict-names 거부
+;; 정본 목록: docs/FX-KEBAB-API-LIST.airc (34개) — 접두가 아니라 닫힌 목록
 (define cgc-strict-names-atom (atom false))
 (define cgc-kebab-count-atom  (atom 0))
 (define cgc-input-file-atom   (atom "-"))
+(define cgc-kebab-api-list
+  ["json-parse" "json-stringify"
+   "http-get" "http-post" "http-put" "http-del" "http-patch"
+   "http-get-headers" "http-post-headers" "http-req"
+   "http-body" "http-status" "http-ok?"
+   "server-start" "server-stop" "server-html" "server-json"
+   "server-status" "server-redirect" "server-html-cookie"
+   "server-set-cookie" "server-route" "server-get" "server-post"
+   "json-pretty"
+   "sqlite-open" "sqlite-query" "sqlite-exec" "sqlite-one"
+   "sqlite-query-p" "sqlite-exec-p" "sqlite-one-p" "sqlite-close"
+   "server-req-body"])
 
 ;; ── 유틸 ──
 
@@ -982,16 +995,9 @@
            (cgc-args $args) "};"
            " fl_fn_call(" $fn-c ", " $argc ", __fl_ca_" $id "); }))"))))
 
-;; Phase1 ④: fl-lint [dialect-fx-api] 와 같은 접두 — underscore 축 (FX-NAME-CARD)
+;; Phase1 ④: 닫힌 목록만 (docs/FX-KEBAB-API-LIST.airc). 접두 매칭 금지.
 (defn cgc-kebab-api? [$op]
-  (and (string? $op)
-       (string-contains? $op "-")
-       (or (str-starts-with $op "http-")
-           (str-starts-with $op "server-")
-           (str-starts-with $op "json-")
-           (str-starts-with $op "res-")
-           (str-starts-with $op "sqlite-")
-           (str-starts-with $op "mariadb-"))))
+  (and (string? $op) (includes-item cgc-kebab-api-list $op)))
 
 ;; ERROR-SCHEMA 한 줄: 파일:줄 | naming | kebab | 이유 | underscore 고치는 법
 (defn cgc-warn-kebab-api [$op $line]
