@@ -44,6 +44,8 @@ FLValue fl_vec_get(FLValue vec, FLValue idx) {
     if (vec.tag != FL_VECTOR) return fl_nil();
     FLVector* v = (FLVector*)vec.obj;
     int64_t i = (idx.tag == FL_FLOAT) ? (int64_t)idx.f : idx.i;
+    /* trap-nth-out-of-bounds: OOB (neg, >=len, empty) → nil. No throw.
+       Result/error path is AFJ-first; FX keeps nil convention. */
     if (i < 0 || (uint32_t)i >= v->len) return fl_nil();
     return v->data[i];
 }

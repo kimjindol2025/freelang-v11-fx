@@ -20,19 +20,19 @@
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction, verification_status]
-  trap_count: 5
-  resolved_count: 18
+  trap_count: 4
+  resolved_count: 19
   relocated_count: 5
   verified_count: 3
-  unverified_count: 5
+  unverified_count: 4
   unverified_stdlib: verified-stdlib.md
-  maturation_phase: phase1 (18 resolved, 5 relocated, 5 active runtime)
+  maturation_phase: phase1 (19 resolved, 5 relocated, 4 active runtime)
   reclass_phase0: 2026-10-11
   reclass_doc: docs/decisions/FX-TRAPS-RECLASS-PHASE0.md
   ops_checklist: docs/FX-OPS-CHECKLIST.md
   dialect_placement: docs/decisions/SIX-ITEMS-BY-DIALECT.md
   next_phases: [phase0-reverify-claimed, phase1-compiler-open-one-by-one]
-  last_verification: 2026-10-12 trap-atom-deref-gc RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
+  last_verification: 2026-10-12 trap-nth-out-of-bounds RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
   verification_method: direct-execution + reproduction
   note: active trap_count excludes @archive; see reclass_doc
 
@@ -44,6 +44,7 @@
 ;; trap-extern-flvalue-defn → @archive (2026-10-11)
 ;; trap-lambda-capture → @archive (2026-10-12)
 ;; trap-atom-deref-gc → @archive (2026-10-12)
+;; trap-nth-out-of-bounds → @archive (2026-10-12)
 
 @trap
   id: trap-mariadb-count-float
@@ -65,17 +66,6 @@
   safe_pattern: (define *stop* (atom false)) (set_interval (fn [] (if @*stop* nil (do ...))) ms)
   reproduction: 2026-06-20 실측 — tick 3에서 throw, stderr에 오류 출력, tick 4 계속 실행 확인
   lint_detectable: true
-
-@trap
-  id: trap-nth-out-of-bounds
-  type: trap
-  claimed: nth 로 범위 밖 인덱스 접근 시 오류가 발생한다
-  observed: nil 을 반환한다 (에러 없음). (nil? (nth v 999)) → true
-  risk: 배열 경계 검사를 오류 catch 로 구현 시 항상 통과. 잘못된 인덱스가 nil 로 조용히 전파됨
-  rule: nth 사용 전 (< idx (length v)) 로 경계 검사. 반환값 nil 가능성 항상 가정
-  safe_pattern: (if (< $i (length $v)) (nth $v $i) default-val)
-  reproduction: 2026-06-20 실측 — (nth [10 20 30] 5) → null, (nil? ...) → true
-  lint_detectable: false
 
 @trap
   id: trap-http-get-cgc-mapping
@@ -197,6 +187,20 @@
 
 ;; ─────────────────────── ARCHIVE ───────────────────────
 ;; Resolved traps kept for history. Not counted in trap_count.
+
+@archive
+  id: trap-nth-out-of-bounds
+  type: archive
+  resolved: 2026-10-12
+  former_type: trap
+  claimed: nth 로 범위 밖 인덱스 접근 시 오류가 발생한다
+  observed_old: nil 반환 (에러 없음). catch 로 경계 검사하면 항상 통과
+  observed_now: OOB (hi / neg / empty) → nil, exit 0; no crash/garbage
+  resolution: FX 관례로 nil 유지 (Result 강제는 AFJ 먼저). fl_vec_get 계약 주석 + 회귀 잠금
+  regression: tests/traps/trap-nth-out-of-bounds.fl
+  regression_command: bash tests/traps/run-trap-nth-out-of-bounds.sh
+  verification_status: resolved
+  lint_detectable: false
 
 @archive
   id: trap-atom-deref-gc

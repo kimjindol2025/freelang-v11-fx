@@ -1,0 +1,9 @@
+;; dialect: fx
+;; trap-nth-out-of-bounds: OOB nth returns nil (no crash, no throw).
+;; Cases: index >= length, negative index, empty vector index 0.
+;; Result/error forcing is out of scope (AFJ-first). Expect three nil lines.
+(define v [10 20 30])
+(define empty [])
+(println (if (null? (nth v 5)) "oob-hi=nil" "oob-hi=BAD"))
+(println (if (null? (nth v -1)) "oob-neg=nil" "oob-neg=BAD"))
+(println (if (null? (nth empty 0)) "empty-0=nil" "empty-0=BAD"))

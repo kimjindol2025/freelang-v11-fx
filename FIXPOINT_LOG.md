@@ -59,3 +59,6 @@
 | 2026-10-11 | phase1-parallel-run | 53542e964200ee34 | 53542e964200ee34 | 53542e964200ee34 | ✅ 동일 SHA · trap-parallel-run-missing (runtime/fx-std 확인, cgc 미변경) |
 | 2026-10-11 | phase1-db-name-clash | f9b43b1cdbef58bd | f9b43b1cdbef58bd | f9b43b1cdbef58bd | ✅ trap-user-define-runtime-symbol (fl_rt_db) |
 | 2026-10-11 | phase1-extern-flvalue | 634113190b96cc28 | 634113190b96cc28 | 634113190b96cc28 | ✅ trap-extern-flvalue-defn (sqlite_*/server_req_body → fxb_*) |
+| 2026-10-12 | phase1-lambda-capture | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 완전 · trap-lambda-capture (cgc-main CAP/env-stack; 63411319→01cf5f5b) |
+| 2026-10-12 | phase1-atom-deref-gc | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · trap-atom-deref-gc (runtime/math.c만; cgc-main 미변경) |
+| 2026-10-12 | phase1-nth-oob | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · trap-nth-out-of-bounds (nil 관례 잠금; cgc-main 미변경) |

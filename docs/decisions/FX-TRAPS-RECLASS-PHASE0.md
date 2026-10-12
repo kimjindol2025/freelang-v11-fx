@@ -38,20 +38,20 @@ Phase 0는 **재분류·문서 동기화**다.
 | `trap-extern-flvalue-defn` | false | **RESOLVED** | compiler | A안 cgc short→`fxb_*`. `run-trap-extern-flvalue-defn.sh` → `ok-42`. SHA `63411319…` |
 | `trap-server-json-string` | false | **RESOLVED** | runtime | HTTP 스모크 PASS `/map` `/str` `/vec` 모두 200+JSON. `runtime/http.c` 자동 stringify. `bash tests/traps/run-trap-server-json-string.sh` |
 | `trap-server-html-quote` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — HTML " in FL string OK|
-| `trap-lambda-capture` | false | RUNTIME_OPEN | runtime | 클로저 캡처. Phase 1 후보 |
+| `trap-lambda-capture` | false | **RESOLVED** | compiler | Phase 1 PASS `run-trap-lambda-capture.sh` → 15/30/33. CAP/env-stack. SHA `01cf5f5b…` |
 | `trap-mariadb-count-float` | false | RUNTIME_OPEN | runtime | 비교 전 변환 규칙 문서화 또는 수정 |
 | `trap-replace-all-rename` | false | **RELOCATED** | ops | → [`FX-OPS-CHECKLIST.md#ops-replace-all-rename`](../FX-OPS-CHECKLIST.md#ops-replace-all-rename) · `FX-TRAPS` `@relocated` |
 | `trap-string-literal-1024` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — 1100B literal OK|
 | `trap-cgc-stale-node` | false | **RELOCATED** | ops | → [`FX-OPS-CHECKLIST.md#ops-cgc-stale-node`](../FX-OPS-CHECKLIST.md#ops-cgc-stale-node) · `FX-TRAPS` `@relocated` |
 | `trap-set-interval-swallow` | true | RUNTIME_OPEN | runtime | 타이머 오류 전파 |
-| `trap-nth-out-of-bounds` | false | RUNTIME_OPEN | runtime | nil vs Result 병행과 연계 가능 |
+| `trap-nth-out-of-bounds` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-nth-out-of-bounds.sh` → oob-hi/neg/empty=nil. FX nil 관례 유지(Result는 AFJ 먼저). SHA 유지 `01cf5f5b…` |
 | `trap-try-map-literal` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — try {..} OK|
 | `trap-nested-defn-skip` | false | **RESOLVED** | compiler | Phase 1 PASS `run-trap-nested-defn-skip.sh` → `42`. hoist fwd decls. 고정점 SHA `53542e96…` |
 | `trap-inc-dec-missing` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — inc/dec OK|
 | `trap-cache-cgc-missing` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — fx-std/cache.fl OK|
 | `trap-http-get-cgc-mapping` | false | RUNTIME_OPEN | runtime | 맵 vs 문자열. Result 병행과 연계 |
 | `trap-parallel-run-missing` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-parallel-run-missing.sh`. `fl_run_parallel`+`fx-std/parallel.fl`. SHA 유지 `53542e96…` |
-| `trap-atom-deref-gc` | false | RUNTIME_OPEN | runtime | GC/수명 |
+| `trap-atom-deref-gc` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-atom-deref-gc.sh` → hello/1. `fl_heap_copy` on deref/reset. SHA 유지 `01cf5f5b…` |
 | `trap-defn-throw-rerun` | false | RUNTIME_OPEN | runtime | retry 패턴 |
 | `trap-defn-docstring-cgc` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — docstring+body→42 OK|
 | `trap-v11-hof-closure-bug` | false | **RELOCATED** | ops | → [`FX-OPS-CHECKLIST.md#ops-v11-hof-scope`](../FX-OPS-CHECKLIST.md#ops-v11-hof-scope) · `FX-TRAPS` `@relocated` |
