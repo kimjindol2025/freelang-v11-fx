@@ -1,0 +1,13 @@
+;; dialect: fx
+;; Phase1 ⑥ regression — trap-defn-throw-rerun
+;; FX native: throw in defn propagates once; body does NOT re-run.
+;; Expect: caught=first / calls=1
+(define calls (atom 0))
+(defn failing []
+  (do
+    (swap! calls (fn [$x] (+ $x 1)))
+    (if (= @calls 1) (throw "first") "ok")))
+(try
+  (failing)
+  (catch $e (println (str "caught=" $e))))
+(println (str "calls=" @calls))

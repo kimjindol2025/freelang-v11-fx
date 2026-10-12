@@ -39,11 +39,11 @@ Phase 0는 **재분류·문서 동기화**다.
 | `trap-server-json-string` | false | **RESOLVED** | runtime | HTTP 스모크 PASS `/map` `/str` `/vec` 모두 200+JSON. `runtime/http.c` 자동 stringify. `bash tests/traps/run-trap-server-json-string.sh` |
 | `trap-server-html-quote` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — HTML " in FL string OK|
 | `trap-lambda-capture` | false | **RESOLVED** | compiler | Phase 1 PASS `run-trap-lambda-capture.sh` → 15/30/33. CAP/env-stack. SHA `01cf5f5b…` |
-| `trap-mariadb-count-float` | false | RUNTIME_OPEN | runtime | 비교 전 변환 규칙 문서화 또는 수정 |
+| `trap-mariadb-count-float` | false | **RESOLVED** | runtime | Phase1 ⑥ archive — cells are strings (`fl_str_val`); `run-trap-mariadb-count-string.sh`. Typed coerce deferred |
 | `trap-replace-all-rename` | false | **RELOCATED** | ops | → [`FX-OPS-CHECKLIST.md#ops-replace-all-rename`](../FX-OPS-CHECKLIST.md#ops-replace-all-rename) · `FX-TRAPS` `@relocated` |
 | `trap-string-literal-1024` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — 1100B literal OK|
 | `trap-cgc-stale-node` | false | **RELOCATED** | ops | → [`FX-OPS-CHECKLIST.md#ops-cgc-stale-node`](../FX-OPS-CHECKLIST.md#ops-cgc-stale-node) · `FX-TRAPS` `@relocated` |
-| `trap-set-interval-swallow` | true | RUNTIME_OPEN | runtime | 타이머 오류 전파 |
+| `trap-set-interval-swallow` | true | **RELOCATED** | ops/host | Phase1 ⑥ → [`FX-OPS-CHECKLIST.md#ops-set-interval-host`](../FX-OPS-CHECKLIST.md#ops-set-interval-host) · FX unlinked; swallow=Node/AFJ |
 | `trap-nth-out-of-bounds` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-nth-out-of-bounds.sh` → oob-hi/neg/empty=nil. FX nil 관례 유지(Result는 AFJ 먼저). SHA 유지 `01cf5f5b…` |
 | `trap-try-map-literal` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — try {..} OK|
 | `trap-nested-defn-skip` | false | **RESOLVED** | compiler | Phase 1 PASS `run-trap-nested-defn-skip.sh` → `42`. hoist fwd decls. 고정점 SHA `53542e96…` |
@@ -52,27 +52,27 @@ Phase 0는 **재분류·문서 동기화**다.
 | `trap-http-get-cgc-mapping` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-http-get-cgc-mapping.sh` → map status/body/headers. `http_client.c` http_get; emit≠fl_http_get. SHA 유지 `01cf5f5b…` |
 | `trap-parallel-run-missing` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-parallel-run-missing.sh`. `fl_run_parallel`+`fx-std/parallel.fl`. SHA 유지 `53542e96…` |
 | `trap-atom-deref-gc` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-atom-deref-gc.sh` → hello/1. `fl_heap_copy` on deref/reset. SHA 유지 `01cf5f5b…` |
-| `trap-defn-throw-rerun` | false | RUNTIME_OPEN | runtime | retry 패턴 |
+| `trap-defn-throw-rerun` | false | **RESOLVED** | runtime | Phase1 ⑥ archive — FX `calls=1` no re-run; `run-trap-defn-throw-rerun.sh`. v11 claim → AFJ |
 | `trap-defn-docstring-cgc` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — docstring+body→42 OK|
 | `trap-v11-hof-closure-bug` | false | **RELOCATED** | ops | → [`FX-OPS-CHECKLIST.md#ops-v11-hof-scope`](../FX-OPS-CHECKLIST.md#ops-v11-hof-scope) · `FX-TRAPS` `@relocated` |
 
-## 3. 집계 (Phase 0 시점)
+## 3. 집계 (Phase 0 시점 → Phase1 ⑥ 후)
 
 | 상태 | 개수 |
 |------|------|
-| RESOLVED (archive) | 14 |
-| RELOCATED (ops checklist) | 5 |
+| RESOLVED (archive) | 14 → **22** |
+| RELOCATED (ops checklist) | 5 → **6** |
 | COMPILER_OPEN | 0 |
-| RUNTIME_OPEN | 8 |
-| **active 함정 (고칠 것)** | **8** |
+| RUNTIME_OPEN | 8 → **0** |
+| **active 함정 (고칠 것)** | **0** (2026-10-13 Phase1 ⑥) |
 
 목록을 0으로 만드는 경로:
 
 1. ~~`DOCS_PROCESS` 5개~~ → **완료** [`docs/FX-OPS-CHECKLIST.md`](../FX-OPS-CHECKLIST.md) + `FX-TRAPS` `@relocated` (검색용 포인터 유지)
 2. ~~`RESOLVED_CLAIMED` / 확인 함정~~ → archive 12
-3. 남은 **10개** = COMPILER_OPEN 2 + RUNTIME_OPEN 8 → Phase 1에서 1개씩
+3. ~~남은 COMPILER_OPEN + RUNTIME_OPEN~~ → Phase 1에서 1개씩 **완료** (⑥ set-interval relocate / throw-rerun + mariadb archive)
 
-### DOCS_PROCESS 이동 색인 (2026-10-11)
+### DOCS_PROCESS 이동 색인 (2026-10-11 + ⑥)
 
 | 옛 id | 새 위치 |
 |-------|---------|
@@ -81,6 +81,7 @@ Phase 0는 **재분류·문서 동기화**다.
 | `trap-replace-all-rename` | `docs/FX-OPS-CHECKLIST.md#ops-replace-all-rename` |
 | `trap-cgc-stale-node` | `docs/FX-OPS-CHECKLIST.md#ops-cgc-stale-node` |
 | `trap-v11-hof-closure-bug` | `docs/FX-OPS-CHECKLIST.md#ops-v11-hof-scope` |
+| `trap-set-interval-swallow` | `docs/FX-OPS-CHECKLIST.md#ops-set-interval-host` (2026-10-13) |
 
 
 ### 회귀 증거 — RESOLVED_CLAIMED 10개 (2026-10-11)
@@ -115,8 +116,24 @@ DATE=2026-10-11
 3. ~~`trap-server-json-string`~~ — 완료 (HTTP 스모크 PASS + 고정점 PASS)  
 4. ~~`DOCS_PROCESS` 5개~~ — 완료 → `docs/FX-OPS-CHECKLIST.md`  
 5. Phase 1: ~~`trap-nested-defn-skip`~~ · ~~`trap-parallel-run-missing`~~ 완료 (COMPILER_OPEN 0)  
-6. **공유 `cgc-bin` 업그레이드** — 아직 하지 않음. 올리기 전 주요 앱 스모크 후 한 번에  
-7. Phase 1 나머지: RUNTIME_OPEN 8개
+6. **공유 `cgc-bin` 업그레이드** — 아직 하지 않음. 보스 승인 후  
+7. ~~Phase 1 나머지 RUNTIME_OPEN~~ → **⑥ 완료** (active 0). set-interval RELOCATED; throw-rerun·mariadb ARCHIVED
+
+### Phase 1 ⑥ 증거 — 남은 RUNTIME_OPEN 3개 닫음 (2026-10-13)
+
+```text
+POLICY=증거대로 재분류·아카이브 (보스 승인)
+trap-set-interval-swallow → RELOCATED ops-set-interval-host
+  COMMAND=bash tests/traps/run-trap-set-interval-unlinked.sh → PASS
+  NOTE=undefined reference to set_interval; swallow=Node/AFJ bootstrap
+trap-defn-throw-rerun → ARCHIVED
+  COMMAND=bash tests/traps/run-trap-defn-throw-rerun.sh → PASS
+  EXPECT=caught=first / calls=1
+trap-mariadb-count-float → ARCHIVED (observed_now=string cells)
+  COMMAND=bash tests/traps/run-trap-mariadb-count-string.sh → PASS
+  NOTE=fetch_rows fl_str_val; (= "0" 0)=false
+ACTIVE_TRAP_COUNT=0
+```
 
 ### Phase 1 증거 — `trap-parallel-run-missing` (2026-10-11)
 

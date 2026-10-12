@@ -203,7 +203,10 @@ FLValue mariadb_connect(FLValue host_v, FLValue port_v, FLValue user_v,
     return fl_str_val(id_copy);
 }
 
-/* rows → FLValue vector of maps  (O(n), 단일 fl_vec_from 할당) */
+/* rows → FLValue vector of maps  (O(n), 단일 fl_vec_from 할당)
+ * Contract (Phase1 ⑥ / trap-mariadb-count-float): every non-null cell is
+ * fl_str_val. COUNT(*) 등도 문자열. (= $cnt 0) 는 false — (= (str $cnt) "0").
+ * Typed coerce deferred: MYSQL_FIELD opaque via dlopen (no libmariadb-dev). */
 static FLValue fetch_rows(MYSQL_RES* res) {
     if (!res) return fl_vec_new();
 

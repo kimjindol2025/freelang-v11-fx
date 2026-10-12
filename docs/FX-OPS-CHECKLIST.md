@@ -143,8 +143,38 @@ rg -n '<증상키워드>' self/cgc-main.fl
 
 ---
 
+## ops-set-interval-host
+
+**옛 id:** `trap-set-interval-swallow`  
+**FX-TRAPS 포인터:** `@relocated id: trap-set-interval-swallow`
+
+### 지킬 것
+
+- [ ] FX native에서 `(set_interval …)` / `(sleep_ms …)` 링크가 **undefined reference**로 실패하는 것을 「타이머 삼킴 버그」로 오인하지 않는다.
+- [ ] 콜백 throw 후 stderr에 `set_interval callback error`가 찍히고 다음 틱이 이어지는 동작은 **Node/AFJ 호스트**(`freelang-afj` bootstrap / interpreter) 소관이다. FX ELF 수리 안건이 아니다.
+- [ ] FX에 네이티브 타이머를 넣을 때는 새 runtime API + aliases + fl-build 동기화로 **새 trap id**를 실측 등록한다. 이 id를 재사용하지 않는다.
+- [ ] AFJ 쪽 방어는 `fx-std/safe.fl`의 `safe-tick-run` / atom stop 플래그 패턴을 본다 (호스트가 `set_interval`을 제공할 때).
+
+### 회귀 (FX unlinked 잠금)
+
+```text
+COMMAND=bash tests/traps/run-trap-set-interval-unlinked.sh
+RESULT=TRAP_SET_INTERVAL_UNLINKED=PASS
+```
+
+### 기록
+
+2026-10-13 Phase1 ⑥ 실측: `fl-build` → `undefined reference to set_interval` (및 `sleep_ms`).  
+AFJ `bootstrap.js` `set_interval`은 catch 후 `console.error("set_interval callback error…")` 하고 인터벌을 유지한다.
+
+### 이유
+
+계열 혼동. FX 활성 함정에 두면 AI가 cgc/runtime에 타이머 삼킴 수리를 넣으려 한다. 실제 FX 상태는 **API 미링크**다.
+
+---
+
 ## 변경 규칙
 
 1. 여기 항목을 다시 `FX-TRAPS.airc` active `@trap`으로 올리려면 **FX에서 새로 실측**하고 Phase 0 재분류 합의가 필요하다.
 2. 체크리스트만 고칠 때는 이 파일과 `@relocated`의 `moved_to` 앵커가 일치하는지 확인한다.
-3. active 함정 개수(`trap_count`)에는 이 5항목을 넣지 않는다.
+3. active 함정 개수(`trap_count`)에는 relocated 항목을 넣지 않는다.

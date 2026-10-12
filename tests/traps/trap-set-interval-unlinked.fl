@@ -1,0 +1,14 @@
+;; dialect: fx
+;; Phase1 ⑥ regression — trap-set-interval-swallow relocated
+;; FX native does NOT link set_interval / sleep_ms (undefined reference).
+;; Swallow-on-throw lives on Node/AFJ host (bootstrap.js), not FX ELF.
+;; This fixture must FAIL to link — see run-trap-set-interval-unlinked.sh
+(define ticks (atom 0))
+(defn tick []
+  (do
+    (swap! ticks (fn [$x] (+ $x 1)))
+    (println (str "tick=" @ticks))
+    (if (>= @ticks 2) (throw "stop") nil)))
+(set_interval "tick" 100)
+(sleep_ms 500)
+(println (str "final=" @ticks))

@@ -13,31 +13,32 @@
 ;; ============================================================
 
 @meta
-  version: 2.2
+  version: 2.3
   created: 2026-06-16
-  updated: 2026-10-12
+  updated: 2026-10-13
   source_of_truth: true
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction, verification_status]
-  trap_count: 3
-  resolved_count: 20
-  relocated_count: 5
-  verified_count: 3
-  unverified_count: 3
+  trap_count: 0
+  resolved_count: 22
+  relocated_count: 6
+  verified_count: 0
+  unverified_count: 0
   unverified_stdlib: verified-stdlib.md
-  maturation_phase: phase1 (20 resolved, 5 relocated, 3 active runtime)
+  maturation_phase: phase1 (22 resolved, 6 relocated, 0 active runtime — Phase1 ⑥ closed)
   reclass_phase0: 2026-10-11
   reclass_doc: docs/decisions/FX-TRAPS-RECLASS-PHASE0.md
   ops_checklist: docs/FX-OPS-CHECKLIST.md
   dialect_placement: docs/decisions/SIX-ITEMS-BY-DIALECT.md
   next_phases: [phase0-reverify-claimed, phase1-compiler-open-one-by-one]
-  last_verification: 2026-10-12 trap-http-get-cgc-mapping RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
+  last_verification: 2026-10-13 Phase1 ⑥ — set-interval RELOCATED; defn-throw-rerun + mariadb-count-float ARCHIVED; fixpoint SHA f4685b6f…
   verification_method: direct-execution + reproduction
   note: active trap_count excludes @archive; see reclass_doc
 
 ;; ─────────────────────── TRAPS ───────────────────────
 ;; 우선순위 최상위. "이렇게 하면 조용히 깨진다"의 목록.
+;; Phase1 ⑥ (2026-10-13): active RUNTIME_OPEN 0 — 아래는 archive/relocated만.
 
 ;; trap-defn-do → @archive (2026-10-11). Active list starts below.
 
@@ -46,42 +47,9 @@
 ;; trap-atom-deref-gc → @archive (2026-10-12)
 ;; trap-nth-out-of-bounds → @archive (2026-10-12)
 ;; trap-http-get-cgc-mapping → @archive (2026-10-12)
-
-@trap
-  id: trap-mariadb-count-float
-  type: trap
-  claimed: COUNT(*) 반환은 정수다
-  observed: MariaDB COUNT 반환 타입이 float 일 수 있다
-  risk: (= $cnt 0) 비교 실패
-  rule: 문자열 변환 후 비교 또는 nil 체크
-  safe_pattern: (if (or (nil? $cnt) (= (str $cnt) "0")) ...)
-  lint_detectable: false
-
-@trap
-  id: trap-set-interval-swallow
-  type: trap
-  claimed: set_interval 콜백에서 throw 하면 인터벌이 중단된다
-  observed: throw 발생 시 "set_interval callback error" stderr 출력 후 다음 틱 계속 실행 — 인터벌 절대 중단 안 됨
-  risk: 데몬 로직에서 throw로 중단 시도 시 조용히 무시됨. 보안 탐지 코드에서 치명적 — crash 아닌 silentskipped-cycle 상태로 영구 계속됨
-  rule: set_interval 콜백 안에서 throw 금지. 중단 신호는 atom 플래그로 전달하고 콜백 첫 줄에서 확인
-  safe_pattern: (define *stop* (atom false)) (set_interval (fn [] (if @*stop* nil (do ...))) ms)
-  reproduction: 2026-06-20 실측 — tick 3에서 throw, stderr에 오류 출력, tick 4 계속 실행 확인
-  lint_detectable: true
-
-@trap
-  id: trap-defn-throw-rerun
-  type: trap
-  claimed: v11에서 defn 내부 throw 는 호출 스택 상단으로 전파될 뿐 함수가 재실행되지 않는다
-  observed: v11에서 defn 본문 내부에서 throw 가 발생하면 함수 전체가 재실행된다. top-level 직접 호출이든 다른 defn에서 호출이든 무관. max-tries=3 설정 시 fn이 6회(3+3) 호출됨
-  v11_status: ⚠️ PARTIAL (2026-06-26 검증: throw 재실행 O, but with-retry 함수 v11에 미지원)
-  cgc_status: ❓ UNVERIFIED (cgc 빌드 실패로 미검증)
-  risk: 재시도 로직의 호출 횟수 2배. 부작용 있는 함수(DB write, HTTP call, 카운터 증가)가 예상치 못한 횟수만큼 실행됨 (⚠️ v11에 기본 retry 메커니즘 없으므로 실제 위험도 낮음)
-  rule: v11에서 부작용 있는 함수에 throw 를 제어 흐름으로 쓰지 말 것. 오류 신호는 {ok false error e} 맵 반환으로 (retry-result / retry-safe 패턴). ⚠️ with-retry는 v11 stdlib에 없음 — 수동 구현 필요
-  safe_pattern: (defn -retry-core [fn opts] (loop [i 1] (let [r (try (hash-map "ok" true "v" (fn)) (catch e (hash-map "ok" false "e" e)))] (if (get r "ok") r (recur (+ i 1))))))
-  reproduction: 2026-06-26 검증 — throw 발생 시 fn 2회 호출 확인. with-retry 함수 미존재 오류 (미지원)
-  lint_detectable: false
-  scope: v11-interpreter-only
-  verification_status: partial-v11 (throw 재실행 O, retry 함수 미지원)
+;; trap-mariadb-count-float → @archive (2026-10-13)
+;; trap-set-interval-swallow → @relocated (2026-10-13)
+;; trap-defn-throw-rerun → @archive (2026-10-13)
 
 @lock
   id: lock-no-free-memory
@@ -175,8 +143,51 @@
   moved_to: docs/FX-OPS-CHECKLIST.md#ops-v11-hof-scope
   find: grep -n "trap-v11-hof-closure-bug" docs/FX-OPS-CHECKLIST.md FX-TRAPS.airc
 
+@relocated
+  id: trap-set-interval-swallow
+  type: relocated
+  moved: 2026-10-13
+  former_type: trap
+  reason: HOST_NOT_FX — set_interval unlinked on FX native; swallow is Node/AFJ bootstrap
+  summary: FX link fails (undefined set_interval); callback swallow lives in freelang-afj bootstrap.js
+  moved_to: docs/FX-OPS-CHECKLIST.md#ops-set-interval-host
+  find: grep -n "trap-set-interval-swallow" docs/FX-OPS-CHECKLIST.md FX-TRAPS.airc
+  regression: tests/traps/trap-set-interval-unlinked.fl
+  regression_command: bash tests/traps/run-trap-set-interval-unlinked.sh
+
 ;; ─────────────────────── ARCHIVE ───────────────────────
 ;; Resolved traps kept for history. Not counted in trap_count.
+
+@archive
+  id: trap-defn-throw-rerun
+  type: archive
+  resolved: 2026-10-13
+  former_type: trap
+  claimed: v11에서 defn 내부 throw 시 함수가 재실행된다 (FX에도 해당?)
+  observed_old: v11-interpreter-only PARTIAL; cgc UNVERIFIED
+  observed_now: FX native try/catch → caught=first, calls=1 (재실행 없음)
+  resolution: FX archive — throw propagates once. v11/AFJ retry 조사는 해당 계열에서. Regression locks calls=1.
+  regression: tests/traps/trap-defn-throw-rerun.fl
+  regression_command: bash tests/traps/run-trap-defn-throw-rerun.sh
+  verification_status: resolved
+  lint_detectable: false
+  scope: fx-native (v11 claim left to AFJ/v11 docs)
+
+@archive
+  id: trap-mariadb-count-float
+  type: archive
+  resolved: 2026-10-13
+  former_type: trap
+  claimed: COUNT(*) 반환은 정수다 / float 일 수 있다
+  observed_old: MariaDB COUNT float → (= $cnt 0) 실패 (claimed)
+  observed_now: FX runtime/mariadb.c fetch_rows always fl_str_val (all non-null cells are strings). (= "0" 0)=false; (= "0" "0")=true. Not float — string.
+  resolution: Document string-cell contract + safe_pattern (= (str $cnt) "0"). Typed coerce deferred (opaque MYSQL_FIELD / no libmariadb-dev).
+  safe_pattern: (if (or (nil? $cnt) (= (str $cnt) "0")) ...)
+  regression: tests/traps/trap-mariadb-count-string.fl
+  regression_command: bash tests/traps/run-trap-mariadb-count-string.sh
+  verification_status: resolved
+  lint_detectable: false
+  note: live DB probe optional; C contract + eq semantics locked without MARIADB_HOST
 
 @archive
   id: trap-http-get-cgc-mapping

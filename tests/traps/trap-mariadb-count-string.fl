@@ -1,0 +1,9 @@
+;; dialect: fx
+;; Phase1 ⑥ regression — trap-mariadb-count-float archived
+;; Documents the real FX contract: cell values from mariadb_query are strings.
+;; (= "0" 0) is false — compare with (= (str $cnt) "0") or parse.
+;; This fixture does not need a live DB.
+(println (str "eq-str-int=" (= "0" 0)))
+(println (str "eq-str-str=" (= "0" "0")))
+(println (str "safe-zero=" (or (nil? nil) (= (str "0") "0"))))
+(println (str "type-cnt=" (type-of "42")))

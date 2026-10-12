@@ -36,15 +36,17 @@
 
 ;; ── B. safe-interval ─────────────────────────────────────────────────────────
 ;;
-;; 문제: set_interval 콜백 안에서 throw 발생 시 그 틱만 조용히 건너뜀
-;;        → 배경 작업이 소리 없이 멈출 수 있음
+;; 범위: Node/AFJ 호스트의 set_interval. FX native는 set_interval 미링크
+;;       (undefined reference) — trap-set-interval-swallow → ops-set-interval-host.
+;;
+;; 문제(호스트): 콜백 throw 시 그 틱만 건너뛰고 인터벌 계속
+;;        → 배경 작업이 소리 없이 깨진 채 돌 수 있음
 ;;
 ;; 해법: 틱 함수 본문을 반드시 try/catch로 감싸야 함
 ;;       set_interval은 문자열 함수명을 받아 직접 래핑 불가
-;;       → make-safe-tick 은 "감싸인 람다"를 반환함
 ;;          실제 등록은 아래 패턴 사용:
 ;;
-;;   ;; ✅ 권장 패턴
+;;   ;; ✅ 권장 패턴 (호스트가 set_interval 제공할 때)
 ;;   (defn my-work []
 ;;     ... 실제 작업 ...
 ;;   )

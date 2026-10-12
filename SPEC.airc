@@ -1,12 +1,12 @@
 {
   "brief": [
-    "핫은 (task-trap-set-interval-swallow-남은-runtime-open-3) 내용 (trap-set-interval-swallow (남은 RUNTIME_OPEN 3)) 다.",
+    "핫은 (task-phase1-six-items-complete-push-cgc-pending) 내용 (Phase1 ①–⑥ local 완료 · push/cgc-bin은 보스 승인 후) 다.",
     "lock·graveyard에 있는 방향은 다시 꺼내지 않는다."
   ],
   "$": "airc-spec",
   "version": "1.0.0",
   "project": "freelang-v11-fx",
-  "date": "2026-10-12",
+  "date": "2026-10-13",
   "cmd": "python3 ~/.grok/skills/checkpoint/scripts/print-hot.py SPEC.airc",
   "identity": {
     "what": "freelang-v11-fx",
@@ -14,7 +14,7 @@
     "for": "Grok next session",
     "not": " unrelated refactors during checkpoint"
   },
-  "hot": "task-trap-set-interval-swallow-남은-runtime-open-3",
+  "hot": "task-phase1-six-items-complete-push-cgc-pending",
   "constitution": {
     "1": "AI 전용. 인간 가독성을 위한 구조 타협 금지",
     "2": "identity는 잠긴다. 변경은 사용자 협의 필수. Claude 단독 변경 금지",
@@ -53,10 +53,10 @@
     },
     "task-trap-http-get-cgc-mapping-남은-runtime-open-4": {
       "t": "task",
-      "v": "trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)",
+      "v": "trap-http-get-cgc-mapping ARCHIVED (superseded by task-trap-http-get-cgc-mapping)",
       "entry": [],
       "check": [],
-      "verified": false,
+      "verified": true,
       "next": []
     },
     "task-trap-http-get-cgc-mapping": {
@@ -71,9 +71,30 @@
     },
     "task-trap-set-interval-swallow-남은-runtime-open-3": {
       "t": "task",
-      "v": "trap-set-interval-swallow (남은 RUNTIME_OPEN 3)",
+      "v": "trap-set-interval-swallow RELOCATED + throw-rerun/mariadb ARCHIVED (active 0)",
       "entry": [],
-      "check": [],
+      "check": [
+        "bash tests/traps/run-trap-set-interval-unlinked.sh",
+        "bash tests/traps/run-trap-defn-throw-rerun.sh",
+        "bash tests/traps/run-trap-mariadb-count-string.sh"
+      ],
+      "verified": true,
+      "next": [
+        "task-phase1-six-items-complete-push-cgc-pending"
+      ]
+    },
+    "task-phase1-six-items-complete-push-cgc-pending": {
+      "t": "task",
+      "v": "Phase1 ①–⑥ local PASS — push origin/github + cgc-bin swap on boss order only",
+      "entry": [
+        "FX-TRAPS.airc trap_count:0",
+        "FIXPOINT_LOG.md six-⑥-traps-reclass"
+      ],
+      "check": [
+        "./verify-fixpoint.sh",
+        "./scripts/verify-native-bootstrap.sh",
+        "bash -c 'for s in tests/traps/run-*.sh; do bash \"$s\" || exit 1; done'"
+      ],
       "verified": false,
       "next": []
     }
@@ -93,12 +114,12 @@
   ],
   "handoff": {
     "step1": "print-hot만 실행한다. SPEC.airc 본문(10줄 이후)은 읽지 않는다.",
-    "step2": "brief 2줄의 hot id만 실행한다. lock·graveyard 방향은 재도입 금지.",
-    "step3": "hot=task-trap-set-interval-swallow-남은-runtime-open-3 실행. 완료 표식=trap-http-get-cgc-mapping",
-    "step4": "너는 'trap-http-get-cgc-mapping'까지 끝난 상태다. 'trap-set-interval-swallow (남은 RUNTIME_OPEN 3)'를 하면 된다. 남은: mariadb-count-float, set-interval-swallow, defn-throw-rerun. http_get은 http_client 맵 API(회귀 run-trap-http-get-cgc-mapping.sh). SHA 01cf5f5b.",
+    "step2": "brief 2줄과 hot id만 실행한다. lock·graveyard 방향은 재도입 금지.",
+    "step3": "hot=task-phase1-six-items-complete-push-cgc-pending. Phase1 ①–⑥ local 완료. push·cgc-bin은 명시 승인 전 금지.",
+    "step4": "⑥ 증거: set-interval RELOCATED(ops-set-interval-host); defn-throw-rerun ARCHIVED(calls=1); mariadb-count-float ARCHIVED(string cells). SHA f4685b6f… (cgc-main 미변경).",
     "step5": "identity 변경 필요 시 사용자에게 먼저 물어라",
-    "done": "trap-http-get-cgc-mapping",
-    "next": "trap-set-interval-swallow (남은 RUNTIME_OPEN 3)",
-    "checkpoint_at": "2026-10-12T21:12:50.710863+09:00"
+    "done": "Phase1 ⑥ traps reclass (active 0)",
+    "next": "보스 승인 시 push(f6a5e9b+4185c29+⑥) 및/또는 cgc-bin swap",
+    "checkpoint_at": "2026-10-13T02:00:00+09:00"
   }
 }
