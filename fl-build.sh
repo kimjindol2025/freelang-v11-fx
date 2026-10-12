@@ -28,18 +28,35 @@ if [ -z "${CGC_BIN:-}" ] || [ ! -x "$CGC_BIN" ]; then
   exit 1
 fi
 
-# --no-net 플래그: openssl/curl 없이 stub으로 빌드
+# --no-net: openssl/curl 없이 stub
+# --bundle=core,net,db,mail : opt-in 선택 링크 (없으면 풀셋). docs/FX-BUNDLE-MAP.md
 NO_NET=0
+BUNDLE_SPEC=""
 ARGS=()
 for arg in "$@"; do
-  if [ "$arg" = "--no-net" ]; then NO_NET=1; else ARGS+=("$arg"); fi
+  case "$arg" in
+    --no-net) NO_NET=1 ;;
+    --bundle=*) BUNDLE_SPEC="${arg#--bundle=}" ;;
+    --bundle)
+      echo "❌ --bundle=core,net,db,mail 형식으로 쓰세요" >&2
+      exit 1
+      ;;
+    *) ARGS+=("$arg") ;;
+  esac
 done
 
 FL_INPUT="${ARGS[0]}"
 if [ -z "$FL_INPUT" ]; then
-  echo "사용법: $0 <input.fl> [output-name] [--no-net]"
+  echo "사용법: $0 <input.fl> [output-name] [--no-net] [--bundle=core,net,db,mail]"
   exit 1
 fi
+
+bundle_has() {
+  # empty BUNDLE_SPEC → 풀셋 (모든 묶음 yes)
+  if [ -z "$BUNDLE_SPEC" ]; then return 0; fi
+  local want="$1"
+  echo ",$BUNDLE_SPEC," | grep -qi ",${want},"
+}
 
 FL_BASE="$(basename "$FL_INPUT" .fl)"
 OUTPUT="${ARGS[1]:-$FL_BASE}"
@@ -136,29 +153,57 @@ fi
 
 # ─── 3. gcc: C → ELF ─────────────────────────────────────────────
 echo "⚙️  C → 바이너리 컴파일..."
-if [ "$NO_NET" = "1" ]; then
-  echo "   + --no-net: HTTP/WS/crypto stub 사용 (openssl/curl 불필요)"
-  NET_SRCS="$RUNTIME_DIR/http-stub.c $RUNTIME_DIR/websocket-stub.c $RUNTIME_DIR/http_client-stub.c $RUNTIME_DIR/crypto-stub.c $RUNTIME_DIR/sse.c"
-  NET_LIBS=""
-  EXTRA_CFLAGS="-DFL_NO_CRYPTO"
-else
+if [ -n "$BUNDLE_SPEC" ]; then
+  echo "   + --bundle=$BUNDLE_SPEC (기본 풀셋 아님 · docs/FX-BUNDLE-MAP.md)"
+fi
+
+# net
+WANT_NET=0
+if bundle_has net; then WANT_NET=1; fi
+if [ "$NO_NET" = "1" ]; then WANT_NET=0; fi
+
+if [ "$WANT_NET" = "1" ]; then
   NET_SRCS="$RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c $RUNTIME_DIR/sse.c"
   NET_LIBS="-lssl -lcrypto -lcurl"
   EXTRA_CFLAGS=""
+else
+  echo "   + net stub (http/ws/client/crypto)"
+  NET_SRCS="$RUNTIME_DIR/http-stub.c $RUNTIME_DIR/websocket-stub.c $RUNTIME_DIR/http_client-stub.c $RUNTIME_DIR/crypto-stub.c $RUNTIME_DIR/sse.c"
+  NET_LIBS=""
+  EXTRA_CFLAGS="-DFL_NO_CRYPTO"
 fi
 
+# db
+DB_SRCS=""
+DB_LIBS=""
+if bundle_has db; then
+  DB_SRCS="$RUNTIME_DIR/sqlite.c"
+  DB_LIBS="-lsqlite3"
+  if [ -f "$RUNTIME_DIR/mariadb.c" ]; then
+    DB_SRCS="$DB_SRCS $RUNTIME_DIR/mariadb.c"
+    echo "   + MariaDB dlopen 바인딩 포함"
+  fi
+else
+  echo "   + db stub (sqlite/mariadb)"
+  DB_SRCS="$RUNTIME_DIR/db-stub.c"
+fi
+
+# mail
+MAIL_SRCS=""
+if bundle_has mail; then
+  MAIL_SRCS="$RUNTIME_DIR/smtp.c"
+else
+  echo "   + mail stub (smtp)"
+  MAIL_SRCS="$RUNTIME_DIR/mail-stub.c"
+fi
+
+# core + 기타(regex/pdf/…)는 지도상 항상 — 번들에서 빼지 않음
 RUNTIME_SRCS="$RUNTIME_DIR/core.c $RUNTIME_DIR/collection.c $RUNTIME_DIR/io.c \
   $RUNTIME_DIR/json.c $RUNTIME_DIR/math.c $RUNTIME_DIR/process.c \
   $RUNTIME_DIR/error.c $NET_SRCS $RUNTIME_DIR/aliases.c \
-  $RUNTIME_DIR/sqlite.c $RUNTIME_DIR/debug.c $RUNTIME_DIR/gc.c \
+  $DB_SRCS $RUNTIME_DIR/debug.c $RUNTIME_DIR/gc.c \
   $RUNTIME_DIR/jit.c $RUNTIME_DIR/fx-builtin-shim.c \
-  $RUNTIME_DIR/regex.c $RUNTIME_DIR/smtp.c $RUNTIME_DIR/pdf_ttf.c $RUNTIME_DIR/pdf_img.c"
-
-# mariadb.c는 dlopen 방식이라 헤더 불필요 — 항상 포함
-if [ -f "$RUNTIME_DIR/mariadb.c" ]; then
-  RUNTIME_SRCS="$RUNTIME_SRCS $RUNTIME_DIR/mariadb.c"
-  echo "   + MariaDB dlopen 바인딩 포함"
-fi
+  $RUNTIME_DIR/regex.c $MAIL_SRCS $RUNTIME_DIR/pdf_ttf.c $RUNTIME_DIR/pdf_img.c"
 
 # user-fns.c — fl-source-manager 관리 (있으면 자동 포함)
 if [ -f "$RUNTIME_DIR/user-fns.c" ]; then
@@ -168,7 +213,7 @@ fi
 GCC_LOG="/tmp/fl_gcc_$$.log"
 if gcc -O2 -Werror=implicit-function-declaration -o "$OUTPUT" $C_FILE $RUNTIME_SRCS \
   -I "$RUNTIME_DIR" $EXTRA_CFLAGS \
-  -rdynamic -lpthread -lm -ldl -lsqlite3 $NET_LIBS \
+  -rdynamic -lpthread -lm -ldl $DB_LIBS $NET_LIBS \
   -w 2>"$GCC_LOG"; then
   rm -f "$GCC_LOG"
 else

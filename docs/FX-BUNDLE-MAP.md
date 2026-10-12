@@ -1,18 +1,20 @@
 # FX 런타임 번들 지도
 
-상태: `Phase 0` (문서만)  
+상태: `Phase 1 PARTIAL` — `fl-build --bundle=` 구현 (2026-10-12)  
 기록일: 2026-10-12  
 상위: [`decisions/SIX-ITEMS-BY-DIALECT.md`](decisions/SIX-ITEMS-BY-DIALECT.md) 6항  
-근거: `runtime/*.c` 파일 헤더·export, `fl-build.sh` `RUNTIME_SRCS` (2026-10-12 실측)
+근거: `runtime/*.c` 파일 헤더·export, `fl-build.sh` `RUNTIME_SRCS` (2026-10-12 실측)  
+회귀: `tests/six/run-bundle.sh`
 
 ## 1. 기본 정책 (고정)
 
 **기본 빌드 = 풀셋.** 지금 `fl-build.sh`는 아래 core+net+db+mail+기타를 **한 ELF에 링크**한다.  
 고정점·앱 스모크도 이 풀셋을 전제로 한다.
 
-- `--bundle` 옵션 **구현은 Phase 1**. Phase 0은 지도만.
-- 이미 있는 `--no-net`은 net 실구현을 stub으로 바꾸고 openssl/curl을 빼는 **좁은 스위치**다. 번들 체계의 완성형이 아니다.
-- 기본 링크를 core-only로 줄이는 일은 결정 문서에서 **넣지 말 곳** (고정점 흔들기).
+- `--bundle=core,net,db,mail` **opt-in** (Phase 1 ③). 없으면 풀셋.
+- 빠진 묶음은 stub: net→기존 `*-stub.c`, db→`db-stub.c`, mail→`mail-stub.c`.
+- 이미 있는 `--no-net`은 net을 stub으로 강제 (번들에서 net을 빼는 것과 같음).
+- 기본 링크를 core-only로 바꾸지 않는다. 고정점·앱 스모크는 풀셋.
 
 ## 2. 묶음 개요
 
@@ -103,16 +105,19 @@ libs:   -lpthread -lm -ldl -lsqlite3 [-lssl -lcrypto -lcurl]
 
 `scripts/verify-native-bootstrap.sh`는 `RUNTIME_SRCS`(cgc-bridge 포함)와 `APP_RUNTIME_SRCS`(앱형)를 나눈다. **둘 다 풀셋에 가깝고**, core-only가 아니다.
 
-## 5. Phase 1에 넘기는 것
+## 5. Phase 1 ③ 완료 / 남은 것
 
-| 항목 | 내용 |
-|------|------|
-| `fl-build --bundle core,net,…` | opt-in 선택 링크. 기본은 풀셋 유지 |
-| 번들별 스모크 | 선택 묶음만으로 hello/DB 등 |
-| 문서↔심볼 자동 추출 | 이 지도를 CI로 갱신 |
+완료 (2026-10-12):
+- `fl-build.sh --bundle=core,net,db,mail`
+- `runtime/db-stub.c`, `runtime/mail-stub.c`
+- hello 크기: full 238648 → core 179616 → core,net 220064 (바이트, 이 노드)
 
-## 6. 하지 않음 (Phase 0)
+남은 것:
+- 번들별 기능 스모크(DB/mail 실제 호출)
+- 문서↔심볼 자동 추출 CI
 
-- `runtime/*.c` / `cgc-main.fl` 수정
-- 기본 링크 축소
+## 6. 하지 않음
+
+- 기본 링크를 core-only로 축소
+- cgc-main.fl / 고정점 RUNTIME_SRCS 축소
 - AFJ·Script 번들 (AFJ 쪽은 따로)
