@@ -1,0 +1,9 @@
+;; dialect: fx
+;; Phase1 ⑤ — claimed pure but calls http_get (net) → [effect-purity]
+;; @in url:string @out map @effect pure
+(defn fetch-bad [$url]
+  (http_get $url))
+
+(defn main []
+  (fetch-bad "http://127.0.0.1/"))
+(main)

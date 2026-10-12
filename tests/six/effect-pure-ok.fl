@@ -1,0 +1,13 @@
+;; dialect: fx
+;; Phase1 ⑤ — pure annotation + pure builtins only (purity warn 0)
+;; @in a:number b:number @out number @effect pure
+(defn add2 [$a $b]
+  (+ $a $b))
+
+;; @in s:string @out any @effect pure
+(defn parse-json [$s]
+  (json_parse $s))
+
+(defn main []
+  (println (add2 1 2)))
+(main)

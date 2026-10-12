@@ -14,9 +14,16 @@
 #      2026-10-12: [effect-anno] @in/@out/@effect 형식이 틀렸을 때만 경고 (부재는 무시).
 #                  docs/FX-BUILTIN-EFFECTS.airc
 #      2026-10-12: [result-nil-http] (nil?/(null? (http_get…))) 경고 — status=0 맵. docs/FX-RESULT-CONVENTION.md
+#      2026-10-13: [effect-purity] @effect pure 인데 본문이 net/db 빌트인 호출 → 경고.
+#                  docs/FX-BUILTIN-EFFECTS.airc · scripts/fl-lint-effect-purity.py
 
 PASS=0
 FAIL=0
+
+SCRIPT_REAL="$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_REAL")" && pwd)"
+EFFECTS_AIRC="${EFFECTS_AIRC:-$SCRIPT_DIR/docs/FX-BUILTIN-EFFECTS.airc}"
+EFFECT_PURITY_PY="${EFFECT_PURITY_PY:-$SCRIPT_DIR/scripts/fl-lint-effect-purity.py}"
 
 check_file() {
   local file="$1"
@@ -116,6 +123,13 @@ check_file() {
   # [dialect-marker] 표지 없음 → 경고만 (errors 금지 — 빌드 거부 아님). docs/FX-NAME-CARD.md
   if [ "$has_dialect_marker" -eq 0 ]; then
     warnings+=("  줄 1 [dialect-marker] 방언 표지 없음 — 파일 상단에 \`;; dialect: fx\` 권장 (docs/FX-NAME-CARD.md)")
+  fi
+
+  # [effect-purity] @effect pure + net/db 빌트인 (주석만, 문법 추가 없음)
+  if [ -f "$EFFECT_PURITY_PY" ] && [ -f "$EFFECTS_AIRC" ]; then
+    while IFS= read -r wline; do
+      [ -n "$wline" ] && warnings+=("$wline")
+    done < <(python3 "$EFFECT_PURITY_PY" "$file" "$EFFECTS_AIRC" 2>/dev/null || true)
   fi
 
   # 결과 출력

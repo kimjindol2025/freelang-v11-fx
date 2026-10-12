@@ -1,0 +1,9 @@
+;; dialect: fx
+;; Phase1 ⑤ — claimed pure but calls db → [effect-purity]
+;; @in name:string @out handle @effect pure
+(defn open-bad [$name]
+  (db $name))
+
+(defn main []
+  (open-bad "x"))
+(main)

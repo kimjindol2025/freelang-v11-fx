@@ -1,8 +1,8 @@
 ;; ============================================================
-;; FX-BUILTIN-EFFECTS.airc — Phase 0 빌트인 효과표 (20개)
-;; 기록일: 2026-10-12
+;; FX-BUILTIN-EFFECTS.airc — 빌트인 효과표 (20개)
+;; 기록일: 2026-10-12 / Phase1 ⑤ 갱신 2026-10-13
 ;; 상위: decisions/SIX-ITEMS-BY-DIALECT.md 4항
-;; 강제: 없음 (lint는 주석 형식만; 주석 부재는 경고 없음)
+;; 강제: 없음 (주석 부재는 경고 없음)
 ;; ============================================================
 ;;
 ;; 함수 칸 주석 규약 (한 줄):
@@ -20,16 +20,18 @@
 ;;   process — env·프로세스·병렬 실행 등
 ;;
 ;; 원칙: claimed ≠ observed. 효과는 구현·실측 근거. 불확실하면 evidence: unverified
+;; Phase1 ⑤: fl-lint [effect-purity] — @effect pure 인데 본문이 이 표의 net/db
+;;   빌트인을 부르면 경고 (scripts/fl-lint-effect-purity.py). 문법 추가 없음.
 
 @meta
-  version: 1.0
+  version: 1.1
   created: 2026-10-12
-  updated: 2026-10-12
-  phase: 0
+  updated: 2026-10-13
+  phase: 1
   builtin_count: 20
   annotation_required: false
-  lint_rule: effect-anno (malformed only)
-  note: AFJ effect 강제 실험은 AFJ 쪽은 따로
+  lint_rule: effect-anno (malformed) + effect-purity (pure vs net/db)
+  note: AFJ effect 강제 실험은 AFJ 쪽은 따로. cgc 문법 칸은 넣지 않음.
 
 @builtin
   id: fl_add
