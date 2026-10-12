@@ -1,6 +1,6 @@
 {
   "brief": [
-    "핫은 (task-trap-http-get-cgc-mapping-남은-runtime-open-4) 내용 (trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)) 다.",
+    "핫은 (task-trap-set-interval-swallow-남은-runtime-open-3) 내용 (trap-set-interval-swallow (남은 RUNTIME_OPEN 3)) 다.",
     "lock·graveyard에 있는 방향은 다시 꺼내지 않는다."
   ],
   "$": "airc-spec",
@@ -14,7 +14,7 @@
     "for": "Grok next session",
     "not": " unrelated refactors during checkpoint"
   },
-  "hot": "task-trap-http-get-cgc-mapping-남은-runtime-open-4",
+  "hot": "task-trap-set-interval-swallow-남은-runtime-open-3",
   "constitution": {
     "1": "AI 전용. 인간 가독성을 위한 구조 타협 금지",
     "2": "identity는 잠긴다. 변경은 사용자 협의 필수. Claude 단독 변경 금지",
@@ -58,6 +58,24 @@
       "check": [],
       "verified": false,
       "next": []
+    },
+    "task-trap-http-get-cgc-mapping": {
+      "t": "task",
+      "v": "trap-http-get-cgc-mapping",
+      "entry": [],
+      "check": [],
+      "verified": true,
+      "next": [
+        "task-trap-set-interval-swallow-남은-runtime-open-3"
+      ]
+    },
+    "task-trap-set-interval-swallow-남은-runtime-open-3": {
+      "t": "task",
+      "v": "trap-set-interval-swallow (남은 RUNTIME_OPEN 3)",
+      "entry": [],
+      "check": [],
+      "verified": false,
+      "next": []
     }
   },
   "lock": [
@@ -76,11 +94,11 @@
   "handoff": {
     "step1": "print-hot만 실행한다. SPEC.airc 본문(10줄 이후)은 읽지 않는다.",
     "step2": "brief 2줄의 hot id만 실행한다. lock·graveyard 방향은 재도입 금지.",
-    "step3": "hot=task-trap-http-get-cgc-mapping-남은-runtime-open-4 실행. 완료 표식=FX Phase1 traps(lambda/atom/nth)+cgc-bin 01cf5f5b 교체",
-    "step4": "너는 'FX Phase1 traps(lambda/atom/nth)+cgc-bin 01cf5f5b 교체'까지 끝난 상태다. 'trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)'를 하면 된다. 증거: tip 17350a3, FIXPOINT 01cf5f5b, INSTALLED_BIN a19ccd99, bak-20261012-204443, FX-TRAPS trap_count=4.",
+    "step3": "hot=task-trap-set-interval-swallow-남은-runtime-open-3 실행. 완료 표식=trap-http-get-cgc-mapping",
+    "step4": "너는 'trap-http-get-cgc-mapping'까지 끝난 상태다. 'trap-set-interval-swallow (남은 RUNTIME_OPEN 3)'를 하면 된다. 남은: mariadb-count-float, set-interval-swallow, defn-throw-rerun. http_get은 http_client 맵 API(회귀 run-trap-http-get-cgc-mapping.sh). SHA 01cf5f5b.",
     "step5": "identity 변경 필요 시 사용자에게 먼저 물어라",
-    "done": "FX Phase1 traps(lambda/atom/nth)+cgc-bin 01cf5f5b 교체",
-    "next": "trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)",
-    "checkpoint_at": "2026-10-12T21:01:57.126630+09:00"
+    "done": "trap-http-get-cgc-mapping",
+    "next": "trap-set-interval-swallow (남은 RUNTIME_OPEN 3)",
+    "checkpoint_at": "2026-10-12T21:12:50.710863+09:00"
   }
 }

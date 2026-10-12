@@ -1,0 +1,11 @@
+;; dialect: fx
+;; trap-http-get-cgc-mapping: http_get / http-get must return {status body headers}
+;; (not fl_http_get body-string). URL comes from env TRAP_HTTP_URL.
+(define u (env_get "TRAP_HTTP_URL"))
+(define r (http_get u))
+(println (if (map? r) "shape=map" "shape=BAD"))
+(println (str "status=" (get r "status")))
+(println (str "body=" (get r "body")))
+(println (if (null? (get r "headers")) "headers=BAD" "headers=ok"))
+(define r2 (http-get u))
+(println (str "kebab-status=" (get r2 "status")))

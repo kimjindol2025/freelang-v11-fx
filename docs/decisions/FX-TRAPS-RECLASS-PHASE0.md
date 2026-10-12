@@ -49,7 +49,7 @@ Phase 0는 **재분류·문서 동기화**다.
 | `trap-nested-defn-skip` | false | **RESOLVED** | compiler | Phase 1 PASS `run-trap-nested-defn-skip.sh` → `42`. hoist fwd decls. 고정점 SHA `53542e96…` |
 | `trap-inc-dec-missing` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — inc/dec OK|
 | `trap-cache-cgc-missing` | false | **RESOLVED** | compiler/runtime | 재실측 PASS `tests/traps/reverify-claimed.fl` — fx-std/cache.fl OK|
-| `trap-http-get-cgc-mapping` | false | RUNTIME_OPEN | runtime | 맵 vs 문자열. Result 병행과 연계 |
+| `trap-http-get-cgc-mapping` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-http-get-cgc-mapping.sh` → map status/body/headers. `http_client.c` http_get; emit≠fl_http_get. SHA 유지 `01cf5f5b…` |
 | `trap-parallel-run-missing` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-parallel-run-missing.sh`. `fl_run_parallel`+`fx-std/parallel.fl`. SHA 유지 `53542e96…` |
 | `trap-atom-deref-gc` | false | **RESOLVED** | runtime | Phase 1 PASS `run-trap-atom-deref-gc.sh` → hello/1. `fl_heap_copy` on deref/reset. SHA 유지 `01cf5f5b…` |
 | `trap-defn-throw-rerun` | false | RUNTIME_OPEN | runtime | retry 패턴 |

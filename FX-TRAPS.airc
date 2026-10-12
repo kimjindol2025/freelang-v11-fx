@@ -20,19 +20,19 @@
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction, verification_status]
-  trap_count: 4
-  resolved_count: 19
+  trap_count: 3
+  resolved_count: 20
   relocated_count: 5
   verified_count: 3
-  unverified_count: 4
+  unverified_count: 3
   unverified_stdlib: verified-stdlib.md
-  maturation_phase: phase1 (19 resolved, 5 relocated, 4 active runtime)
+  maturation_phase: phase1 (20 resolved, 5 relocated, 3 active runtime)
   reclass_phase0: 2026-10-11
   reclass_doc: docs/decisions/FX-TRAPS-RECLASS-PHASE0.md
   ops_checklist: docs/FX-OPS-CHECKLIST.md
   dialect_placement: docs/decisions/SIX-ITEMS-BY-DIALECT.md
   next_phases: [phase0-reverify-claimed, phase1-compiler-open-one-by-one]
-  last_verification: 2026-10-12 trap-nth-out-of-bounds RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
+  last_verification: 2026-10-12 trap-http-get-cgc-mapping RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
   verification_method: direct-execution + reproduction
   note: active trap_count excludes @archive; see reclass_doc
 
@@ -45,6 +45,7 @@
 ;; trap-lambda-capture → @archive (2026-10-12)
 ;; trap-atom-deref-gc → @archive (2026-10-12)
 ;; trap-nth-out-of-bounds → @archive (2026-10-12)
+;; trap-http-get-cgc-mapping → @archive (2026-10-12)
 
 @trap
   id: trap-mariadb-count-float
@@ -66,17 +67,6 @@
   safe_pattern: (define *stop* (atom false)) (set_interval (fn [] (if @*stop* nil (do ...))) ms)
   reproduction: 2026-06-20 실측 — tick 3에서 throw, stderr에 오류 출력, tick 4 계속 실행 확인
   lint_detectable: true
-
-@trap
-  id: trap-http-get-cgc-mapping
-  type: trap
-  claimed: (http_get url) 는 cgc 에서 {status body headers} 맵을 반환한다
-  observed: cgc-main.fl:992 가 http-get/http_get 을 fl_http_get (http.c) 으로 변환 — 이 함수는 문자열 body 만 반환 (맵 아님). (get result "status") → nil
-  risk: http 응답 상태코드 확인 불가. 정상 응답도 nil 처리됨
-  rule: cgc 에서 http 결과를 맵으로 쓰지 말 것. 현재 cgc http_get 은 body string 전용으로만 사용. 맵이 필요하면 http_client.c 의 http_get 을 직접 노출하는 패치 필요
-  safe_pattern: (define $body (http_get "http://..."))  ;; string 반환, nil 체크 후 사용
-  reproduction: 2026-06-20 실측 — cgc 생성 C에 fl_http_get 호출 확인, (get result "status") → nil
-  lint_detectable: false
 
 @trap
   id: trap-defn-throw-rerun
@@ -187,6 +177,21 @@
 
 ;; ─────────────────────── ARCHIVE ───────────────────────
 ;; Resolved traps kept for history. Not counted in trap_count.
+
+@archive
+  id: trap-http-get-cgc-mapping
+  type: archive
+  resolved: 2026-10-12
+  former_type: trap
+  claimed: (http_get url) 는 cgc 에서 {status body headers} 맵을 반환한다
+  observed_old: cgc mapped to fl_http_get (http.c) body string only; (get result "status") → nil
+  observed_now: emits http_get(…) from http_client.c; map status/body/headers; kebab http-get same
+  resolution: http_client map API already wired (cgc http-get→http_get; underscore default call). Legacy fl_http_get remains unused by this path. Regression locks emit+shape.
+  regression: tests/traps/trap-http-get-cgc-mapping.fl
+  regression_command: bash tests/traps/run-trap-http-get-cgc-mapping.sh
+  verification_status: resolved
+  lint_detectable: false
+  note: apps that still (nil? resp) after http_get (e.g. fx-server-monitor) should check status; failure is status=0 map, not nil
 
 @archive
   id: trap-nth-out-of-bounds
