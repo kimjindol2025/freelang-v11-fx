@@ -1,6 +1,6 @@
 {
   "brief": [
-    "핫은 (task-phase1-six-items-complete-push-cgc-pending) 내용 (Phase1 ①–⑥ local 완료 · push/cgc-bin은 보스 승인 후) 다.",
+    "핫은 (task-phase1-six-items-complete-push-cgc-pending) 내용 (push/cgc-bin은 보스 승인 후 (지시 없으면 대기)) 다.",
     "lock·graveyard에 있는 방향은 다시 꺼내지 않는다."
   ],
   "$": "airc-spec",
@@ -85,18 +85,46 @@
     },
     "task-phase1-six-items-complete-push-cgc-pending": {
       "t": "task",
-      "v": "Phase1 ①–⑥ local PASS — push origin/github + cgc-bin swap on boss order only",
+      "v": "push/cgc-bin은 보스 승인 후 (지시 없으면 대기)",
       "entry": [
-        "FX-TRAPS.airc trap_count:0",
-        "FIXPOINT_LOG.md six-⑥-traps-reclass"
+        "docs/reports/PHASE1-SIX-ITEMS-CLOSEOUT-2026-10-13.md",
+        "docs/reports/PHASE1-SIX-ITEMS-WORK-REPORT-2026-10-13.md",
+        "/home/kim/kim/projects/CHECKPOINT-2026-10-13-freelang-v11-fx.md"
       ],
       "check": [
-        "./verify-fixpoint.sh",
-        "./scripts/verify-native-bootstrap.sh",
-        "bash -c 'for s in tests/traps/run-*.sh; do bash \"$s\" || exit 1; done'"
+        "보스 명시 승인 후에만 git push / scripts/upgrade-cgc-bin.sh",
+        "./verify-fixpoint.sh"
       ],
       "verified": false,
       "next": []
+    },
+    "task-phase1-로컬-완료-trap-count-0": {
+      "t": "task",
+      "v": "Phase1 ①–⑥ 로컬 완료 (trap_count 0)",
+      "entry": [],
+      "check": [],
+      "verified": true,
+      "next": [
+        "task-phase1-six-items-complete-push-cgc-pending"
+      ],
+      "lifecycle": {
+        "state": "void",
+        "why": "superseded by task-phase1-six-items-complete-push-cgc-pending"
+      }
+    },
+    "task-push-cgc-bin은-보스-승인-후-지시-없으면-대기": {
+      "t": "task",
+      "v": "push/cgc-bin은 보스 승인 후 (지시 없으면 대기)",
+      "entry": [],
+      "check": [],
+      "verified": true,
+      "next": [
+        "task-phase1-six-items-complete-push-cgc-pending"
+      ],
+      "lifecycle": {
+        "state": "void",
+        "why": "superseded by task-phase1-six-items-complete-push-cgc-pending"
+      }
     }
   },
   "lock": [
@@ -116,10 +144,12 @@
     "step1": "print-hot만 실행한다. SPEC.airc 본문(10줄 이후)은 읽지 않는다.",
     "step2": "brief 2줄과 hot id만 실행한다. lock·graveyard 방향은 재도입 금지.",
     "step3": "hot=task-phase1-six-items-complete-push-cgc-pending. Phase1 ①–⑥ local 완료. push·cgc-bin은 명시 승인 전 금지.",
-    "step4": "⑥ 증거: set-interval RELOCATED(ops-set-interval-host); defn-throw-rerun ARCHIVED(calls=1); mariadb-count-float ARCHIVED(string cells). SHA f4685b6f… (cgc-main 미변경).",
+    "step4": "너는 'Phase1 ①–⑥ 로컬 완료 (trap_count 0)'까지 끝난 상태다. 'push/cgc-bin은 보스 승인 후 (지시 없으면 대기)'를 하면 된다.",
     "step5": "identity 변경 필요 시 사용자에게 먼저 물어라",
-    "done": "Phase1 ⑥ traps reclass (active 0)",
-    "next": "보스 승인 시 push(f6a5e9b+4185c29+⑥) 및/또는 cgc-bin swap",
-    "checkpoint_at": "2026-10-13T02:00:00+09:00"
+    "done": "Phase1 ①–⑥ 로컬 완료 (trap_count 0)",
+    "next": "push/cgc-bin은 보스 승인 후 (지시 없으면 대기)",
+    "checkpoint_at": "2026-10-13T02:29:17+09:00",
+    "closeout": "docs/reports/PHASE1-SIX-ITEMS-CLOSEOUT-2026-10-13.md",
+    "work_report": "docs/reports/PHASE1-SIX-ITEMS-WORK-REPORT-2026-10-13.md"
   }
 }

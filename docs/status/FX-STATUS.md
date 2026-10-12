@@ -1,10 +1,12 @@
 # FreeLang fx — 현황 문서 (단일 진실)
 
-> **생성**: 2026-06-16 · **최종 갱신**: 2026-09-27
-> **고정점**: `aa8bed315d2bae91630fcff72d7edcafb9afafd84dc357133bb271c3d1bda4fd` (gen-a==gen-b==gen-c)
-> **검증 커밋**: `10848c4` · 상태 **VERIFIED**
+> **생성**: 2026-06-16 · **최종 갱신**: 2026-10-13 (Phase1 6항 마감 포인터)
+> **고정점 (현재)**: `f4685b6fd03b59496acdf28b8069160ed9fc7ebb9b0953d2d1e1f354591d0c33` (gen-a==gen-b==gen-c) — `FIXPOINT_LOG.md` 정본
+> **Phase1 6항**: 로컬 완료 · active trap 0 · 마감 [`../reports/PHASE1-SIX-ITEMS-CLOSEOUT-2026-10-13.md`](../reports/PHASE1-SIX-ITEMS-CLOSEOUT-2026-10-13.md) · 작업보고 [`../reports/PHASE1-SIX-ITEMS-WORK-REPORT-2026-10-13.md`](../reports/PHASE1-SIX-ITEMS-WORK-REPORT-2026-10-13.md)
 > **읽어야 하는 대상**: fx로 앱을 작성하거나, 컴파일러를 수정하거나, 다음 세션을 이어받는 Claude
 > **FX3**: `/home/kim/kim/platform/freelang-fx3` — 별도 언어 프로젝트. 준비 단계. 이 저장소의 런타임과 앱은 가져가지 않는다. 발견 기록은 [`../decisions/FX3-DIRECTION.md`](../decisions/FX3-DIRECTION.md).
+>
+> 아래 본문 표의 오래된 SHA/날짜는 역사 스냅샷일 수 있다. **현재 게이트·함정은 FIXPOINT_LOG · FX-TRAPS · 위 마감문**을 본다.
 
 ---
 
