@@ -211,6 +211,14 @@
 ;;   (db-one-safe $db $sql $params)   → Result
 ;;   (http-get-safe $url)             → Result (body 문자열)
 ;;   (json-parse-safe $s)             → Result
+;;
+;; Phase 1 ② *-result 병행 API (기존 빌트인 그대로, 추가만):
+;;   (http_get_result $url)   → Result (성공 시 응답 맵 전체)
+;;   (file_read_result $path) → Result
+;;   (env_get_result $name)   → Result
+;;   (nth_result $col $i)     → Result
+;;   (shell_run_result $cmd)  → Result
+;;   kebab 별칭: http-get-result / file-read-result / …
 
 ;; Result 생성자
 (defn result-ok [$v]    [$v nil])
@@ -271,6 +279,44 @@
       (if (>= (get $r "status") 400)
         (result-fail (str "HTTP " (get $r "status")))
         (result-ok (get $r "body"))))))
+
+;; ── Phase 1 ② *-result (병행; 기존 http_get/file-read/… 동작 불변) ─────────
+;; 성공 [값 nil] / 실패 [nil 메시지]. http_get_result 성공값은 맵 전체(body만이 아님).
+
+(defn http_get_result [$url]
+  (let [$r (http_get $url)]
+    (if (or (null? $r) (= (get $r "status") 0))
+      (result-fail (str "연결 실패: " (get $r "error")))
+      (if (>= (get $r "status") 400)
+        (result-fail (str "HTTP " (get $r "status")))
+        (result-ok $r)))))
+
+(defn file_read_result [$path]
+  (let [$r (file-read $path)]
+    (if (null? $r)
+      (result-fail "파일 없음")
+      (result-ok $r))))
+
+(defn env_get_result [$name]
+  (let [$r (env_get $name)]
+    (if (null? $r)
+      (result-fail (str "env 없음: " $name))
+      (result-ok $r))))
+
+(defn nth_result [$col $i]
+  (let [$n (if (null? $col) 0 (length $col))]
+    (if (or (null? $col) (< $i 0) (>= $i $n))
+      (result-fail (str "nth out of bounds: index=" $i " len=" $n))
+      (result-ok (nth $col $i)))))
+
+(defn shell_run_result [$cmd]
+  (let [$r (shell_run $cmd)]
+    (if (null? $r)
+      (result-fail "명령 실패")
+      (result-ok $r))))
+
+;; 참고: kebab 별칭(http-get-result 등)은 cgc c-name이 underscore와 같아
+;; C 심볼 충돌 → 두지 않음. FX 축은 underscore *_result 만 사용.
 
 ;; Safe JSON parse — json_try_parse가 C 레벨에서 try-catch 처리
 ;; (FL try-catch는 setjmp를 statement expression 안에 넣어 GCC 에러 발생)

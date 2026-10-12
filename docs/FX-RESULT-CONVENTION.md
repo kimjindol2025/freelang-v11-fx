@@ -1,10 +1,11 @@
 # FX Result 관례
 
-상태: `Phase 0` (문서·관례만)  
+상태: `Phase 1 PARTIAL` — `*_result` 병행 API + lint `[result-nil-http]` (2026-10-12)  
 기록일: 2026-10-12  
 상위: [`decisions/SIX-ITEMS-BY-DIALECT.md`](decisions/SIX-ITEMS-BY-DIALECT.md) 3항  
-소스: `fx-std.fl` §6, `fx-std/safe.fl`  
-강제: **컴파일러 강제 없음** (AFJ에서 먼저 — 결정 문서 §2.2). FX는 병행 API·관례만.
+소스: `fx-std.fl` §6, `fx-std/safe.fl` · runtime `fl_result_ok`/`fl_result_fail`  
+강제: **컴파일러 강제 없음** (AFJ에서 먼저 — 결정 문서 §2.2). FX는 병행 API·관례만.  
+감시 앱 목록(수정 안 함): [`FX-RESULT-MONITOR-APPS.md`](FX-RESULT-MONITOR-APPS.md)
 
 ## 1. Result 형태
 
@@ -38,7 +39,12 @@
 | `db-query-safe` | `fxb_sqlite_query_p` | 반환이 `string?` → fail |
 | `db-exec-safe` | `fxb_sqlite_exec_p` | 반환이 `string?` → fail |
 | `db-one-safe` | `fxb_sqlite_query_p` 후 첫 행 | 문자열이면 fail; 0행이면 **ok + nil** |
-| `http-get-safe` | `http_get` | `status=0` 또는 `status>=400` → fail |
+| `http-get-safe` | `http_get` | `status=0` 또는 `status>=400` → fail (**성공값=body 문자열**) |
+| `http_get_result` | `http_get` | 동일 실패 판정, **성공값=응답 맵 전체** (Phase 1 ②) |
+| `file_read_result` | `file-read` | `null?` → fail (Phase 1 ②) |
+| `env_get_result` | `env_get` | `null?` → fail (Phase 1 ②) |
+| `nth_result` | `nth` | 범위 밖 → fail (Phase 1 ②) |
+| `shell_run_result` | `shell_run` | `null?` → fail (Phase 1 ②) |
 | `json-parse-safe` | `json_try_parse` | C Result 그대로 |
 | `file-read-safe` | `file-read` | `null?` → fail `"파일 없음"` |
 | `shell-run-safe` | `shell_run` | `null?` → fail (아래 §4 실측 주의) |
@@ -120,6 +126,7 @@ throw: json_parse.
 
 | 층 | 내용 |
 |----|------|
-| Phase 0 (지금) | 이 문서 + 실측 표 |
-| 하지 않음 | cgc Result 강제, AFJ 계약 이식, runtime 실패 의미 통일 |
+| Phase 0 | 이 문서 + 실측 표 |
+| Phase 1 ② (지금) | `*_result` 5개 + `fl_result_ok/fail` + lint `[result-nil-http]` + 감시앱 목록. 기존 빌트인 불변 |
+| 하지 않음 | cgc Result 강제, 감시앱 자동 수정, AFJ 계약 이식 |
 | AFJ | Result·match 강제 실험은 **AFJ 쪽은 따로** |

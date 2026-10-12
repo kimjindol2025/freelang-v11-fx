@@ -13,6 +13,7 @@
 #      2026-10-12: [dialect-marker] 방언 표지 없음 → 경고만 (거부 금지). docs/FX-NAME-CARD.md
 #      2026-10-12: [effect-anno] @in/@out/@effect 형식이 틀렸을 때만 경고 (부재는 무시).
 #                  docs/FX-BUILTIN-EFFECTS.airc
+#      2026-10-12: [result-nil-http] (nil?/(null? (http_get…))) 경고 — status=0 맵. docs/FX-RESULT-CONVENTION.md
 
 PASS=0
 FAIL=0
@@ -57,6 +58,12 @@ check_file() {
     # [dialect-fx-api] AFJ-style kebab API — FX naming card (SIX-ITEMS-BY-DIALECT)
     if echo "$line" | grep -qP '\((server|json|res|http|sqlite|mariadb)-[a-z]'; then
       warnings+=("  줄 $lineno [dialect-fx-api] FX API는 underscore: $(echo "$line" | grep -oP '\((server|json|res|http|sqlite|mariadb)-[a-z!_?-]+' | head -1)")
+    fi
+
+    # [result-nil-http] http_get 실패는 status=0 맵이라 (nil?)/(null?)로 못 잡음
+    # → http_get_result / http-get-safe 권장 (docs/FX-RESULT-CONVENTION.md)
+    if echo "$line" | grep -qP '\((nil\?|null\?)\s+\(http[_-]get\b'; then
+      warnings+=("  줄 $lineno [result-nil-http] http_get 실패는 nil이 아님(status=0 맵) — (http_get_result …) 또는 status 확인 (docs/FX-RESULT-CONVENTION.md)")
     fi
 
     # [effect-anno] 주석을 썼는데 형식이 틀릴 때만 경고. 주석 없음 → 경고 없음.

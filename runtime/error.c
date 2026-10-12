@@ -178,3 +178,18 @@ FLValue fl_make_error(const char* type, const char* msg,
     m = fl_map_set(m, fl_str_val("fix"),     fl_str_val(fix ? fix : ""));
     return m;
 }
+
+/* Result: [값 nil] / [nil 메시지] — fx-std result-ok / result-fail 과 동일 형태 */
+FLValue fl_result_ok(FLValue v) {
+    FLValue items[2];
+    items[0] = v;
+    items[1] = fl_nil();
+    return fl_vec_from(items, 2);
+}
+
+FLValue fl_result_fail(FLValue msg) {
+    FLValue items[2];
+    items[0] = fl_nil();
+    items[1] = msg;
+    return fl_vec_from(items, 2);
+}

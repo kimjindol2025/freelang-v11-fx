@@ -566,6 +566,9 @@ void fl_throw(FLValue err);
 /* ERROR-SCHEMA: type/message + optional value/fix (NULL → empty field). */
 FLValue fl_make_error(const char* type, const char* msg,
                       const char* value, const char* fix);
+/* Result 병행 API 기초: 성공 [값 nil] / 실패 [nil 메시지] (FX-RESULT-CONVENTION). */
+FLValue fl_result_ok(FLValue v);
+FLValue fl_result_fail(FLValue msg);
 /* throw 시 FL 소스 라인 추적 (cgc-main이 설정, uncaught handler가 출력) */
 extern int __fl_throw_line;
 /* 콜스택 추적 */

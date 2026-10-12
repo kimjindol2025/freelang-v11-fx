@@ -1,0 +1,26 @@
+;; dialect: fx
+;; Phase 1 ② — *-result 병행 API (load fx-std)
+(load "/home/kim/kim/platform/freelang-v11-fx/fx-std.fl")
+
+;; file_read_result: missing → err
+(define r1 (file_read_result "/tmp/fx-no-such-file-xyz-4242"))
+(println (str "file-err=" (result-err? r1)))
+(println (str "file-msg=" (result-msg r1)))
+
+;; nth_result: OOB → err
+(define r2 (nth_result [10 20 30] 99))
+(println (str "nth-err=" (result-err? r2)))
+
+;; nth_result: in-bound → ok
+(define r3 (nth_result [10 20 30] 1))
+(println (str "nth-ok=" (result-ok? r3)))
+(println (str "nth-val=" (result-val r3)))
+
+;; env_get_result: missing → err
+(define r4 (env_get_result "FX_RESULT_API_NO_SUCH_ENV_ZZZ"))
+(println (str "env-err=" (result-err? r4)))
+
+;; http_get_result: connection fail → err (status 0 map, not nil)
+(define r5 (http_get_result "http://127.0.0.1:1/"))
+(println (str "http-err=" (result-err? r5)))
+(println (str "http-nil-raw=" (null? (http_get "http://127.0.0.1:1/"))))
