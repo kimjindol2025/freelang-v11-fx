@@ -62,3 +62,4 @@
 | 2026-10-12 | phase1-lambda-capture | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 완전 · trap-lambda-capture (cgc-main CAP/env-stack; 63411319→01cf5f5b) |
 | 2026-10-12 | phase1-atom-deref-gc | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · trap-atom-deref-gc (runtime/math.c만; cgc-main 미변경) |
 | 2026-10-12 | phase1-nth-oob | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | ✅ 동일 SHA · trap-nth-out-of-bounds (nil 관례 잠금; cgc-main 미변경) |
+| 2026-10-12 | cgc-bin-upgrade | 01cf5f5b6c25863f | 01cf5f5b6c25863f | 01cf5f5b6c25863f | cgc-bin 교체: 239b729d… → a19ccd99…, 고정점 01cf5f5b… (bak-20261012-204443) |

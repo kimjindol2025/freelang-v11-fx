@@ -6,7 +6,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 TARGET="${CGC_BIN_TARGET:-$ROOT_DIR/../freelang-afj/bin/cgc-bin}"
 CANDIDATE="${1:-/tmp/fx-cgc-bin-candidate}"
-EXPECT_SHA="634113190b96cc289776bc435b27b53c071e74fad1af59828a39850db8176aac"
+EXPECT_SHA="01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT_DIR/runtime}"
 
 if [[ ! -x "$CANDIDATE" ]]; then
