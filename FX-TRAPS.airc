@@ -20,19 +20,19 @@
   node_priority: [trap, lock, decision, fact]
   consumers: [fl-lint.sh, runtime-fix-priority, worker-handoff]
   required_fields_trap: [id, type, claimed, observed, risk, rule, lint_detectable, reproduction, verification_status]
-  trap_count: 6
-  resolved_count: 17
+  trap_count: 5
+  resolved_count: 18
   relocated_count: 5
   verified_count: 3
-  unverified_count: 6
+  unverified_count: 5
   unverified_stdlib: verified-stdlib.md
-  maturation_phase: phase1 (17 resolved, 5 relocated, 6 active runtime)
+  maturation_phase: phase1 (18 resolved, 5 relocated, 5 active runtime)
   reclass_phase0: 2026-10-11
   reclass_doc: docs/decisions/FX-TRAPS-RECLASS-PHASE0.md
   ops_checklist: docs/FX-OPS-CHECKLIST.md
   dialect_placement: docs/decisions/SIX-ITEMS-BY-DIALECT.md
   next_phases: [phase0-reverify-claimed, phase1-compiler-open-one-by-one]
-  last_verification: 2026-10-12 trap-lambda-capture RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
+  last_verification: 2026-10-12 trap-atom-deref-gc RESOLVED; fixpoint SHA 01cf5f5b6c25863f46e0aa4c0d12daac1f140df3f3907ffb9a40bbd270ca4ebb
   verification_method: direct-execution + reproduction
   note: active trap_count excludes @archive; see reclass_doc
 
@@ -43,6 +43,7 @@
 
 ;; trap-extern-flvalue-defn → @archive (2026-10-11)
 ;; trap-lambda-capture → @archive (2026-10-12)
+;; trap-atom-deref-gc → @archive (2026-10-12)
 
 @trap
   id: trap-mariadb-count-float
@@ -86,18 +87,6 @@
   safe_pattern: (define $body (http_get "http://..."))  ;; string 반환, nil 체크 후 사용
   reproduction: 2026-06-20 실측 — cgc 생성 C에 fl_http_get 호출 확인, (get result "status") → nil
   lint_detectable: false
-
-@trap
-  id: trap-atom-deref-gc
-  type: trap
-  claimed: (reset! ch new-val) 후에도 deref 전에 캡처한 let 바인딩으로 atom 내용을 안전하게 읽을 수 있다
-  observed: fl_atom_deref 는 RC 증가 없이 raw pointer를 반환. fl_atom_reset 은 old값 RC-- → 0이면 재귀 free. 따라서 reset! 직후 old 값을 가리키던 C 로컬 변수(st/entries/entry)는 dangling pointer가 됨 → nil/쓰레기 반환
-  risk: cache-get/cache-set-or-get 같이 "읽고 → atom 갱신 → 읽은 값 반환" 패턴에서 조용히 nil 반환. 실측: cache-get이 모든 키에 nil 반환
-  rule: reset! 호출 후 old atom 내용이 필요하면 반드시 @ch 로 re-deref(새 heap-safe 포인터). reset! 이전에 read할 값을 추출해도 동일 문제(string/map도 heap-copy 트리에 있어 같이 해제됨)
-  safe_pattern: (let [new-st (assoc st "hits" n)] (reset! ch new-st) (get (get (get @ch "entries") key) "val"))
-  reproduction: 2026-06-21 실측 — cache-get 전 항목 nil 반환. fl_atom_reset 소스(math.c:215) fl_heap_release(old) 확인
-  lint_detectable: false
-  scope: cgc-only  ;; v11은 GC 방식이 달라 동일 문제 없음
 
 @trap
   id: trap-defn-throw-rerun
@@ -208,6 +197,21 @@
 
 ;; ─────────────────────── ARCHIVE ───────────────────────
 ;; Resolved traps kept for history. Not counted in trap_count.
+
+@archive
+  id: trap-atom-deref-gc
+  type: archive
+  resolved: 2026-10-12
+  former_type: trap
+  claimed: (reset! ch new-val) 후에도 deref 전에 캡처한 let 바인딩으로 atom 내용을 안전하게 읽을 수 있다
+  observed_old: fl_atom_deref returned raw slot pointer; fl_atom_reset heap_release(old) left dangling locals → nil/segfault
+  observed_now: fl_atom_deref / fl_atom_reset return fl_heap_copy of slot; hold-across-reset fixture prints hello / 1
+  resolution: runtime/math.c — heap_copy on deref and on reset return (temps unreclaimed in C ABI; accepted for correctness)
+  regression: tests/traps/trap-atom-deref-gc.fl
+  regression_command: bash tests/traps/run-trap-atom-deref-gc.sh
+  verification_status: resolved
+  lint_detectable: false
+  scope: cgc-only
 
 @archive
   id: trap-lambda-capture

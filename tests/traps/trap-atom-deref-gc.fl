@@ -1,0 +1,17 @@
+;; dialect: fx
+;; trap-atom-deref-gc: let-bound @atom / get into nested maps must survive reset!
+;; Before fix: fl_atom_deref returned raw slot pointer; reset! heap_release'd it
+;; → dangling locals → nil or segfault. Expect "hello" then hits=1.
+(define ch (atom {"entries" {"k" {"val" "hello"}} "hits" 0}))
+(defn cache-get-held [$ch $key]
+  (let [[$st @ch]
+        [$entries (get $st "entries")]
+        [$entry (get $entries $key)]
+        [$hits (+ (get $st "hits") 1)]
+        [$new-st (assoc $st "hits" $hits)]]
+    (do
+      (reset! $ch $new-st)
+      ;; use OLD $entry captured before reset — must still be valid
+      (if (null? $entry) "NIL" (get $entry "val")))))
+(println (cache-get-held ch "k"))
+(println (get @ch "hits"))

@@ -209,7 +209,11 @@ FLValue fl_atom_new(FLValue init) {
 
 FLValue fl_atom_deref(FLValue atom) {
     if (atom.tag != FL_VECTOR) return fl_nil();
-    return ((FLVector*)atom.obj)->data[0];
+    /* trap-atom-deref-gc: return a heap copy, not the live atom slot.
+       Locals (let-bound @ch / get into entries) must survive a later
+       fl_atom_reset that heap_release's the previous slot value.
+       Raw pointer + reset → dangling → nil/segfault (cache-get pattern). */
+    return fl_heap_copy(((FLVector*)atom.obj)->data[0]);
 }
 
 FLValue fl_atom_reset(FLValue atom, FLValue val) {
@@ -218,7 +222,9 @@ FLValue fl_atom_reset(FLValue atom, FLValue val) {
     FLValue old = av->data[0];
     av->data[0] = fl_heap_copy(val);   /* 새 값 heap 복사 */
     fl_heap_release(old);              /* 이전 값 RC-- */
-    return av->data[0];
+    /* Return a distinct copy so callers holding the result are also
+       safe if a later reset releases the slot again. */
+    return fl_heap_copy(av->data[0]);
 }
 
 FLValue fl_includes_item(FLValue vec, FLValue item) {
