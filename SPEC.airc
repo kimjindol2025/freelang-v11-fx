@@ -1,0 +1,86 @@
+{
+  "brief": [
+    "핫은 (task-trap-http-get-cgc-mapping-남은-runtime-open-4) 내용 (trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)) 다.",
+    "lock·graveyard에 있는 방향은 다시 꺼내지 않는다."
+  ],
+  "$": "airc-spec",
+  "version": "1.0.0",
+  "project": "freelang-v11-fx",
+  "date": "2026-10-12",
+  "cmd": "python3 ~/.grok/skills/checkpoint/scripts/print-hot.py SPEC.airc",
+  "identity": {
+    "what": "freelang-v11-fx",
+    "why": "checkpoint bootstrap",
+    "for": "Grok next session",
+    "not": " unrelated refactors during checkpoint"
+  },
+  "hot": "task-trap-http-get-cgc-mapping-남은-runtime-open-4",
+  "constitution": {
+    "1": "AI 전용. 인간 가독성을 위한 구조 타협 금지",
+    "2": "identity는 잠긴다. 변경은 사용자 협의 필수. Claude 단독 변경 금지",
+    "3": "hot이 가리키는 task가 지금 당장 해야 할 일이다",
+    "4": "오류·실수도 nodes에 기록한다. 성공만 기록하지 않는다",
+    "5": "노드는 삭제하지 않는다. void 처리만 허용",
+    "6": "why 없는 lock·decision 등록 불가"
+  },
+  "types": {
+    "task": "t + v + entry + check + verified + next",
+    "decision": "t + v + why + lock",
+    "error": "t + v + cause + fix + repeat_risk"
+  },
+  "nodes": {
+    "task-001": {
+      "t": "task",
+      "v": "{{첫 번째로 할 일}}",
+      "entry": [
+        "{{파일 또는 명령}}"
+      ],
+      "check": [
+        "{{검증 명령}}"
+      ],
+      "verified": false,
+      "next": []
+    },
+    "task-fx-phase1-traps-lambda-atom-nth-cgc-bin-01cf5f5b": {
+      "t": "task",
+      "v": "FX Phase1 traps(lambda/atom/nth)+cgc-bin 01cf5f5b 교체",
+      "entry": [],
+      "check": [],
+      "verified": true,
+      "next": [
+        "task-trap-http-get-cgc-mapping-남은-runtime-open-4"
+      ]
+    },
+    "task-trap-http-get-cgc-mapping-남은-runtime-open-4": {
+      "t": "task",
+      "v": "trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)",
+      "entry": [],
+      "check": [],
+      "verified": false,
+      "next": []
+    }
+  },
+  "lock": [
+    {
+      "rule": "{{금지 사항}}",
+      "why": "{{이유}}"
+    }
+  ],
+  "graveyard": [
+    {
+      "idea": "{{버린 아이디어}}",
+      "why": "{{버린 이유}}",
+      "final": true
+    }
+  ],
+  "handoff": {
+    "step1": "print-hot만 실행한다. SPEC.airc 본문(10줄 이후)은 읽지 않는다.",
+    "step2": "brief 2줄의 hot id만 실행한다. lock·graveyard 방향은 재도입 금지.",
+    "step3": "hot=task-trap-http-get-cgc-mapping-남은-runtime-open-4 실행. 완료 표식=FX Phase1 traps(lambda/atom/nth)+cgc-bin 01cf5f5b 교체",
+    "step4": "너는 'FX Phase1 traps(lambda/atom/nth)+cgc-bin 01cf5f5b 교체'까지 끝난 상태다. 'trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)'를 하면 된다. 증거: tip 17350a3, FIXPOINT 01cf5f5b, INSTALLED_BIN a19ccd99, bak-20261012-204443, FX-TRAPS trap_count=4.",
+    "step5": "identity 변경 필요 시 사용자에게 먼저 물어라",
+    "done": "FX Phase1 traps(lambda/atom/nth)+cgc-bin 01cf5f5b 교체",
+    "next": "trap-http-get-cgc-mapping (남은 RUNTIME_OPEN 4)",
+    "checkpoint_at": "2026-10-12T21:01:57.126630+09:00"
+  }
+}
