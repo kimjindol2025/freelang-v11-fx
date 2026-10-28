@@ -2,6 +2,8 @@
 
 상태: **문서만 작성, 구현·시험 실행 전** · 작성일: 2026-10-28
 
+구현 승인 반영(2026-10-28): 이 초안을 기준으로 `feat/l06-multipart`에서 수행한다. 사용자 결정으로 파일당 **15 MiB**, 전체 본문 **64 MiB**, 파일 수 **4개**를 적용한다. 아래 문서만 작성·미실행 표기는 초안 작성 당시의 기록이며, 구현 결과는 별도 보고서로 제출한다.
+
 ## 1. 목적과 시작 조건
 
 L07의 바이너리 파일 계약 위에 네이티브 FreeLang HTTP 폼·업로드를 만든다. multipart 여러 파일을 손실 없이 받고, 잘못되거나 중단된 요청의 임시 파일을 정리한다. 블로그를 불러오지 않는 `.fl` HTTP 서버와 실제 소켓 요청으로 언어 기능을 판정한다.
@@ -56,7 +58,7 @@ Content-Type은 대소문자·매개변수를 파싱해 정확한 media type으�
 1. `multipart/form-data`의 boundary는 필수이며 중복 매개변수는 거부한다. 따옴표 있는 값도 해석하고 RFC 2046 문법의 ASCII 1~70바이트·마지막 공백 금지를 확인한다. 빈 값·71바이트·CR/LF 주입은 400이다.
 2. 각 파트는 유효한 `Content-Disposition: form-data; name=...`를 가져야 한다. 파일은 `filename` 유무로 구분한다. 중복 disposition/name/filename 매개변수, 접힌 헤더·잘린 헤더·잘못된 인용은 거부한다. 중첩 multipart와 비UTF-8 텍스트 charset, Content-Transfer-Encoding은 415, `filename*`는 400으로 제한한다. 기타 알 수 없는 파트 헤더는 값으로 실행하지 않고 무시하되 헤더 상한에 센다.
 3. 경계는 파트 시작/CRLF와 올바른 구분자 끝에서만 인식한다. TCP 수신 조각을 가로질러도 동일해야 한다. 닮은 접두사·파일 내부 NUL·0~255·비UTF-8은 원문을 보존한다. 실제 구분자와 충돌하는 파일 내용은 클라이언트가 다른 boundary로 보내야 하며 무조건 복구한다고 약속하지 않는다. 구분자 앞 CRLF는 파일에 더하지 않으며 원래 파일의 CRLF는 보존한다. preamble/epilogue는 총량 상한 안에서 무시한다.
-4. 파일은 L07 `file-write-result`·`file-append-result`로 실제 길이의 바이트를 기록하고 결과 `ok`·`bytes`·flush/close 실패를 확인한다. `.fl` 검증은 `file-read-result`, 영구 복사 예시는 `file-copy-result`를 쓴다. `strlen`·문자열 표시·재인코딩으로 바이트 수를 계산하지 않는다. L07의 64 MiB는 업로드 허용량이 아니다.
+4. 파일은 L07 `file-write-result`·`file-append-result`로 실제 길이의 바이트를 기록하고 결과 `ok`·`bytes`·flush/close 실패를 확인한다. `.fl` 검증은 `file-read-result`, 영구 복사 예시는 `file-copy-result`를 쓴다. `strlen`·문자열 표시·재인코딩으로 바이트 수를 계산하지 않는다. L07의 64 MiB 파일 상한과 L06의 파일당 15 MiB·전체 본문 64 MiB 상한은 별도로 검사한다.
 5. 이름 있는 0바이트 파일은 정상 파일이다. `filename=""`·빈 내용은 미선택 파일로 건너뛰되 파트 수에는 센다. 빈 파일명에 내용이 있으면 400이다. 마지막 닫는 경계와 모든 파일의 저장 완료 전에는 handler에 fields/files를 공개하지 않는다.
 
 ### 4.3 상한과 HTTP 수신

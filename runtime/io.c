@@ -180,6 +180,29 @@ static FLValue file_write_result(FLValue path, FLValue content, int append) {
 FLValue fl_file_write_result(FLValue path, FLValue content) { return file_write_result(path, content, 0); }
 FLValue fl_file_append_result(FLValue path, FLValue content) { return file_write_result(path, content, 1); }
 
+/* HTTP owns an exclusively reserved inode. Reuse L07's checked byte writer
+ * without reopening a pathname between reservation and writing. */
+FLValue fl_file_write_reserved_result(int reserved, FLValue content) {
+    FileError e = {0}; struct stat st;
+    if (content.tag != FL_STRING || !content.obj) {
+        file_error(&e, "INVALID_DATA", EINVAL); return file_result(&e, fl_nil());
+    }
+    FLString* data = (FLString*)content.obj;
+    if (data->len > FL_FILE_IO_MAX_BYTES) {
+        file_error(&e, "SIZE_LIMIT", EFBIG); return file_result(&e, fl_nil());
+    }
+    int fd = dup(reserved);
+    if (fd < 0) { file_error(&e, "OPEN_FAILED", errno); return file_result(&e, fl_nil()); }
+    if (!file_stat(fd, &st, 1, &e)) { close(fd); return file_result(&e, fl_nil()); }
+    FILE* stream = file_stream(fd, "wb", &e);
+    if (!stream) return file_result(&e, fl_nil());
+    file_write_all(stream, data->data, data->len, &e);
+    errno = 0;
+    if (fflush(stream)) file_error(&e, "WRITE_FAILED", errno);
+    file_close(stream, &e);
+    return file_result(&e, fl_nil());
+}
+
 FLValue fl_file_copy_result(FLValue source, FLValue destination) {
     FileError e = {0}; struct stat src, dst;
     int in_fd = file_open(source, O_RDONLY | O_NONBLOCK, &e);

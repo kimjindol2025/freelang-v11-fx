@@ -23,6 +23,8 @@ start_server() {
   test -s "$out/$label/port"
 }
 start_server http
+bash "$ROOT/tests/l06/framing-repro.sh" "$(cat "$out/http/port")" | tee "$out/http/framing.actual"
+diff -u "$ROOT/tests/l06/framing-repro.expected" "$out/http/framing.actual"
 "$out/client" "$(cat "$out/http/port")" "$out/http/root" | tee "$out/http/client.log"
 if rg -F 'L06_FAKE_SECRET' "$out/http/server.log"; then echo LOG_REDACTION=FAIL; exit 1; fi
 echo LOG_REDACTION=PASS

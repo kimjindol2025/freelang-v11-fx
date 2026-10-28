@@ -368,6 +368,8 @@ FLValue server_redirect(FLValue url);
 FLValue server_req_param(FLValue req, FLValue name);
 FLValue server_req_query(FLValue req, FLValue name);
 FLValue fxb_server_req_body(FLValue req);
+FLValue server_req_fields(FLValue req);
+FLValue server_req_files(FLValue req);
 FLValue server_req_header(FLValue req, FLValue name);
 FLValue server_req_method(FLValue req);
 FLValue server_req_path(FLValue req);

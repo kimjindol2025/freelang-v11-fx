@@ -125,7 +125,9 @@ void fl_log_request(const char* method, const char* path,
         mc, method, C_RESET,
         C_BOLD, path, C_RESET);
 
-    if (g_debug_level >= 2 && body_len > 0 && body) {
+    if (g_debug_level >= 2 && body_len > 0 && body &&
+        !(content_type && (!strncasecmp(content_type,"multipart/form-data",19) ||
+                            !strncasecmp(content_type,"application/x-www-form-urlencoded",33)))) {
         size_t show = body_len > 512 ? 512 : body_len;
         fprintf(g_log_file, "  %sbody%s [%zu] %.*s%s\n",
             C_GRAY, C_RESET,

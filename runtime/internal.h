@@ -5,6 +5,7 @@
 
 /* io.c에서 정의, process.c·error.c가 공유 */
 const char* _strval(FLValue v);
+FLValue fl_file_write_reserved_result(int reserved, FLValue content);
 
 /* core.c에서 정의, io.c의 str_join이 사용 */
 const char* fl_to_str(FLValue v, char* buf, size_t sz);

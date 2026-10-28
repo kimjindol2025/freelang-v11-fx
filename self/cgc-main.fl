@@ -1253,6 +1253,12 @@
   [(= $op "sleep")   (str "fl_sleep_ms(" (cgc (get $args 0)) ")")]
   [(= $op "now-ms")  "fl_now_ms()"]
   ;; N-05: HTTP 서버
+  [(or (= $op "server_req_body") (= $op "server-req-body"))
+    (str "fxb_server_req_body(" (cgc (get $args 0)) ")")]
+  [(or (= $op "server_req_fields") (= $op "server-req-fields"))
+    (str "server_req_fields(" (cgc (get $args 0)) ")")]
+  [(or (= $op "server_req_files") (= $op "server-req-files"))
+    (str "server_req_files(" (cgc (get $args 0)) ")")]
   [(= $op "server-start")       (str "fl_http_start(" (cgc (get $args 0)) ")")]
   [(= $op "server-stop")        "fl_http_stop()"]
   [(= $op "server-html")        (str "fl_resp_html(" (cgc (get $args 0)) ")")]

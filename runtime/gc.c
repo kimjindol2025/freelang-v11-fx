@@ -93,10 +93,14 @@ void* fl_arena_alloc(size_t size) {
     }
 
     /* 새 청크 필요 */
-    ArenaChunk* nc = c->next ? c->next : arena_new_chunk(size);
+    ArenaChunk* nc = c->next;
+    /* A later request may need a larger upload than the retained next chunk. */
+    if (!nc || nc->cap < size) {
+        nc = arena_new_chunk(size);
+        if (nc) { nc->next = c->next; c->next = nc; }
+    }
     if (!nc) return malloc(size);  /* OOM 폴백 */
 
-    if (!c->next) c->next = nc;
     nc->used = 0;
     g_arena->head = nc;
 
