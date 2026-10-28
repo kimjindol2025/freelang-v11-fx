@@ -25,7 +25,8 @@ request() {
     request POST_NAMED POST /post
     request GET_UNDERSCORE GET /underscore
     request GET_ALIAS GET /alias
+    request GET_LATE GET /late
 } >"$out/http.actual"
 cat "$out/http.actual"
 diff -u "$ROOT/tests/l08/http.expected" "$out/http.actual"
-echo L08_HTTP_PASS=5
+echo L08_HTTP_PASS=6
