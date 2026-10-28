@@ -1,0 +1,4 @@
+E_TYPE_NIL
+TypeError
+(get nil "x") — cannot access key on nil. Use (get-or coll key default).
+값이 nil인지 (nil? x) 또는 (get-or x :key default) 로 먼저 확인하세요.

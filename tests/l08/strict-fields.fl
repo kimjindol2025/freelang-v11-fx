@@ -1,0 +1,5 @@
+(define error (try (get nil "x" 9) (catch e e)))
+(println (get error "code"))
+(println (get error "type"))
+(println (get error "message"))
+(println (get error "hint"))
