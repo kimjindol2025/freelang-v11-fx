@@ -5,11 +5,11 @@ source "$ROOT/tests/l07/build.sh"
 out="${L08_OUT:-$(mktemp -d)}"
 mkdir -p "$out/source/fixtures"
 cp "$ROOT/tests/l08/"*.fl "$out/source/"
-cp "$ROOT/tests/l08/fixtures/loaded.fl" "$out/source/fixtures/"
+cp "$ROOT/tests/l08/fixtures/"*.fl "$out/source/fixtures/"
 ln -s loaded.fl "$out/source/fixtures/loaded-link.fl"
 l07_build_compiler "$out" >"$out/build.log" 2>&1
 pass=0; fail=0
-for spec in names redefine scope values default get strict load; do
+for spec in names redefine scope values default get strict load cycle order; do
   if l07_build_app "$out" "$out/source/$spec.fl" "$spec" >"$out/$spec.build.log" 2>&1; then
     if [[ "$spec" == strict ]]; then strict=1; else strict=0; fi
     if env FL_STRICT="$strict" "$out/$spec" >"$out/$spec.actual" 2>"$out/$spec.stderr"; then rc=0; else rc=$?; fi

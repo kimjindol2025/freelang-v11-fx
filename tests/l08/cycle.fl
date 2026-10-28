@@ -1,0 +1,3 @@
+(define cycles (atom 0))
+(load "fixtures/cycle-a.fl")
+(println (deref cycles))
