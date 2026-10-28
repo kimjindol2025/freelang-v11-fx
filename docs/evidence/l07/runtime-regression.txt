@@ -1,0 +1,57 @@
+PASS fl_nil tag
+PASS fl_int
+PASS fl_float
+PASS fl_bool
+PASS fl_str_val tag
+PASS fl_str_val data
+PASS truthy bool true
+PASS truthy bool false
+PASS truthy nil
+PASS truthy int 0
+PASS truthy int 1
+PASS fl_add int
+PASS fl_sub
+PASS fl_mul
+PASS fl_div
+PASS fl_mod
+PASS fl_eq true
+PASS fl_eq false
+PASS fl_lt true
+PASS fl_lt false
+PASS fl_lte eq
+PASS fl_gt
+PASS fl_gte eq
+PASS fl_neq
+PASS fl_not true
+PASS fl_not false
+PASS fl_str_n concat
+PASS fl_add string
+PASS fl_file_write returns nil
+PASS fl_file_read tag
+PASS fl_file_read data
+PASS fl_vec_new tag
+PASS fl_vec_new len
+PASS fl_vec_from len
+PASS fl_vec_get 0
+PASS fl_vec_get 2
+PASS fl_vec_push original unchanged
+PASS fl_vec_push new len
+PASS fl_vec_push new elem
+PASS fl_vec_set original unchanged
+PASS fl_vec_set new val
+PASS fl_vec_get OOB returns nil
+PASS fl_map_new tag
+PASS fl_map_new len
+PASS fl_map_from_pairs len
+PASS fl_map_get a
+PASS fl_map_get b
+PASS fl_map_get missing
+PASS fl_map_set original unchanged
+PASS fl_map_set new len
+PASS fl_map_set new val
+PASS fl_map_set upsert len unchanged
+PASS fl_map_set upsert val
+fl_println: 42
+(above should be 42)
+
+All tests PASS

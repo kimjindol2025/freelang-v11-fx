@@ -1,0 +1,617 @@
+2239998 execve("<가림>/gcc", ["<가림>/gcc", "-O2", "-w", "-I", "<가림>/f"..., "-o", "<가림>/freelang-native-bootstrap.N"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "<가림>/f"..., "-lm", "-lpthread", "-ldl", "-lsqlite3", ...], 0x7ffc2795c7d8 /* 113 vars */) = 0
+2240000 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "stage0.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240000 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240000, si_uid=1000, si_status=0, si_utime=553 /* 5.53 s */, si_stime=9 /* 0.09 s */} ---
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240425 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccRxkb3K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240425 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240425, si_uid=1000, si_status=0, si_utime=13 /* 0.13 s */, si_stime=10 /* 0.10 s */} ---
+2240454 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "core.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240454 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240454, si_uid=1000, si_status=0, si_utime=38 /* 0.38 s */, si_stime=2 /* 0.02 s */} ---
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240480 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccCSK6nl.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240480 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240480, si_uid=1000, si_status=0, si_utime=0, si_stime=1 /* 0.01 s */} ---
+2240485 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "collection.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240485 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240485, si_uid=1000, si_status=0, si_utime=43 /* 0.43 s */, si_stime=1 /* 0.01 s */} ---
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240513 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccNG0RTC.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240513 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240513, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2240518 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "io.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240518 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240518, si_uid=1000, si_status=0, si_utime=33 /* 0.33 s */, si_stime=2 /* 0.02 s */} ---
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240569 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccZgfo6H.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240569 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240569, si_uid=1000, si_status=0, si_utime=0, si_stime=1 /* 0.01 s */} ---
+2240575 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "math.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240575 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240575, si_uid=1000, si_status=0, si_utime=25 /* 0.25 s */, si_stime=2 /* 0.02 s */} ---
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240593 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccyOzN32.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240593 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240593, si_uid=1000, si_status=0, si_utime=0, si_stime=1 /* 0.01 s */} ---
+2240594 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "error.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240594 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240594, si_uid=1000, si_status=0, si_utime=8 /* 0.08 s */, si_stime=2 /* 0.02 s */} ---
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240604 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccLKQw5a.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240604 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240604, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2240606 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "process.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240606 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240606, si_uid=1000, si_status=0, si_utime=15 /* 0.15 s */, si_stime=2 /* 0.02 s */} ---
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240623 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccnpY6qX.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240623 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240623, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2240624 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "json.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240624 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240624, si_uid=1000, si_status=0, si_utime=34 /* 0.34 s */, si_stime=2 /* 0.02 s */} ---
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240713 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccDQog5K.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240713 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240713, si_uid=1000, si_status=0, si_utime=0, si_stime=1 /* 0.01 s */} ---
+2240763 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "aliases.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240763 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240763, si_uid=1000, si_status=0, si_utime=171 /* 1.71 s */, si_stime=4 /* 0.04 s */} ---
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2240961 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccsltfc5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240961 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240961, si_uid=1000, si_status=0, si_utime=3 /* 0.03 s */, si_stime=6 /* 0.06 s */} ---
+2240978 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "user-fns.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2240978 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2240978, si_uid=1000, si_status=0, si_utime=6 /* 0.06 s */, si_stime=2 /* 0.02 s */} ---
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241001 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccTX9jb5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241001 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241001, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241004 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "cgc-bridge.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241004 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241004, si_uid=1000, si_status=0, si_utime=2 /* 0.02 s */, si_stime=1 /* 0.01 s */} ---
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241010 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cch2GcO5.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241010 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241010, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241011 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "gc.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241011 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241011, si_uid=1000, si_status=0, si_utime=16 /* 0.16 s */, si_stime=1 /* 0.01 s */} ---
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241027 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccGsCCG2.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241027 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241027, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241029 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "http.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241029 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241029, si_uid=1000, si_status=0, si_utime=81 /* 0.81 s */, si_stime=4 /* 0.04 s */} ---
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241083 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccSqjABv.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241083 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241083, si_uid=1000, si_status=0, si_utime=1 /* 0.01 s */, si_stime=1 /* 0.01 s */} ---
+2241093 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "websocket.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241093 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241093, si_uid=1000, si_status=0, si_utime=34 /* 0.34 s */, si_stime=2 /* 0.02 s */} ---
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241095 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccAxdNBL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241095 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241095, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241096 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "sqlite.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241096 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241096, si_uid=1000, si_status=0, si_utime=21 /* 0.21 s */, si_stime=1 /* 0.01 s */} ---
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241097 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccQMfiFA.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241097 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241097, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241098 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "mariadb.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241098 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241098, si_uid=1000, si_status=0, si_utime=25 /* 0.25 s */, si_stime=1 /* 0.01 s */} ---
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241162 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc66avms.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241162 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241162, si_uid=1000, si_status=0, si_utime=0, si_stime=1 /* 0.01 s */} ---
+2241170 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "debug.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241170 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241170, si_uid=1000, si_status=0, si_utime=13 /* 0.13 s */, si_stime=2 /* 0.02 s */} ---
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241200 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cceNVEzD.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241200 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241200, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241212 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "http_client.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241212 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241212, si_uid=1000, si_status=0, si_utime=42 /* 0.42 s */, si_stime=4 /* 0.04 s */} ---
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241256 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccujzfOI.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241256 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241256, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241257 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "regex.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241257 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241257, si_uid=1000, si_status=0, si_utime=19 /* 0.19 s */, si_stime=2 /* 0.02 s */} ---
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241262 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccqpQmpF.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241262 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241262, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241263 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "smtp.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241263 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241263, si_uid=1000, si_status=0, si_utime=11 /* 0.11 s */, si_stime=2 /* 0.02 s */} ---
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241267 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/ccFqDswY.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241267 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241267, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241268 execve("<가림>/cc1", ["<가림>/x86_64-redhat-l"..., "-quiet", "-I", "<가림>/f"..., "<가림>/f"..., "-quiet", "-dumpdir", "<가림>/freelang-native-bootstrap.N"..., "-dumpbase", "sse.c", "-dumpbase-ext", ".c", "-mtune=generic", "-march=x86-64-v3", "-O2", "-w", "-foffload-options=-l_GCC_m", "-o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241268 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241268, si_uid=1000, si_status=0, si_utime=15 /* 0.15 s */, si_stime=3 /* 0.03 s */} ---
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = -1 ENOENT (No such file or directory)
+2241278 execve("<가림>/as", ["as", "-W", "-I", "<가림>/f"..., "--64", "-o", "<가림>/cc0ZjHZL.o", "<가림>/cc8gbGSC.s"], 0x55b8f1f046e0 /* 118 vars */) = 0
+2241278 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241278, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2241281 execve("<가림>/collect2", ["<가림>/x86_64-redhat-l"..., "-plugin", "<가림>/x86_64-redhat-l"..., "-plugin-opt=<가림>"..., "-plugin-opt=-fresolution=<가림>"..., "-plugin-opt=-pass-through=-lgcc", "-plugin-opt=-pass-through=-lgcc_"..., "-plugin-opt=-pass-through=-lc", "-plugin-opt=-pass-through=-lgcc", "-plugin-opt=-pass-through=-lgcc_"..., "--build-id", "--no-add-needed", "--eh-frame-hdr", "--hash-style=gnu", "-m", "elf_x86_64", "-dynamic-linker", "<가림>/ld-linux-x86-64.so.2", "-o", "<가림>/freelang-native-bootstrap.N"..., "<가림>/x86_64-redhat-linux"..., "<가림>/x86_64-redhat-linux"..., "<가림>/x86_64-redhat-linux"..., "-L<가림>"..., "-L<가림>"..., "-L<가림>", "-L<가림>", "-L<가림>", "-L<가림>"..., "<가림>/ccRxkb3K.o", "<가림>/ccCSK6nl.o", "<가림>/ccNG0RTC.o", ...], 0x55b8f1f046e0 /* 119 vars */) = 0
+2241282 execve("<가림>/ld", ["<가림>/ld", "-plugin", "<가림>/x86_64-redhat-l"..., "-plugin-opt=<가림>"..., "-plugin-opt=-fresolution=<가림>"..., "-plugin-opt=-pass-through=-lgcc", "-plugin-opt=-pass-through=-lgcc_"..., "-plugin-opt=-pass-through=-lc", "-plugin-opt=-pass-through=-lgcc", "-plugin-opt=-pass-through=-lgcc_"..., "--build-id", "--no-add-needed", "--eh-frame-hdr", "--hash-style=gnu", "-m", "elf_x86_64", "-dynamic-linker", "<가림>/ld-linux-x86-64.so.2", "-o", "<가림>/freelang-native-bootstrap.N"..., "<가림>/x86_64-redhat-linux"..., "<가림>/x86_64-redhat-linux"..., "<가림>/x86_64-redhat-linux"..., "-L<가림>"..., "-L<가림>"..., "-L<가림>", "-L<가림>", "-L<가림>", "-L<가림>"..., "<가림>/ccRxkb3K.o", "<가림>/ccCSK6nl.o", "<가림>/ccNG0RTC.o", ...], 0x7fff26619510 /* 119 vars */) = 0
+2241282 +++ exited with 0 +++
+2241281 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241282, si_uid=1000, si_status=0, si_utime=9 /* 0.09 s */, si_stime=5 /* 0.05 s */} ---
+2241281 +++ exited with 0 +++
+2239998 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=2241281, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---
+2239998 +++ exited with 0 +++

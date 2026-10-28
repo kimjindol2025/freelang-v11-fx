@@ -1,0 +1,10 @@
+SCOPE=before-repro
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+SCOPE=after-self-whole-build-and-test
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+SCOPE=after-repro
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+SCOPE=native-bootstrap-gcc-and-native-runs
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+SCOPE=published-redacted-traces
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
