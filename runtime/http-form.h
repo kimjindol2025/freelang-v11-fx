@@ -264,7 +264,8 @@ static int form_recover(int dir) {
         int valid=1; for (int i=5;i<21;i++) if (!strchr("0123456789abcdef",e->d_name[i])) valid=0;
         if (!valid) continue;
         int fd=openat(dir,e->d_name,O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK);
-        if (fd<0) { ok=0; continue; }
+        /* A live request may unlink its marker after readdir, before openat. */
+        if (fd<0) { if (errno!=ENOENT) ok=0; continue; }
         if (flock(fd,LOCK_EX|LOCK_NB)) { close(fd); continue; }
         struct stat st;
         if (fstat(fd,&st) || !S_ISREG(st.st_mode) || st.st_uid!=geteuid() || (st.st_mode&077) || st.st_nlink>2) ok=0;
