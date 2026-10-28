@@ -1,0 +1,17 @@
+Uncaught error (line 2653): get: expected 2 or 3 arguments
+Stack trace:
+  at cgc_get (line 2652)
+  at cgc_dispatch (line 996)
+  at cgc_sexpr (line 980)
+  at cgc (line 782)
+  at cgc_dispatch (line 996)
+  at cgc_sexpr (line 980)
+  at cgc (line 782)
+  at cgc_str_arg (line 1523)
+  at cgc_dispatch (line 996)
+  at cgc_sexpr (line 980)
+  at cgc (line 782)
+  at cgc_top_level (line 2149)
+  at generate_c (line 2197)
+  at cgc_run (line 2619)
+EXIT=1

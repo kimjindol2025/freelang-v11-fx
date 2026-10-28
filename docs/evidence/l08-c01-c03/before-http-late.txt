@@ -1,0 +1,18 @@
+GET_NAMED=200:named-old
+GET_SAVED=200:named-old
+POST_NAMED=200:named-new
+GET_UNDERSCORE=200:underscore
+GET_ALIAS=200:defined
+GET_LATE=404:{"error":"Not Found","path":"/late"}
+--- <가림>	2026-10-29 07:27:02.985148515 +0900
++++ <가림>	2026-10-29 07:28:29.013953289 +0900
+@@ -1,6 +1,6 @@
+-GET_NAMED=200:named-new
++GET_NAMED=200:named-old
+ GET_SAVED=200:named-old
+ POST_NAMED=200:named-new
+ GET_UNDERSCORE=200:underscore
+ GET_ALIAS=200:defined
+-GET_LATE=200:late
++GET_LATE=404:{"error":"Not Found","path":"/late"}
+EXIT=1

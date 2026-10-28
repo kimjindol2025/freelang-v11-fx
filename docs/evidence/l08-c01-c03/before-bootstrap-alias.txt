@@ -1,0 +1,22 @@
+STAGE0_GENERATED_SOURCE_CONTAMINATION=0
+STAGE0_SHA=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
+STAGE0_EQ_CANONICAL=DIFFERENT
+STAGE0_C_BUILD=PASS
+STAGE0_TO_STAGE1=PASS
+STAGE0_NATIVE_EXEC=PASS
+STAGE1_C_BUILD=PASS
+STAGE1_TO_STAGE2=PASS
+<가림>: In function ‘__fl_binding_555’:
+<가림>:2961:94: error: implicit declaration of function ‘json_keys’ [-Wimplicit-function-declaration]
+ 2961 |     { FLValue __fl_ret__ = (__extension__ ({ fl_filter_fn(fl_fn_new(__fl_anon_143, 0, NULL), json_keys(__fl_binding_556));  })); fl_pop_frame(); return __fl_ret__; }
+      |                                                                                              ^~~~~~~~~
+<가림>:2961:94: error: incompatible type for argument 2 of ‘fl_filter_fn’
+ 2961 |     { FLValue __fl_ret__ = (__extension__ ({ fl_filter_fn(fl_fn_new(__fl_anon_143, 0, NULL), json_keys(__fl_binding_556));  })); fl_pop_frame(); return __fl_ret__; }
+      |                                                                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                                                                              |
+      |                                                                                              int
+In file included from <가림>:1:
+<가림>:183:42: note: expected ‘FLValue’ but argument is of type ‘int’
+  183 | FLValue fl_filter_fn(FLValue fn, FLValue vec);
+      |                                  ~~~~~~~~^~~
+BOOTSTRAP_EXIT=1

@@ -1,0 +1,6 @@
+nil
+nil
+nil
+nil
+PROGRAM_EXIT=0
+EXPECTED_DIFF_EXIT=1
