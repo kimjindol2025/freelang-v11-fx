@@ -300,6 +300,21 @@ int main(int argc,char **argv) {
         free(r.p); free(h.p);
     }
 
+    const char *protocol_data[]={"Upgrade: websocket\r\n","text/event-stream\r\n"};
+    for (int i=0;i<2;i++) {
+        size_t len=strlen(protocol_data[i]);
+        part(&b,"B","f","protocol.bin",protocol_data[i],len,NULL); finish(&b,"B");
+        r=post("/upload","multipart/form-data; boundary=B",&b,NULL,0);
+        unsigned char hash[32]; unsigned n; char hex[65]; EVP_Digest(protocol_data[i],len,hash,&n,EVP_sha256(),NULL);
+        for (int j=0;j<32;j++) sprintf(hex+2*j,"%02x",hash[j]);
+        printf("PROTOCOL_BODY_%s_HTTP=%d\n",i?"SSE":"WS",status(&r));
+        check(status(&r)==200 && has(&r,hex) && !files_left(),i?"sse-text-in-upload-is-data":"websocket-text-in-upload-is-data");
+        free(r.p); free(b.p); b=(Buf){0};
+    }
+    r=request("GET /upload HTTP/1.1\r\nHost: localhost\r\nAccept: text/event-stream\r\nConnection: close\r\n\r\n","",0,0,0);
+    check(use_tls?status(&r)==404:(status(&r)==200 && has(&r,"SSE_PROBE")),"existing-sse-route-regression");
+    free(r.p);
+
     text(&b,"{\"ok\":true}"); r=post("/upload","application/json",&b,NULL,0); check(status(&r)==200 && has(&r,"\"ok\":true"),"json-regression"); free(r.p); free(b.p); b=(Buf){0};
     text(&b,"ordinary"); r=post("/upload","text/plain",&b,NULL,0); check(status(&r)==200 && has(&r,"ordinary"),"raw-body-regression"); free(r.p); free(b.p);
     printf("L06_%s_PASS=%d FAIL=%d\n",use_tls?"TLS":"HTTP",passes,failures);

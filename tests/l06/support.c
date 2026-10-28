@@ -110,3 +110,8 @@ FLValue l06_pattern(FLValue data) {
     for (uint32_t i=0;i<s->len;i++) if ((unsigned char)s->data[i]!=(unsigned char)i) return fl_bool(0);
     return fl_bool(1);
 }
+FLValue l06_sse_probe(FLValue conn) {
+    l06_seen();
+    sse_send(conn,fl_str_val("SSE_PROBE"));
+    return fl_nil();
+}

@@ -24,6 +24,7 @@
                                       (= (json-stringify (server-req-files req)) (json-stringify (server_req_files req))))
                       "fields" (server_req_fields req)
                       "files" result "seen" seen})))))
+(server_sse "/upload" "l06_sse_probe")
 (server_post "/upload" upload)
 (server_post "/throw" upload)
 (server_post "/copy" upload)
