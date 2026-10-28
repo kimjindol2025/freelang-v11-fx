@@ -199,9 +199,11 @@ int main(int argc,char **argv) {
     const char *headers[]={
       "Content-Length: -1\r\n", "Content-Length: nope\r\n", "Content-Length: 0\r\nContent-Length: 0\r\n",
       "Content-Length: 18446744073709551616\r\n", "Transfer-Encoding: chunked\r\nContent-Length: 0\r\n",
-      "Transfer-Encoding: chunked\r\n", "", "Content-Length: 0\r\nContent-Encoding: gzip\r\n"};
-    int codes[]={400,400,400,400,400,501,411,415};
-    for (int i=0;i<8;i++) { char h[1024]; snprintf(h,sizeof h,"POST /upload HTTP/1.1\r\nHost: localhost\r\nContent-Type: multipart/form-data; boundary=B\r\n%s\r\n",headers[i]); expect_raw("framing-error",h,"",0,codes[i],NULL,0); }
+      "Transfer-Encoding: chunked\r\n", "", "Content-Length: 0\r\nContent-Encoding: gzip\r\n",
+      "Content-Length: 67108865\r\nTransfer-Encoding: chunked\r\n",
+      "Content-Length: 67108865\r\nContent-Length: 0\r\n"};
+    int codes[]={400,400,400,400,400,501,411,415,400,400};
+    for (int i=0;i<10;i++) { char h[1024]; snprintf(h,sizeof h,"POST /upload HTTP/1.1\r\nHost: localhost\r\nContent-Type: multipart/form-data; boundary=B\r\n%s\r\n",headers[i]); expect_raw("framing-error",h,"",0,codes[i],NULL,0); }
     expect_raw("incomplete-body-half-close","POST /upload HTTP/1.1\r\nHost: localhost\r\nContent-Type: multipart/form-data; boundary=B\r\nContent-Length: 100\r\n\r\n","--B\r\n",5,400,"INCOMPLETE_BODY",1);
     part(&b,"B","image","x",nul,3,NULL); finish(&b,"B");
     const char *paths[]={"/forbid","/throw","/copy","/delete"}; int path_codes[]={403,500,200,200};
