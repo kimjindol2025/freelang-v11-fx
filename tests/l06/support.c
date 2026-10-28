@@ -47,8 +47,8 @@ FLValue l06_hold(void) {
 #include <sys/random.h>
 static __thread int fault;
 static void arm_fault(const char *p,size_t n) {
-    static const char *names[]={"WRITE","SHORT","FLUSH","CLOSE","ALLOC","UNLINK","RANDOM","WRITE_SECOND"};
-    for (int i=0;i<8;i++) {
+    static const char *names[]={"WRITE","SHORT","FLUSH","CLOSE","ALLOC","UNLINK","RANDOM","WRITE_SECOND","RECOVERY_ENOENT"};
+    for (int i=0;i<9;i++) {
         char needle[64]; snprintf(needle,sizeof needle,"X-L06-Fault: %s\r\n",names[i]);
         if (memmem(p,n,needle,strlen(needle))) fault=i+1;
     }
@@ -114,4 +114,19 @@ FLValue l06_sse_probe(FLValue conn) {
     l06_seen();
     sse_send(conn,fl_str_val("SSE_PROBE"));
     return fl_nil();
+}
+int __real_openat(int,const char*,int,...);
+int __wrap_openat(int fd,const char *name,int flags,...) {
+    mode_t mode=0;
+    if ((flags&O_CREAT) || (flags&O_TMPFILE)==O_TMPFILE) {
+        va_list ap; va_start(ap,flags); mode=(mode_t)va_arg(ap,int); va_end(ap);
+    }
+    if (fault==9 && !strcmp(name,".l06-aaaaaaaaaaaaaaaa")) {
+        fault=0;
+        /* Another request has finished cleanup after readdir, before openat. */
+        __real_unlinkat(fd,"aaaaaaaaaaaaaaaa",0);
+        __real_unlinkat(fd,name,0);
+        errno=ENOENT; return -1;
+    }
+    return __real_openat(fd,name,flags,mode);
 }

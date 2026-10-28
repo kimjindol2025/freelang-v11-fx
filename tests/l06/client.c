@@ -220,20 +220,28 @@ int main(int argc,char **argv) {
     }
     check(all && !files_left(),"concurrent-100-request-recovery-scan");
     /* Each fault travels over real HTTP and through the public .fl handler. */
-    const char *faults[]={"WRITE","SHORT","FLUSH","CLOSE","ALLOC","UNLINK","RANDOM","WRITE_SECOND"};
-    for (int i=0;i<8;i++) {
+    const char *faults[]={"WRITE","SHORT","FLUSH","CLOSE","ALLOC","UNLINK","RANDOM","WRITE_SECOND","RECOVERY_ENOENT"};
+    for (int i=0;i<9;i++) {
         char data[8192]; memset(data,'q',sizeof data);
         part(&b,"B","f","fault.bin",data,sizeof data,NULL); finish(&b,"B");
         if (i==7) { b.n-=7; part(&b,"B","f","second.bin",data,sizeof data,NULL); finish(&b,"B"); }
         char extra[128]; snprintf(extra,sizeof extra,"X-L06-Fault: %s\r\n",faults[i]);
         char sentinel[4096]; snprintf(sentinel,sizeof sentinel,"%s/tmp/fl-uploads/0000000000000000",root);
         if (i==6) { FILE *f=fopen(sentinel,"w"); fputs("KEEP",f); fclose(f); }
+        if (i==8) {
+            char marker[4096], data_path[4096];
+            snprintf(marker,sizeof marker,"%s/tmp/fl-uploads/.l06-aaaaaaaaaaaaaaaa",root);
+            snprintf(data_path,sizeof data_path,"%s/tmp/fl-uploads/aaaaaaaaaaaaaaaa",root);
+            FILE *f=fopen(marker,"w"); fputs("OWNED",f); fclose(f); chmod(marker,0600);
+            if (link(marker,data_path)) abort();
+        }
         int before=count_handler(); r=post("/upload","multipart/form-data; boundary=B",&b,extra,0);
-        int expected=(i==1 || i==6)?200:500;
-        int ok=status(&r)==expected && count_handler()==before+((i==1 || i==5 || i==6)?1:0);
+        int expected=(i==1 || i==6 || i==8)?200:500;
+        int ok=status(&r)==expected && count_handler()==before+((i==1 || i==5 || i==6 || i==8)?1:0);
         if (i==5) ok=ok && files_left()==2;
         else ok=ok && files_left()==0;
         if (i==6) { char data[5]={0}; FILE *f=fopen(sentinel,"r"); if (f) { fread(data,1,4,f); fclose(f); } ok=ok && !strcmp(data,"KEEP"); unlink(sentinel); }
+        if (!ok) printf("FAULT_DETAIL %s HTTP=%d BODY=%.256s\n",faults[i],status(&r),body(&r));
         check(ok,faults[i]); free(r.p); free(b.p); b=(Buf){0};
         if (i==5) { file_test("recover-after-unlink-failure",3,200,0); }
     }
