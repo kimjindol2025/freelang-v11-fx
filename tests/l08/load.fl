@@ -1,0 +1,6 @@
+(define loads (atom 0))
+(load "fixtures/loaded.fl")
+(load "fixtures/../fixtures/loaded.fl")
+(load "fixtures/loaded-link.fl")
+(println (deref loads))
+(println (loaded))

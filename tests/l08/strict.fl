@@ -1,0 +1,2 @@
+(println (try (get nil "x" 9) (catch e "STRICT_NIL")))
+(println (get {} "x" 9))

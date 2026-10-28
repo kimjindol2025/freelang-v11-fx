@@ -276,3 +276,12 @@ B `images.fl:34` 원문은 PNG에 `(str_starts content "�PNG")`, JPEG에 `(str
 | C17 feed | [stdlib-feed](https://github.com/kimjindol2025/freelang-v11/blob/b49cc9194a00649b8cf58e1d6e8ee38ffce770d4/src/stdlib-feed.ts) | [public runtime 선언](https://github.com/kimjindol2025/freelang-v11-fx/blob/7566eb1aa3c07de617e71482e0a051587d718725/runtime/runtime.h) |
 | C18 환경·오류·식별자 | [stdlib-process](https://github.com/kimjindol2025/freelang-v11/blob/b49cc9194a00649b8cf58e1d6e8ee38ffce770d4/src/stdlib-process.ts), [error_message](https://github.com/kimjindol2025/freelang-v11/blob/b49cc9194a00649b8cf58e1d6e8ee38ffce770d4/bootstrap.js#L26085), [uuid_short](https://github.com/kimjindol2025/freelang-v11/blob/b49cc9194a00649b8cf58e1d6e8ee38ffce770d4/bootstrap.js#L28033) | [env](https://github.com/kimjindol2025/freelang-v11-fx/blob/7566eb1aa3c07de617e71482e0a051587d718725/runtime/io.c#L285) |
 | C19~C20 TCP·타이머·수명·동시성 | [db95 TCP 사용부](https://github.com/kimjindol2025/afj-db95/blob/88b4aa2ca11e5355240a1d93ece8321315c669cc/src/tcp-server.fls#L296) | [atom heap 보존](https://github.com/kimjindol2025/freelang-v11-fx/blob/7566eb1aa3c07de617e71482e0a051587d718725/runtime/math.c#L195), [정렬 공유 상태](https://github.com/kimjindol2025/freelang-v11-fx/blob/7566eb1aa3c07de617e71482e0a051587d718725/runtime/aliases.c#L678) |
+
+### 6장 사용자 결정 확정 — L08 1차 구현 승인
+
+- get 기본값은 v11 소스 계약을 보존한다. 일반 평가기의 map 존재 여부·배열 nil 기본값·기본값의 선행 평가·FL_STRICT nil 오류를 기준으로 정답을 고정한다. Node로 기준 출력을 만들지 않는다.
+- 기존 문자열 길이/인덱스 이름은 v11 호환 글자 단위, 바이트는 L07 API로 분리한다. 이번 C03의 get 문자열 인덱스만 다루고 다른 문자열 API는 착수하지 않는다.
+- 텍스트/바이너리 API를 공존시킨다. 이번에는 파일 API를 변경하지 않는다.
+- 정규식은 C 자체 엔진으로 blog1 사용 패턴부터 지원한다. 이번에는 착수하지 않는다.
+- 기준은 v11 소스 계약이며 새 TS·JS·Python·fl-build.sh 및 Node 실행은 금지한다.
+- 1차 승인 범위는 C01·C02·C03, 가지는 `feat/l08-c01-c03`이다. 다른 C 항목은 구현하지 않는다.

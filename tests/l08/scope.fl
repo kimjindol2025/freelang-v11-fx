@@ -1,0 +1,6 @@
+(defn use [get] (get 2))
+(println (use (fn [x] (+ x 10))))
+(println (let [get (fn [x] (+ x 20))] (get 2)))
+(println (get {"x" 3} "x"))
+(println (let [x 1] (+ (let [x 10] x) x)))
+(println (let [f (fn [x] (+ x 1))] (map f [1 2])))
