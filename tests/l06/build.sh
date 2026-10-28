@@ -6,6 +6,8 @@ l06_app() {
   "$out/compiler" "$source" "$out/$name.c"
   gcc -O2 -w -D_GNU_SOURCE -I "$L07_ROOT/runtime" -I "$L07_ROOT/tests/l06" \
     -include "$L07_ROOT/tests/l06/support.h" -Wl,--wrap=listen \
+    -Wl,--wrap=recv,--wrap=SSL_read,--wrap=fwrite,--wrap=fflush,--wrap=fclose \
+    -Wl,--wrap=fl_arena_alloc,--wrap=unlinkat,--wrap=getrandom \
     -o "$out/$name" "$out/$name.c" "$L07_ROOT/tests/l06/support.c" \
     "${L07_SRCS[@]}" "${L07_LIBS[@]}"
 }

@@ -6,6 +6,7 @@ out="${L06_OUT:-$(mktemp -d)}"
 mkdir -p "$out"
 l07_build_compiler "$out" >"$out/build.log" 2>&1
 l06_app "$out" "$ROOT/tests/l06/repro.fl" repro >>"$out/build.log" 2>&1
+rm -f "$out/port"
 FL_WORKERS=1 L06_PORT_FILE="$out/port" "$out/repro" >"$out/server.log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
