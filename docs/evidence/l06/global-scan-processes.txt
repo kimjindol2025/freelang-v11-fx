@@ -1,0 +1,4 @@
+첫 실패 뒤 읽기 전용으로 확인한 pgrep 결과. 로컬 경로만 가렸으며 이 PID들을 종료하지 않았다.
+2321074 bash <가림>/tests/run-task946-full.sh <가림>/stage2-bin <가림>/full
+2321078 timeout --signal=TERM --kill-after=10s 1800s env FL_HTTP_WORKERS=0 bash <가림>/tests/run-task938-load.sh <가림>/stage2-bin <가림>/legacy
+2321079 bash <가림>/tests/run-task938-load.sh <가림>/stage2-bin <가림>/legacy

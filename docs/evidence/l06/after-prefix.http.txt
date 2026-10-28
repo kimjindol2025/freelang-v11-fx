@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 343
+Connection: close
+
+{"body":{},"body_api":{},"aliases":true,"fields":{},"files":[{"fieldname":"image","originalname":"sample.bin","filename":"08f492a1dd579cb3","mimetype":"application/octet-stream","safe":true,"size":20,"bytes":20,"ok":true,"pattern":false,"sha256":"04134c67f8952868989dc84809350d00ff35cb4ec80c662ddc11ca594eda602c","independent":true}],"seen":1}
