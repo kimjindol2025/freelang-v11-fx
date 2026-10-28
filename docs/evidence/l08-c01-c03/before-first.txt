@@ -1,0 +1,117 @@
+Compiled <가림> -> <가림>
+<가림>:24:16: error: redefinition of ‘__fl_wrap_foo_bar’
+   24 | static FLValue __fl_wrap_foo_bar(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~~
+<가림>:19:16: note: previous definition of ‘__fl_wrap_foo_bar’ with type ‘FLValue(FLClosure *, int,  FLValue *)’
+   19 | static FLValue __fl_wrap_foo_bar(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~~
+<가림>:34:16: error: redefinition of ‘__fl_wrap_foo_p’
+   34 | static FLValue __fl_wrap_foo_p(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~
+<가림>:29:16: note: previous definition of ‘__fl_wrap_foo_p’ with type ‘FLValue(FLClosure *, int,  FLValue *)’
+   29 | static FLValue __fl_wrap_foo_p(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~
+<가림>:44:16: error: redefinition of ‘__fl_wrap_server_start’
+   44 | static FLValue __fl_wrap_server_start(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~~~~~~~
+<가림>:39:16: note: previous definition of ‘__fl_wrap_server_start’ with type ‘FLValue(FLClosure *, int,  FLValue *)’
+   39 | static FLValue __fl_wrap_server_start(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~~~~~~~
+<fl>:2:9: error: redefinition of ‘foo_bar’
+<fl>:1:9: note: previous definition of ‘foo_bar’ with type ‘FLValue()’
+<fl>:4:9: error: redefinition of ‘foo_p’
+<fl>:3:9: note: previous definition of ‘foo_p’ with type ‘FLValue()’
+<fl>:6:9: error: redefinition of ‘server_start’
+<fl>:5:9: note: previous definition of ‘server_start’ with type ‘FLValue(FLValue)’
+FAIL names BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<가림>:27:16: error: redefinition of ‘__fl_wrap_current’
+   27 | static FLValue __fl_wrap_current(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~~
+<가림>:17:16: note: previous definition of ‘__fl_wrap_current’ with type ‘FLValue(FLClosure *, int,  FLValue *)’
+   17 | static FLValue __fl_wrap_current(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~~
+<fl>:5:9: error: redefinition of ‘current’
+<fl>:1:9: note: previous definition of ‘current’ with type ‘FLValue()’
+FAIL redefine BUILD_EXIT=1
+nil
+nil
+3
+11
+[2, 3]
+scope EXIT=0
+--- <가림> 07:09:33.965802409 +0900
++++ <가림> 07:11:08.906774276 +0900
+@@ -1,5 +1,5 @@
+-12
+-22
++nil
++nil
+ 3
+ 11
+-[2,3]
++[2, 3]
+FAIL scope
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:2:26: error: implicit declaration of function ‘conj’ [-Wimplicit-function-declaration]
+<fl>:1:1: note: include ‘<complex.h>’ or provide a declaration of ‘conj’
+<fl>:2:31: error: incompatible type for argument 1 of ‘conj’
+<fl>:2:31: note: expected ‘complex double’ but argument is of type ‘FLValue’
+<fl>:2:26: error: too many arguments to function ‘conj’
+<fl>:5:28: error: implicit declaration of function ‘__fl_kw_update’; did you mean ‘fl_update’? [-Wimplicit-function-declaration]
+<fl>:5:28: error: incompatible type for argument 2 of ‘fl_atom_reset’
+In file included from <가림>:1:
+<가림>:292:45: note: expected ‘FLValue’ but argument is of type ‘int’
+  292 | FLValue fl_atom_reset(FLValue atom, FLValue val);
+      |                                     ~~~~~~~~^~~
+<fl>:16:14: error: ‘__fl_kw_get’ undeclared (first use in this function); did you mean ‘__fl_kw_dec’?
+<fl>:16:14: note: each undeclared identifier is reported only once for each function it appears in
+FAIL values BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:16:16: error: implicit declaration of function ‘has_key_p’ [-Wimplicit-function-declaration]
+<fl>:16:16: error: incompatible type for argument 1 of ‘fl_println’
+In file included from <가림>:1:
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:18:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+FAIL get BUILD_EXIT=1
+STRICT_NIL
+nil
+strict EXIT=0
+--- <가림> 07:09:33.972802554 +0900
++++ <가림> 07:11:44.887521575 +0900
+@@ -1,2 +1,2 @@
+ STRICT_NIL
+-9
++nil
+FAIL strict
+Compiled <가림> -> <가림>
+<가림>:20:16: error: redefinition of ‘__fl_wrap_loaded’
+   20 | static FLValue __fl_wrap_loaded(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~
+<가림>:15:16: note: previous definition of ‘__fl_wrap_loaded’ with type ‘FLValue(FLClosure *, int,  FLValue *)’
+   15 | static FLValue __fl_wrap_loaded(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~
+<가림>:25:16: error: redefinition of ‘__fl_wrap_loaded’
+   25 | static FLValue __fl_wrap_loaded(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~
+<가림>:20:16: note: previous definition of ‘__fl_wrap_loaded’ with type ‘FLValue(FLClosure *, int,  FLValue *)’
+   20 | static FLValue __fl_wrap_loaded(FLClosure* _s, int _ac, FLValue* argv) {
+      |                ^~~~~~~~~~~~~~~~
+<fl>:2:9: error: redefinition of ‘loaded’
+<fl>:2:9: note: previous definition of ‘loaded’ with type ‘FLValue()’
+<fl>:2:9: error: redefinition of ‘loaded’
+<fl>:2:9: note: previous definition of ‘loaded’ with type ‘FLValue()’
+FAIL load BUILD_EXIT=1
+[load] 파일 없음: fixtures/does-not-exist.fl
+Compiled <가림> -> <가림>
+missing EXIT=0
+FAIL missing
+L08_PASS=0 FAIL=8
+EXIT=1
