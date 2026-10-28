@@ -545,15 +545,24 @@ static void* handle_connection(void* arg) {
         }
         if (!total) break;
 
+        /* Protocol detection must not interpret uploaded bytes as headers. */
+        char* body_start = strstr(raw, "\r\n\r\n") + 4;
+        char first_body_byte = *body_start;
+        *body_start = '\0';
+        int can_upgrade = !http_ssl && !strncmp(raw, "GET ", 4);
+        int wants_sse = can_upgrade && sse_is_sse_request(raw);
+        int wants_ws = can_upgrade && ws_is_upgrade_request(raw);
+        *body_start = first_body_byte;
+
         /* ── 2a. SSE 감지 (WS보다 먼저 체크) ── */
-        if (!http_ssl && sse_is_sse_request(raw)) {
+        if (wants_sse) {
             if (!sse_handle_request(client_fd, raw, total))
                 goto normal_http;   /* 등록된 라우트 없으면 일반 HTTP */
             break;  /* SSE는 keep-alive 루프 탈출 */
         }
 
         /* ── 2b. WebSocket 업그레이드 감지 ── */
-        if (!http_ssl && ws_is_upgrade_request(raw)) {
+        if (wants_ws) {
             ws_handle_upgrade(client_fd, raw, total);
             break;  /* WS는 keep-alive 루프 탈출 (핸들러가 fd 관리) */
         }
