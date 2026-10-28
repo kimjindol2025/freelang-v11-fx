@@ -128,6 +128,12 @@ FLValue fl_print(FLValue v);
 /* ── 파일 I/O ── */
 FLValue fl_file_read(FLValue path);
 FLValue fl_file_write(FLValue path, FLValue content);
+/* Checked binary I/O: ok, bytes, error, errno, data. Legacy APIs keep their ABI. */
+#define FL_FILE_IO_MAX_BYTES (64u * 1024u * 1024u)
+FLValue fl_file_read_result(FLValue path);
+FLValue fl_file_write_result(FLValue path, FLValue content);
+FLValue fl_file_append_result(FLValue path, FLValue content);
+FLValue fl_file_copy_result(FLValue source, FLValue destination);
 
 /* ── Vector ── */
 FLValue fl_vec_new(void);

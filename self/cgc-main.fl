@@ -1180,6 +1180,10 @@
   [(= $op "_fl_file_write")   (str "fl_file_write(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "file-read")        (str "fl_file_read(" (cgc (get $args 0)) ")")]
   [(= $op "file-write")       (str "fl_file_write(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "file-read-result") (str "fl_file_read_result(" (cgc (get $args 0)) ")")]
+  [(= $op "file-write-result")(str "fl_file_write_result(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "file-append-result")(str "fl_file_append_result(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "file-copy-result") (str "fl_file_copy_result(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "file-exists")      (str "file_exists(" (cgc (get $args 0)) ")")]
   [(= $op "file_exists")      (str "file_exists(" (cgc (get $args 0)) ")")]
   ;; N-11: 파일 ops — stub → 실제 구현

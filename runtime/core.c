@@ -348,31 +348,16 @@ FLValue fl_print(FLValue v) {
 /* Phase A 메모리: malloc 후 프로세스 종료 시 OS 회수. Arena는 Phase B에서 추가. */
 
 FLValue fl_file_read(FLValue path) {
-    if (path.tag != FL_STRING) return fl_nil();
-    const char* p = ((FLString*)path.obj)->data;
-    FILE* f = fopen(p, "rb");
-    if (!f) return fl_nil();
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    rewind(f);
-    FLString* obj = malloc(sizeof(FLString) + (size_t)sz + 1);
-    obj->base.type = FL_STRING; obj->base.rc = 1;
-    obj->len = (uint32_t)sz;
-    fread(obj->data, 1, (size_t)sz, f);
-    obj->data[sz] = '\0';
-    fclose(f);
-    FLValue r; r.tag = FL_STRING; r.obj = (FLObject*)obj; return r;
+    FLValue result = fl_file_read_result(path);
+    return fl_map_get(result, fl_str_val("data"));
 }
 
 FLValue fl_file_write(FLValue path, FLValue content) {
-    if (path.tag != FL_STRING) return fl_nil();
-    const char* p = ((FLString*)path.obj)->data;
+    /* Keep the legacy nil return and non-string display conversion. */
     char buf[64];
-    const char* s = fl_display(content, buf, sizeof(buf));
-    FILE* f = fopen(p, "wb");
-    if (!f) return fl_nil();
-    fwrite(s, 1, strlen(s), f);
-    fclose(f);
+    if (content.tag != FL_STRING)
+        content = fl_str_val(fl_display(content, buf, sizeof(buf)));
+    (void)fl_file_write_result(path, content);
     return fl_nil();
 }
 
