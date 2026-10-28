@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "native-symbols.h"
 
 /* ── Arena 헬퍼 매크로 ──────────────────────────────────────────────
    fl_arena_alloc: arena 활성 시 bump 할당, 비활성 시 malloc 폴백
@@ -534,7 +535,25 @@ FLValue fl_named_fn(FLValue name) {
     if(name.tag!=FL_STRING) return fl_nil();
     pthread_mutex_lock(&named_fn_lock);FLValue fn=fl_nil();
     for(NamedFn *p=named_fns;p;p=p->next) if(!strcmp(p->name,((FLString*)name.obj)->data)){fn=p->fn;break;}
+    if(fn.tag==FL_NIL) {
+        FLValue alias=fl_function_alias(name);
+        if(alias.tag==FL_STRING)for(NamedFn *p=named_fns;p;p=p->next)
+            if(p->fn.tag==FL_FN&&!strcmp(p->name,((FLString*)alias.obj)->data)){fn=p->fn;break;}
+    }
     pthread_mutex_unlock(&named_fn_lock);return fn;
+}
+FLValue fl_function_alias(FLValue name) {
+    if(name.tag!=FL_STRING)return fl_nil();
+    FLString *s=(FLString*)name.obj;
+    int underscore=memchr(s->data,'_',s->len)!=NULL;
+    if(!underscore&&!memchr(s->data,'-',s->len))return fl_nil();
+    /* Match the complete source namespace before trying a spelling alias. */
+    for(size_t i=0;fl_native_names[i];i++)if(!strcmp(s->data,fl_native_names[i]))return fl_nil();
+    char *copy=malloc(s->len+1);
+    if(!copy)return fl_nil();
+    memcpy(copy,s->data,s->len+1);
+    for(uint32_t i=0;i<s->len;i++)if(copy[i]==(underscore?'_':'-'))copy[i]=underscore?'-':'_';
+    FLValue result=fl_str_val(copy);free(copy);return result;
 }
 /* swap! uses the same callable path for named functions and lambdas. */
 FLValue fl_swap_args(FLValue atom,FLValue fn,FLValue extra) {

@@ -160,6 +160,7 @@ FLValue fl_swap_args(FLValue atom, FLValue fn, FLValue extra);
 FLValue fl_call_owned_argv(FLValue fn, int argc, FLValue* args);
 FLValue fl_register_named_fn(FLValue name, FLValue fn);
 FLValue fl_named_fn(FLValue name);
+FLValue fl_function_alias(FLValue name);
 FLValue fl_compiler_bindings(FLValue nodes);
 FLValue fl_compiler_realpath(FLValue path);
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val);

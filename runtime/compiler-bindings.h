@@ -8,6 +8,7 @@ typedef struct FLBinding {
     struct FLBinding *next;
     FLValue source, target;
     int cell;
+    int function_alias;
 } FLBinding;
 typedef struct { unsigned serial; FLBinding *globals; } FLResolver;
 static FLValue rb_get(FLValue v, const char *key) { return fl_map_get(v, fl_str_val(key)); }
@@ -25,7 +26,7 @@ static FLValue rb_fresh(FLResolver *r) {
 static FLValue rb_bind(FLResolver *r, FLBinding **env, FLValue name) {
     FLBinding *b=malloc(sizeof(*b));
     if (!b) fl_throw(fl_str_val("compiler: binding allocation failed"));
-    b->source=name; b->target=rb_fresh(r); b->cell=0; b->next=*env; *env=b; return b->target;
+    b->source=name; b->target=rb_fresh(r); b->cell=0; b->function_alias=0; b->next=*env; *env=b; return b->target;
 }
 static void rb_pop(FLBinding **env, FLBinding *stop) {
     while (*env!=stop) { FLBinding *p=*env; *env=p->next; free(p); }
@@ -51,11 +52,16 @@ static FLValue rb_registration(FLValue name,FLValue binding) {
 }
 static FLValue rb_node(FLResolver*,FLBinding**,FLValue);
 static FLValue rb_read(FLBinding *env, FLValue name) {
-    for(;env;env=env->next) if(fl_truthy(fl_eq(env->source,name))) {
-        FLValue variable=rb_var(env->target);
-        return env->cell?rb_call("deref",rb_vec(1,&variable)):variable;
+    FLBinding *found=NULL;
+    for(FLBinding *b=env;b;b=b->next)if(fl_truthy(fl_eq(b->source,name))){found=b;break;}
+    if(!found) {
+        FLValue alias=fl_function_alias(name);
+        if(alias.tag==FL_STRING)for(FLBinding *b=env;b;b=b->next)
+            if(b->function_alias&&fl_truthy(fl_eq(b->source,alias))){found=b;break;}
     }
-    return fl_nil();
+    if(!found)return fl_nil();
+    FLValue variable=rb_var(found->target);
+    return found->cell?rb_call("deref",rb_vec(1,&variable)):variable;
 }
 static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t start) {
     FLBinding *save=*env;
@@ -65,6 +71,7 @@ static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t s
         if(rb_is(op,"defn")||rb_is(op,"define")) {
             FLValue name=rb_name(fl_vec_get(rb_get(n,"args"),fl_int(0)));
             FLValue target=rb_bind(r,env,name);(*env)->cell=1;
+            (*env)->function_alias=rb_is(op,"defn");
             binds=fl_vec_push(binds,rb_var(target));
             FLValue nil=rb_set(rb_set(fl_map_new(),"kind",fl_str_val("literal")),"type",fl_str_val("nil"));
             binds=fl_vec_push(binds,rb_call("atom",rb_vec(1,&nil)));
@@ -188,6 +195,8 @@ FLValue fl_compiler_bindings(FLValue nodes) {
         if(rb_is(op,"defn")||rb_is(op,"define")) {
             FLValue name=rb_name(fl_vec_get(rb_get(n,"args"),fl_int(0)));
             if(rb_lookup(r.globals,name).tag==FL_NIL) rb_bind(&r,&r.globals,name);
+            if(rb_is(op,"defn"))for(FLBinding *b=r.globals;b;b=b->next)
+                if(fl_truthy(fl_eq(b->source,name))){b->function_alias=1;break;}
         }
     }
     FLBinding *env=r.globals; FLValue out=fl_vec_new();

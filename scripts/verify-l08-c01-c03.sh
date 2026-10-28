@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 source "$ROOT/tests/l07/build.sh"
+bash "$ROOT/scripts/refresh-native-symbols.sh" --check
 out="${L08_OUT:-$(mktemp -d)}"
 mkdir -p "$out/source/fixtures"
 cp "$ROOT/tests/l08/"*.fl "$out/source/"
