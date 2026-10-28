@@ -548,6 +548,7 @@ FLValue fl_every_p(FLValue fn, FLValue vec) { return every(fn, vec); }
 /* contains? — 맵 키 존재 / 벡터 원소 포함 / 문자열 부분문자열 */
 FLValue fl_contains_p(FLValue coll, FLValue key) {
     if (coll.tag == FL_MAP) {
+        if(key.tag==FL_NIL)key=fl_str_val("null");
         FLValue normalized=key;
         if(key.tag==FL_STRING && ((FLString*)key.obj)->data[0]==':')normalized=fl_str_val(((FLString*)key.obj)->data+1);
         if(fl_truthy(fl_has_key(coll,key))||fl_truthy(fl_map_has(coll,key)))return fl_bool(true);
