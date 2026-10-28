@@ -24,7 +24,8 @@ request() {
     request GET_SAVED GET /saved
     request POST_NAMED POST /post
     request GET_UNDERSCORE GET /underscore
+    request GET_ALIAS GET /alias
 } >"$out/http.actual"
 cat "$out/http.actual"
 diff -u "$ROOT/tests/l08/http.expected" "$out/http.actual"
-echo L08_HTTP_PASS=4
+echo L08_HTTP_PASS=5

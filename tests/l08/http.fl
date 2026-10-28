@@ -6,4 +6,6 @@
 (server_get "/saved" saved)
 (server_post "/post" "photo-menu")
 (server_get "/underscore" "photo_menu")
+(define alias (fn [req] (server_text "defined")))
+(server_get "/alias" "alias")
 (server_start 0)
