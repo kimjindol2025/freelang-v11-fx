@@ -7,3 +7,7 @@
 (define hits (atom 0))
 (println (get {} "x" 5 (swap! hits + 1)))
 (println (deref hits))
+(println (has-key? {"" nil} nil))
+(println (contains? {"null" nil} nil))
+(println (contains? {"" nil} nil))
+(println (contains? {":null" nil} nil))
