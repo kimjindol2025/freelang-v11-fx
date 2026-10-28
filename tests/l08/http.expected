@@ -4,3 +4,4 @@ POST_NAMED=200:named-new
 GET_UNDERSCORE=200:underscore
 GET_ALIAS=200:defined
 GET_LATE=200:late
+GET_PROTOCOL=200:db:x

@@ -1,3 +1,5 @@
+(defn server-start [name] (str "db:" name))
+(define protocol (server-start "x"))
 (defn photo-menu [req] (server_text "named-old"))
 (define saved photo-menu)
 (server_get "/named" "photo-menu")
@@ -10,4 +12,5 @@
 (server_get "/alias" "alias")
 (server_get "/late" "late")
 (defn late [req] (server_text "late"))
+(server_get "/protocol" (fn [req] (server_text protocol)))
 (server_start 0)
