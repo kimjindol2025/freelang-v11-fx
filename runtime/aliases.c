@@ -548,8 +548,10 @@ FLValue fl_every_p(FLValue fn, FLValue vec) { return every(fn, vec); }
 /* contains? — 맵 키 존재 / 벡터 원소 포함 / 문자열 부분문자열 */
 FLValue fl_contains_p(FLValue coll, FLValue key) {
     if (coll.tag == FL_MAP) {
-        FLValue v = fl_map_get(coll, key);
-        return fl_bool(v.tag != FL_NIL);
+        FLValue normalized=key;
+        if(key.tag==FL_STRING && ((FLString*)key.obj)->data[0]==':')normalized=fl_str_val(((FLString*)key.obj)->data+1);
+        if(fl_truthy(fl_has_key(coll,key))||fl_truthy(fl_map_has(coll,key)))return fl_bool(true);
+        return fl_map_has(coll,fl_str_n(2,fl_str_val(":"),normalized));
     }
     if (coll.tag == FL_VECTOR) {
         FLVector* vp = (FLVector*)coll.obj;
@@ -1892,3 +1894,22 @@ FLValue fl_db_exec(FLValue db, FLValue sql, FLValue params)   { return fxb_sqlit
 
 FLValue str_indent(FLValue a0, FLValue a1) { return ufl_str_indent(a0, a1); }
 /* FL:USER_SECTION:END */
+
+static FLValue builtin_assoc(FLClosure*s,int n,FLValue*a){(void)s;if(n<3||n%2!=1)fl_throw(fl_str_val("assoc: expected map and key/value pairs"));FLValue r=a[0];for(int i=1;i<n;i+=2)r=fl_map_set(r,a[i],a[i+1]);return r;}
+static FLValue builtin_dissoc(FLClosure*s,int n,FLValue*a){(void)s;if(n<2)fl_throw(fl_str_val("dissoc: expected map and keys"));FLValue r=a[0];for(int i=1;i<n;i++)r=dissoc(r,a[i]);return r;}
+static FLValue builtin_conj(FLClosure*s,int n,FLValue*a){(void)s;if(n<1)fl_throw(fl_str_val("conj: expected collection"));FLValue r=a[0];for(int i=1;i<n;i++)r=fl_conj(r,a[i]);return r;}
+static FLValue builtin_update(FLClosure*s,int n,FLValue*a){(void)s;if(n<3)fl_throw(fl_str_val("update: expected map key function"));FLValue *args=malloc((n-2)*sizeof(*args));if(!args)fl_throw(fl_str_val("update: allocation failed"));args[0]=fl_map_get(a[0],a[1]);for(int i=3;i<n;i++)args[i-2]=a[i];FLValue value=fl_call_owned_argv(a[2],n-2,args);return fl_map_set(a[0],a[1],value);}
+static FLValue builtin_get(FLClosure*s,int n,FLValue*a){(void)s;return fl_get_default(n?a[0]:fl_nil(),n>1?a[1]:fl_str_val("undefined"),n>2?a[2]:fl_nil());}
+static FLValue builtin_append(FLClosure*s,int n,FLValue*a){(void)s;if(n<1)fl_throw(fl_str_val("append: expected vector"));FLValue r=a[0];for(int i=1;i<n;i++)r=(n==2&&a[i].tag==FL_VECTOR)?append(r,a[i]):fl_vec_push(r,a[i]);return r;}
+static FLValue builtin_concat(FLClosure*s,int n,FLValue*a){(void)s;if(n!=2)fl_throw(fl_str_val("concat: expected 2 arguments"));return fl_concat(a[0],a[1]);}
+FLValue fl_builtin_fn(FLValue name) {
+    const char *s=fl_cstr(name);
+    if(!strcmp(s,"append"))return fl_fn_new(builtin_append,0,NULL);
+    if(!strcmp(s,"concat"))return fl_fn_new(builtin_concat,0,NULL);
+    if(!strcmp(s,"assoc"))return fl_fn_new(builtin_assoc,0,NULL);
+    if(!strcmp(s,"dissoc"))return fl_fn_new(builtin_dissoc,0,NULL);
+    if(!strcmp(s,"conj")||!strcmp(s,"push"))return fl_fn_new(builtin_conj,0,NULL);
+    if(!strcmp(s,"update"))return fl_fn_new(builtin_update,0,NULL);
+    if(!strcmp(s,"get"))return fl_fn_new(builtin_get,0,NULL);
+    return fl_nil();
+}

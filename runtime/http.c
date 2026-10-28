@@ -56,6 +56,7 @@ typedef struct {
     char   path[512];      /* /api/users/:id */
     HandlerFn fn;
     FLValue  closure;      /* FL_FN 클로저 핸들러 (fn이 NULL일 때 사용) */
+    FLValue  name;         /* Source names are resolved for each request. */
 } Route;
 
 /* ── 응답 FLMap 키 상수 ── */
@@ -115,6 +116,7 @@ static void register_route(const char* method, FLValue path, FLValue handler) {
     strncpy(r->method, method, sizeof(r->method) - 1);
     strncpy(r->path,   p,      sizeof(r->path) - 1);
     r->closure = fl_nil();
+    r->name = fl_nil();
     r->fn = NULL;
 
     if (handler.tag == FL_FN) {
@@ -126,15 +128,26 @@ static void register_route(const char* method, FLValue path, FLValue handler) {
         const char* h = strval(handler);
         char cname[256];
         fn_name_to_c(h, cname, sizeof(cname));
+        r->name = fl_heap_copy(handler);
         HandlerFn fn = (HandlerFn)dlsym(RTLD_DEFAULT, cname);
         if (!fn) {
-            fprintf(stderr, "[http] 핸들러 '%s' (%s) 를 찾을 수 없음\n", h, cname);
-            g_nroutes--;
+            fprintf(stderr, "[http] named handler: %s\n", h);
             return;
         }
         r->fn = fn;
         fprintf(stderr, "[http] 라우트 등록: %s %s → %s\n", method, p, cname);
     }
+}
+
+static FLValue invoke_route(Route* route, FLValue req) {
+    if (route->name.tag == FL_STRING) {
+        FLValue fn = fl_named_fn(route->name);
+        if (fn.tag == FL_FN) return fl_fn_call(fn, 1, &req);
+    }
+    if (route->fn) return route->fn(req);
+    if (route->closure.tag == FL_FN) return fl_fn_call(route->closure, 1, &req);
+    fl_throw(fl_str_val("named HTTP handler is not a function"));
+    return fl_nil();
 }
 
 FLValue server_get(FLValue path, FLValue handler) {
@@ -622,7 +635,7 @@ static void* handle_connection(void* arg) {
             if (fl_try_top < FL_TRY_MAX) {
                 FLTryFrame* frame = &fl_try_stack[fl_try_top++];
                 if (setjmp(frame->buf) == 0) {
-                    resp = (matched->fn) ? matched->fn(req) : fl_fn_call(matched->closure, 1, &req);
+                    resp = invoke_route(matched, req);
                     fl_try_top--;
                 } else {
                     fl_try_top--;
@@ -639,7 +652,7 @@ static void* handle_connection(void* arg) {
                     keep_alive = 0;
                 }
             } else {
-                resp = (matched->fn) ? matched->fn(req) : fl_fn_call(matched->closure, 1, &req);
+                resp = invoke_route(matched, req);
             }
         }
 

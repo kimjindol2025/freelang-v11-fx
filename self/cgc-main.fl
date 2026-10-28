@@ -820,6 +820,8 @@
 ;; 연산자 심볼 → first-class 함수 래퍼 (HOF 인자: (map + list), (reduce + list 0) 등)
 (defn cgc-op-wrapper [$sym]
   (cond
+    [(includes-item ["assoc" "dissoc" "conj" "push" "update" "get" "append" "concat"] $sym)
+     (str "fl_builtin_fn(fl_str_val(\"" (c-esc $sym) "\"))")]
     [(= $sym "+")  "fl_fn_new(__fl_op_add_w, 0, NULL)"]
     [(= $sym "-")  "fl_fn_new(__fl_op_sub_w, 0, NULL)"]
     [(= $sym "*")  "fl_fn_new(__fl_op_mul_w, 0, NULL)"]
@@ -1050,7 +1052,8 @@
   ;; 컬렉션 기본
   [(= $op "length")      (str "length(" (cgc (get $args 0)) ")")]
   [(= $op "count")       (str "length(" (cgc (get $args 0)) ")")]
-  [(= $op "get")         (str "get(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "get")         (cgc-get $args)]
+  [(= $op "has-key?")    (str "fl_has_key(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "assoc")       (str "fl_map_set(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "contains?")  (str "fl_contains_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "apply")      (str "fl_apply(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
@@ -1346,27 +1349,12 @@
   [true             (cgc-dispatch-fallback $op $args)]))
 
 (defn cgc-swap! [$args]
-  (let [[$atom-c  (cgc (get $args 0))]
-        [$fn-node (get $args 1)]
-        [$extra   (slice $args 2 (length $args))]]
-    ;; fn 람다(클로저)가 전달된 경우 → swap_bang(atom, closure) 직접 호출
-    (let [[$is-lambda (and (= (get $fn-node :kind) "sexpr") (= (get $fn-node :op) "fn"))]]
-      (if $is-lambda
-        (str "swap_bang(" $atom-c ", " (cgc $fn-node) ")")
-        (let [[$deref (str "fl_atom_deref(" $atom-c ")")]
-              [$op    (get $fn-node :value)]
-              [$ec    (cgc-args $extra)]]
-          (let [[$rhs (cond
-                        [(= $op "+")      (str "fl_add(" $deref ", " $ec ")")]
-                        [(= $op "-")      (str "fl_sub(" $deref ", " $ec ")")]
-                        [(= $op "*")      (str "fl_mul(" $deref ", " $ec ")")]
-                        [(= $op "push")   (str "fl_vec_push(" $deref ", " $ec ")")]
-                        [(= $op "append") (str "fl_vec_push(" $deref ", " $ec ")")]
-                        [true             (str (c-name $op) "(" $deref
-                                          (if (= (length $extra) 0) "" (str ", " $ec)) ")")]
-                      )]]
-            (str "fl_atom_reset(" $atom-c ", " $rhs ")")))))))
-
+  (let [[$id @lambda-id-atom]
+        [$_ (swap! lambda-id-atom + 1)]]
+    (str "(__extension__ ({ "
+         (cgc-eval-args $args $id 0 "")
+         " fl_swap_args(__fl_arg_" $id "_0, __fl_arg_" $id "_1, "
+         "fl_vec_from(__fl_av_" $id " + 2, " (- (length $args) 2) ")); }))")))
 ;; ── 컴파일 타임 경고 헬퍼 ────────────────────────────────────────────
 ;; W2: (get ...) 를 산술/문자열 ops에 nil 체크 없이 넘기면 경고
 (defn cgc-is-get? [$n]
@@ -1484,7 +1472,7 @@
         [$id-bump (swap! lambda-id-atom + 1)]
         [$param-items (get-block-items (get $args 0))]
         [$param-names (cgc-fn-param-names $param-items 0 [])]
-        [$body-node (get $args 1)]
+        [$body-node (make-sexpr "do" (slice $args 1 (length $args)) nil)]
         [$all-vars (cgc-collect-vars $body-node [])]
         [$outer @outer-params-atom]
         [$caps (cgc-fn-caps-filter $all-vars $param-names $outer 0 [])]
@@ -2145,7 +2133,10 @@
           (str $acc
                "FLValue " $name "(" $ps ");\n"
                "static FLValue __fl_wrap_" $name "(FLClosure*, int, FLValue*);\n"))
-        $acc))))))
+        (if (and (= (get $n :kind) "sexpr") (= (get $n :op) "define"))
+          (do (swap! known-fncall-targets-atom append
+                 (c-name (cgc-extract-name (get (get $n :args) 0)))) $acc)
+          $acc)))))))
 
 ;; S24: defn wrapper argv 호출 인자 생성 "argv[0], argv[1], ..."
 (defn cgc-wrapper-call-args [$_items $_i $_acc]
@@ -2202,8 +2193,9 @@
 (defn cgc-join-globals []
   (cgc-join-lambda-loop @global-decls-atom 0 ""))
 
-(defn generate-c [$nodes]
-  (let [[$fwd (cgc-forward-decls $nodes)]
+(defn generate-c [$raw-nodes]
+  (let [[$nodes (fl_compiler_bindings $raw-nodes)]
+        [$fwd (cgc-forward-decls $nodes)]
         [$parts (cgc-top-level $nodes 0 "" "")]
         [$fns (get $parts :fns)]
         [$stmts (get $parts :stmts)]
@@ -2518,14 +2510,13 @@
                           $rel-path
                           (str $base-dir $rel-path))]
                 [$src1 (file-read $try1)]
-                [$abs-path (if (null? $src1) $rel-path $try1)]]
+                [$abs-path (fl_compiler_realpath (if (null? $src1) $rel-path $try1))]]
             ;; 이미 로드한 파일이면 건너뜀 (순환/중복 방지)
             (if (includes-item @loaded-paths-atom $abs-path)
               (recur (+ $i 1) $acc)
               (let [[$src (if (null? $src1) (file-read $rel-path) $src1)]]
                 (if (null? $src)
-                  (do (println (str "[load] 파일 없음: " $rel-path))
-                      (recur (+ $i 1) $acc))
+                  (throw (str "[load] 파일 없음: " $rel-path))
                   (do
                     (swap! loaded-paths-atom (fn [$v] (push $v $abs-path)))
                     (let [[$sub-dir  (path-dir $abs-path)]
@@ -2608,7 +2599,7 @@
       [true [(str $prefix $conn "?")]]))))
 
 (defn ast-emit [$input]
-  (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]
+  (let [[$_reset  (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
         [$src      (file-read $input)]
         [$base-dir (path-dir $input)]
         [$raw      (parse (lex $src))]
@@ -2635,7 +2626,7 @@
         (ast-emit $output))
       (if (null? $output)
         (println "usage: cgc-bin <input.fl> <output.c>")
-        (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]
+        (let [[$_reset  (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
               [$src      (file-read $input)]
               [$base-dir (path-dir $input)]
               [$raw      (parse (lex $src))]
@@ -2644,5 +2635,26 @@
               [$c-code   (generate-c $nodes)]]
           (file-write $output $c-code)
           (println (str "Compiled " $input " -> " $output))))))))
+
+
+;; Arguments are evaluated exactly once, left to right, before the call.
+(defn cgc-eval-args [$args $id $i $acc]
+  (if (>= $i (length $args))
+    (str $acc " FLValue __fl_av_" $id "[" (length $args) "] = {"
+         (cgc-eval-names $id (length $args) 0 "") "};")
+    (cgc-eval-args $args $id (+ $i 1)
+      (str $acc " FLValue __fl_arg_" $id "_" $i " = " (cgc (get $args $i)) ";"))))
+(defn cgc-eval-names [$id $n $i $acc]
+  (if (>= $i $n) $acc
+    (cgc-eval-names $id $n (+ $i 1)
+      (str $acc (if (= $i 0) "" ", ") "__fl_arg_" $id "_" $i))))
+(defn cgc-get [$args]
+    (let [[$id @lambda-id-atom]
+          [$_ (swap! lambda-id-atom + 1)]]
+      (str "(__extension__ ({ " (if (= (length $args) 0) "" (cgc-eval-args $args $id 0 ""))
+           " fl_get_default("
+           (if (> (length $args) 0) (str "__fl_arg_" $id "_0") "fl_nil()") ", "
+           (if (> (length $args) 1) (str "__fl_arg_" $id "_1") "fl_str_val(\"undefined\")") ", "
+           (if (> (length $args) 2) (str "__fl_arg_" $id "_2") "fl_nil()") "); }))")))
 
 (cgc-run (cli-args))

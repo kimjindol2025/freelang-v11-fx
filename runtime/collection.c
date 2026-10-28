@@ -206,7 +206,7 @@ FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
 }
 
 FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv) {
-    if (fn.tag != FL_FN) { fputs("error: not a fn\n", stderr); exit(1); }
+    if (fn.tag != FL_FN) { fl_throw(fl_str_val("not a function")); return fl_nil(); }
     FLClosure* cl = (FLClosure*)fn.obj;
     return cl->call(cl, argc, argv);
 }
@@ -415,4 +415,140 @@ FLValue append(FLValue v1, FLValue v2) {
     for (uint32_t i = 0; i < vb->len; i++)
         r = fl_vec_push(r, vb->data[i]);
     return r;
+}
+
+/* C03: distinguish an absent key from a stored nil. */
+FLValue fl_map_has(FLValue map, FLValue key) {
+    if (map.tag!=FL_MAP) return fl_bool(false);
+    FLMap *m=(FLMap*)map.obj;
+    for(uint32_t i=0;i<m->len;i++)
+        if(fl_truthy(fl_eq(m->entries[i].key,key))) return fl_bool(true);
+    return fl_bool(false);
+}
+static FLValue compat_key(FLValue key,int nil_empty) {
+    if(key.tag==FL_STRING) {
+        FLString *s=(FLString*)key.obj;
+        return s->len&&s->data[0]==':'?fl_str_val(s->data+1):key;
+    }
+    if(key.tag==FL_NIL)return fl_str_val(nil_empty?"":"null");
+    if(key.tag==FL_BOOL)return fl_str_val(key.b?"true":"false");
+    char b[64];
+    if(key.tag==FL_INT)snprintf(b,sizeof(b),"%lld",(long long)key.i);
+    else if(key.tag==FL_FLOAT)snprintf(b,sizeof(b),"%.17g",key.f);
+    else snprintf(b,sizeof(b),"[object Object]");
+    return fl_str_val(b);
+}
+FLValue fl_has_key(FLValue map,FLValue key) {
+    return fl_map_has(map,compat_key(key,1));
+}
+FLValue fl_get_default(FLValue obj, FLValue key, FLValue fallback) {
+    if(obj.tag==FL_NIL) {
+        const char *strict=getenv("FL_STRICT");
+        if(strict && !strcmp(strict,"1")) {
+            FLValue printed=compat_key(key,0);
+            if(key.tag==FL_STRING)printed=fl_str_n(3,fl_str_val("\""),key,fl_str_val("\""));
+            FLValue message=fl_str_n(3,fl_str_val("(get nil "),printed,
+                fl_str_val(") — cannot access key on nil. Use (get-or coll key default)."));
+            FLValue error=fl_map_new();
+            error=fl_map_set(error,fl_str_val("message"),message);
+            error=fl_map_set(error,fl_str_val("code"),fl_str_val("E_TYPE_NIL"));
+            error=fl_map_set(error,fl_str_val("type"),fl_str_val("TypeError"));
+            error=fl_map_set(error,fl_str_val("hint"),fl_str_val("값이 nil인지 (nil? x) 또는 (get-or x :key default) 로 먼저 확인하세요."));
+            fl_throw(error);
+        }
+        return fallback;
+    }
+    if(obj.tag==FL_MAP) {
+        FLValue normalized=compat_key(key,0);
+        if(fl_truthy(fl_map_has(obj,normalized))) return fl_map_get(obj,normalized);
+        return fl_truthy(fl_map_has(obj,key))?fl_map_get(obj,key):fallback;
+    }
+    int64_t index;
+    if(key.tag==FL_INT) index=key.i;
+    else if(key.tag==FL_FLOAT && key.f>=0 && key.f<INT64_MAX && key.f==(int64_t)key.f) index=(int64_t)key.f;
+    else return fallback;
+    if(index<0) return fallback;
+    if(obj.tag==FL_VECTOR) {
+        FLVector *v=(FLVector*)obj.obj;
+        if((uint64_t)index>=v->len || v->data[index].tag==FL_NIL) return fallback;
+        return v->data[index];
+    }
+    if(obj.tag==FL_STRING) {
+        FLString *s=(FLString*)obj.obj;
+        /* Text indexing follows v11 UTF-16 code units, never byte offsets. */
+        for(size_t i=0;i<s->len;) {
+            const unsigned char *p=(unsigned char*)s->data+i;
+            uint32_t cp=p[0]; size_t n=1;
+            if(cp>=0xc2 && cp<=0xf4) {
+                n=cp<0xe0?2:cp<0xf0?3:4;
+                if(i+n>s->len) {cp=0xfffd;n=1;}
+                else {
+                    cp &= (1u<<(7-n))-1;
+                    for(size_t j=1;j<n;j++) {if((p[j]&0xc0)!=0x80){cp=0xfffd;n=1;break;} cp=(cp<<6)|(p[j]&63);}
+                    if((n==2&&cp<0x80)||(n==3&&(cp<0x800||(cp>=0xd800&&cp<=0xdfff)))||(n==4&&(cp<0x10000||cp>0x10ffff))) {cp=0xfffd;n=1;}
+                }
+            } else if(cp>=0x80) cp=0xfffd;
+            if(cp>0xffff) {
+                if(index<2) {cp= index==0?0xd800+((cp-0x10000)>>10):0xdc00+((cp-0x10000)&1023);index=0;}
+                else index-=2;
+            } else if(index) index--;
+            else {
+                /* selected below */
+                goto selected;
+            }
+            if(cp>=0xd800&&cp<=0xdfff&&index==0) goto selected;
+            i+=n; continue;
+selected:   ;
+            char b[4];size_t len;
+            if(cp<0x80){b[0]=cp;len=1;}
+            else if(cp<0x800){b[0]=0xc0|(cp>>6);b[1]=0x80|(cp&63);len=2;}
+            else {b[0]=0xe0|(cp>>12);b[1]=0x80|((cp>>6)&63);b[2]=0x80|(cp&63);len=3;}
+            FLString *out=fl_arena_alloc(sizeof(*out)+len+1);
+            out->base.type=FL_STRING;out->base.rc=1;out->len=len;memcpy(out->data,b,len);out->data[len]=0;
+            FLValue result;result.tag=FL_STRING;result.obj=(FLObject*)out;return result;
+        }
+    }
+    return fallback;
+}
+
+/* Exact source names are retained for string callbacks and redefinition. */
+#include <pthread.h>
+typedef struct NamedFn { char *name; FLValue fn; struct NamedFn *next; } NamedFn;
+static NamedFn *named_fns;
+static pthread_mutex_t named_fn_lock=PTHREAD_MUTEX_INITIALIZER;
+FLValue fl_register_named_fn(FLValue name,FLValue fn) {
+    if(name.tag!=FL_STRING) fl_throw(fl_str_val("invalid named function"));
+    const char *s=((FLString*)name.obj)->data;
+    pthread_mutex_lock(&named_fn_lock);
+    NamedFn *p=named_fns;
+    for(;p;p=p->next) if(!strcmp(p->name,s)) break;
+    if(!p) {
+        p=calloc(1,sizeof(*p));
+        if(p) p->name=strdup(s);
+        if(!p||!p->name) {free(p);pthread_mutex_unlock(&named_fn_lock);fl_throw(fl_str_val("named function allocation failed"));return fl_nil();}
+        p->next=named_fns;named_fns=p;
+    }
+    p->fn=fn;pthread_mutex_unlock(&named_fn_lock);return fn;
+}
+FLValue fl_named_fn(FLValue name) {
+    if(name.tag!=FL_STRING) return fl_nil();
+    pthread_mutex_lock(&named_fn_lock);FLValue fn=fl_nil();
+    for(NamedFn *p=named_fns;p;p=p->next) if(!strcmp(p->name,((FLString*)name.obj)->data)){fn=p->fn;break;}
+    pthread_mutex_unlock(&named_fn_lock);return fn;
+}
+/* swap! uses the same callable path for named functions and lambdas. */
+FLValue fl_swap_args(FLValue atom,FLValue fn,FLValue extra) {
+    FLVector *v=(FLVector*)extra.obj;
+    FLValue *args=malloc(sizeof(*args)*(v->len+1));
+    if(!args) fl_throw(fl_str_val("swap!: allocation failed"));
+    args[0]=fl_atom_deref(atom);memcpy(args+1,v->data,v->len*sizeof(*args));
+    return fl_atom_reset(atom,fl_call_owned_argv(fn,v->len+1,args));
+}
+FLValue fl_call_owned_argv(FLValue fn,int argc,FLValue *args) {
+    /* Preserve native catch state while releasing temporary argv on throw. */
+    if(fl_try_top>=FL_TRY_MAX){free(args);fl_throw(fl_str_val("swap!: try stack overflow"));return fl_nil();}
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){FLValue error=frame->err;fl_try_top--;free(args);fl_throw(error);return fl_nil();}
+    FLValue value=fl_fn_call(fn,argc,args);
+    fl_try_top--;free(args);return value;
 }
