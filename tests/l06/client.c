@@ -115,6 +115,7 @@ static void *concurrent(void *unused) {
     part(&b,"Concurrent","image","a.bin",data,sizeof data,NULL); finish(&b,"Concurrent");
     Buf r=post("/upload","multipart/form-data; boundary=Concurrent",&b,NULL,0);
     int ok=status(&r)==200 && has(&r,"76fe3925c7167317f2df68454339f5ec3650e4062178b4f2be219b105a507907");
+    if (!ok) fprintf(stderr,"CONCURRENT_FAILURE HTTP=%d BODY=%.256s\n",status(&r),body(&r));
     free(r.p); free(b.p); return (void *)(intptr_t)ok;
 }
 static void timeout_case(int trickle) {
@@ -212,6 +213,12 @@ int main(int argc,char **argv) {
     pthread_t threads[4]; for (int i=0;i<4;i++) pthread_create(&threads[i],NULL,concurrent,NULL);
     int all=1; for (int i=0;i<4;i++) { void *result; pthread_join(threads[i],&result); all &= (int)(intptr_t)result; }
     check(all && !files_left(),"concurrent-request-isolation");
+    all=1;
+    for (int round=0;round<25;round++) {
+        for (int i=0;i<4;i++) pthread_create(&threads[i],NULL,concurrent,NULL);
+        for (int i=0;i<4;i++) { void *result; pthread_join(threads[i],&result); all &= (int)(intptr_t)result; }
+    }
+    check(all && !files_left(),"concurrent-100-request-recovery-scan");
     /* Each fault travels over real HTTP and through the public .fl handler. */
     const char *faults[]={"WRITE","SHORT","FLUSH","CLOSE","ALLOC","UNLINK","RANDOM","WRITE_SECOND"};
     for (int i=0;i<8;i++) {
