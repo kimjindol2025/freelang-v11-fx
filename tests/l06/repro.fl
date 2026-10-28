@@ -1,0 +1,5 @@
+(server_post "/form" (fn [req]
+  (if (map? (get req "body"))
+    (server_text "FORM_MAP=PASS")
+    (server_status 422 "FORM_MAP=FAIL"))))
+(server_start 0)
