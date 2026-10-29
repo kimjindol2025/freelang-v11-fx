@@ -10,3 +10,7 @@
 (println (str_index_of "abc" nil))
 (println (= {"a" nil} {"b" nil}))
 (println (append "한😀" 1))
+(println (substring "abc" 2 1))
+(println (substring "abc" 1 0))
+(println (substring "abc" -1 2))
+(println (str_slice 123 1))
