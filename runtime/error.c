@@ -62,6 +62,7 @@ static void print_uncaught(FLValue err) {
 }
 
 void fl_throw(FLValue err) {
+    err=fl_v11_context_error(err);
     if (fl_try_top <= 0) {
         print_uncaught(err);
         fl_schedule_shutdown();exit(1);

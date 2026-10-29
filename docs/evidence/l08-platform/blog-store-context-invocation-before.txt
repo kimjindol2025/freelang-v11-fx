@@ -1,0 +1,2 @@
+BLOG_NATIVE_STORE_CONTEXT_EXIT=127
+scripts/verify-l08-blog-store-native.sh: line 11: <가림>: No such file or directory

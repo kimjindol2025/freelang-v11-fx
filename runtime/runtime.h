@@ -208,6 +208,8 @@ typedef struct FLClosure {
 FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
                   uint32_t nenv, FLValue* env);
 FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv);
+FLValue fl_v11_context_call(FLValue name, FLValue fn, FLValue args, FLValue line);
+FLValue fl_v11_context_error(FLValue error);
 
 /* ── S8: 고차함수 ── */
 FLValue fl_map_fn(FLValue fn, FLValue vec);

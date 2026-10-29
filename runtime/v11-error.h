@@ -13,6 +13,52 @@ static FLValue ve_error(FLValue value){
     return out;
 }
 void fl_v11_throw(FLValue value){fl_throw(ve_error(value));}
+typedef struct VECallContext {
+    struct VECallContext*previous;
+    FLValue name;
+    int line,try_depth,call_depth;
+    void*borrow_mark;
+} VECallContext;
+static __thread VECallContext*ve_context;
+extern __thread int __fl_callstack_depth;
+
+FLValue fl_v11_context_call(FLValue name,FLValue fn,FLValue args,FLValue line){
+    VECallContext context={.previous=ve_context,.name=name,
+        .line=line.tag==FL_INT?(int)line.i:0,.try_depth=fl_try_top,
+        .call_depth=__fl_callstack_depth,.borrow_mark=fl_borrow_mark()};
+    ve_context=&context;
+    FLVector*values=(FLVector*)args.obj;
+    FLValue result=fn.tag==FL_NIL?fl_v11_builtin(name,args):fl_fn_call(fn,(int)values->len,values->data);
+    ve_context=context.previous;
+    return result;
+}
+
+/* Unwind only calls outside the selected catch; arguments ran before entry. */
+FLValue fl_v11_context_error(FLValue error){
+    while(ve_context&&ve_context->try_depth>=fl_try_top){
+        VECallContext context=*ve_context;ve_context=context.previous;
+        error=fl_borrow_finish(context.borrow_mark,error);
+        __fl_callstack_depth=context.call_depth;
+        FLValue out=ve_error(error),message=fl_map_get(out,fl_str_val("message"));
+        FLString*name=(FLString*)context.name.obj;
+        FLString*text=(FLString*)t_js_string(message).obj;
+        int prefixed=text->len>=name->len+2&&
+            ((text->data[0]=='['&&text->data[name->len+1]==']')||
+             (text->data[0]=='('&&text->data[name->len+1]==')'))&&
+            !memcmp(text->data+1,name->data,name->len);
+        if(!prefixed){
+            FLValue parts[4]={fl_str_val("["),context.name,fl_str_val("] "),message};
+            message=fl_str_n(4,parts[0],parts[1],parts[2],parts[3]);
+        }
+        if(!strstr(((FLString*)message.obj)->data,"(at line ")){
+            char location[80];snprintf(location,sizeof location," (at line %d, col 0)",context.line);
+            message=fl_str_n(2,message,fl_str_val(location));
+        }
+        error=fl_map_set(out,fl_str_val("message"),message);
+        error.obj->type=FL_NATIVE_ERROR;
+    }
+    return error;
+}
 static FLValue ve_regex(const char*op,FLValue input,const char*pattern,const char*replacement){
     FLValue args[3]={input,fl_str_val(pattern),fl_str_val(replacement)};
     return v11_regex(op,fl_vec_from(args,3));

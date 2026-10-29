@@ -999,7 +999,25 @@
            (cgc-args $args) "};"
            " fl_fn_call(" $fn-c ", " $argc ", __fl_ca_" $id "); }))"))))
 
+(defn cgc-context-call [$fn-c $args $name $line]
+  (let [[$id @lambda-id-atom] [$_ (swap! lambda-id-atom + 1)]]
+    (str "(__extension__ ({ " (cgc-eval-args $args $id 0 "")
+         " fl_v11_context_call(fl_str_val(\"" (c-esc $name) "\"), " $fn-c ", "
+         (if (= (length $args) 0) "fl_vec_new()"
+             (str "fl_vec_from(__fl_av_" $id ", " (length $args) ")"))
+         ", fl_int(" (if (null? $line) "0" (to-string $line)) ")); }))")))
+
 (defn cgc-sexpr [$n]
+  (let [[$op (get $n :op)] [$args (get $n :args)] [$context (get $n "call-op")]]
+    (if (not (null? $context))
+      (if (= $op "__apply__")
+        (cgc-context-call (cgc (get $args 0)) (slice $args 1 (length $args)) $context (get $n :line))
+        (cgc-context-call (cgc (make-variable (substring $op 1 (length $op)) (get $n :line))) $args $context (get $n :line)))
+      (if (and (string? $op) (fl_v11_has $op) (not (includes-item ["if" "and" "or"] $op)))
+        (cgc-context-call "fl_nil()" $args $op (get $n :line))
+        (cgc-sexpr-plain $n)))))
+
+(defn cgc-sexpr-plain [$n]
   (let [[$op (get $n :op)] [$args (get $n :args)]]
   (if (not (string? $op))
     (cgc-fncall (cgc $op) $args)

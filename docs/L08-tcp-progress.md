@@ -16,3 +16,5 @@ bash scripts/audit-l07-execve.sh <가림>
 초기 client의 drop/stop 확인은 음수 read를 close로 인정하여 timeout도 통과할 수 있었다. timeout·TLS WANT를 실패 처리하도록 시험을 강화했으며 최신 전체 driver에서 재실행한다. 초기 8묶음 결과를 강화한 시험의 결과라고 보고하지 않는다. 이후 snapshot 수명 수정도 별도다.
 
 TCP의 sanitizer 검사, callback 중 server 재생성, 모든 TLS 설정 오류·파일 descriptor 정리 경계와 자원 고갈은 추가 검증이 필요하다. 전체 회귀·native bootstrap도 최신 코드에서 아직 미확인이다. 서버 23·25 접속·운영 데이터 수정·합치기·배포는 하지 않았다. 전체 앱의 auth_verify_password 결정 대기와 실제 DB 제약조건 시험 실패, PRD 기능·화면·운영 복구는 남아 있다.
+
+고정 `a1c69c2e85ae700edea1be03e14a8ced7eb155b6`의 전체 driver에서 강화한 TCP 자체 시험은 `L08_TCP_PASS=8 FAIL=0`, `TCP_EXIT=0`으로 끝났다. 전체 driver는 이후 회귀를 계속 실행 중이므로 전체 성공과 구분한다. 결과 원문은 전체 실행 종료 뒤 보존한다.
