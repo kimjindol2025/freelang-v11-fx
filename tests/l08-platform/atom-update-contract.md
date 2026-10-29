@@ -1,4 +1,4 @@
-# C20 atom 原子的 갱신 시험 계약
+# C20 atom 원자적 갱신 시험 계약
 
 v11 `b49cc9194a00649b8cf58e1d6e8ee38ffce770d4`의 src/eval-builtins.ts:526~534,952~960 소스를 읽었다. callback을 현재 값·extra 인자로 한 번 호출하고, 반환한 값을 저장·반환한다. callback이 같은 atom에 reset!/swap!을 호출해도 바깥 호출은 원래 읽은 값으로 계산한 결과를 최종 저장한다. callback이 throw하면 바깥 저장은 하지 않지만 callback 안에서 이미 수행한 reset!은 취소하지 않는다. Node로 실행하지 않았다.
 
