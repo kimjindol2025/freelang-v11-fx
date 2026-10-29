@@ -104,6 +104,8 @@ static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t s
         FLValue n=v->data[i],op=rb_get(n,"op");
         if(rb_is(op,"defn")||rb_is(op,"define")) {
             FLValue name=rb_name(fl_vec_get(rb_get(n,"args"),fl_int(0)));
+            /* Reuse captured/parameter cells and repeated definitions. */
+            if(rb_lookup(*env,name).tag!=FL_NIL)continue;
             FLValue target=rb_bind(r,env,name);(*env)->cell=1;
             (*env)->function_alias=rb_is(op,"defn");
             binds=fl_vec_push(binds,rb_var(target));
@@ -121,8 +123,10 @@ static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t s
                 for(uint32_t j=1;j<av->len;j++)fargs=fl_vec_push(fargs,av->data[j]);
                 value=rb_node(r,env,rb_call("fn",fargs));
             } else value=rb_node(r,env,fl_vec_get(a,fl_int(1)));
-            FLValue pair[2]={rb_var(rb_lookup(*env,name)),value};
-            body=fl_vec_push(body,rb_call("reset!",rb_vec(2,pair)));
+            FLBinding *binding=*env;
+            while(binding&&!fl_truthy(fl_eq(binding->source,name)))binding=binding->next;
+            FLValue pair[2]={rb_var(binding->target),value};
+            body=fl_vec_push(body,rb_call(binding->cell?"reset!":"set!",rb_vec(2,pair)));
         } else body=fl_vec_push(body,rb_node(r,env,n));
     }
     FLValue result=rb_call("do",body);
