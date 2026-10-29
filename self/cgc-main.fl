@@ -2152,7 +2152,7 @@
         [$val (cgc (get $args 1))]]
     (swap! known-fncall-targets-atom append $name)
     (swap! global-decls-atom append (str "static FLValue " $name ";"))
-    (str $name " = " $val ";")))
+    (str "(" $name " = " $val ")")))
 
 ;; ── 이진 연산 연쇄 (fl_add(fl_add(a,b),c)) ──
 
