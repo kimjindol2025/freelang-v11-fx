@@ -56,3 +56,7 @@ L08_BLOG_SOURCE_ROOT=<가림> L08_BLOG_NATIVE_COMPILER=<가림>/compiler L08_BLO
 - 이전 GC 고정 `166ef374bb8417f7cd2227f23e3b98de47fe0f84` 전체 실행은 계속 관찰 중이다. cache 변경 고정 `4da45cd901085c9ac878771bf33422c5b1bf4b94`의 전체 언어 회귀·L06/L07·native bootstrap도 새로 실행 중이다. 이미 실행 중인 두 고정 driver에 이후 추가한 DB 통합 재현은 포함되지 않으며, 두 driver의 결과가 나오더라도 새 DB 실패나 C20 전체 완료를 통과로 바꾸지 않는다.
 - 일반 LSan·장시간 실제 RSS·PRD p95, opaque promise cycle·startup 수명·포기한 future/반복/동시 대기·예외, DB 오류/장애 원자성·동시 읽기·WAL/복구·성능의 나머지 검증은 남아 있다.
 - 실제 비밀번호 검증의 빈 scrypt 키 계약은 사용자 결정 대기다. 브라우저 J안·이미지 처리·댓글·다중 작성자와 나머지 PRD·운영 자료 호환·백업/복구도 남아 있다. 서버 23·25 접속·운영 자료 변경·합치기·배포·강제 푸시·백업 삭제는 하지 않았다.
+
+## 후속 진행
+
+위 동시 쓰기 live 20/replay 32 실패는 이후 명시적 언어 잠금과 FreeLang 저장소 경계 적용으로 같은 8-worker 시험에서 live/replay 각각 32를 확인했다. 전체 완료는 아니며 WAL 오류·기존 전체 회귀에서 발견한 추가 결함과 검증 범위는 [저장소 후속 진행](L08-store-serialization-progress.md)을 따른다.
