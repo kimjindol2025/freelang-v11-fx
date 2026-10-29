@@ -512,6 +512,7 @@ static FLValue t_parse(FLValue value,int prefix){
 static int64_t t_index(FLValue v,int64_t length){
     double d=t_numeric(v)?t_double(v):t_double(t_parse(v,0));
     if(isnan(d))d=0;
+    d=trunc(d);
     if(d<=-((double)length))return 0;
     if(d<0)return length+(int64_t)d;
     if(d>=length)return length;
@@ -688,6 +689,39 @@ static int t_hex(uint16_t c){
     return c>='0'&&c<='9'?c-'0':c>='A'&&c<='F'?c-'A'+10:c>='a'&&c<='f'?c-'a'+10:-1;
 }
 
+/* String.replaceAll tokens, implemented without a regular-expression engine. */
+static FLValue t_replace_all(FLValue input,FLValue pattern,FLValue replacement){
+    TUnits s=t_units(t_js_string(input)),p=t_units(t_js_string(pattern));
+    TUnits r=t_units(t_js_string(replacement)),out={0};
+    size_t cursor=0,scan=0;
+    while(scan<=s.n){
+        int64_t found=p.n?t_find_units(s,p,scan):(int64_t)scan;
+        if(found<0)break;
+        size_t at=(size_t)found;
+        for(size_t j=cursor;j<at;j++)t_unit(&out,s.p[j]);
+        for(size_t j=0;j<r.n;j++){
+            if(r.p[j]=='$'&&j+1<r.n){
+                uint16_t token=r.p[j+1];
+                if(token=='$'){t_unit(&out,'$');j++;continue;}
+                if(token=='&'||token==96||token=='\''){
+                    size_t lo=token==96?0:token=='&'?at:at+p.n;
+                    size_t hi=token==96?at:token=='&'?at+p.n:s.n;
+                    for(size_t k=lo;k<hi;k++)t_unit(&out,s.p[k]);
+                    j++;continue;
+                }
+            }
+            t_unit(&out,r.p[j]);
+        }
+        cursor=at+p.n;
+        if(!p.n&&at==s.n)break;
+        scan=p.n?cursor:at+1;
+    }
+    for(size_t j=cursor;j<s.n;j++)t_unit(&out,s.p[j]);
+    FLValue value=t_from_units(out.p,out.n);
+    free(s.p);free(p.p);free(r.p);free(out.p);
+    return value;
+}
+
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];
     t_op_name(name,op);
@@ -707,7 +741,18 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         return length(v);
     }
     if(IS("char-at"))return fl_v11_text_get(ARG(0),t_parse(ARG(1),0),fl_str_val(""));
-    if(IS("str-slice")||IS("substring")||IS("slice"))return t_slice(ARG(0),ARG(1),ARG(2),n>2);
+    if(IS("str-slice"))return t_slice(t_js_string(ARG(0)),ARG(1),ARG(2),n>2);
+    if(IS("slice"))return t_slice(ARG(0),ARG(1),ARG(2),n>2);
+    if(IS("substring")){
+        if(ARG(0).tag!=FL_STRING)return fl_str_val("");
+        TUnits text=t_units(ARG(0));
+        double start=floor(t_double(t_parse(fl_v11_truthy(ARG(1))?ARG(1):fl_int(0),0)));
+        double end=floor(t_double(t_parse(fl_v11_truthy(ARG(2))?ARG(2):fl_int(text.n),0)));
+        size_t lo=isnan(start)||start<0?0:start>text.n?text.n:(size_t)start;
+        size_t hi=isnan(end)||end<0?0:end>text.n?text.n:(size_t)end;
+        if(lo>hi){size_t swap=lo;lo=hi;hi=swap;}
+        FLValue value=t_from_units(text.p+lo,hi-lo);free(text.p);return value;
+    }
     if(IS("str")||IS("print")||IS("println")){
         TBuffer b={0};
         for(size_t i=0;i<n;i++){
@@ -729,14 +774,14 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         free(b.p);
         return fl_nil();
     }
-    if(IS("num-to-str"))return ARG(0).tag==FL_NIL?fl_str_val(""):t_js_string(ARG(0));
+    if(IS("num-to-str"))return t_js_string(ARG(0));
     if(IS("str-to-num"))return t_parse(ARG(0),1);
     if(IS("integer?")||IS("float?")){
         FLValue v=ARG(0);
         int integer=t_numeric(v)&&isfinite(t_double(v))&&floor(t_double(v))==t_double(v);
         return fl_bool(IS("integer?")?integer:t_numeric(v)&&!integer);
     }
-    if(IS("type-of"))return fl_str_val(t_numeric(ARG(0))?"number":fl_type_name(ARG(0)));
+    if(IS("type-of"))return fl_str_val(t_numeric(ARG(0))?"number":ARG(0).tag==FL_BOOL?"boolean":fl_type_name(ARG(0)));
     if(IS("not"))return fl_bool(!fl_v11_truthy(ARG(0)));
     if(IS("=")||IS("eq")||IS("!=")||IS("neq")||IS("not=")){
         int different=IS("!=")||IS("neq")||IS("not=");
@@ -750,17 +795,17 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         if(IS("%")||IS("mod"))return fl_float(fmod(t_double(t_parse(ARG(0),0)),t_double(t_parse(ARG(1),0))));
         for(size_t i=0;i<n;i++)if(!t_numeric(a[i])){
             char message[512];
-            snprintf(message,sizeof(message),"[E_TYPE_MISMATCH] %s: 인자 %zu번에 %s 전달됨 — number 필요 %s",op,i+1,fl_type_name(a[i]),a[i].tag==FL_NIL?"(nil? 확인 후 기본값 사용)":"(str-to-num 변환 확인)");
+            snprintf(message,sizeof(message),"[E_TYPE_MISMATCH] %s: 인자 %zu번에 %s 전달됨 — number 필요 %s",op,i+1,a[i].tag==FL_BOOL?"boolean":fl_type_name(a[i]),a[i].tag==FL_NIL?"(nil? 확인 후 기본값 사용)":"(str-to-num 변환 확인)");
             fl_throw(fl_str_val(message));
         }
         if(!n){
             if(IS("-")||IS("/"))fl_throw(fl_str_val("Reduce of empty array with no initial value"));
             return fl_int(IS("*")?1:0);
         }
-        FLValue r=a[0];
+        FLValue r=IS("+")?fl_float(0):a[0];
         if(n==1&&IS("-"))return fl_float(-t_double(r));
         if(n==1&&IS("/"))return fl_float(1/t_double(r));
-        for(size_t i=1;i<n;i++){
+        for(size_t i=IS("+")?0:1;i<n;i++){
             double x=t_double(r),y=t_double(a[i]);
             r=fl_float(IS("+")?x+y:IS("-")?x-y:IS("*")?x*y:IS("/")?x/y:fmod(x,y));
         }
@@ -798,7 +843,8 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     }
     if(IS("str-find")||IS("str-index-of")||IS("str-starts")||IS("str-ends")||IS("str-starts-with")||IS("str-ends-with")||IS("str-includes")){
         if((IS("str-starts-with")||IS("str-ends-with")||IS("str-includes"))&&(ARG(0).tag!=FL_STRING||ARG(1).tag!=FL_STRING))return fl_bool(false);
-        FLValue x=t_js_string(ARG(0)),y=t_js_string(ARG(1));
+        if(IS("str-index-of")&&ARG(0).tag!=FL_STRING)return fl_int(-1);
+        FLValue x=t_js_string(ARG(0)),y=IS("str-index-of")&&ARG(1).tag==FL_NIL?fl_str_val(""):t_js_string(ARG(1));
         TUnits u=t_units(x),v=t_units(y);
         double offset=n>2?t_double(t_parse(ARG(2),0)):0;
         size_t start=isnan(offset)||offset<0?0:offset>=u.n?u.n:(size_t)offset;
@@ -835,9 +881,11 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         FLValue r=t_finish(&b);
         return t_text(r);
     }
-    if(IS("str-lines")||IS("str-split")||IS("str-replace")||IS("str-replace-in")){
+    if(IS("str-replace-in"))return t_replace_all(ARG(0),ARG(1),ARG(2));
+    if(IS("str-lines")||IS("str-split")||IS("str-replace")){
         if(IS("str-split")&&(ARG(0).tag!=FL_STRING||ARG(1).tag!=FL_STRING))return fl_vec_new();
-        FLValue s=t_js_string(ARG(0)),delim=IS("str-lines")?fl_str_val("\n"):t_js_string(ARG(1));
+        if(IS("str-replace")&&ARG(0).tag!=FL_STRING)return fl_str_val("");
+        FLValue s=t_js_string(ARG(0)),delim=IS("str-lines")?fl_str_val("\n"):IS("str-replace")&&ARG(1).tag==FL_NIL?fl_str_val(""):t_js_string(ARG(1));
         TUnits u=t_units(s),d=t_units(delim);
         FLValue parts=fl_vec_new();
         size_t pos=0;
@@ -857,12 +905,13 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         if(IS("str-lines"))return parts;
         if(IS("str-replace")||IS("str-replace-in")){
             FLValue j[2]={
-                parts,t_js_string(ARG(2))
+                parts,ARG(2).tag==FL_NIL?fl_str_val(""):t_js_string(ARG(2))
             };
             return fl_v11_builtin(fl_str_val("str-join"),fl_vec_from(j,2));
         }
-        if(n>2&&t_numeric(a[2])&&t_double(a[2])>0){
-            size_t limit=(size_t)t_double(a[2]);
+        double requested=n>2?t_double(t_parse(a[2],0)):0;
+        if(requested>0&&requested<((FLVector*)parts.obj)->len){
+            size_t limit=(size_t)requested;
             FLVector*p=(FLVector*)parts.obj;
             if(limit&&p->len>limit){
                 FLValue result=fl_vec_from(p->data,limit-1),j[2]={
@@ -964,6 +1013,15 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     if(IS("append")||IS("conj")){
         FLValue r=ARG(0);
         if(IS("append")&&n==2&&r.tag==FL_VECTOR&&a[1].tag==FL_VECTOR)return append(r,a[1]);
+        if(IS("append")&&r.tag==FL_STRING){
+            TUnits text=t_units(r);r=fl_vec_new();
+            for(size_t j=0;j<text.n;j++){
+                size_t width=text.p[j]>=0xd800&&text.p[j]<=0xdbff&&j+1<text.n&&text.p[j+1]>=0xdc00&&text.p[j+1]<=0xdfff?2:1;
+                r=fl_vec_push(r,t_from_units(text.p+j,width));j+=width-1;
+            }
+            free(text.p);
+        }
+        else if(IS("append")&&r.tag!=FL_VECTOR&&fl_v11_truthy(r))fl_throw(fl_str_val("(args[0] || []) is not iterable"));
         for(size_t i=1;i<n;i++){
             if(r.tag==FL_MAP&&IS("conj")){
                 if(a[i].tag==FL_MAP)r=fl_map_merge(r,a[i]);

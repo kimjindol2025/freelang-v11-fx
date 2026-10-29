@@ -9,7 +9,7 @@ printf '\341\200X' > "$out/invalid"
 printf '\355\240\200' > "$out/surrogate"
 printf 'A\000B' > "$out/nul"
 pass=0;fail=0
-for spec in strings unicode bytes numbers arrays core output literals edges contracts; do
+for spec in strings unicode bytes numbers arrays core output literals edges contracts source-edge; do
     if l07_build_app "$out" "$ROOT/tests/l08-phase2/$spec.fl" "$spec" >"$out/$spec.build.log" 2>&1; then
         if env FL_STRICT=0 "$out/$spec" "$out/invalid" "$out/surrogate" "$out/nul" "$out/raw-copy" >"$out/$spec.actual" 2>"$out/$spec.stderr"; then rc=0; else rc=$?; fi
         cat "$out/$spec.actual"; cat "$out/$spec.stderr"
