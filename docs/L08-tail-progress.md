@@ -57,3 +57,7 @@ zero-extra guard 구현은 `7fbe7698478d13ff5d6cfa8bf16c69e0aabb92d4`다. 실제
 새 compiler로 기존 tail 깊이 5000·인자/closure 수명·catch/atom과 새 중간 식·let 순서·이름 조회·zero-extra swap을 ASan/UBSan에서 실행했다. `L08_TAIL_PASS=11 FAIL=0`, `TAIL_SEQUENCE_SELF_EXIT=0`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. [원문](evidence/l08-platform/tail-sequence-self-after.txt). 누수 검사는 미실행이다.
 
 실패했던 raw 2 MiB·부분 쓰기·TLS/mTLS·회복의 기존 driver를 다시 실행해 `L08_TCP_PASS=8 FAIL=0`, `TCP_SEQUENCE_FIXED_EXIT=0`을 확인했다. [원문](evidence/l08-platform/tcp-sequence-fixed-after.txt). 원래 전체 blog를 다시 native 링크하고 editor HTTP도 `BLOG_EDITOR_SEQUENCE_FIXED_EXIT=0`, `NATIVE_BLOG_EDITOR_PASS=3 FAIL=0`, 재시작 `2`, WAL 바이트 동일성으로 통과했다. [원문](evidence/l08-platform/blog-editor-sequence-fixed-after.txt). 합성 세션이며 비밀번호 로그인·실제 브라우저 JS 실행·화면 캡처는 미실행이다. 전체 L06/L07 회귀·native bootstrap은 이 수정 소스에서 다시 확인해야 하므로 아직 전체 완료가 아니다.
+
+같은 `09bf29622098199f1136a58df1915ed865419b6b` 실제 저장소 ASan/UBSan도 writer 1개·reader 10개 모두 종료 `0`, `DB95_NATIVE_STORE_PASS=11 FAIL=0`, `BLOG_STORE_SEQUENCE_SANITIZER_EXIT=0`으로 끝났다. WAL SHA-256은 `f70fcac31807ee8225c6fb47c00f18bd47928218dfdbdbb8c6c8ffdba2f54a9c`이며 재시작 reader가 WAL을 변경하지 않았다. 합성 자료이며 누수 검사는 미실행이다. [후속 원문](evidence/l08-platform/blog-store-sequence-sanitized-after.txt).
+
+이 소스의 전체 회귀는 이후 fd C helper 조회에서 `SEQUENCE_PLATFORM_FULL_EXIT=1`로 실패했다. TCP 자체 통과와 전체 통과를 구분한다. [C 확장 원인·보완·fd 재검증](L08-extern-progress.md).
