@@ -1,0 +1,9 @@
+(defn check [a b] (if (= a b) true (throw (str "expected=" b " actual=" a))))
+(defn decorate [rows column mode]
+  (map (fn [row] {"row" row "key" (if (= mode "lower") (str_lower (get row column)) (get row column))}) rows))
+(println (check (get (first (decorate [{"name" "HELLO"}] "name" "lower")) "key") "hello"))
+(println (check (try (throw "sample") (catch [error] (error_message error))) "sample"))
+(println (check (try (throw "sample") (catch [error] (get error "message"))) "sample"))
+(println (check (try (throw "sample") (catch [error] (get error "type"))) "RuntimeError"))
+(println (check (try (throw "sample") (catch [error] (get error "raw"))) "sample"))
+(println (check (try (throw "sample") (catch error (get error "message"))) "sample"))
