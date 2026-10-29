@@ -1,0 +1,6 @@
+(define args (cli-args))
+(define current (now_ms))
+(println current)
+(println (and (integer? current)
+              (>= current (str_to_num (get args 0)))
+              (<= current (str_to_num (get args 1)))))

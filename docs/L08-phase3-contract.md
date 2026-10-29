@@ -26,3 +26,5 @@ regex-guards는 잘못된 패턴, 지원 범위 밖 backreference/lookbehind의 
 시간대 추가 정답은 v11 Date.parse가 따르는 [ECMAScript UTC 변환 규칙](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-utc-t)을 근거로 한다. DST 반복 시각은 먼저 일어난 instant를, 사라진 시각은 전환 전 offset을 적용한다. 2024 New York의 봄 gap과 가을 overlap을 UTC·Seoul 대조와 함께 추가 고정했다. Node 실행으로 정답을 만든 것이 아니다.
 
 format_date의 포맷 문자열에 NUL이 있어도 토큰 치환은 계속되어야 한다. v11 원문은 JS String.replace를 사용하므로 C 문자열 종료자로 해석하지 않는다. 고정 fixture에서 NUL을 가져와 `YYYY + NUL + MM`의 뒤 MM이 01로 바뀌는 시험을 추가했다. 정답을 먼저 추가한 뒤 C 문자열 검색의 길이 경계를 검사한다.
+
+now_ms는 추가 독립 범위 시험에서 coreutils date의 실행 전·후 epoch ms와 비교한다. 실제 clock.fl의 첫 출력(동적 현재 ms)은 원문으로 보관하고 마지막 검증 결과만 고정 정답 true와 비교한다. UTC·Seoul·New York 각각 값이 호스트 시간 범위 안인지 확인한다. 테스트 producer는 ELF 네이티브 실행물만 허용하며 기존 컴파일러를 명시하지 않으면 seed에서 새로 빌드한다. 이 시험은 날짜 API 원문 계약의 추가 검증이며 실행 당시 시각을 고정 상수로 꾸미지 않는다.
