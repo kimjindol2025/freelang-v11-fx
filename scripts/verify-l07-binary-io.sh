@@ -11,7 +11,10 @@ inputs=(empty text nul-first nul-middle nul-last all-bytes non-utf8 boundary-819
   boundary-8192 boundary-8193 multi-block sentinel readonly hardlink limit too-large)
 (cd "$out/fixtures"; sha256sum "${inputs[@]}") >"$out/input-before.sha256"
 sha256sum "$out/outside" | cut -d' ' -f1 >"$out/outside-before.sha256"
-"$out/compiler" "$ROOT/tests/l07/self-test.fl" "$out/self-test.c" >>"$out/build.log" 2>&1
+"$out/compiler" --extern l07-check --extern l07-error --extern l07-same \
+  --extern l07-append-matches --extern l07-raw-size --extern l07-fd-count \
+  --extern l07-arm --extern l07-bad-value --extern l07-finish \
+  "$ROOT/tests/l07/self-test.fl" "$out/self-test.c" >>"$out/build.log" 2>&1
 wraps=()
 for symbol in fread fwrite ferror fflush fclose malloc fstat ftruncate fdopen; do wraps+=("-Wl,--wrap=$symbol"); done
 gcc -O2 -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l07/support.h" \
