@@ -1,0 +1,6 @@
+(defn check [a b label] (if (= a b) (println label) (throw (str "ATOM_ALIAS_ASSERT " label " expected=" b " actual=" a))))
+(define counter (atom 0))
+(define jobs (map (fn [id] (fn [] (do (atom-test-start) (doseq [n (range 0 100)] (swap_bang counter (fn [old] (do (atom-test-pause) (+ old 1))))) true))) (range 0 8)))
+(check (run-parallel jobs) [true true true true true true true true] "ATOM_ALIAS_WORKERS_JOINED=PASS")
+(check (atom-test-workers) 8 "ATOM_ALIAS_ACTUAL_WORKERS=PASS")
+(check (deref counter) 800 "ATOM_ALIAS_CONCURRENT_TOTAL=PASS")
