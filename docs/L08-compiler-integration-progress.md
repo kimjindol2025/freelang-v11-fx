@@ -38,3 +38,9 @@ C18 변경의 전체 회귀와 bootstrap은 원래 체크아웃에서 계속 실
 분리한 시험 체크아웃의 구현 커밋은 `001221a6a4be25634132a40b4582053e7e9fd9de`다. 수정 전 시험·정답 정정·구현을 순서대로 현재 작업 가지에 적용한 구현 커밋은 `9c6919d96d2ca823f9115ee274f324e5e5ddcb7b`다. 적용 직후 runtime/self/scripts와 관련 `.fl`·정답의 Git diff가 비어 있음을 확인했다(`ISOLATED_TEST_SOURCE_EQ_BRANCH=PASS`).
 
 그 소스에 대한 전체 드라이버를 별도 체크아웃에서 실행 중이다. 이후 현재 가지에 추가한 C11 fd 구현은 해당 검증에 포함되지 않는다. 두 결과를 합쳐 최신 HEAD 전체 검증이라고 주장하지 않는다. C18 원래 코드의 전체 검증은 `PLATFORM_FULL_EXIT=0`으로 별도 확정됐으며 L08-platform-progress.md에 원문이 있다.
+
+## 컴파일러 보완 전체 검증 확정
+
+별도 실행이 종료됐다. `L08_PLATFORM_PASS=5 FAIL=0`, 기존 L08 3차 `11`·2차 `11`·1차 `17` 통과·0 실패, 실제 HTTP `7`, L06 HTTP/TLS 각각 `110` 통과·0 실패, L07 자체 `221` 통과·0 실패 및 기존 회귀가 통과했다. `BOOTSTRAP_EXIT=0`, `COMPILER_FULL_EXIT=0`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`다. STAGE2와 STAGE3 SHA는 `66d1ff3f63de632194c7a858cdf8150ecff0528d711d5eeb39adb2da09ecc3b7`로 일치한다. 원문은 [전체 결과](evidence/l08-platform/compiler-full.txt)에 있다.
+
+이 결과는 앞서 명시한 소스의 검증이다. 이후 C11 fd와 C12 JSON 변경이 포함된 최신 HEAD의 전체 검증으로 확대하지 않는다.
