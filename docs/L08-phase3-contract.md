@@ -13,7 +13,7 @@
 
 ## 정답 정정 이력 — 구현 전
 
-regex.fl의 `regex_match "x\n" "x$"` 기대값을 true에서 false로 정정했다. v11 원문은 `new RegExp(pattern)`이며 m 플래그가 없다. [ECMAScript Assertion 규칙](https://tc39.es/ecma262/multipage/text-processing.html#sec-compileassertion)은 `$`가 입력 끝이거나 Multiline이 true인 줄바꿈 위치일 때만 성공한다고 명시한다. 다른 언어의 마지막 줄바꿈 허용 동작을 잘못 추론했다. 이 수정은 C 엔진 구현 전에 소스·명세로 정답을 바로잡은 것이며, 구현 결과에 맞추는 정정이 아니다. 기존 `.expected`의 true는 check의 성공 표기라 유지하며 check에 전달하는 의미상 정답 false를 공개 기록한다.
+regex.fl의 `regex_match "x\n" "x$"` 기대값을 true에서 false로 정정했다. v11 원문은 `new RegExp(pattern)`이며 m 플래그가 없다. [ECMAScript Assertion 규칙](https://github.com/tc39/ecma262/blob/40ce6f206b5669e69bf010a38267ae24a2843404/spec.html#L38392)은 `$`가 입력 끝이거나 Multiline이 true인 줄바꿈 위치일 때만 성공한다고 명시한다. 다른 언어의 마지막 줄바꿈 허용 동작을 잘못 추론했다. 이 수정은 C 엔진 구현 전에 소스·명세로 정답을 바로잡은 것이며, 구현 결과에 맞추는 정정이 아니다. 기존 `.expected`의 true는 check의 성공 표기라 유지하며 check에 전달하는 의미상 정답 false를 공개 기록한다.
 
 ## 추가 경계 시험
 
@@ -23,7 +23,7 @@ regex-guards는 잘못된 패턴, 지원 범위 밖 backreference/lookbehind의 
 
 예외 검사는 작업 성공의 true와 catch의 true를 혼동하지 않도록 try 본문을 `(do 작업 false)`로 강화했다. 성공 반환값이 무엇이든 성공하면 false가 되고, 예외만 catch 기대값으로 검사한다. `.expected`와 API 의미상 정답은 변경하지 않았다. 경로 차단·잘못된 타입·잘못된 패턴·자원 상한의 예외 자체를 증명하기 위한 시험 강화다.
 
-시간대 추가 정답은 v11 Date.parse가 따르는 [ECMAScript UTC 변환 규칙](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-utc-t)을 근거로 한다. DST 반복 시각은 먼저 일어난 instant를, 사라진 시각은 전환 전 offset을 적용한다. 2024 New York의 봄 gap과 가을 overlap을 UTC·Seoul 대조와 함께 추가 고정했다. Node 실행으로 정답을 만든 것이 아니다.
+시간대 추가 정답은 v11 Date.parse가 따르는 [ECMAScript UTC 변환 규칙](https://github.com/tc39/ecma262/blob/40ce6f206b5669e69bf010a38267ae24a2843404/spec.html#L34530)을 근거로 한다. DST 반복 시각은 먼저 일어난 instant를, 사라진 시각은 전환 전 offset을 적용한다. 2024 New York의 봄 gap과 가을 overlap을 UTC·Seoul 대조와 함께 추가 고정했다. Node 실행으로 정답을 만든 것이 아니다.
 
 format_date의 포맷 문자열에 NUL이 있어도 토큰 치환은 계속되어야 한다. v11 원문은 JS String.replace를 사용하므로 C 문자열 종료자로 해석하지 않는다. 고정 fixture에서 NUL을 가져와 `YYYY + NUL + MM`의 뒤 MM이 01로 바뀌는 시험을 추가했다. 정답을 먼저 추가한 뒤 C 문자열 검색의 길이 경계를 검사한다.
 

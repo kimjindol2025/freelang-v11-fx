@@ -1,0 +1,17 @@
+Compiled tests/l08-phase3/dates.fl -> <가림>
+Uncaught error (line 3): expected=01 actual=MM
+Stack trace:
+  at __fl_binding_5 (line 26)
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+DATE_NUL_BEFORE_EXIT=1
