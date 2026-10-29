@@ -32,3 +32,12 @@ v11 동일 커밋의 `src/stdlib-fd.ts`가 근거다. fd_open은 r/w/a만 받으
 writer/reader는 별도 native 과정에서 합성 image-add/image-delete 기록을 append·fsync·close하고 재시작 뒤 바이트에 해당하는 텍스트·EOF·closed handle·잘못된 모드를 검사한다. 이는 fd 자체 시험이며 db95 WAL 재생 성공과 같지 않다. db95의 checksum·잘린 끝·추가/삭제 반복 재생 검증은 C12·전체 통합에서 별도 증명해야 한다.
 
 구현에서는 C10의 경로 보호, 핸들 잠금, 부분 쓰기와 EINTR 처리, fsync 실제 syscall, close 오류 시 핸들 폐기를 보완한다. 실패·부분 쓰기·EINTR·fsync/close fault injection도 `.fl` 경로를 통해 검사한다. 기본 writer/reader와 정답을 먼저 고정하며, 이 문서 작성은 아직 fd 구현 완료가 아니다.
+### catch 원문 계약에 따른 시험 입력 보완
+
+기존 callbacks/order/contracts/source-edge/dates의 `(catch e e)`는 오류 자체를 출력해 raw 문자열이라는 fx의 차이를 고정했다. 원래 확인하려던 메시지 정답을 보존하며 `(catch e (error_message e))`로 입력을 바꾼다. regex/regex-guards도 `e` 대신 `error_message e`에 오류 접두사·진단을 검사한다. 기대 출력 파일은 변경하지 않는다. strict-fields는 structured native Error의 code/type/message/hint를 그대로 검사한다. 일반 사용자 map은 message/type/stack/raw만 catch envelope에 옮긴다. 근거는 v11 `evalTryBlock`의 native Error와 일반 object 분기이며, 새 compiler-blockers/try-scope 시험은 message/type/raw·중첩 catch·finally를 직접 검사한다.
+
+### 정답 정정 이력: evalThrow 경로 누락
+
+동일 v11 커밋 `b49cc9194a00649b8cf58e1d6e8ee38ffce770d4`의 `bootstrap.js:38043~38055` (`evalThrow`)를 추가 조사했다. 이전 최소 시험은 catch만 읽고 그 앞의 throw 변환을 빠뜨렸다. 문자열·수·일반 map을 `.fl throw`하면 새 Error가 만들어지므로 catch.raw는 원래 문자열·map 자체가 아니라 Error이며 raw.message를 조회해야 한다. truthy map.message가 없으면 Error.message는 String(map)인 `[object Object]`다. 사용자 map.type·extra는 전달되지 않는다. compiler-blockers의 raw 확인 입력과 try-scope의 map/수 기대값을 이 근거로 정정했다. 기존 잘못된 커밋과 정답은 이력에 보존한다.
+
+`bootstrap.js:37969~38020`의 native Error 분기는 `FreeLang line 숫자:`를 제거하고 `[코드]` 접두사·`(at line 숫자...)`를 message에서 제거하며 line을 추출한다. 따라서 phase2 contracts.expected의 2행과 source-edge.expected의 1행에서 `[E_TYPE_MISMATCH] ` 접두사를 제거했다. 현재 구현 출력에 맞춘 변경이 아니며, 정정된 정답은 수정 전 후보에서 실패함을 확인한 뒤 Error 포장·메시지 정규화를 구현한다. 새 시험에서 raw.message와 catch.message를 구분한다.

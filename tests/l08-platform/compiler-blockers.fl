@@ -5,5 +5,5 @@
 (println (check (try (throw "sample") (catch [error] (error_message error))) "sample"))
 (println (check (try (throw "sample") (catch [error] (get error "message"))) "sample"))
 (println (check (try (throw "sample") (catch [error] (get error "type"))) "RuntimeError"))
-(println (check (try (throw "sample") (catch [error] (get error "raw"))) "sample"))
+(println (check (try (throw "sample") (catch [error] (get (get error "raw") "message"))) "sample"))
 (println (check (try (throw "sample") (catch error (get error "message"))) "sample"))
