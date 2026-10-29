@@ -14,3 +14,9 @@
 ## 정답 정정 이력 — 구현 전
 
 regex.fl의 `regex_match "x\n" "x$"` 기대값을 true에서 false로 정정했다. v11 원문은 `new RegExp(pattern)`이며 m 플래그가 없다. [ECMAScript Assertion 규칙](https://tc39.es/ecma262/multipage/text-processing.html#sec-compileassertion)은 `$`가 입력 끝이거나 Multiline이 true인 줄바꿈 위치일 때만 성공한다고 명시한다. 다른 언어의 마지막 줄바꿈 허용 동작을 잘못 추론했다. 이 수정은 C 엔진 구현 전에 소스·명세로 정답을 바로잡은 것이며, 구현 결과에 맞추는 정정이 아니다. 기존 `.expected`의 true는 check의 성공 표기라 유지하며 check에 전달하는 의미상 정답 false를 공개 기록한다.
+
+## 추가 경계 시험
+
+regex-guards는 잘못된 패턴, 지원 범위 밖 backreference/lookbehind의 명시 오류, Unicode 비-u ignoreCase, native backtracking budget을 검사한다. budget 예외는 v11 호스트 오류를 재현했다고 주장하지 않는 네이티브 자원 상한 계약이다. 엔진은 패턴 UTF-16 길이 8192·AST/명령 4096·캡처 31개·반복 상한 1024·assertion 깊이 32·VM 단계 10000000·backtracking stack 65536개를 넘으면 명시 오류로 종료한다. 필요한 실제 34종 패턴과 65종 동적 상수는 이 범위 안에서 검사한다. 파일은 base 자체의 symlink와 NUL 경로도 추가 검사한다. 이 추가 시험은 기존 정답을 바꿔 맞추는 정정이 아니다.
+
+첫 구현 자체 시험에서 파일 fixture의 공통 helper에 cli-args 선언이 누락되어 파일·이미지·보안 3개가 컴파일에 실패했다. helper에 선언만 추가한 커밋 8393f7b에서 시험 준비를 정정했고 의미상 정답은 바꾸지 않았다. 실패 원문도 보관한다.

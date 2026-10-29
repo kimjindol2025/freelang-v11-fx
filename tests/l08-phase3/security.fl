@@ -14,3 +14,4 @@
 (println (check (try (dir_list (str root "/link-dir")) (catch e true)) true))
 (println (check (try (file_read (str root "/unreadable")) (catch e true)) true))
 (println (check (try (file_write (str root "/readonly") "BAD") (catch e true)) true))
+(println (check (try (file_read (str root "/" (get (file_read (str root "/invalid")) 2))) (catch e true)) true))

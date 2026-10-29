@@ -1,0 +1,4 @@
+(load "check.fl")
+(define path (str (get args 0) "/allbytes"))
+(println (check (try (file_read path) (catch e true)) true))
+(println (check (file_exists path) false))
