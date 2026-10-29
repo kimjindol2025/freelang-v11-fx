@@ -1,0 +1,32 @@
+Compiled tests/l08-platform/auth-basics.fl -> <가림>
+<가림>: In function ‘__fl_anon_20’:
+<가림>:26:48: error: implicit declaration of function ‘auth_random_token’ [-Wimplicit-function-declaration]
+   26 |     return (__extension__ ({ (__extension__ ({ auth_random_token(fl_int(16));  }));  }));
+      |                                                ^~~~~~~~~~~~~~~~~
+<가림>:26:46: error: incompatible types when returning type ‘int’ but ‘FLValue’ was expected
+   26 |     return (__extension__ ({ (__extension__ ({ auth_random_token(fl_int(16));  }));  }));
+      |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<fl>: In function ‘main’:
+<fl>:3:47: error: implicit declaration of function ‘auth_bearer_extract’ [-Wimplicit-function-declaration]
+<fl>:3:78: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:4:311: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:5:312: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:6:305: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:7:311: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:8:310: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:9:357: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:10:358: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:11:91: error: invalid initializer
+<fl>:11:91: note: (near initialization for ‘__fl_ca_11’)
+<fl>:12:78: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:13:91: error: invalid initializer
+<fl>:13:91: note: (near initialization for ‘__fl_ca_14’)
+<fl>:14:82: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:20:48: error: implicit declaration of function ‘auth_password_needs_rehash’ [-Wimplicit-function-declaration]
+<fl>:20:98: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:21:106: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:23:22: error: implicit declaration of function ‘auth_hash_password’ [-Wimplicit-function-declaration]
+<fl>:23:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:29:131: error: invalid initializer
+<fl>:29:131: note: (near initialization for ‘__fl_ca_44’)
+AUTH_BEFORE_BUILD_EXIT=1
