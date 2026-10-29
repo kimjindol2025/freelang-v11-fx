@@ -1,0 +1,9 @@
+Compiled tests/l08-platform/feed.fl -> <가림>
+<fl>: In function ‘main’:
+<fl>:2:47: error: implicit declaration of function ‘rss_feed’ [-Wimplicit-function-declaration]
+<fl>:2:47: error: invalid initializer
+<fl>:7:47: error: invalid initializer
+<fl>:9:47: error: implicit declaration of function ‘sitemap_xml’ [-Wimplicit-function-declaration]
+<fl>:9:47: error: invalid initializer
+<fl>:11:47: error: invalid initializer
+FEED_BEFORE_BUILD_EXIT=1
