@@ -1,0 +1,23 @@
+Compiled tests/l08-platform/timer.fl -> <가림>
+<가림>: In function ‘__fl_anon_8’:
+<가림>:34:108: error: implicit declaration of function ‘await_result’ [-Wimplicit-function-declaration]
+   34 |     return (__extension__ ({ (__extension__ ({ (__extension__ ({ (__extension__ ({ FLValue __fl_ca_9[3] = {await_result(__fl_binding_1), fl_int(42), fl_str_val("RESOLVED=42")}; fl_fn_call(__fl_binding_0, 3, __fl_ca_9); })); (__extension__ ({ FLValue __fl_ca_10[3] = {await_result(__fl_binding_1), fl_int(42), fl_str_val("RESOLVED_REPEAT=42")}; fl_fn_call(__fl_binding_0, 3, __fl_ca_10); })); (__extension__ ({ FLValue __fl_ca_11[3] = {(__extension__ ({
+      |                                                                                                            ^~~~~~~~~~~~
+<가림>:34:138: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+   34 |     return (__extension__ ({ (__extension__ ({ (__extension__ ({ (__extension__ ({ FLValue __fl_ca_9[3] = {await_result(__fl_binding_1), fl_int(42), fl_str_val("RESOLVED=42")}; fl_fn_call(__fl_binding_0, 3, __fl_ca_9); })); (__extension__ ({ FLValue __fl_ca_10[3] = {await_result(__fl_binding_1), fl_int(42), fl_str_val("RESOLVED_REPEAT=42")}; fl_fn_call(__fl_binding_0, 3, __fl_ca_10); })); (__extension__ ({ FLValue __fl_ca_11[3] = {(__extension__ ({
+      |                                                                                                                                          ^~~~~~
+<가림>:34:298: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+   34 |     return (__extension__ ({ (__extension__ ({ (__extension__ ({ (__extension__ ({ FLValue __fl_ca_9[3] = {await_result(__fl_binding_1), fl_int(42), fl_str_val("RESOLVED=42")}; fl_fn_call(__fl_binding_0, 3, __fl_ca_9); })); (__extension__ ({ FLValue __fl_ca_10[3] = {await_result(__fl_binding_1), fl_int(42), fl_str_val("RESOLVED_REPEAT=42")}; fl_fn_call(__fl_binding_0, 3, __fl_ca_10); })); (__extension__ ({ FLValue __fl_ca_11[3] = {(__extension__ ({
+      |                                                                                                                                                                                                                                                                                                          ^~~~~~
+<가림>:41:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+   41 |         _fl_try_12 = await_result(__fl_binding_2);
+      |                      ^~~~~~~~~~~~
+<가림>:63:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+   63 |         _fl_try_15 = await_result(__fl_binding_3);
+      |                      ^~~~~~~~~~~~
+<fl>: In function ‘main’:
+<fl>:2:22: error: implicit declaration of function ‘set_timeout’ [-Wimplicit-function-declaration]
+<fl>:2:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:4:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:5:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+TIMER_BEFORE_BUILD_EXIT=1
