@@ -15,3 +15,17 @@
 (let [before (deref state)]
  (do (reset! state {}) (reset! captured [before])))
 (check (json_str (first (deref captured))) "{\"table\":{\"columns\":[],\"rows\":[]}}" "SNAPSHOT_ESCAPE=PASS")
+(define returned (reset! state {"kept" "return-value"}))
+(reset! state {})
+(check (get returned "kept") "return-value" "RESET_RETURN=PASS")
+(reset! state {"kept" "after-catch"})
+(defn failing-child [] (let [seen (deref state)] (do (reset! state {}) (throw "snapshot-child-error"))))
+(defn survive-catch [] (let [seen (deref state)] (do (try (failing-child) (catch [e] nil)) seen)))
+(check (get (survive-catch) "kept") "after-catch" "EXCEPTION_UNWIND=PASS")
+(reset! state {"kept" "many-readers"})
+(defn many-reads []
+ (let [first-view (deref state)]
+  (do (loop [i 0] (if (< i 1024) (do (deref state) (recur (+ i 1))) nil))
+      (reset! state {})
+      (get first-view "kept"))))
+(check (many-reads) "many-readers" "MANY_PINS=PASS")

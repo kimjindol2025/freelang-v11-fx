@@ -1,0 +1,61 @@
+=================================================================
+==745196==ERROR: AddressSanitizer: heap-use-after-free on address 0x7b6a345e0648 at pc 0x000000447b6f bp 0x7ffc7a6f4660 sp 0x7ffc7a6f4658
+READ of size 4 at 0x7b6a345e0648 thread T0
+    #0 0x000000447b6e in fl_map_has <가림>:428
+    #1 0x00000044822c in fl_get_default <가림>:467
+    #2 0x00000040852d in main <가림><fl>:6
+    #3 0x7f3a35a5230d in __libc_start_call_main (<가림>+0x2a30d) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+    #4 0x7f3a35a523c8 in __libc_start_main@@GLIBC_2.34 (<가림>+0x2a3c8) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+    #5 0x0000004072a4 in _start (<가림>+0x4072a4) (BuildId: 249ec6c16559db0b5527d32621e41ec2f0c0f90c)
+
+0x7b6a345e0648 is located 8 bytes inside of 24-byte region [0x7b6a345e0640,0x7b6a345e0658)
+freed by thread T0 here:
+    #0 0x7f3a36ce5beb in free.part.0 (<가림>+0xe5beb) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+    #1 0x000000496d9f in fl_heap_release <가림>:317
+    #2 0x00000049708d in fl_heap_release <가림>:314
+    #3 0x00000045888e in fl_atom_reset <가림>:220
+    #4 0x0000004084a1 in main <가림><fl>:5
+    #5 0x7f3a35a5230d in __libc_start_call_main (<가림>+0x2a30d) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+
+previously allocated by thread T0 here:
+    #0 0x7f3a36ce6f2b in malloc (<가림>+0xe6f2b) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+    #1 0x000000494fd3 in fl_heap_copy <가림>:249
+    #2 0x000000495f86 in fl_heap_copy <가림>:260
+    #3 0x000000458394 in fl_atom_new <가림>:205
+    #4 0x0000004080cf in main <가림><fl>:2
+    #5 0x7f3a35a5230d in __libc_start_call_main (<가림>+0x2a30d) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+
+SUMMARY: AddressSanitizer: heap-use-after-free <가림>:428 in fl_map_has
+Shadow bytes around the buggy address:
+  0x7b6a345e0380: 00 fa fa fa 00 00 00 fa fa fa 00 00 00 00 fa fa
+  0x7b6a345e0400: 00 00 00 fa fa fa 00 00 00 fa fa fa 00 00 00 fa
+  0x7b6a345e0480: fa fa 00 00 00 00 fa fa 00 00 00 fa fa fa 00 00
+  0x7b6a345e0500: 00 fa fa fa 00 00 00 fa fa fa 00 00 00 00 fa fa
+  0x7b6a345e0580: 00 00 00 fa fa fa fd fd fd fa fa fa fd fd fd fd
+=>0x7b6a345e0600: fa fa fd fd fd fa fa fa fd[fd]fd fa fa fa fd fd
+  0x7b6a345e0680: fd fa fa fa fd fd fd fa fa fa fd fd fd fa fa fa
+  0x7b6a345e0700: fd fd fd fd fa fa fd fd fd fa fa fa fd fd fd fa
+  0x7b6a345e0780: fa fa fd fd fd fa fa fa fd fd fd fa fa fa fd fd
+  0x7b6a345e0800: fd fd fa fa 00 00 02 fa fa fa 00 00 00 00 fa fa
+  0x7b6a345e0880: 00 00 00 fa fa fa 00 00 07 fa fa fa 00 00 00 00
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==745196==ABORTING
+SNAPSHOT_BEFORE_EXIT=1
