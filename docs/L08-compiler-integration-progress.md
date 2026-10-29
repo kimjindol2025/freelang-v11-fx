@@ -32,3 +32,9 @@ C18 변경의 전체 회귀와 bootstrap은 원래 체크아웃에서 계속 실
 - PRD 필수 기능·실제 브라우저·데이터 호환·복구·성능 검증은 계속 필요하다.
 
 근거와 정답 정정 이력은 L08-platform-contract.md, 수정 전후 원문은 docs/evidence/l08-platform에 보존한다. 새 외부 정규식 의존성은 없으며 기존 C 자체 엔진을 사용한다.
+
+## 소스·검증 대상 추적
+
+분리한 시험 체크아웃의 구현 커밋은 `001221a6a4be25634132a40b4582053e7e9fd9de`다. 수정 전 시험·정답 정정·구현을 순서대로 현재 작업 가지에 적용한 구현 커밋은 `9c6919d96d2ca823f9115ee274f324e5e5ddcb7b`다. 적용 직후 runtime/self/scripts와 관련 `.fl`·정답의 Git diff가 비어 있음을 확인했다(`ISOLATED_TEST_SOURCE_EQ_BRANCH=PASS`).
+
+그 소스에 대한 전체 드라이버를 별도 체크아웃에서 실행 중이다. 이후 현재 가지에 추가한 C11 fd 구현은 해당 검증에 포함되지 않는다. 두 결과를 합쳐 최신 HEAD 전체 검증이라고 주장하지 않는다. C18 원래 코드의 전체 검증은 `PLATFORM_FULL_EXIT=0`으로 별도 확정됐으며 L08-platform-progress.md에 원문이 있다.
