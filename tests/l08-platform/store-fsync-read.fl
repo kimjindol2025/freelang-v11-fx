@@ -1,0 +1,4 @@
+(load "../app/store.fl")
+(define rows (get (execute-ast {"type" "select" "table" "l08_fsync"}) "rows"))
+(println (str "DB_FSYNC_REPLAY_ROWS=" (count rows)))
+(if (and (= (count rows) 1) (= (get (first rows) "id") "good")) (println "DB_FSYNC_REPLAY=PASS") (throw "DB_FSYNC_REPLAY_MISMATCH"))
