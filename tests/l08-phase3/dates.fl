@@ -13,3 +13,5 @@
 (define start (now_ms))
 (define stop (now_ms))
 (println (check (and (integer? start) (> start 1700000000000) (< start 5000000000000) (>= stop start) (< (- stop start) 10000)) true))
+(define zero (get (file_read (str (get args 0) "/invalid")) 2))
+(println (check (str_slice (format_date 0 (str "YYYY" zero "MM")) 5) "01"))
