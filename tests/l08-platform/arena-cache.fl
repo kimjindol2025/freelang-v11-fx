@@ -1,0 +1,2 @@
+(if (arena-cache-run (fn [size] (str-repeat "x" size)))
+ (println "ARENA_CACHE_SELF=PASS") (throw "ARENA_CACHE_CONTRACT_FAILED"))
