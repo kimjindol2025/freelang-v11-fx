@@ -1,5 +1,5 @@
-+: 인자 1번에 string 전달됨 — number 필요 (str-to-num 변환 확인)
--: 인자 1번에 nil 전달됨 — number 필요 (nil? 확인 후 기본값 사용)
+[E_TYPE_MISMATCH] +: 인자 1번에 string 전달됨 — number 필요 (str-to-num 변환 확인)
+[E_TYPE_MISMATCH] -: 인자 1번에 nil 전달됨 — number 필요 (nil? 확인 후 기본값 사용)
 1
 글
 [null]

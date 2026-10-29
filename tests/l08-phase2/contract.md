@@ -18,3 +18,5 @@ Node·TS·JS·Python을 실행해 정답을 생성하지 않았다. 정답은 �
 `source-edge`는 불리언 타입명, +의 초기 0 누적, replaceAll의 빈 패턴·치환 기호, 기본 str-replace의 nil 기본값, split의 숫자 문자열 상한, str-index-of의 nil 기본값, flDeepEq의 같은 키 수/nil 조회 의미, append의 문자열 spread를 추가 고정한다.
 
 추가 소스 검토 정정: source-edge의 서로 다른 nil 키 map 비교는 false다. flDeepEq는 null과 누락 조회 undefined를 strict 동일값으로 보지 않고, 다음 null 검사에서 false를 반환한다. 이 항목은 기존 구현도 false였으며 정답의 잘못된 추론을 대응 수정 전에 정정했다. 정정은 num-to-str nil 1건과 이 비교 1건이며 이력을 숨기지 않는다.
+
+후속 전체 회귀에서 산술 타입 오류 정답 3줄의 누락을 확인했다. 기존 표의 ‘정정 2건’은 당시 이력이며 아래 3줄 추가 정정을 포함하지 않는다. v11 `b49cc9194a00649b8cf58e1d6e8ee38ffce770d4` src/eval-builtins.ts:2000~2008은 `[E_TYPE_MISMATCH]`로 시작하는 Error를 던지고, src/interpreter.ts:1991~2015는 `[+]` 또는 `[-]`를 추가한다. src/eval-pattern-match.ts:83~91의 catch는 대괄호 접두어를 **한 번만** 제거하므로 `[E_TYPE_MISMATCH]`는 남는다. 처음 정답은 evalBuiltin의 메시지에서 이 접두어를 제거하고 evalSExpr의 포장을 반영하지 않아 잘못됐다. 전체 실패 `L08_P2_PASS=9 FAIL=2` 원문과 기존 정답은 history에 보존한다. contracts의 string/nil 2줄, source-edge의 boolean 1줄에만 이 접두어를 복원한다. 힌트·나머지 문자열·프로그램·단정은 변경하지 않는다. runtime을 정답에 맞춰 고친 것이 아니며 기존 런타임 출력에 근거 없는 정답 변경도 아니다. Node 실행은 하지 않았다. [전체 실패 원문](../../docs/evidence/l08-platform/extern-current-full-before.txt).
