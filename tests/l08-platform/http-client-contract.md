@@ -15,3 +15,5 @@
 구현 전 fixture 정정: 최초 POST fixture는 X-Value에 한글을 넣었으나 source Node HTTP header 값은 Latin-1 범위만 허용한다. 성공 요청의 header를 ASCII sample로 고쳤으며 한글·이모지·NUL body 정답은 유지했다. native 구현을 시작하거나 시험 출력에 맞추기 전에 기준 header 계약으로 입력 오류를 정정한 것이다.
 
 추가 경계 정답도 수정 전에 고정한다. header 이름의 NUL·CR/LF, 값의 NUL·Latin-1 밖 글자는 status 0으로 거부한다. UTF-16 정상 surrogate pair는 한 글자로, lone surrogate는 UTF-8 U+FFFD로 보내야 하며 NUL byte는 본문에서만 허용한다. 이는 source Node header validation/Buffer UTF-8 계약이며 native 구현 출력에 맞춘 정답 변경이 아니다.
+
+시험 입력 정정 이력: 기준 v11 lexer.ts:159~176은 `\u` 문자열 escape를 해석하지 않으며 fx lexer도 동일하다. 최초 fixture의 직접 `\u0000`은 실제 NUL을 만들지 않았다. v11 소스 계약대로 JSON parser로 NUL을 생성하도록 입력을 고쳤고, 출력 정답·의미는 바꾸지 않았다. 최초 RESPONSE_UTF8_NUL assertion 실패는 실제 NUL과 문자 u0000 비교였음을 생성 C에서 확인했다. 또한 underscore file_read는 C10 텍스트 replacement API여서 FF가 이미 U+FFFD가 된 상태였다. wire의 FF 시험은 공존하기로 한 L07 file-read 바이너리 API로 바꿔 수신 단계의 replacement를 검사한다. 최초 fixture의 원문 실패는 보존하며 해당 출력으로 NUL·잘못된 UTF-8 통과를 주장하지 않는다.

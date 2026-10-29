@@ -1,7 +1,7 @@
 (defn check [value expected label]
  (if (= value expected) (println label) (throw (str "HTTP_CLIENT_BOUNDARY " label))))
 (define base (get (cli-args) 0))
-(doseq [headers [{"bad\u0000name" "value"} {"X-Value" "bad\u0000value"} {"bad\r\nname" "value"} {"X-Value" "한글"}]]
+(doseq [headers [(json_parse "{\"bad\\u0000name\":\"value\"}") (json_parse "{\"X-Value\":\"bad\\u0000value\"}") {"bad\r\nname" "value"} {"X-Value" "한글"}]]
  (check (get (http_request "POST" (str base "/echo") headers "body") "status") 0 "INVALID_HEADER_REJECTED=PASS"))
 (let [body (json_parse "\"\\uD800\\uDC00\\uD800\"")
       result (http_request "POST" (str base "/echo") {"Content-Type" "text/plain"} body)]

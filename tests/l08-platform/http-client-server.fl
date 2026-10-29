@@ -5,7 +5,7 @@
 (server_get "/health" (fn [req] (server_text "OK")))
 (server_get "/redirect" (fn [req] (server_redirect "/health")))
 (server_get "/missing" (fn [req] (server_status 404 "missing")))
-(server_get "/raw" (fn [req] (server_text (file_read (str root "/raw.bin")))))
+(server_get "/raw" (fn [req] (server_text (file-read (str root "/raw.bin")))))
 (server_get "/slow" (fn [req] (do (sleep 250) (server_text "LATE"))))
 (server_post "/echo" "echo")
 (server_put "/echo" "echo")

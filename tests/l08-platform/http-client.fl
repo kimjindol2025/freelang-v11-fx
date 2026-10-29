@@ -2,6 +2,7 @@
  (if (= value expected) (println label) (throw (str "HTTP_CLIENT_ASSERT " label))))
 (define base (get (cli-args) 0))
 (define mode (get (cli-args) 1))
+(define binary-text (json_parse "\"한글😀\\u0000끝\""))
 (if (= mode "http")
  (do
   (let [result (http_get (str base "/health"))]
@@ -10,11 +11,11 @@
    (check (get result "error") nil "GET_ERROR_ABSENT=PASS")
    (check (get result "headers") nil "GET_SOURCE_SHAPE=PASS"))
   (check (get (http_request "gEt" (str base "/health") {} nil) "body") "OK" "METHOD_UPPERCASE=PASS")
-  (let [result (http_request "POST" (str base "/echo") {"X-Value" "sample" "Content-Type" "application/octet-stream"} "한글😀\u0000끝")]
+  (let [result (http_request "POST" (str base "/echo") {"X-Value" "sample" "Content-Type" "application/octet-stream"} binary-text)]
    (check (get result "status") 200 "POST_STATUS=200")
    (let [body (json_parse (get result "body"))]
     (check (get body "method") "POST" "POST_METHOD=PASS")
-    (check (get body "body") "한글😀\u0000끝" "POST_UTF8_NUL=PASS")))
+    (check (get body "body") binary-text "POST_UTF8_NUL=PASS")))
   (doseq [method ["PUT" "PATCH" "DELETE"]]
    (let [result (http_request method (str base "/echo") {"Content-Type" "text/plain" "X-Value" "sample"} "body")
          body (json_parse (get result "body"))]
@@ -28,7 +29,7 @@
    (check (get result "status") 404 "HTTP_ERROR_STATUS=404")
    (check (get result "body") "missing" "HTTP_ERROR_BODY=PASS")
    (check (get result "error") nil "HTTP_ERROR_IS_RESPONSE=PASS"))
-  (check (get (http_get (str base "/raw")) "body") "A�B\u0000C" "RESPONSE_UTF8_NUL=PASS")
+  (check (get (http_get (str base "/raw")) "body") (json_parse "\"A�B\\u0000C\"") "RESPONSE_UTF8_NUL=PASS")
   (let [result (http_request_timeout "GET" (str base "/slow") {} nil 50)]
    (check (get result "status") 0 "TIMEOUT_STATUS=0")
    (check (get result "body") "" "TIMEOUT_BODY=PASS")
