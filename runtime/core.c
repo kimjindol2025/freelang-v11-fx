@@ -253,7 +253,8 @@ FLValue fl_eq(FLValue a, FLValue b) {
         case FL_STRING: {
             const char* sa = ((FLString*)a.obj)->data;
             const char* sb = ((FLString*)b.obj)->data;
-            return fl_bool(strcmp(sa, sb) == 0);
+            FLString *as=(FLString*)a.obj,*bs=(FLString*)b.obj;
+            return fl_bool(as->len==bs->len && !memcmp(sa,sb,as->len));
         }
         default:        return fl_bool(false);
     }
@@ -410,3 +411,5 @@ FLValue fl_html_escape(FLValue s) {
     free(buf);
     return r;
 }
+
+#include "v11-compat.h"

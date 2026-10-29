@@ -191,7 +191,7 @@ FLValue fl_heap_copy(FLValue v) {
         FLString* src = (FLString*)v.obj;
         FLString* dst = (FLString*)malloc(sizeof(FLString) + src->len + 1);
         if (!dst) return fl_nil();
-        dst->base.type = FL_STRING;
+        dst->base.type = src->base.type;
         dst->base.rc   = 1;
         dst->len = src->len;
         memcpy(dst->data, src->data, src->len + 1);

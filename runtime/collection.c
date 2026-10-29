@@ -428,14 +428,13 @@ FLValue fl_map_has(FLValue map, FLValue key) {
 }
 static FLValue compat_key(FLValue key,int nil_empty) {
     if(key.tag==FL_STRING) {
-        FLString *s=(FLString*)key.obj;
+        key=fl_v11_key(key);FLString *s=(FLString*)key.obj;
         return s->len&&s->data[0]==':'?fl_str_val(s->data+1):key;
     }
     if(key.tag==FL_NIL)return fl_str_val(nil_empty?"":"null");
     if(key.tag==FL_BOOL)return fl_str_val(key.b?"true":"false");
     char b[64];
-    if(key.tag==FL_INT)snprintf(b,sizeof(b),"%lld",(long long)key.i);
-    else if(key.tag==FL_FLOAT)snprintf(b,sizeof(b),"%.17g",key.f);
+    if(key.tag==FL_INT||key.tag==FL_FLOAT)return fl_v11_number(key);
     else snprintf(b,sizeof(b),"[object Object]");
     return fl_str_val(b);
 }
@@ -474,41 +473,7 @@ FLValue fl_get_default(FLValue obj, FLValue key, FLValue fallback) {
         if((uint64_t)index>=v->len || v->data[index].tag==FL_NIL) return fallback;
         return v->data[index];
     }
-    if(obj.tag==FL_STRING) {
-        FLString *s=(FLString*)obj.obj;
-        /* Text indexing follows v11 UTF-16 code units, never byte offsets. */
-        for(size_t i=0;i<s->len;) {
-            const unsigned char *p=(unsigned char*)s->data+i;
-            uint32_t cp=p[0]; size_t n=1;
-            if(cp>=0xc2 && cp<=0xf4) {
-                n=cp<0xe0?2:cp<0xf0?3:4;
-                if(i+n>s->len) {cp=0xfffd;n=1;}
-                else {
-                    cp &= (1u<<(7-n))-1;
-                    for(size_t j=1;j<n;j++) {if((p[j]&0xc0)!=0x80){cp=0xfffd;n=1;break;} cp=(cp<<6)|(p[j]&63);}
-                    if((n==2&&cp<0x80)||(n==3&&(cp<0x800||(cp>=0xd800&&cp<=0xdfff)))||(n==4&&(cp<0x10000||cp>0x10ffff))) {cp=0xfffd;n=1;}
-                }
-            } else if(cp>=0x80) cp=0xfffd;
-            if(cp>0xffff) {
-                if(index<2) {cp= index==0?0xd800+((cp-0x10000)>>10):0xdc00+((cp-0x10000)&1023);index=0;}
-                else index-=2;
-            } else if(index) index--;
-            else {
-                /* selected below */
-                goto selected;
-            }
-            if(cp>=0xd800&&cp<=0xdfff&&index==0) goto selected;
-            i+=n; continue;
-selected:   ;
-            char b[4];size_t len;
-            if(cp<0x80){b[0]=cp;len=1;}
-            else if(cp<0x800){b[0]=0xc0|(cp>>6);b[1]=0x80|(cp&63);len=2;}
-            else {b[0]=0xe0|(cp>>12);b[1]=0x80|((cp>>6)&63);b[2]=0x80|(cp&63);len=3;}
-            FLString *out=fl_arena_alloc(sizeof(*out)+len+1);
-            out->base.type=FL_STRING;out->base.rc=1;out->len=len;memcpy(out->data,b,len);out->data[len]=0;
-            FLValue result;result.tag=FL_STRING;result.obj=(FLObject*)out;return result;
-        }
-    }
+    if(obj.tag==FL_STRING) return fl_v11_text_get(obj,key,fallback);
     return fallback;
 }
 

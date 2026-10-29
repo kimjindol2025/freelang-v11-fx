@@ -41,7 +41,8 @@ typedef enum {
     FL_STRING,
     FL_VECTOR,
     FL_MAP,
-    FL_FN
+    FL_FN,
+    FL_TEXT /* Internal object brand; FLValue.tag remains FL_STRING. */
 } FLTag;
 
 typedef struct FLObject FLObject;
@@ -161,6 +162,16 @@ FLValue fl_call_owned_argv(FLValue fn, int argc, FLValue* args);
 FLValue fl_register_named_fn(FLValue name, FLValue fn);
 FLValue fl_named_fn(FLValue name);
 FLValue fl_function_alias(FLValue name);
+FLValue fl_v11_has(FLValue name);
+FLValue fl_v11_builtin(FLValue name, FLValue argv);
+FLValue fl_v11_fn(FLValue name);
+FLValue fl_v11_number(FLValue value);
+FLValue fl_v11_key(FLValue value);
+FLValue fl_v11_literal(FLValue value);
+FLValue fl_v11_text_get(FLValue value, FLValue index, FLValue fallback);
+FLValue fl_v11_map_from_pairs(FLValue* kv, uint32_t n);
+bool fl_v11_truthy(FLValue value);
+bool fl_v11_or_false(FLValue value);
 FLValue fl_compiler_bindings(FLValue nodes);
 FLValue fl_compiler_realpath(FLValue path);
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val);

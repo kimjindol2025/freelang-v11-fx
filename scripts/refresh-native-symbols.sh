@@ -11,6 +11,7 @@ trap 'rm -f "$output"; [[ -z "$staged" ]] || rm -f "$staged"' EXIT
     {
         awk '{line=$0;while(match(line,/(^|;)[[:space:]]*FLValue[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*\(/,a)){print a[2];line=substr(line,RSTART+RLENGTH)}}' "$ROOT/runtime/runtime.h"
         awk '{line=$0;while(match(line,/\(= \$op "([^"]+)"/,a)){print a[1];line=substr(line,RSTART+RLENGTH)}}' "$ROOT/self/cgc-main.fl"
+        awk '{line=$0;while(match(line,/"([^"]+)"/,a)){print a[1];line=substr(line,RSTART+RLENGTH)}}' "$ROOT/runtime/v11-ops.h"
     } | LC_ALL=C sort -u | awk '{if(n%4==0)printf "    ";else printf " ";printf "\"%s\",",$0;if(++n%4==0)printf "\n"}END{if(n%4)printf "\n"}'
     echo '    NULL'
     echo '};'
