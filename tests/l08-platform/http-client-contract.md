@@ -13,3 +13,5 @@
 실제 loopback에서 FreeLang으로 컴파일한 서버/클라이언트를 실행한다. port 0과 소유 과정만 사용한다. 정답을 먼저 커밋하고 미연결 빌드 실패를 보존한 뒤 구현한다. TLS 도구가 없으면 미실행으로 명시한다. 함수 직접 호출만으로 완료 판정하지 않는다. 기존 legacy http_req API는 보존하며 새 v11 API에 앱 우회를 넣지 않는다.
 
 구현 전 fixture 정정: 최초 POST fixture는 X-Value에 한글을 넣었으나 source Node HTTP header 값은 Latin-1 범위만 허용한다. 성공 요청의 header를 ASCII sample로 고쳤으며 한글·이모지·NUL body 정답은 유지했다. native 구현을 시작하거나 시험 출력에 맞추기 전에 기준 header 계약으로 입력 오류를 정정한 것이다.
+
+추가 경계 정답도 수정 전에 고정한다. header 이름의 NUL·CR/LF, 값의 NUL·Latin-1 밖 글자는 status 0으로 거부한다. UTF-16 정상 surrogate pair는 한 글자로, lone surrogate는 UTF-8 U+FFFD로 보내야 하며 NUL byte는 본문에서만 허용한다. 이는 source Node header validation/Buffer UTF-8 계약이며 native 구현 출력에 맞춘 정답 변경이 아니다.
