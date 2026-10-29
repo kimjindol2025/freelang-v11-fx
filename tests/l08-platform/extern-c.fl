@@ -1,0 +1,4 @@
+(defn check [a b label] (if (= a b) (println label) (throw (str "EXTERN_ASSERT " label))))
+(check (native-ext-value 23) 123 "EXTERN_VALUE_23=PASS")
+(check (native-ext-value -7) 93 "EXTERN_VALUE_NEGATIVE=PASS")
+(check (native-ext-zero) 17 "EXTERN_ZERO_ARGUMENTS=PASS")
