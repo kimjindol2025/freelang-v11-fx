@@ -1,0 +1,32 @@
+Compiled tests/l08-phase2/source-edge.fl -> <가림>
+boolean
+[E_TYPE_MISMATCH] +: 인자 1번에 boolean 전달됨 — number 필요 (str-to-num 변환 확인)
+Infinity
+-a-b-
+<a>b<a>
+$::bb
+a_b
+[]
+["a", "b:c"]
+0
+false
+["한", "😀", 1]
+
+
+
+[]
+--- <가림>	2026-10-29 10:03:12.237293344 +0900
++++ <가림>	2026-10-29 10:03:31.208699871 +0900
+@@ -10,7 +10,7 @@
+ 0
+ false
+ ["한", "😀", 1]
+-b
+-bc
+-ab
+-23
++
++
++
++[]
+SUBSTRING_BEFORE_EXIT=1
