@@ -1,0 +1,11 @@
+<가림>: In function ‘__fl_binding_3’:
+<가림>:23:46: error: implicit declaration of function ‘native_missing_component_xyz’ [-Wimplicit-function-declaration]
+   23 |     { FLValue __fl_ret__ = (__extension__ ({ native_missing_component_xyz(fl_int(1));  })); fl_pop_frame(); return __fl_ret__; }
+      |                                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<가림>:23:28: error: invalid initializer
+   23 |     { FLValue __fl_ret__ = (__extension__ ({ native_missing_component_xyz(fl_int(1));  })); fl_pop_frame(); return __fl_ret__; }
+      |                            ^
+<fl>: In function ‘main’:
+<fl>:13:21: error: implicit declaration of function ‘native_missing_direct_xyz’ [-Wimplicit-function-declaration]
+<fl>:13:21: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+LATE_CALL_BEFORE_C_SYNTAX_EXIT=1
