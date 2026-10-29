@@ -1,0 +1,11 @@
+(println "RSS_FULL")
+(println (rss_feed {"title" "한글 & <블로그> \"제목\" '" "url" "https://example.invalid/blog/?a=1&b=2" "description" "소개 & 설명" "language" "ko" "updated" "fixed & build"}
+ [{"title" "둘째 & <제목>" "url" "https://example.invalid/p/a?x=1&y=2" "date" "2026-10-30T09:00:00+09:00" "author" "작성자 <A>" "description" "설명 \"인용\"" "content" "<p>원문 & HTML</p>"}
+  {"title" "첫째" "url" "https://example.invalid/p/b" "date" "invalid-date"}
+  {"title" "분할" "url" "https://example.invalid/p/c" "date" 1 "content" "before]]>after"}]))
+(println "RSS_EMPTY")
+(println (rss_feed {"title" nil "url" "https://example.invalid/" "language" "" "updated" "fixed"} nil))
+(println "SITEMAP_FULL")
+(println (sitemap_xml "https://example.invalid/blog/" ["/" "p/한글?a=1&b=2" {"loc" "/p/quoted\"'<>" "lastmod" "2026-10-30" "changefreq" "weekly" "priority" 0} {"loc" "/p/b" "priority" 0.1} {"loc" "/p/c" "priority" "0.5"}]))
+(println "SITEMAP_EMPTY")
+(println (sitemap_xml "https://example.invalid/" []))
