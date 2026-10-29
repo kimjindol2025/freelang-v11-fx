@@ -3,6 +3,9 @@
 (define base (get (cli-args) 0))
 (doseq [headers [(json_parse "{\"bad\\u0000name\":\"value\"}") (json_parse "{\"X-Value\":\"bad\\u0000value\"}") {"bad\r\nname" "value"} {"X-Value" "한글"}]]
  (check (get (http_request "POST" (str base "/echo") headers "body") "status") 0 "INVALID_HEADER_REJECTED=PASS"))
+(doseq [value ["" 42 false]]
+ (let [result (http_request "POST" (str base "/echo") {"Content-Type" "text/plain" "X-Value" value} "body")]
+  (check (get (json_parse (get result "body")) "header") (num_to_str value) "HEADER_STRING_VALUE=PASS")))
 (let [body (json_parse "\"\\uD800\\uDC00\\uD800\"")
       result (http_request "POST" (str base "/echo") {"Content-Type" "text/plain"} body)]
  (check (get (json_parse (get result "body")) "body") "𐀀�" "BODY_UTF16_REPLACEMENT=PASS"))
