@@ -2,6 +2,7 @@
 #include <limits.h>
 #include <float.h>
 #include <errno.h>
+#include <openssl/rand.h>
 #include "ryu/d2s.c"
 #include "unicode15.h"
 #include "v11-ops.h"
@@ -735,6 +736,32 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     FLValue*a=av->data;
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
+    if(IS("env-get")||IS("env-or")){
+        FLValue key=t_js_string(ARG(0));
+        const char *value=getenv(((FLString*)key.obj)->data);
+        return value&&*value?t_text(fl_str_val(value)):IS("env-or")?ARG(1):fl_nil();
+    }
+    if(IS("error-message")){
+        FLValue value=ARG(0);
+        if(value.tag==FL_MAP){
+            FLValue message=fl_map_get(value,fl_str_val("message"));
+            if(fl_v11_truthy(message))return t_js_string(message);
+        }
+        return t_js_string(value);
+    }
+    if(IS("process-exit")){
+        FLValue code=ARG(0);
+        double number=code.tag==FL_NIL?0:t_double(code);
+        if((code.tag!=FL_NIL&&!t_numeric(code))||!isfinite(number)||trunc(number)!=number||number<INT_MIN||number>INT_MAX)
+            fl_throw(fl_str_val("process_exit: integer exit code required"));
+        exit((int)number);
+    }
+    if(IS("uuid-short")){
+        unsigned char bytes[4];char hex[9];
+        if(RAND_bytes(bytes,sizeof(bytes))!=1)fl_throw(fl_str_val("uuid_short: secure random failed"));
+        for(size_t i=0;i<sizeof(bytes);i++)snprintf(hex+i*2,3,"%02x",bytes[i]);
+        return fl_str_val(hex);
+    }
     if(IS("date-parse")||IS("format-date")||IS("now-ms"))return v11_time(op,argv);
     if(!strncmp(op,"regex_",6))return v11_regex(op,argv);
     if(!strncmp(op,"file_",5)||!strncmp(op,"dir_",4)){
