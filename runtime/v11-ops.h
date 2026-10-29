@@ -17,5 +17,6 @@ static const char *const v11_ops[] = {
 "rss-feed","sitemap-xml",
 "http-get","http-request","http-request-timeout","http-with-timeout",
 "set-timeout","await-result","fl-yield",
+"tcp-server-raw","tcp-server-tls","tcp-write","tcp-drop","tcp-server-stop","tcp-server-running?","fl-error-drain","fl-error-queue-size",
 "regex_match","regex_match_i","regex_find","regex_find_all","regex_replace","regex_replace_first","regex_split",
 "file_read","file_write","file_append","file_copy","file_delete","file_exists","file_is_file","file_size","dir_create","dir_list",NULL};

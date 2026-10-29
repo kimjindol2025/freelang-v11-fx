@@ -21,7 +21,7 @@ static void timer_handle_cleanup(void*value){FLValue handle={.tag=FL_MAP,.obj=va
 static void timer_finish(FLValue handle,int state,FLValue result){VTimerPromise*p=(VTimerPromise*)handle.obj;pthread_mutex_lock(&p->mutex);p->result=result;p->state=state;pthread_mutex_unlock(&p->mutex);}
 static void timer_job_free(VTimerJob*job){fl_heap_release(job->callback);fl_heap_release(job->promise);free(job);}
 static void timer_exit_drain(void){
- for(;;){pthread_mutex_lock(&timer_mutex);int pending=timer_jobs!=NULL&&!timer_stopping;pthread_mutex_unlock(&timer_mutex);if(!pending)break;fl_schedule_tick(1000);}
+ for(;;){pthread_mutex_lock(&timer_mutex);int pending=timer_jobs!=NULL,stopped=timer_stopping;pthread_mutex_unlock(&timer_mutex);int io=fl_io_active();if(stopped||(!pending&&!io))break;fl_schedule_tick(io?0:1000);if(io)fl_io_poll(fl_schedule_timeout_ms(1000));}
 }
 static void timer_init(void){
  pthread_mutexattr_t attributes;pthread_mutexattr_init(&attributes);pthread_mutexattr_settype(&attributes,PTHREAD_MUTEX_RECURSIVE);pthread_mutex_init(&timer_dispatch,&attributes);pthread_mutexattr_destroy(&attributes);
@@ -37,6 +37,7 @@ int fl_schedule_timeout_ms(int maximum){
 void fl_schedule_shutdown(void){
  pthread_mutex_lock(&timer_mutex);timer_stopping=1;VTimerJob*jobs=timer_jobs;timer_jobs=NULL;timer_count=0;pthread_mutex_unlock(&timer_mutex);
  while(jobs){VTimerJob*next=jobs->next;timer_finish(jobs->promise,2,fl_heap_copy(fl_make_error("Error","timer cancelled")));timer_job_free(jobs);jobs=next;}
+ fl_io_shutdown();
  if(timer_pipe[1]>=0){char byte=1;(void)write(timer_pipe[1],&byte,1);}
 }
 void fl_schedule_tick(int wait_ms){
@@ -76,7 +77,9 @@ FLValue fl_v11_timer(FLValue name,FLValue argv){
  }
  if(!strcmp(op,"fl-yield")){
   FLValue number=fl_v11_to_number(args->len?first:fl_int(1));double value=number.f;
-  int wait=!isfinite(value)||value<0?0:value>INT_MAX?INT_MAX:(int)value;fl_schedule_tick(wait);return fl_int(0);
+  int wait=!isfinite(value)||value<0?0:value>INT_MAX?INT_MAX:(int)value;
+  if(!fl_io_active()){fl_schedule_tick(wait);return fl_int(0);}
+  fl_schedule_tick(0);int events=fl_io_poll(fl_schedule_timeout_ms(wait));fl_schedule_tick(0);return fl_int(events);
  }
  if(args->len<2){fl_throw(fl_make_error("Error","set-timeout requires callback and delay"));return fl_nil();}
  pthread_once(&timer_once,timer_init);

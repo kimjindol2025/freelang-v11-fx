@@ -744,6 +744,8 @@ FLValue fl_v11_utf8_string(FLValue value){
     TUnits units=t_units(t_js_string(value));TBuffer bytes={0};
     t_encode(&bytes,units.p,units.n,1);free(units.p);return t_finish(&bytes);
 }
+FLValue fl_v11_latin1_decode(const char*data,size_t length){TBuffer bytes={0};for(size_t i=0;i<length;i++)t_cp(&bytes,(unsigned char)data[i]);return t_finish(&bytes);}
+FLValue fl_v11_latin1_encode(FLValue value){TUnits units=t_units(t_js_string(value));TBuffer bytes={0};for(size_t i=0;i<units.n;i++){char byte=(char)(units.p[i]&255);t_put(&bytes,&byte,1);}free(units.p);return t_finish(&bytes);}
 
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];
@@ -764,6 +766,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     if(!strncmp(op,"server-",7))return fl_v11_http(fl_str_val(op),argv);
     if(IS("http-get")||IS("http-request")||IS("http-request-timeout")||IS("http-with-timeout"))return fl_v11_http_client(fl_str_val(op),argv);
     if(IS("set-timeout")||IS("await-result")||IS("fl-yield"))return fl_v11_timer(fl_str_val(op),argv);
+    if(!strncmp(op,"tcp-",4)||IS("fl-error-drain")||IS("fl-error-queue-size"))return fl_v11_io(fl_str_val(op),argv);
     if(IS("rss-feed")||IS("sitemap-xml"))return vf_feed(op,argv);
     if(!strncmp(op,"fd-",3)){
         FLValue args=argv;

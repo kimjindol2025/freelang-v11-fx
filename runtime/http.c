@@ -872,15 +872,13 @@ FLValue server_start(FLValue port_val) {
     fl_debug_banner("fl-app", port);
 
     /* ── accept 루프 ── */
-    int scheduler_fd=fl_schedule_wake_fd();
+    (void)fl_schedule_wake_fd();
     while (!g_pool.shutdown) {
         fl_schedule_tick(0);
-        struct pollfd ready[2]={{server_fd,POLLIN,0},{scheduler_fd,POLLIN,0}};
-        int available=poll(ready,2,fl_schedule_timeout_ms(1000));
-        if(available<0){if(errno==EINTR)continue;break;}
+        int ready=fl_io_wait(server_fd,fl_schedule_timeout_ms(50));
         if(g_pool.shutdown)break;
-        if(ready[0].revents&(POLLERR|POLLHUP|POLLNVAL))break;
-        if(!(ready[0].revents&POLLIN))continue;
+        if(ready&(POLLERR|POLLHUP|POLLNVAL))break;
+        if(!(ready&POLLIN))continue;
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
