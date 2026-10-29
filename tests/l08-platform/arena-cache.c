@@ -10,11 +10,11 @@ void *__real_fl_arena_alloc(size_t size);
 static pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
 static void *pointers[4096];
 static size_t sizes[4096],live_bytes;
-static __thread unsigned allocating,fault_mask,faults;
+static __thread unsigned allocating,fault_mask,faults,enabled;
 void *__wrap_malloc(size_t size){
  if(allocating&&fault_mask){unsigned fail=fault_mask&1;fault_mask>>=1;if(fail){faults++;return NULL;}}
  void *pointer=__real_malloc(size);
- if(pointer&&allocating){
+ if(pointer&&allocating&&enabled){
   pthread_mutex_lock(&lock);size_t bucket=((uintptr_t)pointer>>4)&4095,i;
   for(i=0;i<4096;i++){size_t slot=(bucket+i)&4095;if(!pointers[slot]||pointers[slot]==(void*)1){pointers[slot]=pointer;sizes[slot]=size;live_bytes+=size;break;}}
   pthread_mutex_unlock(&lock);if(i==4096)abort();
@@ -34,6 +34,7 @@ static size_t retained(void){pthread_mutex_lock(&lock);size_t bytes=live_bytes;p
 static void label(const char *name,int ok){printf("%s=%s\n",name,ok?"PASS":"FAIL");}
 FLValue arena_cache_run(FLValue callback){
  void *previous=fl_arena_scope_enter();fl_arena_end();fl_arena_begin();
+ enabled=1;
  size_t maximum=0;int bytes_ok=1;
  for(int request=1;request<=64;request++){
   FLValue size=fl_int((int64_t)request*65536);
@@ -60,6 +61,6 @@ FLValue arena_cache_run(FLValue callback){
  fault_mask=5;faults=0;int cleanup_oom=fl_arena_alloc(8388608)==NULL&&faults==2;fault_mask=0;
  fl_arena_end();fl_arena_begin();cleanup_oom=cleanup_oom&&retained()==0;label("ARENA_CLEANUP_OOM_SAFE",cleanup_oom);
  int overflow=fl_arena_alloc(SIZE_MAX)==NULL;label("ARENA_SIZE_OVERFLOW_REJECTED",overflow);
- fl_arena_scope_leave(previous);
+ fl_arena_scope_leave(previous);enabled=0;
  return fl_bool(bytes_ok&&maximum==0&&reused&&nested&&fallback_ok&&fallback_retained==0&&oom&&cleanup_oom&&overflow);
 }
