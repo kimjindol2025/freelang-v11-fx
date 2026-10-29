@@ -1,0 +1,10 @@
+(define root (get (cli-args) 0))
+(define completed (atom []))
+(server_post "/schedule" (fn [req]
+ (let [label (get (server_req_json req) "label") local (atom [])]
+  (do
+   (set-timeout (fn [] (do (swap! local append label) (swap! completed append (get (deref local) 0)) (file_write (str root "/fired.txt") label))) 150)
+   (server_text "SCHEDULED")))))
+(server_get "/churn" (fn [req] (server_text (str_repeat "overwrite" 1024))))
+(server_get "/result" (fn [req] (server_json (deref completed))))
+(server_start 0)

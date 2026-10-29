@@ -1,0 +1,17 @@
+(defn check [a b label] (if (= a b) (println label) (throw (str "TIMER_ASSERT " label))))
+(define promise (set-timeout (fn [] 42) 1))
+(check (try (do (await_result promise) "wrong") (catch [e] (error_message e))) "Promise still pending - use proper async handling" "PENDING=PASS")
+(define rejected (set-timeout (fn [] (throw "timer-error")) 1))
+(define invalid (set-timeout "not-a-function" 1))
+(set-timeout
+ (fn []
+  (do
+   (check (await_result promise) 42 "RESOLVED=42")
+   (check (await_result promise) 42 "RESOLVED_REPEAT=42")
+   (check (try (await_result rejected) (catch [e] (error_message e))) "timer-error" "REJECTED=PASS")
+   (check (try (await_result invalid) (catch [e] (error_message e))) "set-timeout callback must be a function" "INVALID_CALLBACK=PASS"))) 20)
+(let [label "captured-한😀" state (atom [])]
+ (do
+  (set-timeout (fn [] (swap! state append label)) 1)
+  (set-timeout (fn [] (check (deref state) [label] "CAPTURE_ATOM_IDENTITY=PASS")) 30)))
+(println "REGISTERED")

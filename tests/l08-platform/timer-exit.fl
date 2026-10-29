@@ -1,0 +1,2 @@
+(set-timeout (fn [] (println "MUST_NOT_RUN")) 100)
+(process-exit 7)
