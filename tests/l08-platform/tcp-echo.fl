@@ -1,0 +1,39 @@
+(define root (get (cli-args) 0))
+(define pending (atom {}))
+(define modes (atom {}))
+(define events (atom []))
+(defn echo-bytes [id data]
+ (if (= (tcp-write id data) "ok") nil (throw "fixture-write-failed")))
+(defn tcp-fixture-handler [event id data peer]
+ (do
+  (swap! events append {"event" event "id" id})
+  (if (= event "connect") (swap! pending assoc id "") nil)
+  (if (= event "data")
+   (if (= (get (deref modes) id) "echo")
+    (echo-bytes id data)
+    (let [text (str (get (deref pending) id "") data) line (str_index_of text "\n")]
+     (if (< line 0) (swap! pending assoc id text)
+      (let [command (str_slice text 0 line) rest (str_slice text (+ line 1))]
+       (do
+        (swap! pending dissoc id)
+        (if (= command "E") (do (swap! modes assoc id "echo") (echo-bytes id rest))
+         (if (= command "D") (tcp-drop id)
+          (if (= command "X") (throw "fixture-handler-error")
+           (if (= command "S")
+            (let [errors (fl-error-drain)]
+             (do
+              (if (= (get (get errors 0) 2) "handler") nil (throw "fixture-error-source"))
+              (if (= (get (get errors 0) 3) "fixture-handler-error") nil (throw "fixture-error-message"))
+              (if (= peer "127.0.0.1") nil (throw "fixture-peer"))
+              (file_write (str root "/errors.json") (json_str errors))
+              (println "TCP_HANDLER_ERROR_QUEUE=PASS")
+              (tcp-server-stop 0)))
+            (throw "fixture-command")))))))))) nil)
+  (if (= event "close")
+   (do (swap! pending dissoc id) (swap! modes dissoc id) (file_write (str root "/events.json") (json_str (deref events)))) nil)))
+(define mode (get (cli-args) 1))
+(define started
+ (if (= mode "tls")
+  (tcp-server-tls 0 "tcp-fixture-handler" (get (cli-args) 2) (get (cli-args) 3) "127.0.0.1" (get (cli-args) 4) (= (get (cli-args) 5) "require-client"))
+  (tcp-server-raw 0 "tcp-fixture-handler" "127.0.0.1")))
+(if (= started "ok") (println "TCP_ECHO_READY") (throw "fixture-start-failed"))
