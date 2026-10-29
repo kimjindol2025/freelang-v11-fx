@@ -16,3 +16,5 @@ Node·TS·JS·Python을 실행해 정답을 생성하지 않았다. 정답은 �
 정답 정정: 최초 `contracts.expected`의 num-to-str nil은 빈 문자열로 잘못 고정했다. 일반 평가기 앞에 있는 `flExecOpNative` 보조 함수의 String(v0 ?? "")와 혼동했다. 실제 evalBuiltin의 num-to-str는 String(args[0])이므로 `"null"`이다. 이 한 줄을 원문 근거로 공개 정정하고, 이후 대응 구현을 수정한다. 정답이 처음부터 전부 불변이었다고 보고하지 않는다. 같은 원문의 char-at는 먼저 나오는 case에서 Number 인덱스를 지원한다. 뒤의 중복 case와 혼동하지 않는다.
 
 `source-edge`는 불리언 타입명, +의 초기 0 누적, replaceAll의 빈 패턴·치환 기호, 기본 str-replace의 nil 기본값, split의 숫자 문자열 상한, str-index-of의 nil 기본값, flDeepEq의 같은 키 수/nil 조회 의미, append의 문자열 spread를 추가 고정한다.
+
+추가 소스 검토 정정: source-edge의 서로 다른 nil 키 map 비교는 false다. flDeepEq는 null과 누락 조회 undefined를 strict 동일값으로 보지 않고, 다음 null 검사에서 false를 반환한다. 이 항목은 기존 구현도 false였으며 정답의 잘못된 추론을 대응 수정 전에 정정했다. 정정은 num-to-str nil 1건과 이 비교 1건이며 이력을 숨기지 않는다.
