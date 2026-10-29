@@ -25,8 +25,17 @@ L08_FD_FAULT_OUT=<가림> strace -f -e trace=execve,clone,clone3 -o <가림>/exe
 
 수정한 sanitizer 경로 설정을 포함하는 전체 자체 driver를 별도 새 root에서 재실행해 `L08_EXTERN_SELF=PASS`, `EXTERN_CONFIGURED_SELF_EXIT=0`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`을 확인했다. [driver 전체 재실행 원문](evidence/l08-platform/extern-configured-after.txt). 명령에는 `L08_EXTERN_SANITIZER_LIBDIR=<가림>`를 추가했다.
 
+L06·L07의 C helper 연결도 `cc7d112078a5fd29c8564f06993294eabcd6d5b7`에서 두 빌드 명령에 선언을 추가해 보완했다. 원래 `.fl`·C helper·정답은 유지했다. 실제 multipart 시험은 `L06_HTTP_PASS=110 FAIL=0`, `L06_TLS_PASS=110 FAIL=0`, `L06_HTTP_TLS=PASS`, `EXTERN_L06_HTTP_EXIT=0`이다. 중단 전송·시간 제한·자기 시험 서버 SIGKILL 뒤 임시 파일 회복·재시작 HTTP `200`·원본 복사 보존도 포함한다. [L06 전체 원문](evidence/l08-platform/extern-l06-after.txt). L07은 `L07_SELF_PASS=221`, `L07_SELF_FAIL=0`, `L07_INPUT_AND_OUTSIDE_HASHES=UNCHANGED`, `L07_RUNTIME_REGRESSION=PASS`, `EXTERN_L07_EXIT=0`이다. [L07 원문](evidence/l08-platform/extern-l07-after.txt). 각각 strace 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다.
+
+```bash
+L06_OUT=<가림> strace -f -e trace=execve -o <가림>/execve.log bash scripts/verify-l06-http.sh
+L07_OUT=<가림> strace -f -e trace=execve -o <가림>/execve.log bash scripts/verify-l07-binary-io.sh
+```
+
+소스 `796d6ac65ebcb6c25db09b9113eee47ca276a4f2` 고정 전체 실행은 위 두 빌드 변경 누락을 확인한 뒤 소유 process group만 명시적으로 SIGTERM했다. 관찰 timeout 때문에 다시 시작한 것이 아니다. 세션의 실제 종료 코드는 `143`이며 전체 통과·실패 원인 재현으로 집계하지 않는다. 당시 self `5`·snapshot `2`만 통과했고 나머지 gate 완료는 미확인이다. [부분 실행·중단 이유 원문](evidence/l08-platform/extern-full-superseded.txt).
+
 ## 미확인
 
-소스 `796d6ac65ebcb6c25db09b9113eee47ca276a4f2` 고정 checkout에서 `scripts/verify-l08-platform-all.sh`를 실행 중이다. 이후 C header를 주입하는 모든 빌드 호출부를 조사해 L06·L07의 실제 C helper도 같은 명시 선언이 필요한 것을 확인했다. `cc7d112078a5fd29c8564f06993294eabcd6d5b7`에서 두 빌드 명령에만 선언을 추가했다. 원래 `.fl`·C helper·정답은 유지했으며 실제 multipart HTTP/TLS와 L07 자체 회귀를 별도로 실행 중이다. 실행 중인 고정 전체 checkout은 이 두 빌드 명령 변경을 포함하지 않으므로 최신 작업 가지 전체 통과 증거로 사용할 수 없다. 기존 회귀·L06·L07·native bootstrap 최종 결과가 나올 때까지 최신 전체 통과로 집계하지 않는다.
+현재 전체 대상은 두 빌드 변경을 포함한 고정 소스 `fe6bb4f4f38775404685ccf96e69f8e147d3633c`이며 `scripts/verify-l08-platform-all.sh`를 실행 중이다. 최신 전체 회귀·native bootstrap 최종 결과가 나올 때까지 전체 통과로 집계하지 않는다.
 
 C20 atom 원자적 갱신·DB 동시 거래·누수, 비밀번호 검증, 브라우저 J안·PRD 필수 기능·운영 자료 호환·복구·부하 검증은 남아 있다. 서버 23·25 접속·운영 자료 변경·합치기·배포는 하지 않았다.
