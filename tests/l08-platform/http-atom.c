@@ -4,7 +4,7 @@
 #include <time.h>
 static pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
 static pthread_barrier_t first_four;
-static pthread_t workers[4];
+static pthread_t workers[256];
 static int worker_count,active,peak,calls;
 __attribute__((constructor)) static void init(void){
  if(pthread_barrier_init(&first_four,NULL,4))fl_throw(fl_str_val("HTTP atom barrier init failed"));
@@ -14,7 +14,10 @@ FLValue http_atom_begin(void){
  pthread_mutex_lock(&lock);
  pthread_t self=pthread_self();int found=0;
  for(int i=0;i<worker_count;i++)if(pthread_equal(workers[i],self))found=1;
- if(!found&&worker_count<4)workers[worker_count++]=self;
+ if(!found){
+  if(worker_count==256){pthread_mutex_unlock(&lock);fl_throw(fl_str_val("HTTP atom worker count overflow"));}
+  workers[worker_count++]=self;
+ }
  int number=++calls;if(++active>peak)peak=active;
  pthread_mutex_unlock(&lock);
  if(number<=4){int rc=pthread_barrier_wait(&first_four);if(rc&&rc!=PTHREAD_BARRIER_SERIAL_THREAD)fl_throw(fl_str_val("HTTP atom barrier failed"));}
