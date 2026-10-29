@@ -45,7 +45,8 @@ typedef enum {
     FL_TEXT, /* Internal object brand; FLValue.tag remains FL_STRING. */
     FL_NATIVE_ERROR, /* Internal map brand; FLValue.tag remains FL_MAP. */
     FL_OWNED_FN, /* Heap-promoted closure with owned environment. */
-    FL_NATIVE_PROMISE /* Internal managed map; opaque to user data. */
+    FL_NATIVE_PROMISE, /* Internal managed map; opaque to user data. */
+    FL_NATIVE_TAIL /* Internal trampoline request; FLValue.tag remains FL_MAP. */
 } FLTag;
 
 typedef struct FLObject FLObject;
@@ -202,12 +203,28 @@ typedef struct FLClosure {
     FLValue (*call)(struct FLClosure* self, int argc, FLValue* argv);
     uint32_t nenv;
     uint32_t hot_count;  /* JIT 핫 카운터 (jit.c) */
+    uint32_t user_global;
     FLValue  env[];      /* flexible array — captured values */
 } FLClosure;
 
 FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
                   uint32_t nenv, FLValue* env);
 FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv);
+FLValue fl_fn_global(FLValue (*call)(FLClosure*,int,FLValue*),uint32_t nenv,FLValue*env);
+typedef struct FLCallScope {
+    struct FLCallScope*previous;
+    FLValue name;
+    int line,try_depth,call_depth,saved_tco;
+    void*borrow_mark;
+} FLCallScope;
+void fl_v11_function_enter(FLCallScope*scope,int global);
+void fl_v11_value_enter(FLCallScope*scope);
+void fl_v11_scope_leave(FLCallScope*scope);
+int fl_v11_tco_active(void);
+FLValue fl_v11_tail_call(FLValue fn,FLValue args);
+#define FL_VALUE(...) (__extension__ ({ FLCallScope __fl_value_scope__; \
+    fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+    fl_v11_scope_leave(&__fl_value_scope__); __fl_value_result__; }))
 FLValue fl_v11_context_call(FLValue name, FLValue fn, FLValue args, FLValue line);
 FLValue fl_v11_context_error(FLValue error);
 
@@ -224,6 +241,7 @@ FLValue fl_html_escape(FLValue s);
 FLValue fl_heap_copy(FLValue v);
 void    fl_heap_retain(FLValue v);
 void    fl_heap_release(FLValue v);
+FLValue fl_arena_copy(FLValue value);
 void*   fl_borrow_mark(void);
 FLValue fl_borrow_take(FLValue value);
 void    fl_borrow_release_to(void* mark);

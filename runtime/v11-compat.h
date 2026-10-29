@@ -755,6 +755,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     FLValue*a=av->data;
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
+    if(IS("identity"))return ARG(0);
     if(IS("json-parse"))return vj_parse(ARG(0));
     if(IS("json-str")||IS("json-stringify"))return vj_stringify(ARG(0));
     if(IS("auth-sha256")){

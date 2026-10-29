@@ -172,6 +172,9 @@ static FLValue rb_node(FLResolver *r,FLBinding **env,FLValue n) {
         out=rb_list(r,env,args);
         if(read.tag!=FL_NIL) {
             n=rb_set(n,"call-op",key);
+            for(FLBinding*b=*env;b;b=b->next)if(fl_truthy(fl_eq(b->source,key))){
+                n=rb_set(n,"call-user",fl_bool(b->function_alias));break;
+            }
             if(rb_is(rb_get(read,"kind"),"variable")) op=fl_str_n(2,fl_str_val("$"),rb_get(read,"name"));
             else {
                 FLValue all=fl_vec_push(fl_vec_new(),read);FLVector *v=(FLVector*)out.obj;

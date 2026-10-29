@@ -249,7 +249,7 @@ FLValue fl_heap_copy(FLValue v) {
         FLVector* src = (FLVector*)v.obj;
         FLVector* dst = (FLVector*)malloc(sizeof(FLVector));
         if (!dst) return fl_nil();
-        dst->base.type = FL_VECTOR;
+        dst->base.type = src->base.type;
         dst->base.rc   = FL_HEAP_RC|1;
         dst->len = src->len;
         dst->cap = src->len;  /* 딱 맞게 */
@@ -285,7 +285,7 @@ FLValue fl_heap_copy(FLValue v) {
         if(v.obj->type==FL_OWNED_FN){fl_heap_retain(v);return v;}
         FLClosure*src=(FLClosure*)v.obj;
         FLClosure*dst=malloc(sizeof(*dst)+src->nenv*sizeof(FLValue));if(!dst)return fl_nil();
-        dst->base.type=FL_OWNED_FN;dst->base.rc=1;dst->call=src->call;dst->nenv=src->nenv;dst->hot_count=0;
+        dst->base.type=FL_OWNED_FN;dst->base.rc=1;dst->call=src->call;dst->nenv=src->nenv;dst->hot_count=0;dst->user_global=src->user_global;
         for(uint32_t i=0;i<src->nenv;i++)dst->env[i]=fl_heap_copy(src->env[i]);
         FLValue result={.tag=FL_FN,.obj=(FLObject*)dst};return result;
     }
@@ -400,6 +400,7 @@ FLValue fl_borrow_finish(void*mark,FLValue result) {
     fl_borrow_release_to(mark);
     return result;
 }
+FLValue fl_arena_copy(FLValue value){return snapshot_copy(value);}
 
 /* ── 메모리 사용량 통계 ── */
 FLValue fl_memory_stats(void) {

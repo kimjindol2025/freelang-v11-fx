@@ -1,5 +1,6 @@
 /* Public source names shared by the compiler and native dispatcher. */
 static const char *const v11_ops[] = {
+"identity",
 "+","-","*","/","%","mod","=","eq","!=","not=","neq","<",">","<=",">=","not",
 "str","print","println","length","count","char-at","str-length","substring","slice","str-slice",
 "str-find","str-index-of","str-starts","str-ends","str-starts-with","str-ends-with","str-includes",

@@ -9,6 +9,8 @@ printf 'PLATFORM_SELF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 ]]
 if L08_SNAPSHOT_OUT="$out/atom-snapshot" L08_SNAPSHOT_COMPILER="$out/self/compiler" L08_SNAPSHOT_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/atom-snapshot.execve.log" bash "$ROOT/scripts/verify-l08-atom-snapshot.sh" > "$out/atom-snapshot.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/atom-snapshot.log";printf 'ATOM_SNAPSHOT_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_TAIL_OUT="$out/tail" L08_TAIL_NATIVE_COMPILER="$out/self/compiler" L08_TAIL_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/tail.execve.log" bash "$ROOT/scripts/verify-l08-tail-self.sh" > "$out/tail.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/tail.log";printf 'TAIL_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 for phase in timer tcp fd-basic fd-extended json auth http feed http-client;do
  case "$phase" in
   timer) setting=L08_TIMER_OUT;script=verify-l08-timer-self.sh;tag=TIMER_PARTIAL;;

@@ -5,3 +5,5 @@ v11 `b49cc9194a00649b8cf58e1d6e8ee38ffce770d4` src/eval-special-forms.ts:1216~12
 let RHS는 eval-special-forms.ts:2238~2243의 evValue로, 호출 인자는 src/interpreter.ts:1932~1941에서 tcoMode=false로 평가한다. 함수 body의 let 뒤 if와 값 위치의 let/인자 안 if를 혼동하지 않는다. 정답은 이 소스에서 고정하며 Node를 실행하지 않는다. 상호 꼬리 호출과 깊이 5000의 오류 전달을 포함하여 접두어만 빼는 우회로 완료 판정하지 않는다.
 
 db95 execute-ast는 if branch에서 execute-insert를 호출한다. native 일반 호출 문맥 보완 뒤 실제 값은 `[execute-insert] [engine-validate-row] PRIMARY_KEY_VIOLATION`이지만 원래 기대값은 `[engine-validate-row] PRIMARY_KEY_VIOLATION`이다. 이 추가 차이를 별도 언어 과제로 재현한다. vendor/앱/기존 기대값은 변경하지 않는다.
+
+추가 정답은 같은 소스의 while body가 tcoMode=false인 점(eval-special-forms.ts:1339~1347)과 함수 값이 caller mode를 상속하는 점(eval-call-function.ts:482~485/757~762)도 고정한다. 직접 recur와 다른 named tail branch가 함께 있는 함수, 값 위치로 실행되는 while body를 구분한다. tail token을 만들고 실행하지 않아 부작용이 사라지는 것도 실패다.

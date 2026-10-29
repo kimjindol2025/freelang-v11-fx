@@ -204,16 +204,57 @@ FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
     if(!cl){fl_throw(fl_str_val("closure allocation failed"));return fl_nil();}
     cl->base.type = FL_FN; cl->base.rc = 1;
     cl->call = call; cl->nenv = nenv; cl->hot_count = 0;
+    cl->user_global=0;
     for (uint32_t i = 0; i < nenv; i++) cl->env[i] = env[i];
     if(fl_arena_on_reset(closure_cleanup,cl)<0){free(cl);fl_throw(fl_str_val("closure cleanup allocation failed"));return fl_nil();}
     FLValue r; r.tag = FL_FN; r.obj = (FLObject*)cl; return r;
 }
 
+FLValue fl_fn_global(FLValue (*call)(FLClosure*,int,FLValue*),uint32_t nenv,FLValue*env){
+    FLValue fn=fl_fn_new(call,nenv,env);if(fn.tag==FL_FN)((FLClosure*)fn.obj)->user_global=1;return fn;
+}
+
+static int is_tail(FLValue value){return value.tag==FL_MAP&&value.obj&&value.obj->type==FL_NATIVE_TAIL;}
+static FLValue run_tail(FLValue request,uint32_t limit){
+    if(fl_try_top>=FL_TRY_MAX){fl_throw(fl_str_val("try stack exhausted"));return fl_nil();}
+    volatile FLValue held=fl_heap_copy(request),answer=fl_nil();
+    void*volatile previous=NULL;volatile int active=0;
+    int saved=fl_try_top;FLTryFrame*frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)==0){
+        previous=fl_arena_scope_enter();active=1;
+        for(uint32_t iteration=1;;iteration++){
+            if(iteration>=limit)fl_throw(fl_str_val("Maximum tail-call depth exceeded"));
+            FLValue target=fl_map_get(held,fl_str_val("fn")),args=fl_map_get(held,fl_str_val("args"));
+            if(target.tag!=FL_FN||!target.obj||args.tag!=FL_VECTOR)fl_throw(fl_str_val("invalid tail call"));
+            FLClosure*cl=(FLClosure*)target.obj;
+            FLCallScope scope;fl_v11_function_enter(&scope,cl->user_global);
+            void*mark=fl_borrow_mark();
+            FLValue result=cl->call(cl,(int)((FLVector*)args.obj)->len,((FLVector*)args.obj)->data);
+            result=fl_borrow_finish(mark,result);fl_v11_scope_leave(&scope);
+            FLValue next=fl_heap_copy(result);
+            fl_heap_release(held);held=next;
+            if(!is_tail(next))break;
+            fl_arena_end();fl_arena_begin();
+        }
+        fl_try_top=saved;fl_arena_scope_leave(previous);active=0;
+        answer=fl_arena_copy(held);fl_heap_release(held);
+        return answer;
+    }
+    answer=fl_heap_copy(frame->err);fl_try_top=saved;
+    if(active)fl_arena_scope_leave(previous);
+    fl_heap_release(held);
+    FLValue error=fl_arena_copy(answer);fl_heap_release(answer);
+    fl_throw(error);return fl_nil();
+}
+
 FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv) {
     if (fn.tag != FL_FN || !fn.obj) { fl_throw(fl_str_val("not a function")); return fl_nil(); }
     FLClosure* cl = (FLClosure*)fn.obj;
+    FLCallScope scope;fl_v11_function_enter(&scope,cl->user_global);
     void*mark=fl_borrow_mark();FLValue result=cl->call(cl, argc, argv);
-    return fl_borrow_finish(mark,result);
+    result=fl_borrow_finish(mark,result);
+    if(is_tail(result))result=run_tail(result,cl->user_global?2000000:1000000);
+    fl_v11_scope_leave(&scope);return result;
 }
 
 /* ── S8: 고차함수 ── */
