@@ -1,0 +1,9 @@
+DIRECT_CALL=PASS
+Uncaught error (line 1): CALL_CONTEXT_ASSERT NESTED_CALL=PASS expected=[leaf] boom actual=boom
+Stack trace:
+  at __fl_binding_7 (line 72)
+  at __fl_binding_11 (line 77)
+  at __fl_binding_12 (line 82)
+  at __fl_binding_11 (line 77)
+CALL_CONTEXT_BEFORE_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
