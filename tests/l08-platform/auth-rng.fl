@@ -1,0 +1,5 @@
+(defn check [a b] (if (= a b) true (throw (str "expected=" b " actual=" a))))
+(check (auth_random_token 0) "")
+(check (try (do (auth_random_token) false) (catch [e] (str_includes (error_message e) "random"))) true)
+(check (try (do (auth_hash_password "public-test-input") false) (catch [e] (str_includes (error_message e) "random"))) true)
+(println "AUTH_RNG_FAILURE_PASS")

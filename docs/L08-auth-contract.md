@@ -14,3 +14,15 @@ v11 기준은 `b49cc9194a00649b8cf58e1d6e8ee38ffce770d4`의 `src/stdlib-auth.ts`
 ## 다음 작업
 
 독립된 source/RFC 또는 native 도구 기반 합성 fixture와 실패 `.fl`·기대 출력을 먼저 고정한다. 그 뒤 native 바인딩과 자체 시험을 구현한다. 새 TS/JS/Python·fl-build.sh·Node 실행, 운영 계정·비밀 값 사용은 금지한다. 이 문서는 아직 C13 구현·시험 통과 보고가 아니다. JWT·API key 등 앱에서 쓰지 않는 별도 함수로 범위를 넓혀 완료 기준을 바꾸지 않는다.
+
+## 인증 자체 시험 정답 선행 고정
+
+정답은 v11 source와 [RFC 7914 §12](https://www.rfc-editor.org/rfc/rfc7914.html#section-12)의 공개 벡터에서 고정한다. RFC의 빈 password/salt이되 검증 key는 64바이트인 벡터, N=1024/r=8/p=16, N=16384/r=8/p=1을 사용한다. 생성 hash는 별도 C validator가 고정 파라미터로 다시 유도해 비교한다. 실제 운영 비밀번호·키·hash는 사용하지 않는다. 임시 CSRF key는 CSPRNG로 생성해 시험 소유 파일에만 보관하고 원문·strace 인자·보고에 출력하지 않는다.
+
+참조 [Node v20 scrypt source](https://github.com/nodejs/node/blob/v20.18.0/lib/internal/crypto/scrypt.js)에서 default maxmem=32 MiB, 0인 N/r/p가 default로 치환됨을 읽었다. [random source](https://github.com/nodejs/node/blob/v20.18.0/lib/internal/crypto/random.js)는 숫자 범위 확인 후 uint32 변환하므로 양의 소수 byte 수를 버림한다. native random_token은 이를 재현하며 별도 resource 상한을 문서화한다. Node를 실행하지 않았으며 이 source 참조가 실제 과거 v11 실행기의 Node 버전 확인이라는 뜻은 아니다.
+
+CSRF는 시험용 clock interpose로 boundary 3600초, expired 3601초, future 1초, parseInt prefix·space를 검증하고 별도로 실제 clock에서도 시험한다. CSPRNG 실패도 별도 interpose로 주입한다. Bearer nullish 우선순위·대소문자, random byte 기본값/소수/범위, rehash 접두사 정책, 생성 salt/key 크기를 `.fl`에서 검사한다.
+
+## 사용자 결정 대기: 빈 검증 key
+
+v11 verify는 decoded expected.length를 그대로 scryptSync keylen에 넘기며 참조 Node C++ source는 0을 허용한다. 따라서 빈 검증 key와 일반적인 손상 거부 요구가 충돌한다. 사용자에게 빈 key 거부를 호환 예외로 둘지 원문 동작을 보존할지 질문했다. 답변 전에는 이 분기를 임의로 확정하거나 auth_verify_password 전체 완료를 보고하지 않는다. 다른 인증 API와 정상 데이터 fixture는 계속 구현·검증한다. RFC의 빈 salt와 비어 있지 않은 key는 이 미결정 항목과 다르다.
