@@ -39,3 +39,9 @@ native random_token 상한은 1 MiB로 명시했다. source Node의 더 큰 모�
 부분 시험을 수행한 분리 checkout 구현 커밋은 `68e8628fccd7d113219d2461643c54fdef4f147f`다. 현재 작업 가지의 동일 소스 구현 커밋은 `24b2759a9814c1886296098c4fa97c4079e0aaa4`다. 반영 직후 runtime/self/scripts와 인증 시험 입력의 Git diff가 비어 있음을 확인했다(`AUTH_TESTED_SOURCE_EQ_BRANCH=PASS`).
 
 전체 드라이버에 이 부분 자체 시험을 포함했다. 드라이버의 AUTH_PARTIAL 단계가 0이어도 **auth_verify_password는 미구현·미실행이며 C13 전체 완료가 아니다.** 이후 HTTP 구현과 운영 로그인 검증도 별도로 필요하다.
+
+## 부분 인증 변경의 전체 회귀 확정
+
+시험 대상 `6c53630309126d553c1eb60c67b2b8db3f4e7c21`의 전체 실행은 `AUTH_PARTIAL_PLATFORM_FULL_EXIT=0`으로 끝났다. 자체 `5`, fd basic `11`·extended `11`, JSON `13`, 인증 부분 `5`, L08 3차 `11`·2차 `11`·1차 `17`, HTTP `7`, L06 HTTP/TLS 각각 `110`, L07 `221` 통과다. 해당 묶음의 실패 수는 `0`이다. `BOOTSTRAP_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`을 확인했다. stage2와 stage3 SHA는 `66d1ff3f63de632194c7a858cdf8150ecff0528d711d5eeb39adb2da09ecc3b7`이다.
+
+명령은 `CPATH=<가림> LIBRARY_PATH=<가림> L08_PLATFORM_OUT=<가림> bash scripts/verify-l08-platform-all.sh`이며 하위 단계별 strace를 감사했다. [전체 출력 원문](evidence/l08-platform/auth-partial-full.txt). 이 실행에는 이후 C14 HTTP 변경이 포함되지 않는다. 비밀번호 검증 API·실제 블로그 로그인·앱 전체 실행은 여전히 미확인이다.
