@@ -13,6 +13,8 @@ if L08_TAIL_OUT="$out/tail" L08_TAIL_NATIVE_COMPILER="$out/self/compiler" L08_TA
 cat "$out/tail.log";printf 'TAIL_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_EXTERN_OUT="$out/extern" L08_EXTERN_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/extern.execve.log" bash "$ROOT/scripts/verify-l08-extern-self.sh" > "$out/extern.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/extern.log";printf 'EXTERN_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_ATOM_UPDATE_OUT="$out/atom-update" L08_ATOM_UPDATE_COMPILER="$out/self/compiler" L08_ATOM_UPDATE_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/atom-update.execve.log" bash "$ROOT/scripts/verify-l08-atom-update.sh" > "$out/atom-update.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/atom-update.log";printf 'ATOM_UPDATE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 for phase in timer tcp fd-basic fd-extended json auth http feed http-client;do
  case "$phase" in
   timer) setting=L08_TIMER_OUT;script=verify-l08-timer-self.sh;tag=TIMER_PARTIAL;;

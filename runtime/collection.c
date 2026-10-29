@@ -566,15 +566,6 @@ FLValue fl_function_alias(FLValue name) {
     for(uint32_t i=0;i<s->len;i++)if(copy[i]==(underscore?'_':'-'))copy[i]=underscore?'-':'_';
     FLValue result=fl_str_val(copy);free(copy);return result;
 }
-/* swap! uses the same callable path for named functions and lambdas. */
-FLValue fl_swap_args(FLValue atom,FLValue fn,FLValue extra) {
-    FLVector *v=(FLVector*)extra.obj;
-    FLValue *args=malloc(sizeof(*args)*(v->len+1));
-    if(!args) fl_throw(fl_str_val("swap!: allocation failed"));
-    args[0]=fl_atom_deref(atom);
-    if(v->len)memcpy(args+1,v->data,v->len*sizeof(*args));
-    return fl_atom_reset(atom,fl_call_owned_argv(fn,v->len+1,args));
-}
 FLValue fl_call_owned_argv(FLValue fn,int argc,FLValue *args) {
     /* Preserve native catch state while releasing temporary argv on throw. */
     if(fl_try_top>=FL_TRY_MAX){free(args);fl_throw(fl_str_val("swap!: try stack overflow"));return fl_nil();}

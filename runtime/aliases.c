@@ -368,9 +368,7 @@ FLValue vec_min(FLValue vec) {
 FLValue atom(FLValue v)             { return fl_atom_new(v); }
 FLValue deref(FLValue a)            { return fl_deref(a); }  /* atom + future 모두 처리 */
 FLValue swap_bang(FLValue a, FLValue fn) {
-    FLValue cur = fl_atom_deref(a);
-    FLValue next = fl_fn_call(fn, 1, &cur);
-    return fl_atom_reset(a, next);
+    return fl_swap_args(a,fn,fl_vec_new());
 }
 FLValue reset_bang(FLValue a, FLValue v) { return fl_atom_reset(a, v); }
 
