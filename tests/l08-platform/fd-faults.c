@@ -37,7 +37,9 @@ int fsync(int fd){
 int close(int fd){
  int(*real)(int)=dlsym(RTLD_NEXT,"close");
  if(target(fd)&&!close_count++&&(mode("close-eintr")||mode("close-eio"))){
-  active();if(real(fd))_exit(91);guard=open("/dev/null",O_RDONLY);if(guard!=fd)_exit(92);
+  active();if(real(fd))_exit(91);guard=open("/dev/null",O_RDONLY);if(guard<0)_exit(92);
+  /* Another lower descriptor can be free; force reuse of the tested number. */
+  if(guard!=fd){if(dup2(guard,fd)!=fd)_exit(92);real(guard);guard=fd;}
   errno=mode("close-eintr")?EINTR:EIO;return-1;
  }
  return real(fd);

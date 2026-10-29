@@ -32,3 +32,7 @@ C12 JSON·기존 WAL checksum 검증, db95의 잘린 끝·추가/삭제 반복 �
 공개 `.fl`을 통한 write 부분 진행/EINTR·write 0, fsync EINTR/EIO, read EINTR/짧은 read, close EINTR/EIO의 8개 모드는 `L08_FD_FAULT_PASS=8 FAIL=0`, `FD_FAULT_SELF_EXIT=0`으로 통과했다. close 두 모드 모두 `FD_REUSE_GUARD=PASS`이며 실패가 성공으로 표시되지 않았다.
 
 추가 경계 시험 26개와 base symlink 시험은 통과했다. 실제 스레드 8개가 barrier에서 만난 뒤 공유 handle에 800개 레코드를 쓰는 시험의 고정 출력 6개도 일치했다. 최초 확장 드라이버는 C 보조기의 count 이름 충돌과 강제 include가 GNU feature macro보다 먼저 처리된 빌드 문제로 종료 코드 1이었다. 보조기 이름·시험 빌드 플래그만 수정했고 언어 구현·기대 출력은 바꾸지 않았다. 수정한 전체 확장 드라이버는 최신 전체 검증에서 다시 실행하며 그 결과가 확정되기 전에는 확장 드라이버 전체 통과라고 쓰지 않는다. 실제 db95 재생·운영 WAL 호환은 여전히 별도 미확인이다.
+
+### 파일 번호 재사용 보조기의 재현성 수정
+
+최신 전체 실행은 close EINTR/EIO 보조기에서 각각 92로 종료돼 `L08_FD_FAULT_PASS=6 FAIL=2`, `JSON_PLATFORM_FULL_EXIT=1`로 실패했다. `/dev/null` open이 방금 닫은 번호보다 더 낮은 빈 번호를 받을 수 있는데 보조기가 이를 실패로 간주한 것이 원인이다. dup2로 시험할 번호를 명시적으로 재사용하도록 보조기만 수정했으며 API 구현과 기대 출력은 유지했다. 두 모드를 각각 5회 재검사해 모두 종료 코드 0·FD_REUSE_GUARD PASS였고 `dup2(3, 4) = 4`를 실제 추적했다. [실패 원문](evidence/l08-platform/fd-close-reuse-fixture-before.txt), [수정 후 원문](evidence/l08-platform/fd-close-reuse-fixture-after.txt). 전체 드라이버는 이 수정 이후 새로 실행해야 한다.
