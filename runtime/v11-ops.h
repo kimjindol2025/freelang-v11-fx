@@ -14,5 +14,6 @@ static const char *const v11_ops[] = {
 "json-parse","json-str","json-stringify","auth-sha256",
 "auth-bearer-extract","auth-password-needs-rehash","auth-random-token","auth-hash-password","auth-csrf-token","auth-csrf-verify",
 "server-use","server-static","server-body-limit","server-header","server-set-cookie","server-redirect-cookie","server-req-cookie","server-req-json","server-req-header","server-req-query","server-json","server-html","server-text","server-status","server-redirect",
+"rss-feed","sitemap-xml",
 "regex_match","regex_match_i","regex_find","regex_find_all","regex_replace","regex_replace_first","regex_split",
 "file_read","file_write","file_append","file_copy","file_delete","file_exists","file_is_file","file_size","dir_create","dir_list",NULL};
