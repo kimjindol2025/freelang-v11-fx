@@ -58,3 +58,5 @@ runtime `166ef374bb8417f7cd2227f23e3b98de47fe0f84`와 승인된 source-only 복�
 - 전체 회귀·L06/L07·verify-native-bootstrap.sh는 위 변경과 정정한 정답을 포함한 고정 `166ef374bb8417f7cd2227f23e3b98de47fe0f84`에서 새로 실행 중이다. 이전 전체 실패를 통과로 바꾸지 않는다. native compiler 빌드 `0`과 전체 bootstrap 검증을 구분한다.
 - arena 밖 startup/process 전역 소유권, 일반 LSan, 모든 OOM 주입, promise 등 opaque native 객체를 통하는 cycle, 포기한 future·반복/동시 대기·future 예외 전파, 다양한 큰 업로드의 arena cache·장시간 RSS는 남아 있다. 모든 누수·C20 전체 완료로 판정하지 않는다.
 - DB 동시 거래·WAL 일관성·복구·성능 목표, 실제 인증·브라우저 J안·이미지 처리·댓글·다중 작성자·나머지 PRD·운영 자료 호환·백업/복구 검증은 남아 있다. 서버 23·25 접속·운영 자료 변경·백업 삭제·합치기·배포는 하지 않았다.
+
+이후 요청 arena cache 보존량·fallback 정리·overflow를 보완하고 실제 업로드·저장소·앱 회귀를 확인했다. 별도 DB 8-worker 시험에서는 성공 반환 8개에도 live 20건과 재생 32건의 불일치를 새로 재현했으며 아직 수정하지 않았다. [후속 cache·DB 원문과 범위](L08-arena-cache-progress.md). 개별 수명 시험 성공을 DB 동시성 완료로 확대하지 않는다.
