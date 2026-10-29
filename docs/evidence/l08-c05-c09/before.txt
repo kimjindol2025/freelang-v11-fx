@@ -1,0 +1,224 @@
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:3:16: error: too few arguments to function ‘str_slice’
+In file included from <가림>:1:
+<가림>:482:9: note: declared here
+  482 | FLValue str_slice(FLValue s, FLValue start, FLValue end);
+      |         ^~~~~~~~~
+<fl>:4:16: error: too few arguments to function ‘str_slice’
+<가림>:482:9: note: declared here
+  482 | FLValue str_slice(FLValue s, FLValue start, FLValue end);
+      |         ^~~~~~~~~
+<fl>:5:16: error: implicit declaration of function ‘str_find’ [-Wimplicit-function-declaration]
+<fl>:5:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:6:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:7:16: error: implicit declaration of function ‘str_starts’; did you mean ‘str_test’? [-Wimplicit-function-declaration]
+<fl>:7:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:8:16: error: implicit declaration of function ‘str_ends’; did you mean ‘str_indent’? [-Wimplicit-function-declaration]
+<fl>:8:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:9:16: error: implicit declaration of function ‘str_lines’; did you mean ‘str_slice’? [-Wimplicit-function-declaration]
+<fl>:9:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:10:16: error: too many arguments to function ‘str_split’
+<가림>:437:9: note: declared here
+  437 | FLValue str_split(FLValue s, FLValue sep);
+      |         ^~~~~~~~~
+<fl>:13:16: error: implicit declaration of function ‘str_encode_uri’ [-Wimplicit-function-declaration]
+<fl>:13:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:14:16: error: implicit declaration of function ‘str_decode_uri’ [-Wimplicit-function-declaration]
+<fl>:14:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:20:25: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:28:21: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:21:25: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:29:21: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+strings_BUILD_EXIT=1
+FAIL strings
+6
+7
+��
+끝
+STRAßEﬃ
+İΟΣ
+ΟΣΑ
+ 　한글　 
+&amp;&lt;&gt;&quot;&#39;한글
+&amp;amp;
+0
+nil
+unicode_PROGRAM_EXIT=0
+--- <가림>	2026-10-29 09:19:18.606980277 +0900
++++ <가림>	2026-10-29 09:20:17.775243611 +0900
+@@ -1,12 +1,12 @@
+-2
+-3
+-😀
++6
++7
++��
+ 끝
+-STRASSEFFI
+-i̇ος
+-οσα
+-한글
+-&amp;&lt;&gt;&quot;&#x27;한글
++STRAßEﬃ
++İΟΣ
++ΟΣΑ
++ 　한글　 
++&amp;&lt;&gt;&quot;&#39;한글
+ &amp;amp;
+ 0
+-
++nil
+FAIL unicode
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:11:16: error: implicit declaration of function ‘str_find’ [-Wimplicit-function-declaration]
+<fl>:11:16: error: incompatible type for argument 1 of ‘fl_println’
+In file included from <가림>:1:
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+bytes_BUILD_EXIT=1
+FAIL bytes
+12
+false
+false
+0
+16
+false
+99
+99
+9
+1e-07
+1
+-0
+4.94066e-324
+1.79769e+308
+1
+Uncaught error: TypeError: / (div) — number 필요, nil 제공
+numbers_PROGRAM_EXIT=1
+FAIL numbers
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:3:16: error: implicit declaration of function ‘arr_flatten’; did you mean ‘flatten’? [-Wimplicit-function-declaration]
+<fl>:3:16: error: incompatible type for argument 1 of ‘fl_println’
+In file included from <가림>:1:
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:4:16: error: implicit declaration of function ‘arr_unique’ [-Wimplicit-function-declaration]
+<fl>:4:16: error: incompatible type for argument 1 of ‘fl_println’
+<가림>:125:28: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_println(FLValue v);
+      |                    ~~~~~~~~^
+<fl>:6:59: error: implicit declaration of function ‘arr_sort_by’; did you mean ‘fl_sort_by’? [-Wimplicit-function-declaration]
+<fl>:6:59: error: incompatible type for argument 2 of ‘fl_map_fn’
+<가림>:183:39: note: expected ‘FLValue’ but argument is of type ‘int’
+  183 | FLValue fl_map_fn(FLValue fn, FLValue vec);
+      |                               ~~~~~~~~^~~
+<fl>:7:59: error: implicit declaration of function ‘arr_sort_by_desc’ [-Wimplicit-function-declaration]
+<fl>:7:59: error: incompatible type for argument 2 of ‘fl_map_fn’
+<가림>:183:39: note: expected ‘FLValue’ but argument is of type ‘int’
+  183 | FLValue fl_map_fn(FLValue fn, FLValue vec);
+      |                               ~~~~~~~~^~~
+arrays_BUILD_EXIT=1
+FAIL arrays
+99
+[]
+false
+wrong
+true
+1
+false
+1
+false
+true
+false
+true
+true
+false
+true
+6
+12502500
+core_PROGRAM_EXIT=0
+--- <가림>	2026-10-29 09:19:18.622980619 +0900
++++ <가림>	2026-10-29 09:20:55.890057422 +0900
+@@ -1,16 +1,16 @@
+-0
++99
+ []
+-0
+-empty
+-true
+-0
+ false
+-0
+-true
++wrong
+ true
++1
++false
++1
++false
+ true
+ false
+ true
++true
+ false
+ true
+ 6
+FAIL core
+x1y
+nil
+[1, nil, ["한글", true]]
+[1, nil, "x"]
+{"0.1": 0.1}
+ab!
+output_PROGRAM_EXIT=0
+--- <가림>	2026-10-29 09:19:18.627980726 +0900
++++ <가림>	2026-10-29 09:21:05.782268636 +0900
+@@ -1,6 +1,6 @@
+-x 1 y
+-null
+-[1, null, ["한글", true]]
+-[1,null,"x"]
+-{"0.1":0.1}
+-a b!
++x1y
++nil
++[1, nil, ["한글", true]]
++[1, nil, "x"]
++{"0.1": 0.1}
++ab!
+FAIL output
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:1:44: error: ‘e_7’ undeclared (first use in this function)
+<fl>:1:44: note: each undeclared identifier is reported only once for each function it appears in
+<fl>:2:39: error: ‘e21’ undeclared (first use in this function)
+literals_BUILD_EXIT=1
+FAIL literals
+RAW_L07_BYTES=FAIL
+L08_P2_PASS=0 FAIL=9
+EXIT=1
