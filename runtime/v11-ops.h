@@ -7,4 +7,7 @@ static const char *const v11_ops[] = {
 "str-trim","str-upper","str-lower","str-to-upper","str-to-lower","str-encode-uri","str-decode-uri","html-escape",
 "arr-flatten","arr-unique","arr-sort-by","arr-sort-by-desc","append","conj","concat","obj-merge","merge",
 "assoc","dissoc","keys","vals","first","last","rest","take","drop","reverse","range","flatten-1",
-"map","filter","reduce","any?","every?","integer?","float?","type-of",NULL};
+"map","filter","reduce","any?","every?","integer?","float?","type-of",
+"date-parse","now-ms","format-date",
+"regex_match","regex_match_i","regex_find","regex_find_all","regex_replace","regex_replace_first","regex_split",
+"file_read","file_write","file_append","file_copy","file_delete","file_exists","file_is_file","file_size","dir_create","dir_list",NULL};

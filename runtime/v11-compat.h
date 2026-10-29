@@ -658,8 +658,10 @@ static int t_compare(FLValue a,FLValue b){
 
 static void t_op_name(FLValue name,char out[80]){
     const char*p=name.tag==FL_STRING?((FLString*)name.obj)->data:"";
+    /* v11 text/regex modules coexist with the existing kebab-case native APIs. */
+    int exact=!strncmp(p,"file_",5)||!strncmp(p,"dir_",4)||!strncmp(p,"regex_",6);
     size_t i=0;
-    for(;p[i]&&i<79;i++)out[i]=p[i]=='_'?'-':p[i];
+    for(;p[i]&&i<79;i++)out[i]=!exact&&p[i]=='_'?'-':p[i];
     out[i]=0;
 }
 
@@ -722,6 +724,9 @@ static FLValue t_replace_all(FLValue input,FLValue pattern,FLValue replacement){
     return value;
 }
 
+#include "v11-time.h"
+#include "v11-regex.h"
+
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];
     t_op_name(name,op);
@@ -730,6 +735,17 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     FLValue*a=av->data;
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
+    if(IS("date-parse")||IS("format-date")||IS("now-ms"))return v11_time(op,argv);
+    if(!strncmp(op,"regex_",6))return v11_regex(op,argv);
+    if(!strncmp(op,"file_",5)||!strncmp(op,"dir_",4)){
+        if((IS("file_write")||IS("file_append"))&&n>1&&a[1].tag==FL_STRING){
+            TUnits text=t_units(a[1]);TBuffer bytes={0};t_encode(&bytes,text.p,text.n,1);free(text.p);
+            FLValue args[2]={ARG(0),t_finish(&bytes)};
+            return fl_v11_file(fl_str_val(op),fl_vec_from(args,2));
+        }
+        FLValue result=fl_v11_file(fl_str_val(op),argv);
+        return IS("file_read")?t_text(result):result;
+    }
     if(IS("length")||IS("count")||IS("str-length")){
         FLValue v=ARG(0);
         if(v.tag==FL_STRING){
