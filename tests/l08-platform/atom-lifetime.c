@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 static pthread_mutex_t meter_lock=PTHREAD_MUTEX_INITIALIZER;
 static pthread_barrier_t barrier;
 static void *objects[65536];
@@ -16,14 +17,15 @@ FLValue __wrap_fl_atom_new(FLValue init){
  if(value.tag!=FL_VECTOR)return value;
  pthread_mutex_lock(&meter_lock);
  if(enabled){
-  size_t i;for(i=0;i<65536&&objects[i];i++){}
+  size_t bucket=((uintptr_t)value.obj>>4)&65535,i;
+  for(i=0;i<65536;i++){size_t slot=(bucket+i)&65535;if(!objects[slot]||objects[slot]==(void*)1){objects[slot]=value.obj;break;}}
   if(i==65536){pthread_mutex_unlock(&meter_lock);fputs("atom meter capacity exceeded\n",stderr);abort();}
-  objects[i]=value.obj;live++;created++;
+  live++;created++;
  }
  pthread_mutex_unlock(&meter_lock);return value;
 }
 void __wrap_free(void *pointer){
- if(pointer){pthread_mutex_lock(&meter_lock);if(enabled)for(size_t i=0;i<65536;i++)if(objects[i]==pointer){objects[i]=NULL;live--;break;}pthread_mutex_unlock(&meter_lock);}
+ if(pointer){pthread_mutex_lock(&meter_lock);if(enabled){size_t bucket=((uintptr_t)pointer>>4)&65535;for(size_t i=0;i<65536;i++){size_t slot=(bucket+i)&65535;if(!objects[slot])break;if(objects[slot]==pointer){objects[slot]=(void*)1;live--;break;}}}pthread_mutex_unlock(&meter_lock);}
  __real_free(pointer);
 }
 FLValue atom_meter_start(void){pthread_mutex_lock(&meter_lock);enabled=1;pthread_mutex_unlock(&meter_lock);return fl_nil();}
