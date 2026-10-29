@@ -737,6 +737,15 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     FLValue*a=av->data;
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
+    if(!strncmp(op,"fd-",3)){
+        FLValue args=argv;
+        if(IS("fd-write")&&ARG(1).tag==FL_STRING){
+            TUnits text=t_units(ARG(1));TBuffer bytes={0};t_encode(&bytes,text.p,text.n,1);free(text.p);
+            FLValue encoded[2]={ARG(0),t_finish(&bytes)};args=fl_vec_from(encoded,2);
+        }
+        FLValue result=fl_v11_fd(fl_str_val(op),args);
+        return IS("fd-read")?t_text(result):result;
+    }
     if(IS("env-get")||IS("env-or")){
         FLValue key=t_js_string(ARG(0));
         const char *value=getenv(((FLString*)key.obj)->data);

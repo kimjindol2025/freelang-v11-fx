@@ -10,5 +10,6 @@ static const char *const v11_ops[] = {
 "map","filter","reduce","any?","every?","integer?","float?","type-of",
 "date-parse","now-ms","format-date",
 "env-get","env-or","error-message","process-exit","uuid-short",
+"fd-open","fd-write","fd-read","fd-fsync","fd-close","fd-seek","fd-flush",
 "regex_match","regex_match_i","regex_find","regex_find_all","regex_replace","regex_replace_first","regex_split",
 "file_read","file_write","file_append","file_copy","file_delete","file_exists","file_is_file","file_size","dir_create","dir_list",NULL};

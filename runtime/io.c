@@ -330,3 +330,4 @@ FLValue str_join(FLValue sep, FLValue vec) {
 #include <sys/wait.h>
 
 #include "v11-file.h"
+#include "v11-fd.h"
