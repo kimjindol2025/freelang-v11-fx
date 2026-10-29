@@ -1,0 +1,1 @@
+(println (json_str (http_get (str (get (cli-args) 0) "/raw"))))
