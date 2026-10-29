@@ -33,6 +33,19 @@
    청크 크기: 64KB (L2 캐시에 맞게)
 */
 #define ARENA_CHUNK_SIZE (64 * 1024)
+#define FL_HEAP_RC UINT32_C(0x80000000)
+typedef struct BorrowPin {FLValue value;struct BorrowPin*next;} BorrowPin;
+static __thread BorrowPin*borrow_pins;
+void*fl_borrow_mark(void){return borrow_pins;}
+void fl_borrow_release_to(void*mark){while(borrow_pins&&(void*)borrow_pins!=mark){BorrowPin*pin=borrow_pins;borrow_pins=pin->next;fl_heap_release(pin->value);free(pin);}}
+/* Takes the reference retained while the atom lock was held. */
+FLValue fl_borrow_take(FLValue value){
+    if(value.tag<FL_STRING||!value.obj)return value;
+    if(value.tag==FL_VECTOR&&__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)==0xFF)return value;
+    BorrowPin*pin=malloc(sizeof(*pin));
+    if(!pin){fl_heap_release(value);fl_throw(fl_str_val("snapshot pin allocation failed"));return fl_nil();}
+    pin->value=value;pin->next=borrow_pins;borrow_pins=pin;return value;
+}
 
 typedef struct ArenaChunk {
     struct ArenaChunk* next;
@@ -47,12 +60,14 @@ typedef struct {
     size_t      total_alloc; /* 디버그: 총 할당량 */
     size_t      total_free;  /* 디버그: 총 해제량 */
     struct ArenaCleanup* cleanups;
+    void* borrow_mark;
 } Arena;
 typedef struct ArenaCleanup {void (*call)(void*);void*value;struct ArenaCleanup*next;} ArenaCleanup;
 
 /* ── per-thread 아레나 ── */
 static __thread Arena* g_arena = NULL;
 static void arena_clean(Arena*arena){
+    if(arena)fl_borrow_release_to(arena->borrow_mark);
     while(arena&&arena->cleanups){ArenaCleanup*entry=arena->cleanups;arena->cleanups=entry->next;entry->call(entry->value);free(entry);}
 }
 int fl_arena_on_reset(void (*cleanup)(void*),void*value){
@@ -82,8 +97,10 @@ void fl_arena_begin(void) {
         g_arena->first = g_arena->head;
         g_arena->total_alloc = 0;
         g_arena->total_free  = 0;
+        g_arena->borrow_mark=fl_borrow_mark();
     } else {
         arena_clean(g_arena);
+        g_arena->borrow_mark=fl_borrow_mark();
         /* 아레나 재사용: 첫 청크로 리셋 */
         g_arena->head = g_arena->first;
         ArenaChunk* c = g_arena->first;
@@ -136,7 +153,7 @@ void*fl_arena_scope_enter(void){
     if(!current){fl_throw(fl_str_val("arena allocation failed"));return NULL;}
     current->first=current->head=arena_new_chunk(0);
     if(!current->head){free(current);fl_throw(fl_str_val("arena allocation failed"));return NULL;}
-    g_arena=current;return previous;
+    current->borrow_mark=fl_borrow_mark();g_arena=current;return previous;
 }
 void fl_arena_scope_leave(void*previous){
     Arena*current=g_arena;arena_clean(current);
@@ -203,7 +220,8 @@ void fl_perm_cleanup(void) {
  *
  * FLObject.rc 필드를 활용:
  *   rc == 0    → heap에 없음 (arena 객체 또는 임시값)
- *   rc == 1..N → heap 객체, N개 참조
+ *   rc high bit → heap snapshot, lower bits count references
+ *   rc == 1..N → legacy owned closure 또는 arena 객체
  *   rc == 0xFF → 고정 (절대 해제 안 함, DB 연결 등)
  */
 
@@ -219,7 +237,7 @@ FLValue fl_heap_copy(FLValue v) {
         FLString* dst = (FLString*)malloc(sizeof(FLString) + src->len + 1);
         if (!dst) return fl_nil();
         dst->base.type = src->base.type;
-        dst->base.rc   = 1;
+        dst->base.rc   = FL_HEAP_RC|1;
         dst->len = src->len;
         memcpy(dst->data, src->data, src->len + 1);
         FLValue r; r.tag = FL_STRING; r.obj = (FLObject*)dst;
@@ -227,12 +245,12 @@ FLValue fl_heap_copy(FLValue v) {
     }
 
     case FL_VECTOR: {
-        if(v.obj->rc==0xFF)return v; /* Atoms keep their shared identity. */
+        if(__atomic_load_n(&v.obj->rc,__ATOMIC_RELAXED)==0xFF)return v; /* Atoms keep their shared identity. */
         FLVector* src = (FLVector*)v.obj;
         FLVector* dst = (FLVector*)malloc(sizeof(FLVector));
         if (!dst) return fl_nil();
         dst->base.type = FL_VECTOR;
-        dst->base.rc   = 1;
+        dst->base.rc   = FL_HEAP_RC|1;
         dst->len = src->len;
         dst->cap = src->len;  /* 딱 맞게 */
         dst->data = src->len > 0
@@ -249,7 +267,7 @@ FLValue fl_heap_copy(FLValue v) {
         FLMap* dst = (FLMap*)malloc(sizeof(FLMap));
         if (!dst) return fl_nil();
         dst->base.type = src->base.type;
-        dst->base.rc   = 1;
+        dst->base.rc   = FL_HEAP_RC|1;
         dst->len = src->len;
         dst->cap = src->len;
         dst->entries = src->len > 0
@@ -279,8 +297,9 @@ FLValue fl_heap_copy(FLValue v) {
 void fl_heap_retain(FLValue v) {
     if (v.tag < FL_STRING || !v.obj) return;
     if(v.obj->type==FL_OWNED_FN||v.obj->type==FL_NATIVE_PROMISE){__atomic_add_fetch(&v.obj->rc,1,__ATOMIC_RELAXED);return;}
-    if (v.obj->rc == 0 || v.obj->rc == 0xFF) return;
-    v.obj->rc++;
+    uint32_t rc=__atomic_load_n(&v.obj->rc,__ATOMIC_RELAXED);
+    if(rc==0||rc==0xFF)return;
+    __atomic_add_fetch(&v.obj->rc,1,__ATOMIC_RELAXED);
 }
 
 /* RC-- → 0이면 재귀 해제 */
@@ -291,8 +310,10 @@ void fl_heap_release(FLValue v) {
         if(v.obj->type==FL_NATIVE_PROMISE){fl_schedule_promise_destroy(v);return;}
         FLClosure*cl=(FLClosure*)v.obj;for(uint32_t i=0;i<cl->nenv;i++)fl_heap_release(cl->env[i]);free(cl);return;
     }
-    if (v.obj->rc == 0 || v.obj->rc == 0xFF) return;
-    if (--v.obj->rc > 0) return;
+    uint32_t rc=__atomic_load_n(&v.obj->rc,__ATOMIC_RELAXED);
+    if(rc==0||rc==0xFF)return;
+    uint32_t before=__atomic_fetch_sub(&v.obj->rc,1,__ATOMIC_ACQ_REL);
+    if(before!=(rc&FL_HEAP_RC?FL_HEAP_RC|1:1))return;
 
     /* RC = 0 → 해제 */
     switch (v.tag) {
@@ -322,6 +343,62 @@ void fl_heap_release(FLValue v) {
         break;
     default: break;
     }
+}
+
+static void snapshot_owned_cleanup(void*pointer) {
+    FLObject*object=pointer;
+    FLValue value={.tag=object->type==FL_OWNED_FN?FL_FN:FL_MAP,.obj=object};
+    fl_heap_release(value);
+}
+
+/* A returned child may outlive the pinned atom root that contains it. */
+static FLValue snapshot_copy(FLValue value) {
+    if(value.tag<FL_STRING||!value.obj)return value;
+    if(value.tag==FL_VECTOR&&__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)==0xFF)return value;
+    if(value.tag==FL_FN||value.obj->type==FL_NATIVE_PROMISE){
+        FLValue owned=fl_heap_copy(value);
+        if(!owned.obj){fl_throw(fl_str_val("snapshot allocation failed"));return fl_nil();}
+        if(fl_arena_on_reset(snapshot_owned_cleanup,owned.obj)<0){
+            fl_heap_release(owned);fl_throw(fl_str_val("snapshot cleanup allocation failed"));return fl_nil();
+        }
+        return owned;
+    }
+    if(value.tag==FL_STRING){
+        FLString*src=(FLString*)value.obj;
+        FLString*dst=fl_arena_alloc(sizeof(*dst)+src->len+1);
+        if(!dst){fl_throw(fl_str_val("snapshot allocation failed"));return fl_nil();}
+        dst->base=(FLObject){.type=src->base.type,.rc=0};dst->len=src->len;
+        memcpy(dst->data,src->data,src->len+1);
+        return (FLValue){.tag=FL_STRING,.obj=(FLObject*)dst};
+    }
+    if(value.tag==FL_VECTOR){
+        FLVector*src=(FLVector*)value.obj;
+        FLVector*dst=fl_arena_alloc(sizeof(*dst));
+        FLValue*data=src->len?fl_arena_alloc(src->len*sizeof(*data)):NULL;
+        if(!dst||(src->len&&!data)){fl_throw(fl_str_val("snapshot allocation failed"));return fl_nil();}
+        dst->base=(FLObject){.type=src->base.type,.rc=0};dst->len=dst->cap=src->len;dst->data=data;
+        for(uint32_t i=0;i<src->len;i++)data[i]=snapshot_copy(src->data[i]);
+        return (FLValue){.tag=FL_VECTOR,.obj=(FLObject*)dst};
+    }
+    if(value.tag==FL_MAP){
+        FLMap*src=(FLMap*)value.obj;
+        FLMap*dst=fl_arena_alloc(sizeof(*dst));
+        FLMapEntry*entries=src->len?fl_arena_alloc(src->len*sizeof(*entries)):NULL;
+        if(!dst||(src->len&&!entries)){fl_throw(fl_str_val("snapshot allocation failed"));return fl_nil();}
+        dst->base=(FLObject){.type=src->base.type,.rc=0};dst->len=dst->cap=src->len;dst->entries=entries;
+        for(uint32_t i=0;i<src->len;i++){
+            entries[i].key=snapshot_copy(src->entries[i].key);
+            entries[i].val=snapshot_copy(src->entries[i].val);
+        }
+        return (FLValue){.tag=FL_MAP,.obj=(FLObject*)dst};
+    }
+    return value;
+}
+
+FLValue fl_borrow_finish(void*mark,FLValue result) {
+    if(borrow_pins!=(BorrowPin*)mark)result=snapshot_copy(result);
+    fl_borrow_release_to(mark);
+    return result;
 }
 
 /* ── 메모리 사용량 통계 ── */

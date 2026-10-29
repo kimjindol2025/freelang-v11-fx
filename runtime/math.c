@@ -4,6 +4,11 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <pthread.h>
+static pthread_mutex_t atom_locks[64];
+static pthread_once_t atom_locks_once=PTHREAD_ONCE_INIT;
+static void init_atom_locks(void){for(int i=0;i<64;i++)pthread_mutex_init(&atom_locks[i],NULL);}
+static pthread_mutex_t*atom_lock(FLValue atom){pthread_once(&atom_locks_once,init_atom_locks);return &atom_locks[((uintptr_t)atom.obj>>4)%64];}
 
 FLValue fl_floor(FLValue x) { return x.tag==FL_FLOAT ? fl_float(floor(x.f)) : x; }
 FLValue fl_ceil(FLValue x)  { return x.tag==FL_FLOAT ? fl_float(ceil(x.f))  : x; }
@@ -208,17 +213,22 @@ FLValue fl_atom_new(FLValue init) {
 }
 
 FLValue fl_atom_deref(FLValue atom) {
-    if (atom.tag != FL_VECTOR) return fl_nil();
-    return ((FLVector*)atom.obj)->data[0];
+    if (atom.tag != FL_VECTOR || !atom.obj || !((FLVector*)atom.obj)->len) return fl_nil();
+    pthread_mutex_t*mutex=atom_lock(atom);pthread_mutex_lock(mutex);
+    FLValue value=((FLVector*)atom.obj)->data[0];fl_heap_retain(value);pthread_mutex_unlock(mutex);
+    return fl_borrow_take(value);
 }
 
 FLValue fl_atom_reset(FLValue atom, FLValue val) {
-    if (atom.tag != FL_VECTOR) return fl_nil();
+    if (atom.tag != FL_VECTOR || !atom.obj || !((FLVector*)atom.obj)->len) return fl_nil();
     FLVector* av = (FLVector*)atom.obj;
+    FLValue replacement=fl_heap_copy(val);
+    pthread_mutex_t*mutex=atom_lock(atom);pthread_mutex_lock(mutex);
     FLValue old = av->data[0];
-    av->data[0] = fl_heap_copy(val);   /* 새 값 heap 복사 */
+    av->data[0] = replacement;
+    pthread_mutex_unlock(mutex);
     fl_heap_release(old);              /* 이전 값 RC-- */
-    return av->data[0];
+    return val; /* v11 reset! returns the supplied value. */
 }
 
 FLValue fl_includes_item(FLValue vec, FLValue item) {

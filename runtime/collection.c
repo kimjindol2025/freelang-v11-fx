@@ -210,9 +210,10 @@ FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
 }
 
 FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv) {
-    if (fn.tag != FL_FN) { fl_throw(fl_str_val("not a function")); return fl_nil(); }
+    if (fn.tag != FL_FN || !fn.obj) { fl_throw(fl_str_val("not a function")); return fl_nil(); }
     FLClosure* cl = (FLClosure*)fn.obj;
-    return cl->call(cl, argc, argv);
+    void*mark=fl_borrow_mark();FLValue result=cl->call(cl, argc, argv);
+    return fl_borrow_finish(mark,result);
 }
 
 /* ── S8: 고차함수 ── */

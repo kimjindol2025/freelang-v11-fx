@@ -222,6 +222,10 @@ FLValue fl_html_escape(FLValue s);
 FLValue fl_heap_copy(FLValue v);
 void    fl_heap_retain(FLValue v);
 void    fl_heap_release(FLValue v);
+void*   fl_borrow_mark(void);
+FLValue fl_borrow_take(FLValue value);
+void    fl_borrow_release_to(void* mark);
+FLValue fl_borrow_finish(void* mark, FLValue result);
 
 FLValue range2(FLValue start, FLValue end);  /* 직접 C 호출용 */
 
