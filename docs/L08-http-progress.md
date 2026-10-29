@@ -33,3 +33,9 @@ DEBUG=2에서도 body는 byte count만, request/response path는 등록 route pa
 최신 C14 코드의 전체 회귀·L06 HTTP/TLS·L07·native bootstrap은 별도 실행으로 확인해야 한다. 이전 인증 코드의 전체 통과를 이 코드의 전체 통과로 대신하지 않는다. 원래 Node의 임의 regex route·비동기 Promise와 모든 incidental 동작의 일치를 주장하지 않는다. route 등록은 시작 전이라는 현재 앱 사용을 시험했으며 실행 중 동시 등록은 미확인이다.
 
 폼 body accessor의 v11/L06 차이는 C15에서 별도 계약 검증한다. 인증 verify 결정·나머지 언어 항목·전체 blog1 native 실행·실제 로그인·화면·댓글·다중 작성자·운영 데이터 호환·백업/복구는 남아 있다. C14 자체 통과를 블로그 완성으로 집계하지 않는다. 서버 23·25 접속·운영 데이터 변경·합치기·배포는 하지 않았다.
+
+## HTTP 코드 전체 회귀 확정
+
+고정 대상 `67303dc0bd2b9e9e8799425f4c706e8916782362`의 전체 실행이 `HTTP_PLATFORM_FULL_EXIT=0`으로 끝났다. HTTP 자체 `35`, fd basic·extended 각각 `11`, JSON `13`, 인증 부분 `5`, L08 3차 `11`·2차 `11`·1차 `17`, 이전 HTTP `7`, L06 HTTP/TLS 각각 `110`, L07 `221` 통과다. 해당 묶음의 실패 수는 `0`이며 `BOOTSTRAP_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. stage2/stage3 SHA는 `66d1ff3f63de632194c7a858cdf8150ecff0528d711d5eeb39adb2da09ecc3b7`이다.
+
+명령은 `CPATH=<가림> LIBRARY_PATH=<가림> L08_PLATFORM_OUT=<가림> bash scripts/verify-l08-platform-all.sh`이며 하위 단계별 strace를 감사했다. [전체 출력](evidence/l08-platform/http-full.txt). 뒤에 추가한 feed/client/timer 코드의 전체 통과로 확대하지 않는다. 실제 앱 실행·로그인·운영 데이터 호환과 나머지 PRD 요구사항은 별도다.
