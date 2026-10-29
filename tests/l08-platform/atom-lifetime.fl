@@ -15,6 +15,9 @@
                                   a (get (get box "items") 0) b (get (get box "items") 1)]
  (do (reset! a 9) (check (deref b) 9 "ATOM_CONTAINER_ALIAS=PASS")))))
 (check (atom-meter-live) 0 "ATOM_CONTAINER_RELEASED=PASS")
+(atom-meter-scope (fn [] (let [a (atom 0) box (atom (repeat 1024 a))]
+ (do (reset! a 11) (check (deref (get (deref box) 1023)) 11 "ATOM_MANY_STRONG_REFERENCES=PASS")))))
+(check (atom-meter-live) 0 "ATOM_MANY_REFERENCES_RELEASED=PASS")
 (check (try (atom-meter-scope (fn [] (let [a (atom {"kept" "error"})] (throw "lifetime-error")))) (catch [e] true)) true "ATOM_EXCEPTION_PROPAGATES=PASS")
 (check (atom-meter-live) 0 "ATOM_EXCEPTION_RELEASED=PASS")
 (check (run-parallel jobs) [true true true true true true true true] "ATOM_LIFETIME_8_THREADS=PASS")
