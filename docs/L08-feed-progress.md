@@ -56,3 +56,9 @@ auth_verify_password
 ## 작업 가지 반영
 
 분리 checkout 구현 `7963a2df81ea2f352202aa8a878957b28a54caea`를 작업 가지 구현 `bdf0ab310b7e1f21bb216f3a013d228458103e23`로 반영했다. 이후 client 변경까지 반영한 작업 가지와 최신 전체 시험 checkout의 runtime/self/scripts/tests diff가 비어 있음을 확인했다. 앞선 시험 소스를 수정하지 않고 별도 worktree에서 반영했다.
+
+## feed 코드 전체 회귀 확정
+
+고정 대상 `77b42bcb2632ee8ce9fa67a18f00c77a9aae069f`의 전체 실행이 `FEED_PLATFORM_FULL_EXIT=0`으로 끝났다. feed 자체 `9`, HTTP `35`, fd basic·extended 각각 `11`, JSON `13`, 인증 부분 `5`, L08 3차 `11`·2차 `11`·1차 `17`, 이전 HTTP `7`, L06 HTTP/TLS 각각 `110`, L07 `221` 통과·실패 `0`이다. `BOOTSTRAP_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. stage2/stage3 SHA는 `66d1ff3f63de632194c7a858cdf8150ecff0528d711d5eeb39adb2da09ecc3b7`이다。
+
+명령은 `CPATH=<가림> LIBRARY_PATH=<가림> L08_PLATFORM_OUT=<가림> bash scripts/verify-l08-platform-all.sh`이며 하위 strace를 감사했다. [전체 출력](evidence/l08-platform/feed-full.txt). 이후 client/timer 변경과 실제 blog1 HTTP 응답·비공개 글 제외 정책의 통과로 확대하지 않는다.
