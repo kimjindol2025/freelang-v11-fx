@@ -1,0 +1,16 @@
+Compiled tests/l08-platform/fd-writer.fl -> <가림>/fd-writer.c
+<fl>: In function ‘main’:
+<fl>:7:22: error: implicit declaration of function ‘fd_open’; did you mean ‘fl_db_open’? [-Wimplicit-function-declaration]
+<fl>:7:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:9:91: error: implicit declaration of function ‘fd_write’ [-Wimplicit-function-declaration]
+<fl>:9:133: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:10:91: error: implicit declaration of function ‘fd_fsync’ [-Wimplicit-function-declaration]
+<fl>:10:117: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:11:91: error: implicit declaration of function ‘fd_close’; did you mean ‘ws_close’? [-Wimplicit-function-declaration]
+<fl>:11:117: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:12:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:14:133: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:15:91: error: implicit declaration of function ‘fd_flush’ [-Wimplicit-function-declaration]
+<fl>:15:103: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:16:117: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+C11_BEFORE_BUILD_EXIT=1
