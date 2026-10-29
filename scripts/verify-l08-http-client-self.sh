@@ -9,6 +9,7 @@ command -v openssl >/dev/null || { echo HTTP_CLIENT_TLS=UNEXECUTED_MISSING_OPENS
 printf 'A\377B\000C' > "$out/root/raw.bin"
 l07_build_compiler "$out" > "$out/compiler-build.log" 2>&1
 l07_build_app "$out" "$ROOT/tests/l08-platform/http-client.fl" client > "$out/client-build.log" 2>&1
+for name in http-client-boundaries http-client-raw;do l07_build_app "$out" "$ROOT/tests/l08-platform/$name.fl" "$name" > "$out/$name-build.log" 2>&1;done
 "$out/compiler" "$ROOT/tests/l08-platform/http-client-server.fl" "$out/server.c" > "$out/server-build.log" 2>&1
 gcc -O2 -w -I "$ROOT/runtime" -o "$out/server" "$out/server.c" "$ROOT/tests/l08/http-port.c" "${L07_SRCS[@]}" -Wl,--wrap=listen "${L07_LIBS[@]}" >> "$out/server-build.log" 2>&1
 pid=""
@@ -33,6 +34,10 @@ run_case(){
 }
 start_server http
 run_case HTTP_CLIENT http-client "$out/client" "http://127.0.0.1:$port" http
+curl -q --noproxy '*' -fsS "http://127.0.0.1:$port/raw" -o "$out/raw-wire.bin"
+if cmp -s "$out/raw-wire.bin" "$out/root/raw.bin";then echo RAW_SERVER_WIRE_EXACT=PASS;pass=$((pass+1));else echo RAW_SERVER_WIRE_EXACT=FAIL;fail=$((fail+1));fi
+run_case HTTP_CLIENT_RAW http-client-raw "$out/http-client-raw" "http://127.0.0.1:$port"
+run_case HTTP_CLIENT_BOUNDARIES http-client-boundaries "$out/http-client-boundaries" "http://127.0.0.1:$port"
 stop_server
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost -addext subjectAltName=DNS:localhost -keyout "$out/root/key.pem" -out "$out/root/cert.pem" > "$out/cert-build.log" 2>&1
 start_server tls tls "$out/root/cert.pem" "$out/root/key.pem"

@@ -740,6 +740,10 @@ FLValue fl_v11_header_value(FLValue value){
     if(invalid){free(bytes.p);fl_throw(fl_make_error("TypeError","invalid HTTP response header"));return fl_nil();}
     return t_finish(&bytes);
 }
+FLValue fl_v11_utf8_string(FLValue value){
+    TUnits units=t_units(t_js_string(value));TBuffer bytes={0};
+    t_encode(&bytes,units.p,units.n,1);free(units.p);return t_finish(&bytes);
+}
 
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];
@@ -758,6 +762,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     }
     if(!strncmp(op,"auth-",5))return va_auth(op,argv);
     if(!strncmp(op,"server-",7))return fl_v11_http(fl_str_val(op),argv);
+    if(IS("http-get")||IS("http-request")||IS("http-request-timeout")||IS("http-with-timeout"))return fl_v11_http_client(fl_str_val(op),argv);
     if(IS("rss-feed")||IS("sitemap-xml"))return vf_feed(op,argv);
     if(!strncmp(op,"fd-",3)){
         FLValue args=argv;

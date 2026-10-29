@@ -7,7 +7,7 @@ if L08_PLATFORM_OUT="$out/self" strace -f -e trace=execve -o "$out/self.execve.l
 cat "$out/self.log"
 printf 'PLATFORM_SELF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 ]]
-for phase in fd-basic fd-extended json auth http feed;do
+for phase in fd-basic fd-extended json auth http feed http-client;do
  case "$phase" in
   fd-basic) setting=L08_FD_OUT;script=verify-l08-fd-self.sh;tag=FD_BASIC;;
   fd-extended) setting=L08_FD_FAULT_OUT;script=verify-l08-fd-faults.sh;tag=FD_EXTENDED;;
@@ -15,6 +15,7 @@ for phase in fd-basic fd-extended json auth http feed;do
   auth) setting=L08_AUTH_OUT;script=verify-l08-auth-self.sh;tag=AUTH_PARTIAL;;
   http) setting=L08_HTTP_PLATFORM_OUT;script=verify-l08-http-platform.sh;tag=HTTP_PLATFORM;;
   feed) setting=L08_FEED_OUT;script=verify-l08-feed-self.sh;tag=FEED;;
+  http-client) setting=L08_HTTP_CLIENT_OUT;script=verify-l08-http-client-self.sh;tag=HTTP_CLIENT;;
  esac
  if env "$setting=$out/$phase" strace -f -e trace=execve,clone,clone3 -o "$out/$phase.execve.log" bash "$ROOT/scripts/$script" > "$out/$phase.log" 2>&1;then rc=0;else rc=$?;fi
  cat "$out/$phase.log"

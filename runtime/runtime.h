@@ -172,6 +172,8 @@ FLValue fl_v11_json_try_parse(FLValue value);
 FLValue fl_v11_http(FLValue name, FLValue argv);
 FLValue fl_v11_to_number(FLValue value);
 FLValue fl_v11_header_value(FLValue value);
+FLValue fl_v11_utf8_string(FLValue value);
+FLValue fl_v11_http_client(FLValue name, FLValue argv);
 FLValue fl_v11_fn(FLValue name);
 FLValue fl_v11_number(FLValue value);
 FLValue fl_v11_key(FLValue value);
