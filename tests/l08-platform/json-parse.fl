@@ -1,0 +1,13 @@
+(defn check [a b] (if (= a b) true (throw (str "expected=" b " actual=" a))))
+(check (json-parse " [1, false, null, {\"한\":\"😀\"}] \n") [1 false nil {"한" "😀"}])
+(check (json_parse 3) 3)
+(check (json_parse nil) nil)
+(check (json_parse false) false)
+(check (str (/ 1 (json_parse "-0"))) "-Infinity")
+(check (json_str (json_parse "1e400")) "null")
+(check (json_str (json_parse "9007199254740993")) "9007199254740992")
+(check (length (json_parse "\"\\uD800\"")) 1)
+(check (get (json_parse "{\"__proto__\":{\"safe\":true}}") "__proto__") {"safe" true})
+(doseq [bad ["{" "[" "" "undefined" "NaN" "Infinity" "+1" "01" "-01" "1." ".1" "1e" "[1,]" "{\"a\":1,}" "{a:1}" "{\"a\" 1}" "true false" "\"bad\\q\"" "\"\\uGGGG\"" "\"\\u123\"" "\"unterminated" "\"line\nbreak\"" "\u000b1" "\uFEFF1"]]
+ (check (try (do (json_parse bad) false) (catch [e] (str_starts (error_message e) "json_parse: invalid JSON"))) true))
+(println "JSON_PARSE_PASS")

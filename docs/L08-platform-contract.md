@@ -49,3 +49,9 @@ writer/reader는 별도 native 과정에서 합성 image-add/image-delete 기록
 ### C11 경계·실제 스레드 시험 선행 고정
 
 추가 `.fl` 정답은 UTF-8 바이트 경계별 replacement·NUL 보존, 64 MiB append 상한과 무변경, 경로 이탈·leaf/parent/base symlink·directory/FIFO 차단이다. 별도 시험용 C barrier는 FreeLang run-parallel의 pthread 8개가 모두 도착할 때까지 대기시킨다. 실제 fd_write는 `.fl`에서 같은 handle에 스레드당 100개 한글 레코드를 쓴다. 언어 출력과 별개로 Bash 고정 정답 800행을 생성해 정렬한 실제 파일과 cmp한다. C barrier는 스케줄 겹침을 보장하는 보조기이며 fd API를 대신 호출하지 않는다. 일반 원자·WAL 거래 동시성 C20 완료로 확대 해석하지 않는다.
+
+## C12 JSON·checksum 정답 선행 고정
+
+기준 v11 동일 커밋 `bootstrap.js:26853~26905`의 JSON.parse 및 재귀 toSerializable+JSON.stringify, `32496`의 UTF-8 auth_sha256과 db95 `afj-tcp-wal-record-valid?`가 근거다. json_str/json_stringify 및 json_parse의 밑줄·하이픈 별칭을 연결한다. 숫자는 JS Number·shortest round-trip 표기이며 정수형 문자열 key는 숫자 순서, 나머지는 삽입 순서를 따른다. -0은 stringify 0, parse는 부호를 보존한다. nonfinite stringify는 null이다. NUL·제어 문자·서로게이트와 잘못된 JSON 문법을 별도로 검사한다. 공개 parser는 엄격히 검사하며 기존 seed용 legacy C ABI를 앱에 우회 연결하지 않는다.
+
+합성 WAL body는 고정 JSON 텍스트로 보존하고 시스템 sha256sum과 UTF-16LE 길이로 prepare/commit checksum·length를 만든다. 언어의 json_str/sha 함수로 정답을 만들지 않는다. 별도 native reader 과정을 반복하며 원본 fixture의 cmp·SHA 불변을 확인한다. 실제 db95 load·재생이 아직 없으면 checksum 언어 시험 통과만 보고하며 L05/C11 전체 재생 완료로 판정하지 않는다. 사람 작성 JS·Node·Python은 사용하지 않는다.
