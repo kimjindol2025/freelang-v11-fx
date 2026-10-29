@@ -1085,6 +1085,10 @@
   [(= $op "reset!")        (str "fl_atom_reset(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "swap!")         (cgc-swap! $args)]
   [(= $op "with-atom-lock") (cgc-with-atom-lock $args)]
+  [(= $op "jit-stats") "jit_stats()"]
+  [(= $op "jit-test-add1") (str "jit_test_add1(" (cgc (get $args 0)) ")")]
+  [(= $op "jit-test-mul2") (str "jit_test_mul2(" (cgc (get $args 0)) ")")]
+  [(= $op "jit-test-add-xy") (str "jit_test_add_xy(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   ;; num: c-reserved? 목록에 있어 fl_num으로 잘못 변환되는 버그 수정
   [(= $op "num")           (str "num(" (cgc (get $args 0)) ")")]
   ;; S26: stdlib 매핑
