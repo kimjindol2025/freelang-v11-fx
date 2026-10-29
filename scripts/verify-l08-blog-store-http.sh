@@ -19,6 +19,7 @@ if [[ -n "${L08_BLOG_HTTP_SANITIZER_LIBDIR:-}" ]];then
 fi
 gcc "${flags[@]}" -o "$out/server" "$out/server.c" "$ROOT/tests/l08-platform/http-atom.c" "$ROOT/tests/l08/http-port.c" "$ROOT/tests/l08-platform/http-loopback.c" -Wl,--wrap=listen,--wrap=bind "${L07_SRCS[@]}" "${L07_LIBS[@]}" >> "$out/build.log" 2>&1
 pid=""
+stderr_allowed='^\[http\] (라우트 등록: (GET|POST) /(health|rows|stats|write) → <closure>|스레드 풀: 4 워커, 큐 1024, 타임아웃 30s|서버 시작: http://0\.0\.0\.0:0|graceful shutdown \(최대 30s 대기\)\.\.\.|종료 완료 \(처리 중 연결: 0\))$'
 stop(){
  [[ -n "$pid" ]] || return 0
  kill -TERM "$pid" 2>/dev/null || true
@@ -30,16 +31,18 @@ stop(){
  if [[ -n "$state" && "$state" != Z* ]];then echo DB_HTTP_OWN_STOP_TIMEOUT=FAIL;kill -KILL "$pid";wait "$pid" || true;pid="";return 1;fi
  if wait "$pid";then rc=0;else rc=$?;fi
  pid="";printf 'DB_HTTP_SERVER_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+ if rg -n -v "$stderr_allowed" "$current_stderr";then return 1;fi
 }
 trap 'stop || true' EXIT
 start(){
  local iteration="$1"
+ current_stderr="$out/$iteration.stderr"
  (cd "$out/root";exec env FL_WORKERS=4 FL_FILE_BASE="$out/root" TMPDIR="$out/root/tmp" AFJ_DB_MODE=development AFJ_DB_BIND_HOST=127.0.0.1 AFJ_DB_WAL="$out/root/blog.wal" L08_PORT_FILE="$out/$iteration.port" "$out/server") > "$out/$iteration.stdout" 2> "$out/$iteration.stderr" &
  pid=$!
  for attempt in {1..300};do [[ ! -s "$out/$iteration.port" ]] || break;kill -0 "$pid";sleep .05;done
  port=$(cat "$out/$iteration.port")
  [[ $(curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port/health") == OK ]]
- if rg -n -v '^\[http\] (라우트 등록: (GET|POST) /(health|rows|stats|write) → <closure>|스레드 풀: 4 워커, 큐 1024, 타임아웃 30s|서버 시작: http://0\.0\.0\.0:0)$' "$out/$iteration.stderr";then return 1;fi
+ if rg -n -v "$stderr_allowed" "$current_stderr";then return 1;fi
 }
 exact_rows(){
  curl --noproxy '*' -fsS --max-time 10 "http://127.0.0.1:$port/rows" > "$out/$1.json"
