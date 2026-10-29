@@ -193,6 +193,7 @@ FLValue fl_v11_map_from_pairs(FLValue* kv, uint32_t n);
 bool fl_v11_truthy(FLValue value);
 bool fl_v11_or_false(FLValue value);
 FLValue fl_compiler_bindings(FLValue nodes);
+FLValue fl_compiler_add_extern(FLValue name);
 FLValue fl_compiler_realpath(FLValue path);
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val);
 FLValue fl_map_len(FLValue map);

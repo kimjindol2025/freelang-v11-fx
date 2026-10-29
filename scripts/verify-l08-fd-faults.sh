@@ -30,7 +30,7 @@ mkfifo "$out/root/fifo"
 truncate -s 67108864 "$out/root/limit.wal"
 for spec in fd-edges fd-base-link fd-concurrent;do
  if [[ "$spec" == fd-concurrent ]];then
-  "$out/compiler" "$ROOT/tests/l08-platform/$spec.fl" "$out/$spec.c" > "$out/$spec.build.log" 2>&1
+  "$out/compiler" --extern fd-test-barrier --extern fd-test-thread-count "$ROOT/tests/l08-platform/$spec.fl" "$out/$spec.c" > "$out/$spec.build.log" 2>&1
   gcc -O2 -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l08-platform/fd-concurrent.h" -o "$out/$spec" "$out/$spec.c" "$ROOT/tests/l08-platform/fd-concurrent.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" >> "$out/$spec.build.log" 2>&1
  else l07_build_app "$out" "$ROOT/tests/l08-platform/$spec.fl" "$spec" > "$out/$spec.build.log" 2>&1;fi
  base="$out/root"; [[ "$spec" != fd-base-link ]] || base="$out/base-link"

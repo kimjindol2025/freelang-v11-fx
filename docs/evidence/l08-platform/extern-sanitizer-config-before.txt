@@ -1,0 +1,23 @@
+Uncaught error: [native-ext-value] Function not found: native-ext-value (at line 2, col 0)
+no-declaration-before_EXIT=1
+EXTERN_VALUE_23=PASS
+EXTERN_VALUE_NEGATIVE=PASS
+EXTERN_ZERO_ARGUMENTS=PASS
+EXTERN_DECLARED_EXIT=0
+Uncaught error: [native-ext-value] Function not found: native-ext-value (at line 2, col 0)
+no-declaration-after_EXIT=1
+Uncaught error (line 2756): compiler: missing --extern name
+Stack trace:
+  at cgc_run (line 2753)
+EXTERN_missing_NAME_EXIT=1
+Uncaught error (line 2753): compiler: invalid --extern name
+Stack trace:
+  at cgc_run (line 2753)
+EXTERN_invalid_NAME_EXIT=1
+EXTERN_MISSING_IMPLEMENTATION_LINK_EXIT=1
+EXTERN_MISSING_IMPLEMENTATION=PASS
+EXTERN_AST_COMPATIBILITY=PASS
+<가림>: cannot find <가림>: No such file or directory
+collect2: error: ld returned 1 exit status
+EXTERN_SELF_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

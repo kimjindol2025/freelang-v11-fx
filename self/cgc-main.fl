@@ -2694,7 +2694,7 @@
     (println (str "AST_JSON:" $json))
     (println (str "AST_TREE:\n" $tree))))
 
-(defn cgc-run [$argv]
+(defn cgc-run-positional [$argv]
   (let [[$input  (get $argv 0)]
         [$output (get $argv 1)]]
   (if (null? $input)
@@ -2748,5 +2748,14 @@
     (if (or (at-end? $cur) (not (is-digit? (peek $cur))))
       (emit $cur "Number" $text $line $col)
       (recur (advance $cur) (str $text (peek $cur))))))
+
+(defn cgc-run [$argv]
+  (loop [$rest $argv]
+    (if (= (get $rest 0) "--extern")
+      (if (null? (get $rest 1))
+        (throw "compiler: missing --extern name")
+        (do (fl_compiler_add_extern (get $rest 1))
+            (recur (slice $rest 2 (length $rest)))))
+      (cgc-run-positional $rest))))
 
 (cgc-run (cli-args))

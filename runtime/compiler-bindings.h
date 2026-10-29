@@ -5,8 +5,34 @@
 #include <limits.h>
 #include "native-symbols.h"
 
+typedef struct FLCompilerExtern {
+    struct FLCompilerExtern *next;
+    char name[];
+} FLCompilerExtern;
+static FLCompilerExtern *rb_externs;
+static int rb_ascii_letter(unsigned char c) {
+    return (c>='A'&&c<='Z')||(c>='a'&&c<='z')||c=='_';
+}
+FLValue fl_compiler_add_extern(FLValue name) {
+    if(name.tag!=FL_STRING)fl_throw(fl_str_val("compiler: invalid --extern name"));
+    FLString *s=(FLString*)name.obj;
+    const unsigned char *p=(const unsigned char*)s->data;
+    if(!rb_ascii_letter(*p))fl_throw(fl_str_val("compiler: invalid --extern name"));
+    for(size_t i=1;i<s->len;i++)
+        if(!rb_ascii_letter(p[i])&&!(p[i]>='0'&&p[i]<='9')&&p[i]!='-')
+            fl_throw(fl_str_val("compiler: invalid --extern name"));
+    for(FLCompilerExtern *e=rb_externs;e;e=e->next)
+        if(!strcmp(e->name,s->data))return name;
+    FLCompilerExtern *e=malloc(sizeof(*e)+s->len+1);
+    if(!e)fl_throw(fl_str_val("compiler: extern allocation failed"));
+    memcpy(e->name,s->data,s->len+1);
+    e->next=rb_externs;rb_externs=e;
+    return name;
+}
 static int rb_native_name(FLValue name){
     if(name.tag!=FL_STRING)return 0;
+    for(FLCompilerExtern *e=rb_externs;e;e=e->next)
+        if(!strcmp(e->name,((FLString*)name.obj)->data))return 1;
     if(fl_truthy(fl_v11_has(name)))return 1;
     for(size_t i=0;fl_native_names[i];i++)if(!strcmp(((FLString*)name.obj)->data,fl_native_names[i]))return 1;
     return 0;
