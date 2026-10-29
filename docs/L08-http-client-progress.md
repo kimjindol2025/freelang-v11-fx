@@ -44,3 +44,9 @@ v11 경로는 HTTP proxy 환경을 자동 사용하지 않고 http/https만 허�
 ## 작업 가지와 전체 시험 대상
 
 분리 checkout 구현 `8800b53f0299d58c53b4bca1f2697096ec9ccf85`를 작업 가지 구현 `c4f8432590816d2c9e3024a53268e460397554ea`로 반영했다. 최신 전체 시험은 고정 checkout `569d44cb57c1d926de16c8a11fcf81d3b1652592`에서 실행 중이다. 반영 직후 runtime/self/scripts/tests/docs diff가 비어 있음을 확인했다(`CLIENT_TESTED_SOURCE_EQ_BRANCH=PASS`). 이 절 이후 보고 문서만 추가했다. 전체 시험이 끝나기 전에는 통과로 집계하지 않는다.
+
+## client 코드 전체 회귀 확정
+
+고정 대상 `569d44cb57c1d926de16c8a11fcf81d3b1652592`의 실행이 `HTTP_CLIENT_PLATFORM_FULL_EXIT=0`으로 끝났다. client `6`묶음, feed `9`, HTTP `35`, fd basic·extended 각각 `11`, JSON `13`, 인증 부분 `5`, L08 3차 `11`·2차 `11`·1차 `17`, 이전 HTTP `7`, L06 HTTP/TLS 각각 `110`, L07 `221` 통과·실패 `0`이다. `BOOTSTRAP_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. stage2/stage3 SHA는 `66d1ff3f63de632194c7a858cdf8150ecff0528d711d5eeb39adb2da09ecc3b7`이다.
+
+명령은 `CPATH=<가림> LIBRARY_PATH=<가림> L08_PLATFORM_OUT=<가림> bash scripts/verify-l08-platform-all.sh`이며 하위 strace를 감사했다. [전체 출력](evidence/l08-platform/http-client-full.txt). 이후 timer/GC 변경, 실제 blog1 통합 HTTP와 남은 PRD 기능의 통과로 확대하지 않는다.
