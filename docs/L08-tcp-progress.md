@@ -18,3 +18,5 @@ bash scripts/audit-l07-execve.sh <가림>
 TCP의 sanitizer 검사, callback 중 server 재생성, 모든 TLS 설정 오류·파일 descriptor 정리 경계와 자원 고갈은 추가 검증이 필요하다. 전체 회귀·native bootstrap도 최신 코드에서 아직 미확인이다. 서버 23·25 접속·운영 데이터 수정·합치기·배포는 하지 않았다. 전체 앱의 auth_verify_password 결정 대기와 실제 DB 제약조건 시험 실패, PRD 기능·화면·운영 복구는 남아 있다.
 
 고정 `a1c69c2e85ae700edea1be03e14a8ced7eb155b6`의 전체 driver에서 강화한 TCP 자체 시험은 `L08_TCP_PASS=8 FAIL=0`, `TCP_EXIT=0`으로 끝났다. 전체 driver는 이후 회귀를 계속 실행 중이므로 전체 성공과 구분한다. 결과 원문은 전체 실행 종료 뒤 보존한다.
+
+해당 고정 소스 전체 실행은 `SNAPSHOT_PLATFORM_FULL_EXIT=0`, `BOOTSTRAP_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`로 확정됐다. [전체 원문](evidence/l08-platform/snapshot-full.txt). 이후 tail 코드 `7fbe7698478d13ff5d6cfa8bf16c69e0aabb92d4`의 새 전체 실행은 TCP 큰 echo·회복에서 `TCP_EXIT=1`, `TAIL_PLATFORM_FULL_EXIT=1`로 실패했다. [실패 원문](evidence/l08-platform/tail-full-before.txt). 앞의 통과를 최신 코드에 적용하지 않는다. non-last if가 tail 요청을 실행하지 않고 버리는 최소 재현·정답을 먼저 추가했으며 수정·재검증이 남아 있다.

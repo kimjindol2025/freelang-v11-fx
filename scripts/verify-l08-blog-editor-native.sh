@@ -20,6 +20,7 @@ done
 export BLOG_TEST_SESSION_TOKEN="$(openssl rand -hex 32)"
 export BLOG_CSRF_SECRET="$(openssl rand -hex 32)"
 export FL_FILE_BASE="$out/root" AFJ_DB_WAL="$out/root/blog.wal" AFJ_DB_MODE=development AFJ_DB_BIND_HOST=127.0.0.1
+export TMPDIR="$out/root/tmp"
 export BLOG_PORT=0 BLOG_COOKIE_SECURE=0
 if (cd "$out/root";timeout 60 "$out/b1-editor-seed") > "$out/seed.stdout" 2> "$out/seed.stderr";then rc=0;else rc=$?;fi
 cat "$out/seed.stdout" "$out/seed.stderr";printf 'EDITOR_SEED_EXIT=%s\n' "$rc"

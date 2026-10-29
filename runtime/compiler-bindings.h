@@ -3,6 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include "native-symbols.h"
+
+static int rb_native_name(FLValue name){
+    if(name.tag!=FL_STRING)return 0;
+    if(fl_truthy(fl_v11_has(name)))return 1;
+    for(size_t i=0;fl_native_names[i];i++)if(!strcmp(((FLString*)name.obj)->data,fl_native_names[i]))return 1;
+    return 0;
+}
 
 typedef struct FLBinding {
     struct FLBinding *next;
@@ -181,6 +189,8 @@ static FLValue rb_node(FLResolver *r,FLBinding **env,FLValue n) {
                 for(uint32_t i=0;i<v->len;i++)all=fl_vec_push(all,v->data[i]);
                 op=fl_str_val("__apply__");out=all;
             }
+        }else if(key.tag==FL_STRING&&!rb_native_name(op)){
+            n=rb_set(rb_set(n,"call-op",key),"call-lookup",fl_bool(true));
         }
         return rb_set(rb_set(n,"op",op),"args",out);
     }

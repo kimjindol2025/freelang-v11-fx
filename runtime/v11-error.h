@@ -34,6 +34,10 @@ FLValue fl_v11_context_call(FLValue name,FLValue fn,FLValue args,FLValue line){
     FLCallScope context;ve_scope_enter(&context);context.name=name;
     context.line=line.tag==FL_INT?(int)line.i:0;
     FLVector*values=(FLVector*)args.obj;
+    if(fn.tag==FL_NIL&&!fl_truthy(fl_v11_has(name))){
+        FLValue message=fl_str_n(2,fl_str_val("Function not found: "),name);
+        fl_throw(fl_make_error("RuntimeError",((FLString*)message.obj)->data));
+    }
     FLValue result=fn.tag==FL_NIL?fl_v11_builtin(name,args):fl_fn_call(fn,(int)values->len,values->data);
     fl_v11_scope_leave(&context);
     return result;

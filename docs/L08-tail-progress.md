@@ -41,3 +41,11 @@ bash scripts/audit-l07-execve.sh <가림>
 실제 writer는 collection.c의 swap!에서 길이 0의 memcpy에 NULL source를 넘기는 UB로 멈췄다. [실패 원문](evidence/l08-platform/blog-store-tail-sanitizer-before.txt). v11 src/eval-builtins.ts:526~534는 extraArgs가 없어도 함수에 현재 값 하나를 전달하므로 이 경우도 지원해야 한다. 최소 `.fl`·정답을 먼저 커밋하고 같은 `SWAP_ZERO_BEFORE_EXIT=1`을 보존했다. [최소 실패](evidence/l08-platform/swap-zero-before.txt).
 
 복사는 extra 길이가 있을 때만 실행하도록 공유 런타임 한 곳을 고쳤다. extra가 없는 반환·저장, callback 오류 전달·기존 값 유지, extra 2개, nil 반환·저장의 7개 출력이 ASan/UBSan에서 통과했다. `SWAP_ZERO_FIXED_EXIT=0`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`. [수정 후 원문](evidence/l08-platform/swap-zero-after.txt). swap! 논리적 동시성은 이 수정 범위가 아니다. 최신 tail 자체 driver는 이 시험을 추가한 8묶음이며, 전체 회귀에서 검증한다.
+
+## 실제 저장소 ASan/UBSan 재실행과 전체 회귀 실패
+
+zero-extra guard 구현은 `7fbe7698478d13ff5d6cfa8bf16c69e0aabb92d4`다. 실제 writer 1개와 별도 reader 10개가 ASan/UBSan에서 모두 종료 `0`, `DB95_NATIVE_STORE_PASS=11 FAIL=0`, `BLOG_STORE_SWAP_GUARD_SANITIZER_EXIT=0`이다. 재시작 복구·draft 비공개·WAL 바이트 동일성과 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`을 확인했다. [원문](evidence/l08-platform/blog-store-swap-sanitized-after.txt). 누수 검사는 미실행이다.
+
+이 실행의 합성 WAL SHA는 `5a35fe5060906f60d73055dd2d9d3d03494bf16ebab007b194fc59d4719b77f1`이다. 일반 실행과 각각 `6`개 기록이며 두 새 writer가 생성한 uuid_short 거래 ID만 달랐다. 비교용 stream에서 tx field를 제외하면 나머지는 byte 단위로 같다. 원본 WAL·거래·본문은 변경하지 않았으며 각 실행의 재시작 검증은 원본 전체를 비교했다. [읽기 전용 비교 원문](evidence/l08-platform/blog-store-run-comparison.txt). 운영 데이터 해시 비교가 아니다.
+
+같은 소스의 전체 driver에서 자체 tail은 `L08_TAIL_PASS=8 FAIL=0`, `TAIL_SELF_EXIT=0`이지만 이후 TCP에서 실패했다. `TAIL_PLATFORM_FULL_EXIT=1`이다. [전체 실패](evidence/l08-platform/tail-full-before.txt). raw 큰 slow-reader echo가 실패하고 TLS 회복도 실패했다. 따라서 이 최신 소스의 L06/L07 전체 회귀·native bootstrap은 실행하지 못했다. non-last if에서 만든 tail 요청이 다음 식에 덮여 부작용을 잃는 최소 재현·정답을 추가했다. [후속 계약](../tests/l08-platform/tail-nonlast-contract.md). 기존 TCP·tail 정답은 유지하며 emitter의 tail 위치 구분을 다음에 고쳐야 한다. 전체 언어 완료·배포 가능으로 판정하지 않는다.

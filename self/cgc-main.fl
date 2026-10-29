@@ -1010,9 +1010,11 @@
 (defn cgc-sexpr [$n]
   (let [[$op (get $n :op)] [$args (get $n :args)] [$context (get $n "call-op")]]
     (if (not (null? $context))
+      (if (= (get $n "call-lookup") true)
+        (cgc-context-call (str "fl_named_fn(fl_str_val(\"" (c-esc $context) "\"))") $args $context (get $n :line))
       (if (= $op "__apply__")
         (cgc-context-call (cgc (get $args 0)) (slice $args 1 (length $args)) $context (get $n :line))
-        (cgc-context-call (cgc (make-variable (substring $op 1 (length $op)) (get $n :line))) $args $context (get $n :line)))
+        (cgc-context-call (cgc (make-variable (substring $op 1 (length $op)) (get $n :line))) $args $context (get $n :line))))
       (if (and (string? $op) (fl_v11_has $op) (not (includes-item ["if" "and" "or"] $op)))
         (cgc-context-call "fl_nil()" $args $op (get $n :line))
         (cgc-sexpr-plain $n)))))
