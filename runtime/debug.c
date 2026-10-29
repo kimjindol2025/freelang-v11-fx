@@ -125,15 +125,12 @@ void fl_log_request(const char* method, const char* path,
         mc, method, C_RESET,
         C_BOLD, path, C_RESET);
 
-    if (g_debug_level >= 2 && body_len > 0 && body &&
-        !(content_type && (!strncasecmp(content_type,"multipart/form-data",19) ||
-                            !strncasecmp(content_type,"application/x-www-form-urlencoded",33)))) {
-        size_t show = body_len > 512 ? 512 : body_len;
-        fprintf(g_log_file, "  %sbody%s [%zu] %.*s%s\n",
-            C_GRAY, C_RESET,
-            body_len, (int)show, body,
-            body_len > 512 ? "..." : "");
-    }
+    /* Bodies can contain passwords or unpublished content in every media type. */
+    (void)body;
+    (void)content_type;
+    if (g_debug_level >= 2 && body_len > 0)
+        fprintf(g_log_file, "  %sbody%s [%zu bytes omitted]\n",
+                C_GRAY, C_RESET, body_len);
     fflush(g_log_file);
 }
 

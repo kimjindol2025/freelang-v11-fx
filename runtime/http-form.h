@@ -126,12 +126,16 @@ static int form_headers(char *raw, size_t len, HttpRequest *hr, size_t *offset) 
     char line[MAX_URI_LEN+32]; size_t n=(size_t)(e-raw);
     if (n>=sizeof line) return form_fail(414,"URI_LIMIT");
     memcpy(line,raw,n); line[n]=0;
-    char method[8], uri[1024], version[16], extra;
-    if (sscanf(line,"%7s %1023s %15s %c",method,uri,version,&extra)!=3 ||
-        (strcmp(version,"HTTP/1.1") && strcmp(version,"HTTP/1.0"))) return form_fail(400,"BAD_PART_HEADER");
-    strcpy(hr->method,method); char *q=strchr(uri,'?');
+    char uri[MAX_URI_LEN+1];char*first=strchr(line,' '),*second=first?strchr(first+1,' '):NULL;
+    if(!first||!second||first==line||first-line>=sizeof(hr->method)||
+       (strcmp(second+1,"HTTP/1.1")&&strcmp(second+1,"HTTP/1.0")))return form_fail(400,"BAD_PART_HEADER");
+    size_t uri_len=(size_t)(second-first-1);if(uri_len>MAX_URI_LEN)return form_fail(414,"URI_LIMIT");
+    if(!uri_len)return form_fail(400,"BAD_PART_HEADER");
+    for(size_t i=0;i<uri_len;i++)if((unsigned char)first[i+1]<=32||(unsigned char)first[i+1]==127)return form_fail(400,"BAD_PART_HEADER");
+    memcpy(hr->method,line,(size_t)(first-line));hr->method[first-line]=0;memcpy(uri,first+1,uri_len);uri[uri_len]=0;
+    char *q=strchr(uri,'?');
     if (q) { *q++=0; strcpy(hr->query_str,q); }
-    http_url_decode_internal(uri,hr->path,sizeof hr->path);
+    strcpy(hr->path,uri);
     char *p=e+2; int has_length=0, te=0, ce=0, ct=0, too_large=0;
     while (p<end) {
         e=memmem(p,(size_t)(end-p)+2,"\r\n",2);
@@ -153,7 +157,7 @@ static int form_headers(char *raw, size_t len, HttpRequest *hr, size_t *offset) 
                 if (*c<'0' || *c>'9' || length>(UINT64_MAX-(unsigned)(*c-'0'))/10) return form_fail(400,"BAD_CONTENT_LENGTH");
                 length=length*10+(unsigned)(*c-'0');
             }
-            if (length>MAX_BODY_SIZE) too_large=1;
+            if (length>MAX_BODY_SIZE||length>g_body_limit) too_large=1;
             else hr->content_length=(int)length;
         } else if (!strcasecmp(key,"Content-Type")) {
             if (ct++ || strlen(value)>=sizeof hr->content_type) return form_fail(400,"BAD_PART_HEADER");

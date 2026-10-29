@@ -88,26 +88,41 @@ static FLValue vj_parse(FLValue input){
     return result;
 }
 static int vj_proto(FLValue key){return key.tag==FL_STRING&&((FLString*)key.obj)->len==9&&!memcmp(((FLString*)key.obj)->data,"__proto__",9);}
-static int vj_valid(FLValue value,unsigned depth){
+static int vj_valid(FLValue value,unsigned depth,int keep_proto){
     if(depth>VJ_DEPTH_LIMIT||value.tag==FL_FN)return 0;
-    if(value.tag==FL_VECTOR){FLVector*v=(FLVector*)value.obj;for(uint32_t i=0;i<v->len;i++)if(!vj_valid(v->data[i],depth+1))return 0;}
-    if(value.tag==FL_MAP){FLMap*m=(FLMap*)value.obj;for(uint32_t i=0;i<m->len;i++)if(!vj_proto(m->entries[i].key)&&!vj_valid(m->entries[i].val,depth+1))return 0;}
+    if(value.tag==FL_VECTOR){FLVector*v=(FLVector*)value.obj;for(uint32_t i=0;i<v->len;i++)if(!vj_valid(v->data[i],depth+1,keep_proto))return 0;}
+    if(value.tag==FL_MAP){FLMap*m=(FLMap*)value.obj;for(uint32_t i=0;i<m->len;i++)if((keep_proto||!vj_proto(m->entries[i].key))&&!vj_valid(m->entries[i].val,depth+1,keep_proto))return 0;}
     return 1;
 }
-static void vj_emit(TBuffer*b,FLValue value){
+static void vj_emit(TBuffer*b,FLValue value,int keep_proto){
     if(value.tag==FL_VECTOR){
         FLVector*v=(FLVector*)value.obj;t_ascii(b,"[");
-        for(uint32_t i=0;i<v->len;i++){if(i)t_ascii(b,",");vj_emit(b,v->data[i]);}t_ascii(b,"]");
+        for(uint32_t i=0;i<v->len;i++){if(i)t_ascii(b,",");vj_emit(b,v->data[i],keep_proto);}t_ascii(b,"]");
     }else if(value.tag==FL_MAP){
         FLVector*keys=(FLVector*)t_keys(value).obj;int written=0;t_ascii(b,"{");
         for(uint32_t i=0;i<keys->len;i++){
-            FLValue key=keys->data[i];if(vj_proto(key))continue;
-            if(written++)t_ascii(b,",");t_quoted(b,t_key(key),1);t_ascii(b,":");vj_emit(b,fl_map_get(value,key));
+            FLValue key=keys->data[i];if(!keep_proto&&vj_proto(key))continue;
+            if(written++)t_ascii(b,",");t_quoted(b,t_key(key),1);t_ascii(b,":");vj_emit(b,fl_map_get(value,key),keep_proto);
         }
         t_ascii(b,"}");
     }else t_render(b,value,1,0);
 }
 static FLValue vj_stringify(FLValue value){
-    if(!vj_valid(value,0))fl_throw(fl_str_val("json_str: unsupported value or nesting limit exceeded"));
-    TBuffer out={0};vj_emit(&out,value);return t_finish(&out);
+    if(!vj_valid(value,0,0))fl_throw(fl_str_val("json_str: unsupported value or nesting limit exceeded"));
+    TBuffer out={0};vj_emit(&out,value,0);return t_finish(&out);
+}
+/* HTTP JSON.stringify preserves own keys, unlike v11 json_str/toSerializable. */
+FLValue fl_v11_json_encode(FLValue value){
+    if(!vj_valid(value,0,1))fl_throw(fl_str_val("JSON response: unsupported value or nesting limit exceeded"));
+    TBuffer out={0};vj_emit(&out,value,1);return t_finish(&out);
+}
+FLValue fl_v11_json_try_parse(FLValue value){
+    FLValue failed[2]={fl_bool(false),fl_nil()};
+    if(fl_try_top>=FL_TRY_MAX)return fl_vec_from(failed,2);
+    FLTryFrame*frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)==0){
+        FLValue result=vj_parse(value);fl_try_top--;
+        FLValue out[2]={fl_bool(true),result};return fl_vec_from(out,2);
+    }
+    fl_try_top--;return fl_vec_from(failed,2);
 }

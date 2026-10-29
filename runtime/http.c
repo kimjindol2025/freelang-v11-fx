@@ -32,6 +32,7 @@
 #include <netdb.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <math.h>
 
 /* ───────────────────────────────────────────
    내부 타입
@@ -46,6 +47,7 @@
 #define MAX_URI_LEN         8192        /* URI 최대 길이 → 414 */
 #define MAX_HEADER_TOTAL    32768       /* 헤더 총합 최대 → 431 */
 #define MAX_BODY_SIZE       (64*1024*1024) /* Includes multipart framing. */
+static size_t g_body_limit=MAX_BODY_SIZE;
 #define HEADER_RECV_TIMEOUT 10          /* 헤더 완성 타임아웃 (초) */
 #define MAX_CONNECTIONS     512         /* 동시 연결 한도 → 503 */
 
@@ -57,7 +59,11 @@ typedef struct {
     HandlerFn fn;
     FLValue  closure;      /* FL_FN 클로저 핸들러 (fn이 NULL일 때 사용) */
     FLValue  name;         /* Source names are resolved for each request. */
+    FLValue directory;
+    int is_static;
 } Route;
+static FLValue vh_static(Route*,FLValue);
+static const char*status_text(int status);
 
 /* ── 응답 FLMap 키 상수 ── */
 static const char* K_STATUS  = "status";
@@ -118,6 +124,8 @@ static void register_route(const char* method, FLValue path, FLValue handler) {
     r->closure = fl_nil();
     r->name = fl_nil();
     r->fn = NULL;
+    r->directory=fl_nil();
+    r->is_static=0;
 
     if (handler.tag == FL_FN) {
         /* FL_FN 클로저 핸들러 */
@@ -140,6 +148,7 @@ static void register_route(const char* method, FLValue path, FLValue handler) {
 }
 
 static FLValue invoke_route(Route* route, FLValue req) {
+    if(route->is_static)return vh_static(route,req);
     if (route->name.tag == FL_STRING) {
         FLValue fn = fl_named_fn(route->name);
         if (fn.tag == FL_FN) return fl_fn_call(fn, 1, &req);
@@ -254,8 +263,8 @@ FLValue server_req_path(FLValue req) {
 
 typedef struct {
     char method[8];
-    char path[1024];
-    char query_str[1024];
+    char path[MAX_URI_LEN+1];
+    char query_str[MAX_URI_LEN+1];
     char headers[MAX_HEADERS][2][512];  /* [i][0]=name [i][1]=value */
     int  nheaders;
     const char* body;
@@ -264,45 +273,36 @@ typedef struct {
     char content_type[256];
 } HttpRequest;
 
-static void http_url_decode_internal(const char* src, char* dst, size_t max);
 #include "http-form.h"
 
-/* URL 디코드 (%XX → char) */
-static void http_url_decode_internal(const char* src, char* dst, size_t max) {
-    size_t i = 0;
-    while (*src && i < max - 1) {
-        if (*src == '%' && src[1] && src[2]) {
-            char hex[3] = { src[1], src[2], 0 };
-            dst[i++] = (char)strtol(hex, NULL, 16);
-            src += 3;
-        } else if (*src == '+') {
-            dst[i++] = ' '; src++;
-        } else {
-            dst[i++] = *src++;
-        }
+/* Node querystring semantics: raw path, forgiving UTF-8 query decoding. */
+static int query_hex(unsigned char c){return c>='0'&&c<='9'?c-'0':c>='A'&&c<='F'?c-'A'+10:c>='a'&&c<='f'?c-'a'+10:-1;}
+static FLValue query_part(const char*src,size_t n){
+    char*out=fl_arena_alloc(n+1);if(!out)fl_throw(fl_str_val("query allocation failed"));size_t used=0;
+    for(size_t i=0;i<n;i++){
+        int a,b;
+        if(src[i]=='%'&&i+2<n&&(a=query_hex(src[i+1]))>=0&&(b=query_hex(src[i+2]))>=0){out[used++]=(char)((a<<4)|b);i+=2;}
+        else out[used++]=src[i]=='+'?' ':src[i];
     }
-    dst[i] = '\0';
+    FLValue value=form_bytes(out,used);return fl_v11_builtin(fl_str_val("str"),fl_vec_from(&value,1));
 }
-
-/* query string 파싱 → FLMap */
-static FLValue parse_query(const char* qs) {
-    FLValue map = fl_map_new();
-    if (!qs || !*qs) return map;
-    char buf[1024];
-    strncpy(buf, qs, sizeof(buf) - 1);
-    char* pair = strtok(buf, "&");
-    while (pair) {
-        char* eq = strchr(pair, '=');
-        if (eq) {
-            *eq = '\0';
-            char k[512], v[512];
-            http_url_decode_internal(pair, k, sizeof(k));
-            http_url_decode_internal(eq + 1, v, sizeof(v));
-            map = fl_map_set(map, fl_str_val(k), fl_str_val(v));
+static FLValue parse_query(const char*qs){
+    FLValue result=fl_map_new();size_t at=0,n=strlen(qs);unsigned pairs=0;
+    while(at<n&&pairs++<1000){
+        size_t end=at;while(end<n&&qs[end]!='&')end++;
+        if(end>at){
+            size_t equal=at;while(equal<end&&qs[equal]!='=')equal++;
+            FLValue key=query_part(qs+at,equal-at),value=query_part(qs+(equal<end?equal+1:end),equal<end?end-equal-1:0);
+            if(fl_truthy(fl_map_has(result,key))){
+                FLValue previous=fl_map_get(result,key);
+                if(previous.tag!=FL_VECTOR){FLValue two[2]={previous,value};value=fl_vec_from(two,2);}
+                else value=fl_vec_push(previous,value);
+            }
+            result=fl_map_set(result,key,value);
         }
-        pair = strtok(NULL, "&");
+        at=end+1;
     }
-    return map;
+    return result;
 }
 
 /* HTTP 요청 파싱 */
@@ -318,37 +318,37 @@ static int parse_http_request(const char* raw, int raw_len, HttpRequest* req) {
 ─────────────────────────────────────────── */
 
 /* /users/:id  vs  /users/42  → params["id"] = "42" */
-static int match_route(const Route* r, const char* method, const char* path, FLValue* params) {
-    if (strcmp(r->method, method) != 0) return 0;
-
-    const char* rp = r->path;
-    const char* pp = path;
-    *params = fl_map_new();
-
-    while (*rp && *pp) {
-        if (*rp == ':') {
-            /* 파라미터 세그먼트 */
-            rp++;
-            char pname[128]; int pi = 0;
-            while (*rp && *rp != '/') pname[pi++] = *rp++;
-            pname[pi] = '\0';
-            char pval[512]; int vi = 0;
-            while (*pp && *pp != '/') pval[vi++] = *pp++;
-            pval[vi] = '\0';
-            *params = fl_map_set(*params, fl_str_val(pname), fl_str_val(pval));
-        } else if (*rp == *pp) {
-            rp++; pp++;
-        } else {
+static int match_path(const char*pattern,const char*path,FLValue*params,unsigned*budget){
+    if(!*budget)return 0;(*budget)--;
+    while(*pattern){
+        if(*pattern=='*'){
+            pattern++;if(!*pattern)return 1;
+            size_t n=strlen(path);do{FLValue trial=*params;if(match_path(pattern,path+n,&trial,budget)){*params=trial;return 1;}if(!*budget)return 0;}while(n--);
             return 0;
         }
+        if(*pattern==':'){
+            const char*start=++pattern;
+            while((*pattern>='a'&&*pattern<='z')||(*pattern>='A'&&*pattern<='Z')||(*pattern>='0'&&*pattern<='9')||*pattern=='_')pattern++;
+            if(pattern==start)return 0;
+            const char*end=path;while(*end&&*end!='/')end++;
+            FLValue key=form_bytes(start,(size_t)(pattern-start));
+            if((!*pattern||*pattern=='/')&&end>path){FLValue trial=fl_map_set(*params,key,form_bytes(path,(size_t)(end-path)));if(match_path(pattern,end,&trial,budget)){*params=trial;return 1;}return 0;}
+            while(end>path){
+                FLValue trial=fl_map_set(*params,key,form_bytes(path,(size_t)(end-path)));
+                if(match_path(pattern,end,&trial,budget)){*params=trial;return 1;}if(!*budget)return 0;end--;
+            }
+            return 0;
+        }
+        if(*pattern!=*path||!*path)return 0;pattern++;path++;
     }
-    /* 양쪽 끝에 도달하거나 라우트가 / 로 끝나는 경우 */
-    return (*rp == '\0' && (*pp == '\0' || *pp == '?'));
+    return !*path;
+}
+static int match_route(const Route*r,const char*method,const char*path,FLValue*params){
+    if(strcmp(r->method,"*")&&strcmp(r->method,method))return 0;
+    *params=fl_map_new();unsigned budget=100000;return match_path(r->path,path,params,&budget);
 }
 
-/* ───────────────────────────────────────────
-   HTTP 응답 전송
-─────────────────────────────────────────── */
+#include "v11-http.h"
 
 static const char* status_text(int code) {
     switch (code) {
@@ -369,104 +369,66 @@ static const char* status_text(int code) {
 }
 
 /* keep_alive=1이면 Connection: keep-alive 헤더 포함 */
-static void send_response(int client_fd, FLValue resp, int keep_alive) {
-    int    status  = 200;
-    const char* body    = "";
-    const char* ctype   = "text/plain";
-    char   extra_headers[2048] = "";
-
-    if (resp.tag == FL_MAP) {
-        FLValue sv = fl_map_get(resp, fl_str_val(K_STATUS));
-        if (sv.tag == FL_INT) status = (int)sv.i;
-
-        FLValue bv = fl_map_get(resp, fl_str_val(K_BODY));
-        if (bv.tag == FL_STRING) body = strval(bv);
-
-        FLValue hv = fl_map_get(resp, fl_str_val(K_HEADERS));
-        if (hv.tag == FL_MAP) {
-            FLMap* hm = (FLMap*)hv.obj;
-            for (uint32_t i = 0; i < hm->len; i++) {
-                const char* k = strval(hm->entries[i].key);
-                const char* v = strval(hm->entries[i].val);
-                if (strcasecmp(k, "Content-Type") == 0) {
-                    ctype = v;
-                } else {
-                    char hbuf[512];
-                    snprintf(hbuf, sizeof(hbuf), "%s: %s\r\n", k, v);
-                    strncat(extra_headers, hbuf, sizeof(extra_headers) - strlen(extra_headers) - 1);
-                }
-            }
-        }
-    } else if (resp.tag == FL_STRING) {
-        body  = strval(resp);
-        ctype = "text/html; charset=utf-8";
+static int send_response(int client_fd,FLValue response,int keep_alive,int head_only,int*actual_status){
+    VHttpPrepared prepared;int failed=0;
+    if(fl_try_top>=FL_TRY_MAX)failed=1;
+    else{
+        FLTryFrame*frame=&fl_try_stack[fl_try_top++];
+        if(setjmp(frame->buf)==0){vh_prepare_response(response,keep_alive,&prepared);fl_try_top--;}
+        else{fl_try_top--;failed=1;}
     }
-
-    size_t blen = strlen(body);
-    char header_buf[4096];
-    snprintf(header_buf, sizeof(header_buf),
-        "HTTP/1.1 %d %s\r\n"
-        "Content-Type: %s\r\n"
-        "Content-Length: %zu\r\n"
-        "Connection: %s\r\n"
-        "%s"
-        "\r\n",
-        status, status_text(status),
-        ctype,
-        blen,
-        keep_alive ? "keep-alive" : "close",
-        extra_headers
-    );
-
-    transport_send(client_fd, header_buf, strlen(header_buf));
-    if (blen > 0) transport_send(client_fd, body, blen);
+    if(failed){
+        static const char body[]="{\"error\":\"Internal error\"}";
+        char header[256];int n=snprintf(header,sizeof(header),"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n",sizeof(body)-1);
+        *actual_status=500;transport_send(client_fd,header,(size_t)n);
+        if(!head_only)transport_send(client_fd,body,sizeof(body)-1);
+        return 0;
+    }
+    *actual_status=prepared.status;
+    if(!transport_send(client_fd,prepared.header,prepared.header_len))return 0;
+    FLString*body=(FLString*)prepared.body.obj;
+    return head_only||!body->len||transport_send(client_fd,body->data,body->len);
 }
 
 /* ───────────────────────────────────────────
    요청 → FLMap 변환
 ─────────────────────────────────────────── */
 
-static FLValue make_req_map(HttpRequest* hr, FLValue params, FormContext* form) {
-    /* 헤더 맵 */
-    FLValue headers = fl_map_new();
-    for (int i = 0; i < hr->nheaders; i++) {
-        headers = fl_map_set(headers,
-            fl_str_val(hr->headers[i][0]),
-            fl_str_val(hr->headers[i][1]));
+static FLValue request_header_value(const char*raw){
+    size_t n=strlen(raw);char*utf8=fl_arena_alloc(n*2+1);if(!utf8)fl_throw(fl_str_val("header allocation failed"));size_t used=0;
+    for(size_t i=0;i<n;i++){unsigned char c=(unsigned char)raw[i];if(c<128)utf8[used++]=c;else{utf8[used++]=(char)(0xc0|(c>>6));utf8[used++]=(char)(0x80|(c&63));}}
+    return form_bytes(utf8,used);
+}
+static int request_singleton(const char*name){
+    static const char*names[]={"authorization","host","user-agent","referer","from","if-modified-since","if-unmodified-since","age","content-length","content-type","etag","expires","last-modified","location","max-forwards","proxy-authorization","retry-after","server"};
+    for(size_t i=0;i<sizeof(names)/sizeof(names[0]);i++)if(!strcmp(name,names[i]))return 1;return 0;
+}
+static FLValue make_req_map(HttpRequest*hr,FLValue params,FormContext*form){
+    FLValue headers=fl_map_new();
+    for(int i=0;i<hr->nheaders;i++){
+        char lower[512];size_t j=0;for(;hr->headers[i][0][j];j++)lower[j]=(char)tolower((unsigned char)hr->headers[i][0][j]);lower[j]=0;
+        FLValue key=fl_str_val(lower),value=request_header_value(hr->headers[i][1]);
+        int exists=fl_truthy(fl_map_has(headers,key));
+        if(exists&&request_singleton(lower))continue;
+        if(!strcmp(lower,"set-cookie")){
+            FLValue array=exists?fl_map_get(headers,key):fl_vec_new();value=fl_vec_push(array,value);
+        }else if(exists)value=fl_str_n(3,fl_map_get(headers,key),fl_str_val(!strcmp(lower,"cookie")?"; ":", "),value);
+        headers=fl_map_set(headers,key,value);
     }
-
-    /* body — Content-Type에 따라 자동 파싱
-     * application/json → json_parse (맵/벡터)
-     * 기타 → 문자열 그대로 */
-    FLValue body = form->fields;
-    if (!form_type(hr->content_type)) {
-        const char* ct = "";
-        for (int i = 0; i < hr->nheaders; i++) {
-            if (strcasecmp(hr->headers[i][0], "content-type") == 0) {
-                ct = hr->headers[i][1]; break;
-            }
-        }
-        const char* raw = hr->body_len > 0 ? hr->body : "";
-        if (strstr(ct, "application/json") && hr->body_len > 0) {
-            FLValue parsed = json_parse(fl_str_val(raw));
-            body = (parsed.tag == FL_MAP || parsed.tag == FL_VECTOR)
-                   ? parsed : fl_str_val(raw);
-        } else {
-            body = fl_str_val(raw);
+    FLValue body=form->fields;
+    if(!form_type(hr->content_type)){
+        FLValue raw=form_bytes(hr->body_len?hr->body:"",(size_t)hr->body_len);
+        raw=fl_v11_builtin(fl_str_val("str"),fl_vec_from(&raw,1));body=raw;
+        const char*ct=hr->content_type;
+        if(!strncasecmp(ct,"application/json",16)&&(!ct[16]||ct[16]==';'||ct[16]==' '||ct[16]=='\t')){
+            FLValue parsed=fl_v11_json_try_parse(raw);
+            if(fl_truthy(fl_vec_get(parsed,fl_int(0))))body=fl_vec_get(parsed,fl_int(1));
         }
     }
-
-    FLValue req = fl_map_new();
-    req = fl_map_set(req, fl_str_val("method"),  fl_str_val(hr->method));
-    req = fl_map_set(req, fl_str_val("path"),    fl_str_val(hr->path));
-    req = fl_map_set(req, fl_str_val("query"),   parse_query(hr->query_str));
-    req = fl_map_set(req, fl_str_val("params"),  params);
-    req = fl_map_set(req, fl_str_val("headers"), headers);
-    if (form_type(hr->content_type)) body = form->fields;
-    req = fl_map_set(req, fl_str_val("fields"), form->fields);
-    req = fl_map_set(req, fl_str_val("files"), form->values);
-    req = fl_map_set(req, fl_str_val("body"), body);
-    return req;
+    FLValue req=fl_map_new();
+    req=vh_set(req,"method",fl_str_val(hr->method));req=vh_set(req,"path",fl_str_val(hr->path));req=vh_set(req,"query",parse_query(hr->query_str));
+    req=vh_set(req,"params",params);req=vh_set(req,"headers",headers);req=vh_set(req,"body",body);
+    req=vh_set(req,"fields",form->fields);req=vh_set(req,"files",form->values);return req;
 }
 
 /* ───────────────────────────────────────────
@@ -602,8 +564,6 @@ static void* handle_connection(void* arg) {
         /* ── 6. 디버그 로그 ── */
         struct timespec t_start;
         clock_gettime(CLOCK_MONOTONIC, &t_start);
-        fl_log_request(hr.method, hr.path, hr.body, hr.body_len,
-                       hr.content_type[0] ? hr.content_type : NULL);
 
         /* ── 6. 라우트 매칭 ── */
         FLValue params = fl_nil();
@@ -617,42 +577,37 @@ static void* handle_connection(void* arg) {
             }
         }
 
-        FLValue resp;
-        if (form_result) {
-            char error_body[96];
-            snprintf(error_body,sizeof error_body,"{\"error\":\"%s\"}",http_error);
-            resp = make_response(-form_result,"application/json",error_body);
-            keep_alive = 0;
-        } else if (!matched) {
-            char notfound_body[256];
-            snprintf(notfound_body, sizeof(notfound_body),
-                "{\"error\":\"Not Found\",\"path\":\"%s\"}", hr.path);
-            resp = make_response(404, "application/json", notfound_body);
-        } else {
-            /* ── 7. 핸들러 호출 (try/catch 보호) ── */
-            FLValue req = make_req_map(&hr, params, &form);
-            resp = fl_nil();
-            if (fl_try_top < FL_TRY_MAX) {
-                FLTryFrame* frame = &fl_try_stack[fl_try_top++];
-                if (setjmp(frame->buf) == 0) {
-                    resp = invoke_route(matched, req);
+        /* Dynamic path segments may carry private preview tokens. */
+        const char* log_path = matched ? matched->path : "[unmatched]";
+        fl_log_request(hr.method, log_path, hr.body, hr.body_len,
+                       hr.content_type[0] ? hr.content_type : NULL);
+        FLValue resp=fl_nil();
+        if(form_result){
+            FLValue error=vh_set(fl_map_new(),"error",fl_str_val(http_error));resp=vh_json_response(-form_result,error);keep_alive=0;
+        }else{
+            if(fl_try_top>=FL_TRY_MAX){resp=vh_json_response(500,fl_str_val("Internal error"));keep_alive=0;}
+            else{
+                FLTryFrame*frame=&fl_try_stack[fl_try_top++];
+                if(setjmp(frame->buf)==0){
+                    FLValue req=make_req_map(&hr,fl_map_new(),&form);g_current_req=req;
+                    for(int i=0;i<vh_nmiddlewares;i++){
+                        FLValue ignored;
+                        if(match_route(&vh_middlewares[i],hr.method,hr.path,&ignored)){
+                            FLValue value=invoke_route(&vh_middlewares[i],req);
+                            if(value.tag!=FL_NIL){resp=value;break;}
+                        }
+                    }
+                    if(resp.tag==FL_NIL){
+                        if(matched){req=vh_set(req,"params",params);g_current_req=req;resp=invoke_route(matched,req);}
+                        else{
+                            FLValue error=vh_set(fl_map_new(),"error",fl_str_val("Not Found"));error=vh_set(error,"path",fl_str_val(hr.path));resp=vh_json_response(404,error);
+                        }
+                    }
                     fl_try_top--;
-                } else {
-                    fl_try_top--;
-                    char errbuf[1024];
-                    const char* emsg = form_type(hr.content_type) ? "Internal error" : (frame->err.tag == FL_STRING)
-                        ? strval(frame->err) : "Internal error";
-                    /* 핸들러 에러 — stderr에 상세 출력 */
-                    fprintf(stderr, "\n[FreeLang 500] %s %s\n  -> %s\n",
-                            hr.method, hr.path, emsg);
-                    snprintf(errbuf, sizeof(errbuf),
-                        "{\"error\":\"%s\",\"path\":\"%s\",\"method\":\"%s\"}",
-                        emsg, hr.path, hr.method);
-                    resp = make_response(500, "application/json", errbuf);
-                    keep_alive = 0;
+                }else{
+                    fl_try_top--;resp=vh_json_response(500,vh_set(fl_map_new(),"error",fl_str_val("Internal error")));keep_alive=0;
+                    fprintf(stderr,"[FreeLang 500] HTTP handler failed\n");
                 }
-            } else {
-                resp = invoke_route(matched, req);
             }
         }
 
@@ -667,16 +622,13 @@ static void* handle_connection(void* arg) {
         long elapsed_ms = (t_end.tv_sec - t_start.tv_sec) * 1000
                         + (t_end.tv_nsec - t_start.tv_nsec) / 1000000;
         int status_code = 200;
-        if (resp.tag == FL_MAP) {
-            FLValue sc = fl_map_get(resp, fl_str_val("__status"));
-            if (sc.tag == FL_INT) status_code = (int)sc.i;
-        }
-        fl_log_response(status_code, hr.path, elapsed_ms);
+        if(!send_response(client_fd,resp,keep_alive,!strcmp(hr.method,"HEAD"),&status_code))keep_alive=0;
+        fl_log_response(status_code, log_path, elapsed_ms);
         fl_arena_stats();
 
-        send_response(client_fd, resp, keep_alive);
 
         /* ── 9. 아레나 종료 ── */
+        g_current_req = fl_nil();
         fl_arena_end();
 
         req_count++;
