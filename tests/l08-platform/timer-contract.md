@@ -10,3 +10,5 @@
 - CLI 기대 출력은 timer.expected로 먼저 고정했다. HTTP는 POST 뒤 churn 32회로 request arena를 재사용하고, HTTP 조회 없이 fired.txt가 생성되는지 확인한다. 원문은 captured-한😀, result는 해당 값 1개이며 이미 실행한 작업을 재실행하지 않는다. 4 workers, 소유 loopback port 0만 사용한다.
 
 기존 GC에서 closure는 malloc이지만 환경 값은 arena pointer를 그대로 보관하고, fl_heap_copy(FN)는 RC만 올린다. timer를 연결하기 전에 이를 숨기지 않고 escape 시 환경 승격·arena 종료 정리·atom identity를 언어 런타임에서 보완해야 한다. 앱 함수를 삭제하거나 방문 기반 scheduler로 우회하지 않는다. `.fl` 시험·원문·종료 코드·strace와 이전 전체 회귀 및 bootstrap을 별도 증거로 제출한다.
+
+무방문 증거 보강: churn 자체도 HTTP 요청이므로, churn 이후 파일 확인만으로 visitor 독립성을 판정하지 않는다. 별도 새 서버·빈 root에서 POST 1회 뒤 추가 HTTP 요청 없이 파일 생성만 확인하는 독립 probe를 먼저 추가한다. churn 사례는 capture 수명, 새 probe는 무방문 진행의 증거로 각각 사용한다. 원래 요구와 정답을 완화하지 않는다.
