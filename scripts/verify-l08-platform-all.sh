@@ -11,10 +11,14 @@ if L08_SNAPSHOT_OUT="$out/atom-snapshot" L08_SNAPSHOT_COMPILER="$out/self/compil
 cat "$out/atom-snapshot.log";printf 'ATOM_SNAPSHOT_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_TAIL_OUT="$out/tail" L08_TAIL_NATIVE_COMPILER="$out/self/compiler" L08_TAIL_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/tail.execve.log" bash "$ROOT/scripts/verify-l08-tail-self.sh" > "$out/tail.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/tail.log";printf 'TAIL_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_DEFINE_OUT="$out/define-sequence" L08_DEFINE_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/define-sequence.execve.log" bash "$ROOT/scripts/verify-l08-define-sequence.sh" > "$out/define-sequence.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/define-sequence.log";printf 'DEFINE_SEQUENCE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_EXTERN_OUT="$out/extern" L08_EXTERN_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/extern.execve.log" bash "$ROOT/scripts/verify-l08-extern-self.sh" > "$out/extern.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/extern.log";printf 'EXTERN_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_ATOM_UPDATE_OUT="$out/atom-update" L08_ATOM_UPDATE_COMPILER="$out/self/compiler" L08_ATOM_UPDATE_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/atom-update.execve.log" bash "$ROOT/scripts/verify-l08-atom-update.sh" > "$out/atom-update.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/atom-update.log";printf 'ATOM_UPDATE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_ATOM_LOCK_OUT="$out/atom-lock" L08_ATOM_LOCK_COMPILER="$out/self/compiler" L08_ATOM_LOCK_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/atom-lock.execve.log" bash "$ROOT/scripts/verify-l08-atom-lock.sh" > "$out/atom-lock.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/atom-lock.log";printf 'ATOM_LOCK_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_SORT_CONTEXT_OUT="$out/sort-context" L08_SORT_CONTEXT_COMPILER="$out/self/compiler" L08_SORT_CONTEXT_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/sort-context.execve.log" bash "$ROOT/scripts/verify-l08-sort-context.sh" > "$out/sort-context.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/sort-context.log";printf 'SORT_CONTEXT_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_HTTP_ATOM_OUT="$out/http-atom" L08_HTTP_ATOM_COMPILER="$out/self/compiler" L08_HTTP_ATOM_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/http-atom.execve.log" bash "$ROOT/scripts/verify-l08-http-atom.sh" > "$out/http-atom.log" 2>&1;then rc=0;else rc=$?;fi
