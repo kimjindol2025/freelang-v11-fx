@@ -8,7 +8,7 @@
 |---|---|
 | C18 `.fl`·정답 선행 고정 | `da71b207d218956b66df0be345f4d06be310fba1` |
 | C18 구현·재현 가능한 검증 드라이버 | `d5f6c0145094ed32af77b81f8cf735fc22cafb97` |
-| map 캡처·catch 후속 실패 시험 선행 고정 | `c3bb11e`는 약식이며 정확한 SHA는 아래 보충 기록 참조 |
+| map 캡처·catch 후속 실패 시험 선행 고정 | `c3bb11e5bf3483fc24d2c619c2c9b3801f1bbfdb` |
 
 C18은 v11의 환경 빈 값·기본값 평가, 오류 메시지 변환, 프로세스 종료, 암호학적 짧은 ID를 native dispatcher와 별칭에 연결했다. 기존 OpenSSL RAND_bytes를 사용하며 외부 의존성을 새로 추가하지 않았다. API 정답은 [소스 계약](L08-platform-contract.md)에 있다.
 
