@@ -1,0 +1,4 @@
+(defn unused-handler [event id data] nil)
+(define port (str_to_num (get (cli-args) 0)))
+(if (= (tcp-server-raw port "unused-handler" "127.0.0.1") "error") (println "BIND_CONFLICT=error") (throw "fixture-conflict"))
+(if (= (get (get (fl-error-drain) 0) 2) "listen") (println "BIND_ERROR_SOURCE=listen") (throw "fixture-listen-source"))
