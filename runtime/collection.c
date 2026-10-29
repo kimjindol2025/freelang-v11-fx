@@ -571,7 +571,8 @@ FLValue fl_swap_args(FLValue atom,FLValue fn,FLValue extra) {
     FLVector *v=(FLVector*)extra.obj;
     FLValue *args=malloc(sizeof(*args)*(v->len+1));
     if(!args) fl_throw(fl_str_val("swap!: allocation failed"));
-    args[0]=fl_atom_deref(atom);memcpy(args+1,v->data,v->len*sizeof(*args));
+    args[0]=fl_atom_deref(atom);
+    if(v->len)memcpy(args+1,v->data,v->len*sizeof(*args));
     return fl_atom_reset(atom,fl_call_owned_argv(fn,v->len+1,args));
 }
 FLValue fl_call_owned_argv(FLValue fn,int argc,FLValue *args) {

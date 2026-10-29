@@ -30,8 +30,14 @@ bash scripts/audit-l07-execve.sh <가림>
 
 ## 미확인
 
-- 실제 저장소의 ASan/UBSan writer·reader 10회는 별도 실행 중이다. 이전 메모리 진단 부재·일반 실행 성공으로 대체하지 않는다.
+- 실제 저장소의 첫 ASan/UBSan 재실행은 `writer_NATIVE_EXIT=1`, `BLOG_STORE_TAIL_SANITIZER_EXIT=1`이다. 아래 zero-extra swap 보완 뒤 새 시험 root에서 다시 실행 중이며, 일반 실행 성공으로 대체하지 않는다.
 - 최신 전체 회귀·L06/L07·native bootstrap 결과는 아직 없다. 타이머·TCP·snapshot까지만 포함한 이전 고정 소스 전체 실행과 구분한다.
 - `detect_leaks=0`이며 누수 검사는 미실행이다. native 반복 상한 profile은 첫 global 진입 2000000·함수 값 1000000이며 해당 상한 경계 시험은 미실행이다. atom 영구 수명·RC cycle·swap! 원자성·DB 동시 거래와 전체 메모리 안정성은 남아 있다.
 - 원래 blog fixture 8개의 별도 C 구문 조사에서는 6개 통과·2개 실패다. review/AI fixture가 load하지 않은 관리자·이미지 함수에 대한 호출을 정의만 해도 C 미선언 오류가 난다. 실행 시 이름을 찾는 언어 계약 보완이 다음 작업이다. [조사 요약과 선택 진단](evidence/l08-platform/blog-fixture-syntax-before.txt). C 구문 통과는 링크·실행 통과가 아니다.
 - auth_verify_password의 빈 scrypt key 정책은 사용자 결정 대기다. 전체 앱 실행·로그인·브라우저 J안·댓글·다중 작성자·실제 화면·운영 데이터 호환·백업/복구·성능은 여전히 미완료다. 서버 23·25 접속·운영 데이터 수정·합치기·배포는 하지 않았다.
+
+## 실제 저장소 sanitizer에서 발견한 zero-extra swap
+
+실제 writer는 collection.c의 swap!에서 길이 0의 memcpy에 NULL source를 넘기는 UB로 멈췄다. [실패 원문](evidence/l08-platform/blog-store-tail-sanitizer-before.txt). v11 src/eval-builtins.ts:526~534는 extraArgs가 없어도 함수에 현재 값 하나를 전달하므로 이 경우도 지원해야 한다. 최소 `.fl`·정답을 먼저 커밋하고 같은 `SWAP_ZERO_BEFORE_EXIT=1`을 보존했다. [최소 실패](evidence/l08-platform/swap-zero-before.txt).
+
+복사는 extra 길이가 있을 때만 실행하도록 공유 런타임 한 곳을 고쳤다. extra가 없는 반환·저장, callback 오류 전달·기존 값 유지, extra 2개, nil 반환·저장의 7개 출력이 ASan/UBSan에서 통과했다. `SWAP_ZERO_FIXED_EXIT=0`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`. [수정 후 원문](evidence/l08-platform/swap-zero-after.txt). swap! 논리적 동시성은 이 수정 범위가 아니다. 최신 tail 자체 driver는 이 시험을 추가한 8묶음이며, 전체 회귀에서 검증한다.
