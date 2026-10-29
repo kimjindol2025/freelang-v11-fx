@@ -131,7 +131,11 @@ static FLValue vt_format(FLValue stamp,FLValue format){
     FLValue result=t_js_string(format);
     for(int i=0;i<7;i++){
         FLString*s=(FLString*)result.obj;
-        const char*found=strstr(s->data,tokens[i]);
+        const char*found=NULL;
+        size_t token_length=strlen(tokens[i]);
+        for(size_t pos=0;pos+token_length<=s->len;pos++){
+            if(!memcmp(s->data+pos,tokens[i],token_length)){found=s->data+pos;break;}
+        }
         if(!found)continue;
         char value[32];
         if(!valid)strcpy(value,"NaN");
