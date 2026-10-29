@@ -49,3 +49,11 @@ zero-extra guard 구현은 `7fbe7698478d13ff5d6cfa8bf16c69e0aabb92d4`다. 실제
 이 실행의 합성 WAL SHA는 `5a35fe5060906f60d73055dd2d9d3d03494bf16ebab007b194fc59d4719b77f1`이다. 일반 실행과 각각 `6`개 기록이며 두 새 writer가 생성한 uuid_short 거래 ID만 달랐다. 비교용 stream에서 tx field를 제외하면 나머지는 byte 단위로 같다. 원본 WAL·거래·본문은 변경하지 않았으며 각 실행의 재시작 검증은 원본 전체를 비교했다. [읽기 전용 비교 원문](evidence/l08-platform/blog-store-run-comparison.txt). 운영 데이터 해시 비교가 아니다.
 
 같은 소스의 전체 driver에서 자체 tail은 `L08_TAIL_PASS=8 FAIL=0`, `TAIL_SELF_EXIT=0`이지만 이후 TCP에서 실패했다. `TAIL_PLATFORM_FULL_EXIT=1`이다. [전체 실패](evidence/l08-platform/tail-full-before.txt). raw 큰 slow-reader echo가 실패하고 TLS 회복도 실패했다. 따라서 이 최신 소스의 L06/L07 전체 회귀·native bootstrap은 실행하지 못했다. non-last if에서 만든 tail 요청이 다음 식에 덮여 부작용을 잃는 최소 재현·정답을 추가했다. [후속 계약](../tests/l08-platform/tail-nonlast-contract.md). 기존 TCP·tail 정답은 유지하며 emitter의 tail 위치 구분을 다음에 고쳐야 한다. 전체 언어 완료·배포 가능으로 판정하지 않는다.
+
+## non-last 위치 보완과 TCP 회복 재확인
+
+`TAIL_NONLAST_BEFORE_EXIT=1`, `TAIL_SEQUENCE_BEFORE_EXIT=1`을 최소 `.fl`·정답부터 보존했다. [중간 호출 실패](evidence/l08-platform/tail-nonlast-before.txt), [let 순서 실패](evidence/l08-platform/tail-sequence-before.txt). 마지막 식이 아닌 순차 표현식은 값 모드로 실행하도록 emitter의 do·defn·let/recur 경로를 함께 보완했다. recur goto가 값 스코프 밖으로 뛰지 않도록 기존 recur 경로는 구분한다. 일부 recur-aware let body가 마지막 코드 문자열을 반환할 때 앞서 쌓은 코드를 버리는 문제도 고쳤다. 앱·TCP fixture·기존 정답은 바꾸지 않았다. v11 do의 명시적 mode guard 부재와 의도한 꼬리 위치 규칙의 차이는 위 계약에 공개했고, Node로 v11 실행을 검증했다고 주장하지 않는다.
+
+새 compiler로 기존 tail 깊이 5000·인자/closure 수명·catch/atom과 새 중간 식·let 순서·이름 조회·zero-extra swap을 ASan/UBSan에서 실행했다. `L08_TAIL_PASS=11 FAIL=0`, `TAIL_SEQUENCE_SELF_EXIT=0`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. [원문](evidence/l08-platform/tail-sequence-self-after.txt). 누수 검사는 미실행이다.
+
+실패했던 raw 2 MiB·부분 쓰기·TLS/mTLS·회복의 기존 driver를 다시 실행해 `L08_TCP_PASS=8 FAIL=0`, `TCP_SEQUENCE_FIXED_EXIT=0`을 확인했다. [원문](evidence/l08-platform/tcp-sequence-fixed-after.txt). 원래 전체 blog를 다시 native 링크하고 editor HTTP도 `BLOG_EDITOR_SEQUENCE_FIXED_EXIT=0`, `NATIVE_BLOG_EDITOR_PASS=3 FAIL=0`, 재시작 `2`, WAL 바이트 동일성으로 통과했다. [원문](evidence/l08-platform/blog-editor-sequence-fixed-after.txt). 합성 세션이며 비밀번호 로그인·실제 브라우저 JS 실행·화면 캡처는 미실행이다. 전체 L06/L07 회귀·native bootstrap은 이 수정 소스에서 다시 확인해야 하므로 아직 전체 완료가 아니다.

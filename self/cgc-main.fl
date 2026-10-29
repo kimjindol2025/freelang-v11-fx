@@ -1684,10 +1684,14 @@
     (swap! outer-params-atom append $n)
     (cgc-let-2d $it (+ $i 1) (str $acc "    FLValue " $n $attr " = FL_VALUE(" $v ");\n")))))
 
+(defn cgc-sequence-c [$node $code $last]
+  ;; A recur goto must not jump out past a value-mode scope.
+  (if (or $last (cgc-node-has-recur $node)) $code (str "FL_VALUE(" $code ")")))
+
 (defn cgc-body [$args $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc (get $args $i))]]
+        [$c (cgc-sequence-c (get $args $i) (cgc (get $args $i)) $last)]]
     (if $last (str $acc $c) (cgc-body $args (+ $i 1) (str $acc $c ";\n    "))))))
 
 ;; ── defn (최상위) ──
@@ -1696,7 +1700,7 @@
 (defn cgc-defn-stmts [$args $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc (get $args $i))]]
+        [$c (cgc-sequence-c (get $args $i) (cgc (get $args $i)) $last)]]
     (if $last
       (str $acc "    { FLValue __fl_ret__ = " $c "; fl_pop_frame(); return __fl_ret__; }\n")
       (cgc-defn-stmts $args (+ $i 1) (str $acc "    (void)(" $c ");\n"))))))
@@ -2058,7 +2062,7 @@
 (defn cgc-stmts-wr-goto [$args $vars $label $i $acc]
   (if (>= $i (length $args)) $acc
   (cgc-stmts-wr-goto $args $vars $label (+ $i 1)
-    (str $acc (cgc-with-recur-goto (get $args $i) $vars $label) "; "))))
+    (str $acc (cgc-sequence-c (get $args $i) (cgc-with-recur-goto (get $args $i) $vars $label) (= $i (- (length $args) 1))) "; "))))
 
 (defn cgc-let-wr-goto [$args $vars $label]
   (let [[$items (get-block-items (get $args 0))]
@@ -2071,15 +2075,15 @@
 (defn cgc-body-wr-goto [$args $vars $label $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc-with-recur-goto (get $args $i) $vars $label)]]
-    (if $last $c
+        [$c (cgc-sequence-c (get $args $i) (cgc-with-recur-goto (get $args $i) $vars $label) $last)]]
+    (if $last (str $acc $c)
     (cgc-body-wr-goto $args $vars $label (+ $i 1) (str $acc $c ";\n    "))))))
 
 ;; defn TCO body: 중간 식은 (void), 마지막만 return (recur는 goto)
 (defn cgc-defn-stmts-tco [$args $vars $label $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc-with-recur-goto (get $args $i) $vars $label)]]
+        [$c (cgc-sequence-c (get $args $i) (cgc-with-recur-goto (get $args $i) $vars $label) $last)]]
     (if $last
       (str $acc "    { FLValue __fl_ret__ = " $c "; fl_pop_frame(); return __fl_ret__; }\n")
       (cgc-defn-stmts-tco $args $vars $label (+ $i 1) (str $acc "    (void)(" $c ");\n"))))))
@@ -2186,7 +2190,7 @@
 (defn cgc-stmts [$args $i $acc]
   (loop [$i $i $acc $acc]
     (if (>= $i (length $args)) $acc
-    (recur (+ $i 1) (str $acc (cgc (get $args $i)) "; ")))))
+    (recur (+ $i 1) (str $acc (cgc-sequence-c (get $args $i) (cgc (get $args $i)) (= $i (- (length $args) 1))) "; ")))))
 
 ;; ── 전체 프로그램 생성 ──
 
@@ -2407,7 +2411,7 @@
 (defn cgc-stmts-wr [$args $vars $i $acc]
   (if (>= $i (length $args)) $acc
   (cgc-stmts-wr $args $vars (+ $i 1)
-    (str $acc (cgc-with-recur (get $args $i) $vars) "; "))))
+    (str $acc (cgc-sequence-c (get $args $i) (cgc-with-recur (get $args $i) $vars) (= $i (- (length $args) 1))) "; "))))
 
 ;; let 내부 recur-aware (선언은 cgc-let-1d/2d 재활용, body만 wr)
 (defn cgc-let-wr [$args $vars]
@@ -2421,8 +2425,8 @@
 (defn cgc-body-wr [$args $vars $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc-with-recur (get $args $i) $vars)]]
-    (if $last $c (cgc-body-wr $args $vars (+ $i 1) (str $acc $c ";\n    "))))))
+        [$c (cgc-sequence-c (get $args $i) (cgc-with-recur (get $args $i) $vars) $last)]]
+    (if $last (str $acc $c) (cgc-body-wr $args $vars (+ $i 1) (str $acc $c ";\n    "))))))
 
 ;; ── S14: Array / Map 리터럴 lowering ──
 

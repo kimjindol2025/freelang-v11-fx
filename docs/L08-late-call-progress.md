@@ -29,3 +29,5 @@ bash scripts/audit-l07-execve.sh <가림>
 - 함수 미발견 hint 문구 전체·모든 동적 이름 변경과 callback 수명·동시성은 미확인이다. 최소 정답은 v11의 안정된 message 시작과 정의/호출 구분이며 전체 C01 완료가 아니다.
 - tail·swap까지 포함한 고정 `7fbe7698478d13ff5d6cfa8bf16c69e0aabb92d4` 전체 회귀는 `TAIL_PLATFORM_FULL_EXIT=1`로 TCP에서 멈췄다. non-last tail 부작용 누락의 최소 재현을 먼저 고정했으며 수정·전체 재검증이 필요하다. 이전 `a1c69c2e85ae700edea1be03e14a8ced7eb155b6` 전체 통과를 현재 코드에 적용하지 않는다.
 - 댓글·다중 작성자·브라우저 J안·미디어 처리·예약/편집/운영 기능·실제 화면·운영 데이터 호환·백업/복구·성능은 남아 있다. 서버 23·25 접속·운영 데이터 수정·합치기·배포는 하지 않았다.
+
+이후 non-last emitter를 보완한 소스에서 이름 조회를 포함한 ASan/UBSan 11묶음, 기존 TCP/TLS 8묶음, 전체 앱 editor HTTP 3회·재시작 2회를 재확인했다. 각각 종료 `0`이다. [후속 언어·TCP·앱 원문](L08-tail-progress.md#non-last-위치-보완과-tcp-회복-재확인). 이전 TCP 실패 기록은 보존했으며 최신 전체 회귀·bootstrap 통과로 대체하지 않는다.

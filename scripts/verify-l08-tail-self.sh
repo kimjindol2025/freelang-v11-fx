@@ -13,7 +13,7 @@ if [[ -n ${L08_TAIL_SANITIZER_LIBDIR:-} ]];then
  export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
 fi
 pass=0;fail=0
-for name in tail-call-context tail-call-extra tail-while-mode swap-zero-extra call-error-context compiler-blockers try-scope atom-snapshot;do
+for name in tail-call-context tail-call-extra tail-while-mode swap-zero-extra call-error-context compiler-blockers try-scope atom-snapshot late-call tail-nonlast tail-let-sequence;do
  "$compiler" "$ROOT/tests/l08-platform/$name.fl" "$out/$name.c" > "$out/$name-build.log" 2>&1
  gcc "${flags[@]}" -o "$out/$name" "$out/$name.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" >> "$out/$name-build.log" 2>&1
  if timeout 60 "$out/$name" > "$out/$name.actual" 2> "$out/$name.stderr";then rc=0;else rc=$?;fi
