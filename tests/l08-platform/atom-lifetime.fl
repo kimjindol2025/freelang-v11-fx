@@ -11,6 +11,12 @@
 (atom-meter-scope (fn [] (let [f (atom-meter-scope (fn [] (let [a (atom 1)] (fn [] (swap! a + 1)))))]
  (do (check (f) 2 "ATOM_CAPTURE_FIRST=PASS") (check (f) 3 "ATOM_CAPTURE_SECOND=PASS")))))
 (check (atom-meter-live) 0 "ATOM_CAPTURE_RELEASED=PASS")
+(atom-meter-scope (fn [] (let [a (atom 0)]
+ (check (run-parallel [(fn [] (swap! a + 1))]) [1] "ATOM_WORKER_CAPTURE=PASS"))))
+(check (atom-meter-live) 0 "ATOM_WORKER_CAPTURE_RELEASED=PASS")
+(atom-meter-scope (fn [] (let [values (run-parallel [(fn [] (atom 3))]) a (get values 0)]
+ (do (reset! a 4) (check (deref a) 4 "ATOM_WORKER_RETURN=PASS")))))
+(check (atom-meter-live) 0 "ATOM_WORKER_RETURN_RELEASED=PASS")
 (atom-meter-scope (fn [] (let [box (atom-meter-scope (fn [] (let [a (atom 0)] {"items" [a a]})))
                                   a (get (get box "items") 0) b (get (get box "items") 1)]
  (do (reset! a 9) (check (deref b) 9 "ATOM_CONTAINER_ALIAS=PASS")))))
