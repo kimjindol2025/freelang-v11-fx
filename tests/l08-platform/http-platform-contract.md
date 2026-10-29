@@ -25,3 +25,5 @@
 | wildcard 미등록 URL | 등록된 마지막 /* fallback 404 |
 
 중복 폼·multipart의 제한과 accessor 차이는 C15에서 별도 검증한다. 기존 L06의 native server_req_body map 계약과 v11 helper의 string 계약 차이를 숨기지 않으며, 이 HTTP 시험에서 임시 앱 parser나 accessor 우회를 추가하지 않는다. static 경로 보호는 v11의 단순 startsWith보다 강한 C10 요구를 유지한다. 사람 작성 JS·Node·Python은 사용하지 않는다.
+
+네이티브 HTTP debug 기록은 본문·쿼리·동적 경로 값·인증 값을 기록하지 않는다. opt-in DEBUG=2에서도 route pattern·byte count·status만 기록한다. 별도 실제 HTTP probe가 같은 공개 시험 marker를 JSON 본문과 path parameter로 보내며 로그에 남지 않는 것을 고정 정답으로 삼는다. 이는 source의 raw debug 출력과 달리 PRD의 비밀 값 비기록 요구를 적용한 의도적인 privacy 강화다.
