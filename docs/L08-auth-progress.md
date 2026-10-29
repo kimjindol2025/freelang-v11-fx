@@ -33,3 +33,9 @@ NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
 빈 scrypt 검증 key에 대한 원문 허용과 손상 거부 요구가 충돌해 사용자에게 질문한 상태다. 답변을 임의로 가정하지 않았다. **auth_verify_password는 아직 공개 연결하지 않았고 password verification fixture는 실행하지 않았다.** 이 부분을 stub으로 대체하거나 C13 전체 완료로 보고하지 않는다. 다른 인증 API·HTTP 작업은 계속 진행한다.
 
 native random_token 상한은 1 MiB로 명시했다. source Node의 더 큰 모든 크기까지 같다고 주장하지 않는다. password 입력은 기존 UTF-16→UTF-8 replacement 계약을 따르고 KDF 임시 password/key 버퍼를 정리한다. auth 변경의 전체 회귀·bootstrap과 실제 blog1 로그인·권한·운영 데이터 호환은 아직 미확인이다. 현재 다른 checkout의 fd/JSON 전체 검증 결과를 이 auth 코드에 적용하지 않는다.
+
+## 작업 가지 반영과 회귀 범위
+
+부분 시험을 수행한 분리 checkout 구현 커밋은 `68e8628fccd7d113219d2461643c54fdef4f147f`다. 현재 작업 가지의 동일 소스 구현 커밋은 `24b2759a9814c1886296098c4fa97c4079e0aaa4`다. 반영 직후 runtime/self/scripts와 인증 시험 입력의 Git diff가 비어 있음을 확인했다(`AUTH_TESTED_SOURCE_EQ_BRANCH=PASS`).
+
+전체 드라이버에 이 부분 자체 시험을 포함했다. 드라이버의 AUTH_PARTIAL 단계가 0이어도 **auth_verify_password는 미구현·미실행이며 C13 전체 완료가 아니다.** 이후 HTTP 구현과 운영 로그인 검증도 별도로 필요하다.
