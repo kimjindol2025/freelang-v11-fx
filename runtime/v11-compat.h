@@ -728,6 +728,7 @@ static FLValue t_replace_all(FLValue input,FLValue pattern,FLValue replacement){
 #include "v11-time.h"
 #include "v11-regex.h"
 #include "v11-error.h"
+#include "v11-json.h"
 
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];
@@ -737,6 +738,13 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     FLValue*a=av->data;
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
+    if(IS("json-parse"))return vj_parse(ARG(0));
+    if(IS("json-str")||IS("json-stringify"))return vj_stringify(ARG(0));
+    if(IS("auth-sha256")){
+        if(ARG(0).tag!=FL_STRING)fl_throw(fl_make_error("TypeError","auth_sha256: string required"));
+        TUnits text=t_units(ARG(0));TBuffer bytes={0};t_encode(&bytes,text.p,text.n,1);free(text.p);
+        return sha256(t_finish(&bytes));
+    }
     if(!strncmp(op,"fd-",3)){
         FLValue args=argv;
         if(IS("fd-write")&&ARG(1).tag==FL_STRING){
