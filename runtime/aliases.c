@@ -676,24 +676,37 @@ FLValue fl_repeat(FLValue n_v, FLValue val) {
 }
 
 /* sort-by: keyfn으로 정렬 */
-static FLValue _sort_by_fn;
-static int _sort_by_cmp(const void* a, const void* b) {
-    FLValue ka = fl_fn_call(_sort_by_fn, 1, (FLValue*)a);
-    FLValue kb = fl_fn_call(_sort_by_fn, 1, (FLValue*)b);
-    if (ka.tag == FL_INT && kb.tag == FL_INT) return (ka.i < kb.i) ? -1 : (ka.i > kb.i) ? 1 : 0;
-    if (ka.tag == FL_STRING && kb.tag == FL_STRING)
-        return strcmp(((FLString*)ka.obj)->data, ((FLString*)kb.obj)->data);
-    double da = (ka.tag == FL_FLOAT) ? ka.f : (double)ka.i;
-    double db = (kb.tag == FL_FLOAT) ? kb.f : (double)kb.i;
-    return (da < db) ? -1 : (da > db) ? 1 : 0;
+typedef struct {FLValue fn,error;int failed;} FLSortContext;
+static int _sort_by_cmp(const void* a, const void* b,void *context) {
+    FLSortContext *sort=context;
+    if(sort->failed)return 0;
+    if(fl_try_top>=FL_TRY_MAX){sort->failed=1;sort->error=fl_str_val("sort-by: try stack overflow");return 0;}
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    /* Return through libc cleanup before propagating a callback exception. */
+    if(setjmp(frame->buf)!=0){sort->failed=1;sort->error=frame->err;fl_try_top--;return 0;}
+    FLValue ka = fl_fn_call(sort->fn, 1, (FLValue*)a);
+    FLValue kb = fl_fn_call(sort->fn, 1, (FLValue*)b);
+    int result;
+    if (ka.tag == FL_INT && kb.tag == FL_INT) result=(ka.i < kb.i) ? -1 : (ka.i > kb.i) ? 1 : 0;
+    else if (ka.tag == FL_STRING && kb.tag == FL_STRING)
+        result=strcmp(((FLString*)ka.obj)->data, ((FLString*)kb.obj)->data);
+    else {
+        double da = (ka.tag == FL_FLOAT) ? ka.f : (double)ka.i;
+        double db = (kb.tag == FL_FLOAT) ? kb.f : (double)kb.i;
+        result=(da < db) ? -1 : (da > db) ? 1 : 0;
+    }
+    fl_try_top--;return result;
 }
 FLValue fl_sort_by(FLValue fn, FLValue vec) {
     if (vec.tag != FL_VECTOR) return vec;
     FLVector* vp = (FLVector*)vec.obj;
+    if(!vp->len)return fl_vec_new();
     FLValue* copy = (FLValue*)malloc(vp->len * sizeof(FLValue));
+    if(!copy)fl_throw(fl_str_val("sort-by: allocation failed"));
     memcpy(copy, vp->data, vp->len * sizeof(FLValue));
-    _sort_by_fn = fn;
-    qsort(copy, vp->len, sizeof(FLValue), _sort_by_cmp);
+    FLSortContext context={fn,fl_nil(),0};
+    qsort_r(copy, vp->len, sizeof(FLValue), _sort_by_cmp,&context);
+    if(context.failed){free(copy);fl_throw(context.error);return fl_nil();}
     FLValue r = fl_vec_from(copy, vp->len);
     free(copy);
     return r;
