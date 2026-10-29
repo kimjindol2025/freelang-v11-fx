@@ -1,0 +1,12 @@
+boolean
+[E_TYPE_MISMATCH] +: 인자 1번에 boolean 전달됨 — number 필요 (str-to-num 변환 확인)
+Infinity
+-a-b-
+<a>b<a>
+$::bb
+a_b
+[]
+["a", "b:c"]
+0
+true
+["한", "😀", 1]

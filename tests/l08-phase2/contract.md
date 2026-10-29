@@ -10,3 +10,9 @@
 - 잘못된 UTF-8은 텍스트 API 진입 시 U+FFFD로 해석한다. L07 raw 데이터의 바이트와 내부 UTF-16 단독 surrogate를 구분하며, raw 파일 복사는 원본과 cmp한다. URI의 잘못된 UTF-8·percent는 예외다. 파일 API 자체의 text alias(C10)는 구현하지 않는다.
 
 Node·TS·JS·Python을 실행해 정답을 생성하지 않았다. 정답은 대응 수정 전에 커밋하며 수정해서 통과시키지 않는다. C ABI의 기존 바이트/산술 함수는 seed와 C 호출자용으로 유지하고 FreeLang 컴파일 경로를 연결한다.
+
+추가 계약 시험 `contracts`는 같은 일반 평가기의 +·-·*·/ 숫자 타입 오류(원문 메시지), % 숫자 강제 변환, char-at의 Number 인덱스, num-to-str nil의 `"null"`, filter nil 함수의 원본 반환, drop 음수, 유한 range의 시작·끝·증분, take 인자 순서 오류를 고정한다. 무한 lazy sequence는 이번 구현 범위에 넣지 않는다. 이 정답도 대응 수정 전에 별도 커밋했다.
+
+정답 정정: 최초 `contracts.expected`의 num-to-str nil은 빈 문자열로 잘못 고정했다. 일반 평가기 앞에 있는 `flExecOpNative` 보조 함수의 String(v0 ?? "")와 혼동했다. 실제 evalBuiltin의 num-to-str는 String(args[0])이므로 `"null"`이다. 이 한 줄을 원문 근거로 공개 정정하고, 이후 대응 구현을 수정한다. 정답이 처음부터 전부 불변이었다고 보고하지 않는다. 같은 원문의 char-at는 먼저 나오는 case에서 Number 인덱스를 지원한다. 뒤의 중복 case와 혼동하지 않는다.
+
+`source-edge`는 불리언 타입명, +의 초기 0 누적, replaceAll의 빈 패턴·치환 기호, 기본 str-replace의 nil 기본값, split의 숫자 문자열 상한, str-index-of의 nil 기본값, flDeepEq의 같은 키 수/nil 조회 의미, append의 문자열 spread를 추가 고정한다.
