@@ -40,3 +40,7 @@ NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
 v11 경로는 HTTP proxy 환경을 자동 사용하지 않고 http/https만 허용하며 peer/hostname을 검증한다. 기존 fx 전용 legacy http_req 계열은 별도 기존 정책 경로이며, 이번 v11 TLS 통과를 그 모든 인터페이스의 보안 검증으로 확대하지 않는다. 출시 전 해당 정책 경로 점검도 남아 있다.
 
 인증 verify 결정·타이머/TCP·폼 경계·동시성·전체 앱 컴파일/실행, 댓글·다중 작성자·실제 화면·운영 데이터 호환·복구는 여전히 남아 있다. 서버 23·25 접속·운영 데이터 변경·합치기·배포는 하지 않았다.
+
+## 작업 가지와 전체 시험 대상
+
+분리 checkout 구현 `8800b53f0299d58c53b4bca1f2697096ec9ccf85`를 작업 가지 구현 `c4f8432590816d2c9e3024a53268e460397554ea`로 반영했다. 최신 전체 시험은 고정 checkout `569d44cb57c1d926de16c8a11fcf81d3b1652592`에서 실행 중이다. 반영 직후 runtime/self/scripts/tests/docs diff가 비어 있음을 확인했다(`CLIENT_TESTED_SOURCE_EQ_BRANCH=PASS`). 이 절 이후 보고 문서만 추가했다. 전체 시험이 끝나기 전에는 통과로 집계하지 않는다.

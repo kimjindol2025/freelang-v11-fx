@@ -52,3 +52,7 @@ auth_verify_password
 이 코드의 전체 회귀·bootstrap은 아직 미확인이다. C14 전체 회귀는 앞선 코드의 별도 실행이므로 이 코드의 통과로 대체하지 않는다. 전체 driver에 feed 자체 단계를 추가했다. 형식 계약은 배열/nil 입력, 기존 C04 ISO 날짜 범위와 source optional 필드 사용을 대상으로 하며 모든 Node Date 문자열 형식의 일치를 주장하지 않는다.
 
 앱 RSS/sitemap 실제 HTTP·비공개 글 제외·재시작·화면·운영 데이터 호환·백업/복구·댓글·다중 작성자는 여전히 별도 검증이 필요하다. 서버 23·25 접속·운영 데이터 변경·합치기·배포는 하지 않았다.
+
+## 작업 가지 반영
+
+분리 checkout 구현 `7963a2df81ea2f352202aa8a878957b28a54caea`를 작업 가지 구현 `bdf0ab310b7e1f21bb216f3a013d228458103e23`로 반영했다. 이후 client 변경까지 반영한 작업 가지와 최신 전체 시험 checkout의 runtime/self/scripts/tests diff가 비어 있음을 확인했다. 앞선 시험 소스를 수정하지 않고 별도 worktree에서 반영했다.
