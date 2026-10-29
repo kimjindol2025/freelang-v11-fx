@@ -275,7 +275,7 @@ FLValue fl_with_atom_lock(FLValue atom,FLValue callback) {
         FLValue error=frame->err;fl_try_top--;
         pthread_mutex_unlock(mutex);fl_heap_release(atom);fl_throw(error);return fl_nil();
     }
-    FLValue result=fl_call(callback,0,NULL);
+    FLValue result=fl_fn_call(callback,0,NULL);
     fl_try_top--;pthread_mutex_unlock(mutex);fl_heap_release(atom);return result;
 }
 

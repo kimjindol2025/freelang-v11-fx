@@ -1,0 +1,7 @@
+<가림>: In function ‘fl_with_atom_lock’:
+<가림>:278:20: error: implicit declaration of function ‘fl_call’; did you mean ‘fl_vals’? [-Wimplicit-function-declaration]
+  278 |     FLValue result=fl_call(callback,0,NULL);
+      |                    ^~~~~~~
+      |                    fl_vals
+<가림>:278:20: error: invalid initializer
+ATOM_LOCK_AFTER_EXIT=1
