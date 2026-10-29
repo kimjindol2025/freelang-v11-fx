@@ -1,0 +1,17 @@
+Compiled tests/l08-platform/extern-c.fl -> <가림>
+<가림>: In function ‘date_parse’:
+<가림>:1256:10: error: implicit declaration of function ‘strptime’; did you mean ‘strftime’? [-Wimplicit-function-declaration]
+ 1256 |     if (!strptime(s, f, &tm_info)) return fl_nil();
+      |          ^~~~~~~~
+      |          strftime
+In file included from <가림>:276:
+<가림>: In function ‘form_save’:
+<가림>:333:40: error: ‘O_TMPFILE’ undeclared (first use in this function)
+  333 |         f->fd=openat(c->dir,".",O_RDWR|O_TMPFILE|O_CLOEXEC,0600);
+      |                                        ^~~~~~~~~
+<가림>:333:40: note: each undeclared identifier is reported only once for each function it appears in
+<가림>:340:46: error: ‘AT_EMPTY_PATH’ undeclared (first use in this function)
+  340 |         if (linkat(f->fd,"",c->dir,f->marker,AT_EMPTY_PATH)) {
+      |                                              ^~~~~~~~~~~~~
+EXTERN_INITIAL_BUILD_EXIT=1
+EXTERN_INITIAL_PROGRAM=UNEXECUTED_BUILD_FAILED
