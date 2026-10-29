@@ -1,10 +1,10 @@
 (load "check.fl")
 (doseq [pattern ["(" "[" "\\" "*" "a{3,1}"]]
- (println (check (try (regex_match "x" pattern) (catch e (str_starts e "regex_match: invalid pattern"))) true)))
-(println (check (try (regex_match "aa" "(a)\\1") (catch e (str_includes e "backreference"))) true))
-(println (check (try (regex_match "a" "(?<=a)") (catch e (str_includes e "unsupported group"))) true))
+ (println (check (try (do (regex_match "x" pattern) false) (catch e (str_starts e "regex_match: invalid pattern"))) true)))
+(println (check (try (do (regex_match "aa" "(a)\\1") false) (catch e (str_includes e "backreference"))) true))
+(println (check (try (do (regex_match "a" "(?<=a)") false) (catch e (str_includes e "unsupported group"))) true))
 ;; Explicit native resource contract, not a claimed Date/RegExp host exception.
-(println (check (try (regex_match "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaab" "(a+)+$") (catch e (str_includes e "budget"))) true))
+(println (check (try (do (regex_match "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaab" "(a+)+$") false) (catch e (str_includes e "budget"))) true))
 (println (check (regex_match_i "ς" "[Σ]") true))
 (println (check (regex_match_i "ſ" "[a-z]") false))
 (println (check (regex_match "한" "\\S") true))

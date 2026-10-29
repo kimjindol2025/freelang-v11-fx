@@ -20,3 +20,5 @@ regex.fl의 `regex_match "x\n" "x$"` 기대값을 true에서 false로 정정했�
 regex-guards는 잘못된 패턴, 지원 범위 밖 backreference/lookbehind의 명시 오류, Unicode 비-u ignoreCase, native backtracking budget을 검사한다. budget 예외는 v11 호스트 오류를 재현했다고 주장하지 않는 네이티브 자원 상한 계약이다. 엔진은 패턴 UTF-16 길이 8192·AST/명령 4096·캡처 31개·반복 상한 1024·assertion 깊이 32·VM 단계 10000000·backtracking stack 65536개를 넘으면 명시 오류로 종료한다. 필요한 실제 34종 패턴과 65종 동적 상수는 이 범위 안에서 검사한다. 파일은 base 자체의 symlink와 NUL 경로도 추가 검사한다. 이 추가 시험은 기존 정답을 바꿔 맞추는 정정이 아니다.
 
 첫 구현 자체 시험에서 파일 fixture의 공통 helper에 cli-args 선언이 누락되어 파일·이미지·보안 3개가 컴파일에 실패했다. helper에 선언만 추가한 커밋 8393f7b에서 시험 준비를 정정했고 의미상 정답은 바꾸지 않았다. 실패 원문도 보관한다.
+
+예외 검사는 작업 성공의 true와 catch의 true를 혼동하지 않도록 try 본문을 `(do 작업 false)`로 강화했다. 성공 반환값이 무엇이든 성공하면 false가 되고, 예외만 catch 기대값으로 검사한다. `.expected`와 API 의미상 정답은 변경하지 않았다. 경로 차단·잘못된 타입·잘못된 패턴·자원 상한의 예외 자체를 증명하기 위한 시험 강화다.

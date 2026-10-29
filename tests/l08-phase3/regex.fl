@@ -16,5 +16,5 @@
 (println (check (regex_match_i "https://x/a b" "^https?://[a-z0-9][a-z0-9.-]*(:[0-9]{1,5})?([/?#][^\\s]*)?$") false))
 (println (check (regex_match "x\n" "x$") false))
 (println (check (map count (regex_find_all "😀" ".")) [1 1]))
-(println (check (try (regex_match "a" "[") (catch e (str_starts e "regex_match: invalid pattern"))) true))
+(println (check (try (do (regex_match "a" "[") false) (catch e (str_starts e "regex_match: invalid pattern"))) true))
 (println (check (regex_replace "abc" "(b)" "$$:$&:$1:$`:$'") "a$:b:b:a:cc"))
