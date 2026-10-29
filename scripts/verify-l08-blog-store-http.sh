@@ -39,7 +39,7 @@ start(){
  for attempt in {1..300};do [[ ! -s "$out/$iteration.port" ]] || break;kill -0 "$pid";sleep .05;done
  port=$(cat "$out/$iteration.port")
  [[ $(curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port/health") == OK ]]
- [[ ! -s "$out/$iteration.stderr" ]]
+ if rg -n -v '^\[http\] (라우트 등록: (GET|POST) /(health|rows|stats|write) → <closure>|스레드 풀: 4 워커, 큐 1024, 타임아웃 30s|서버 시작: http://0\.0\.0\.0:0)$' "$out/$iteration.stderr";then return 1;fi
 }
 exact_rows(){
  curl --noproxy '*' -fsS --max-time 10 "http://127.0.0.1:$port/rows" > "$out/$1.json"
