@@ -45,7 +45,9 @@ NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
 
 최초 ASan/UBSan 빌드는 시스템 linker script가 가리키는 runtime 파일이 없어 링크 종료 `1`이었다. [실패 원문](evidence/l08-platform/timer-memory-sanitizer-link-before.txt). 공식 Fedora HTTPS 배포의 libasan·libubsan `15.2.1-2.fc43` 패키지를 시험용 임시 영역에만 풀어 다시 링크했다. 시스템 설치·sudo·/etc 변경은 하지 않았다. compiler는 `14.3.1`이다. [패키지명·SHA-256·LICENSE 원문](evidence/l08-platform/timer-sanitizer-packages.txt)을 보존했다. 이 라이브러리는 시험 의존성이며 제품 runtime에 추가하지 않았다.
 
-추가 native memory fixture는 `TIMER_MEMORY_ASAN_UBSAN_EXIT=0`이다. [출력](evidence/l08-platform/timer-memory-sanitized.txt). `detect_leaks=0`, `halt_on_error=1`로 invalid access·undefined behavior를 검사했다. **누수 검사 통과를 뜻하지 않는다.** 실제 `.fl` CLI/HTTP와 동시성·할당 실패 보조 시험을 함께 instrument하는 별도 driver도 전체 실행에 포함했으며, 그 전체 결과는 아직 미확인이다.
+추가 native memory fixture는 `TIMER_MEMORY_ASAN_UBSAN_EXIT=0`이다. [출력](evidence/l08-platform/timer-memory-sanitized.txt). `detect_leaks=0`, `halt_on_error=1`로 invalid access·undefined behavior를 검사했다. **누수 검사 통과를 뜻하지 않는다.**
+
+이후 같은 소스의 native 보조 시험 3개와 실제 `.fl` CLI·무방문 HTTP까지 instrument한 별도 driver가 `L08_TIMER_SANITIZER_PASS=5 FAIL=0`, `TIMER_SANITIZER_EXIT=0`으로 끝났다. `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. [출력 원문과 strace 감사](evidence/l08-platform/timer-sanitizers-after.txt). 명령은 `CPATH=<가림> LIBRARY_PATH=<가림> L08_TIMER_NATIVE_OUT=<가림> L08_TIMER_SANITIZER_OUT=<가림> L08_TIMER_SANITIZER_LIBDIR=<가림> strace -f -e trace=execve -o <가림> bash scripts/verify-l08-timer-sanitizers.sh`다. `TIMER_LEAK_CHECK=UNEXECUTED`이며, 이 결과도 전체 C19·C20 완료로 확대하지 않는다.
 
 ## 전체 앱과 남은 일
 
