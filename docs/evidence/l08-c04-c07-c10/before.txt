@@ -1,0 +1,187 @@
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:2:89: error: too few arguments to function ‘date_parse’
+In file included from <가림>:1:
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:3:89: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:4:89: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:5:89: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:6:91: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:7:91: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:8:134: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:8:196: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:14:26: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:22:22: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:15:26: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:23:22: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:11:91: error: implicit declaration of function ‘format_date’ [-Wimplicit-function-declaration]
+<fl>:11:140: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:12:341: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:13:22: error: implicit declaration of function ‘now_ms’ [-Wimplicit-function-declaration]
+<fl>:13:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:14:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+dates_BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:1:47: error: implicit declaration of function ‘format_date’ [-Wimplicit-function-declaration]
+<fl>:1:47: error: invalid initializer
+<fl>:2:47: error: invalid initializer
+<fl>:3:47: error: too few arguments to function ‘date_parse’
+In file included from <가림>:1:
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:4:89: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+<fl>:4:159: error: too few arguments to function ‘date_parse’
+<가림>:632:9: note: declared here
+  632 | FLValue date_parse(FLValue str_v, FLValue fmt_v);
+      |         ^~~~~~~~~~
+timezone_BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:38:324: error: implicit declaration of function ‘regex_match_i’; did you mean ‘regex_match’? [-Wimplicit-function-declaration]
+<fl>:38:747: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:39:1608: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:41:1683: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+regex-patterns_BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:11:91: error: implicit declaration of function ‘regex_replace_first’; did you mean ‘regex_replace_all’? [-Wimplicit-function-declaration]
+<fl>:11:164: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:14:91: error: implicit declaration of function ‘regex_match_i’; did you mean ‘regex_match’? [-Wimplicit-function-declaration]
+<fl>:14:168: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:16:210: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+regex_BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:2:64: error: ‘args’ undeclared (first use in this function); did you mean ‘argv’?
+<fl>:2:64: note: each undeclared identifier is reported only once for each function it appears in
+<fl>:4:89: error: implicit declaration of function ‘file_write’; did you mean ‘fl_file_write’? [-Wimplicit-function-declaration]
+<fl>:4:142: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:5:89: error: implicit declaration of function ‘file_append’; did you mean ‘_fl_file_append’? [-Wimplicit-function-declaration]
+<fl>:5:137: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:6:89: error: implicit declaration of function ‘file_read’; did you mean ‘fl_file_read’? [-Wimplicit-function-declaration]
+<fl>:6:116: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:7:91: error: implicit declaration of function ‘file_size’; did you mean ‘_fl_file_size’? [-Wimplicit-function-declaration]
+<fl>:7:118: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:8:91: error: implicit declaration of function ‘file_is_file’; did you mean ‘_fl_file_is_file’? [-Wimplicit-function-declaration]
+<fl>:8:121: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:9:91: error: implicit declaration of function ‘dir_create’ [-Wimplicit-function-declaration]
+<fl>:9:335: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:10:335: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:11:91: error: implicit declaration of function ‘dir_list’ [-Wimplicit-function-declaration]
+<fl>:11:329: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:12:91: error: implicit declaration of function ‘file_copy’; did you mean ‘_fl_file_copy’? [-Wimplicit-function-declaration]
+<fl>:12:358: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:13:342: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:14:91: error: implicit declaration of function ‘file_delete’; did you mean ‘_fl_file_delete’? [-Wimplicit-function-declaration]
+<fl>:14:120: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:15:120: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:17:121: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:23:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:31:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:24:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:32:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:20:134: error: invalid initializer
+<fl>:20:134: note: (near initialization for ‘__fl_ca_45’)
+<fl>:21:577: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:22:333: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:23:134: error: invalid initializer
+<fl>:23:134: note: (near initialization for ‘__fl_ca_56’)
+<fl>:24:155: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:25:126: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+files_BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:2:64: error: ‘args’ undeclared (first use in this function); did you mean ‘argv’?
+<fl>:2:64: note: each undeclared identifier is reported only once for each function it appears in
+<fl>:7:89: error: implicit declaration of function ‘file_copy’; did you mean ‘_fl_file_copy’? [-Wimplicit-function-declaration]
+<fl>:7:132: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:9:91: error: implicit declaration of function ‘file_size’; did you mean ‘_fl_file_size’? [-Wimplicit-function-declaration]
+<fl>:10:134: error: implicit declaration of function ‘file_read’; did you mean ‘fl_file_read’? [-Wimplicit-function-declaration]
+<fl>:10:134: error: invalid initializer
+<fl>:10:134: note: (near initialization for ‘__fl_ca_19’)
+<fl>:11:134: error: invalid initializer
+<fl>:11:134: note: (near initialization for ‘__fl_ca_23’)
+<fl>:12:134: error: invalid initializer
+<fl>:12:134: note: (near initialization for ‘__fl_ca_27’)
+images_BUILD_EXIT=1
+Compiled <가림> -> <가림>
+<fl>: In function ‘main’:
+<fl>:2:64: error: ‘args’ undeclared (first use in this function); did you mean ‘argv’?
+<fl>:2:64: note: each undeclared identifier is reported only once for each function it appears in
+<fl>:9:26: error: implicit declaration of function ‘file_read’; did you mean ‘fl_file_read’? [-Wimplicit-function-declaration]
+<fl>:9:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:17:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:26:26: error: implicit declaration of function ‘file_write’; did you mean ‘fl_file_write’? [-Wimplicit-function-declaration]
+<fl>:26:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:34:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:43:26: error: implicit declaration of function ‘file_append’; did you mean ‘_fl_file_append’? [-Wimplicit-function-declaration]
+<fl>:43:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:51:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:60:26: error: implicit declaration of function ‘file_delete’; did you mean ‘_fl_file_delete’? [-Wimplicit-function-declaration]
+<fl>:60:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:68:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:77:26: error: implicit declaration of function ‘file_copy’; did you mean ‘_fl_file_copy’? [-Wimplicit-function-declaration]
+<fl>:77:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:85:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:94:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:102:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:107:91: error: implicit declaration of function ‘file_is_file’; did you mean ‘_fl_file_is_file’? [-Wimplicit-function-declaration]
+<fl>:107:121: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:18:26: error: implicit declaration of function ‘dir_create’ [-Wimplicit-function-declaration]
+<fl>:18:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:26:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:19:26: error: implicit declaration of function ‘dir_list’ [-Wimplicit-function-declaration]
+<fl>:19:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:27:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:20:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:28:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:21:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+<fl>:29:22: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’
+security_BUILD_EXIT=1
+IMAGE_BYTES_png=FAIL
+IMAGE_BYTES_jpg=FAIL
+IMAGE_BYTES_gif=FAIL
+OUTSIDE_UNCHANGED=PASS
+L08_P3_PASS=0 FAIL=10
+BEFORE_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

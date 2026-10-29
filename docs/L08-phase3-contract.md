@@ -10,3 +10,7 @@
 - C10은 L07과 같은 64 MiB 상한을 유지한다. 큰 WAL·streaming·fd(C11)에는 착수하지 않는다. OS별 오류 문자열 전체의 동일성은 주장하지 않고 작업 실패 예외와 경로 차단을 검사한다.
 
 시험 `.fl`과 정답을 먼저 커밋한 뒤 수정 전 실패를 기록한다. Node·TS·JS·Python·fl-build.sh 실행 금지. 정답 정정이 필요하면 v11 원문 근거·변경 이유·커밋을 남기며 구현에 맞춰 정답을 바꾸지 않는다. 자체 시험 뒤 기존 L06·L07·L08 1·2차 회귀와 변경하지 않은 verify-native-bootstrap.sh를 실행한다. strace 실행물·원문 출력·종료 코드·SHA를 보관하고 한국어로 확인한 것/미확인을 구분한다. 보고에 로컬 경로를 공개하지 않는다. 푸시는 Forgejo → GitHub 순서이며 두 HEAD는 실제 ref 조회 후 보고한다.
+
+## 정답 정정 이력 — 구현 전
+
+regex.fl의 `regex_match "x\n" "x$"` 기대값을 true에서 false로 정정했다. v11 원문은 `new RegExp(pattern)`이며 m 플래그가 없다. [ECMAScript Assertion 규칙](https://tc39.es/ecma262/multipage/text-processing.html#sec-compileassertion)은 `$`가 입력 끝이거나 Multiline이 true인 줄바꿈 위치일 때만 성공한다고 명시한다. 다른 언어의 마지막 줄바꿈 허용 동작을 잘못 추론했다. 이 수정은 C 엔진 구현 전에 소스·명세로 정답을 바로잡은 것이며, 구현 결과에 맞추는 정정이 아니다. 기존 `.expected`의 true는 check의 성공 표기라 유지하며 check에 전달하는 의미상 정답 false를 공개 기록한다.
