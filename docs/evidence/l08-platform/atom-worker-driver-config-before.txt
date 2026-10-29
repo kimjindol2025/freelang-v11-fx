@@ -1,0 +1,3 @@
+<가림>: -c: line 13: unexpected EOF while looking for matching `"'
+DRIVER_COMMAND_EXIT=2
+ATOM_WORKER_SANITIZER=UNEXECUTED_SHELL_QUOTE_ERROR
