@@ -74,5 +74,6 @@ FLValue fl_make_error(const char* type, const char* msg) {
     FLValue m = fl_map_new();
     m = fl_map_set(m, fl_str_val("type"),    fl_str_val(type));
     m = fl_map_set(m, fl_str_val("message"), fl_str_val(msg));
+    m.obj->type = FL_NATIVE_ERROR;
     return m;
 }

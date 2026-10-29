@@ -4,7 +4,7 @@
 (println (get (map + [4 5]) 0))
 (println ((fn [x] (let [f (fn [y] (+ x y))] (f 3))) 8))
 (define state (atom {"n" 2}))
-(println (try (swap! state update "n" (fn [old] (throw "UPDATE_THROW"))) (catch e e)))
+(println (try (swap! state update "n" (fn [old] (throw "UPDATE_THROW"))) (catch e (error_message e))))
 (println (get (deref state) "n"))
 (define pushed (atom []))
 (swap! pushed push 9)

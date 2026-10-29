@@ -570,8 +570,13 @@
         [(= $op "try")
          ;; try-catch-finally: (try body (catch param body) (finally body))
          (let [[$body (if (> (length $rest) 0) (get $rest 0) null)]
-               [$catch-clause (if (> (length $rest) 1) (get $rest 1) null)]
-               [$finally-clause (if (> (length $rest) 2) (get $rest 2) null)]]
+               [$second (get $rest 1)]
+               [$third (get $rest 2)]
+               [$second-op (if (null? $second) "" (get $second :op))]
+               [$third-op (if (null? $third) "" (get $third :op))]
+               [$catch-clause (if (= $second-op "catch") $second null)]
+               [$finally-clause (if (= $second-op "finally") $second
+                                 (if (= $third-op "finally") $third null))]]
            (r-pair (parse-consume-rparen $p2)
                    (make-try $body $catch-clause $finally-clause $line)))]
         [(= $op "loop")
@@ -815,8 +820,8 @@
      (let [[$line (get $n :line)]
            [$expr-c (cgc (get $n :expr))]]
        (if (and $line (> $line 0))
-         (str "(__fl_throw_line=" (to-string $line) ", fl_throw(" $expr-c "), fl_nil())")
-         (str "(fl_throw(" $expr-c "), fl_nil())")))]
+         (str "(__fl_throw_line=" (to-string $line) ", fl_v11_throw(" $expr-c "), fl_nil())")
+         (str "(fl_v11_throw(" $expr-c "), fl_nil())")))]
     [true
      (do (println (str "[CGC-ERR] unsupported IR kind=" (get $n :kind) " line=" (get $n :line)))
          "fl_nil()")]))
@@ -936,6 +941,7 @@
 
 (defn cgc-try [$n]
   (let [[$id @lambda-id-atom]
+        [$_reserve (swap! lambda-id-atom + 1)]
         [$body-node    (get $n :body)]
         [$catch-node   (get $n :catch)]
         [$finally-node (get $n :finally)]
@@ -944,30 +950,39 @@
         [$param-c (if (> (length $catch-args) 0)
                     (cgc-extract-name (get $catch-args 0))
                     "_fl_err")]
+        [$outer-count (length @outer-params-atom)]
         [$_ (swap! outer-params-atom append $param-c)]
         [$catch-body-c (if (> (length $catch-args) 1)
-                         (cgc (get $catch-args 1))
+                         (cgc-do (slice $catch-args 1 (length $catch-args)))
                          "fl_nil()")]
+        [$_restore (reset! outer-params-atom (slice @outer-params-atom 0 $outer-count))]
         [$finally-c (if (null? $finally-node) ""
                       (let [[$fargs (get $finally-node :args)]]
                         (str "    " (cgc-body $fargs 0 "") ";\n")))]]
-    (swap! lambda-id-atom + 1)
     (str "(__extension__ ({\n"
-         "    FLValue _fl_try_" $id ";\n"
-         "    if (fl_try_top < FL_TRY_MAX) {\n"
-         "        FLTryFrame* _fl_frame_" $id " = &fl_try_stack[fl_try_top++];\n"
-         "        if (setjmp(_fl_frame_" $id "->buf) == 0) {\n"
-         "            _fl_try_" $id " = " $body-c ";\n"
-         "            fl_try_top--;\n"
-         "        } else {\n"
-         "            fl_try_top--;\n"
-         "            FLValue " $param-c " __attribute__((unused)) = _fl_frame_" $id "->err;\n"
-         "            _fl_try_" $id " = " $catch-body-c ";\n"
-         "        }\n"
-         "    } else {\n"
+         "    volatile FLValue _fl_try_" $id " = fl_nil(), _fl_pending_" $id " = fl_nil();\n"
+         "    volatile int _fl_raised_" $id " = 0;\n"
+         "    if (fl_try_top >= FL_TRY_MAX) fl_throw(fl_str_val(\"try stack exhausted\"));\n"
+         "    int _fl_saved_" $id " = fl_try_top;\n"
+         "    FLTryFrame* _fl_frame_" $id " = &fl_try_stack[fl_try_top++];\n"
+         "    if (setjmp(_fl_frame_" $id "->buf) == 0) {\n"
          "        _fl_try_" $id " = " $body-c ";\n"
+         "    } else {\n"
+         "        FLValue _fl_raw_" $id " = _fl_frame_" $id "->err;\n"
+         "        fl_try_top = _fl_saved_" $id ";\n"
+         (if (null? $catch-node)
+           (str "        _fl_pending_" $id " = _fl_raw_" $id "; _fl_raised_" $id " = 1;\n")
+           (str "        fl_try_top++;\n"
+                "        if (setjmp(_fl_frame_" $id "->buf) == 0) {\n"
+                "            FLValue " $param-c " __attribute__((unused)) = fl_v11_catch(_fl_raw_" $id ");\n"
+                "            _fl_try_" $id " = " $catch-body-c ";\n"
+                "        } else {\n"
+                "            _fl_pending_" $id " = _fl_frame_" $id "->err; _fl_raised_" $id " = 1;\n"
+                "        }\n"))
          "    }\n"
+         "    fl_try_top = _fl_saved_" $id ";\n"
          $finally-c
+         "    if (_fl_raised_" $id ") fl_throw(_fl_pending_" $id ");\n"
          "    _fl_try_" $id ";\n"
          "}))")))
 
@@ -1439,7 +1454,13 @@
                     $acc)]]
        (cgc-collect-vars-loop (get $node :args) 0 $acc2))]
     [(= (get $node :kind) "block")
-     (cgc-collect-vars-loop (get-block-items $node) 0 $acc)]
+     (cgc-collect-vars-loop (get (get $node :fields) "items") 0 $acc)]
+    [(= (get $node :kind) "try")
+     (cgc-collect-vars (get $node :finally)
+       (cgc-collect-vars (get $node :catch)
+         (cgc-collect-vars (get $node :body) $acc)))]
+    [(= (get $node :kind) "throw")
+     (cgc-collect-vars (get $node :expr) $acc)]
     [(= (get $node :kind) "and")
      (cgc-collect-vars-loop (get $node :args) 0 $acc)]
     [(= (get $node :kind) "or")

@@ -1,0 +1,47 @@
+l08-phase2/contracts_PROGRAM_EXIT=0
++: 인자 1번에 string 전달됨 — number 필요 (str-to-num 변환 확인)
+-: 인자 1번에 nil 전달됨 — number 필요 (nil? 확인 후 기본값 사용)
+1
+글
+[null]
+[0, "", 2]
+[2]
+[3]
+[2, 3, 4]
+[5, 3, 1]
+[1, 1.25, 1.5, 1.75]
+take 인자 순서 오류: (take n coll) 형식이 올바릅니다. 현재 입력: (take coll n)
+l08-phase2/source-edge_PROGRAM_EXIT=0
+boolean
++: 인자 1번에 boolean 전달됨 — number 필요 (str-to-num 변환 확인)
+Infinity
+-a-b-
+<a>b<a>
+$::bb
+a_b
+[]
+["a", "b:c"]
+0
+false
+["한", "😀", 1]
+b
+bc
+ab
+23
+l08/strict-fields_PROGRAM_EXIT=0
+E_TYPE_NIL
+TypeError
+(get nil "x") — cannot access key on nil. Use (get-or coll key default).
+값이 nil인지 (nil? x) 또는 (get-or x :key default) 로 먼저 확인하세요.
+l08-phase3/regex-guards_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true

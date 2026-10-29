@@ -1,0 +1,122 @@
+BLOG_TRANSLATE_EXIT=0
+BLOG_C_SYNTAX_EXIT=1
+UNDECLARED_BINDINGS_OR_CATCH=0
+Compiled <가림>/blog/app/main.fl -> <가림>/blog.c
+<가림>/blog.c:7395:239: error: implicit declaration of function ‘json_str’; did you mean ‘json_parse’? [-Wimplicit-function-declaration]
+<가림>/blog.c:7395:239: error: invalid initializer
+<가림>/blog.c:7401:57: error: invalid initializer
+<가림>/blog.c:7403:57: error: invalid initializer
+<가림>/blog.c:7487:110: error: type mismatch in conditional expression
+<가림>/blog.c:7684:109: error: implicit declaration of function ‘fl_yield’ [-Wimplicit-function-declaration]
+<가림>/blog.c:7684:131: error: implicit declaration of function ‘set_timeout’ [-Wimplicit-function-declaration]
+<가림>/blog.c:7684:196: error: type mismatch in conditional expression
+<가림>/blog.c:7737:57: error: invalid initializer
+<가림>/blog.c:7740:57: error: implicit declaration of function ‘fd_open’; did you mean ‘fl_db_open’? [-Wimplicit-function-declaration]
+<가림>/blog.c:7740:57: error: invalid initializer
+<가림>/blog.c:7741:5: error: implicit declaration of function ‘fd_write’ [-Wimplicit-function-declaration]
+<가림>/blog.c:7742:41: error: implicit declaration of function ‘fd_fsync’ [-Wimplicit-function-declaration]
+<가림>/blog.c:7742:69: error: type mismatch in conditional expression
+<가림>/blog.c:7743:5: error: implicit declaration of function ‘fd_close’; did you mean ‘ws_close’? [-Wimplicit-function-declaration]
+<가림>/blog.c:7761:1260: error: invalid initializer
+<가림>/blog.c:7761:2085: error: incompatible type for argument 1 of ‘sha256’
+<가림>/blog.c:7767:57: error: invalid initializer
+<가림>/blog.c:7769:57: error: invalid initializer
+<가림>/blog.c:7787:110: error: type mismatch in conditional expression
+<가림>/blog.c:7788:1534: error: invalid initializer
+<가림>/blog.c:7795:57: error: invalid initializer
+<가림>/blog.c:8052:102: error: invalid initializer
+<가림>/blog.c:8053:64: error: incompatible type for argument 1 of ‘sha256’
+<가림>/blog.c:8068:496: error: incompatible type for argument 1 of ‘fl_json_parse’
+<가림>/blog.c:8069:239: error: incompatible type for argument 1 of ‘fl_json_parse’
+<가림>/blog.c:8070:239: error: incompatible type for argument 1 of ‘fl_json_parse’
+<가림>/blog.c:8111:60: error: incompatible type for argument 1 of ‘fl_json_parse’
+<가림>/blog.c:8127:77: error: type mismatch in conditional expression
+<가림>/blog.c:8134:167: error: invalid initializer
+<가림>/blog.c:8142:766: error: invalid initializer
+<가림>/blog.c:8146:198: error: invalid initializer
+<가림>/blog.c:8146:470: error: invalid initializer
+<가림>/blog.c:8176:410: error: invalid initializer
+<가림>/blog.c:8176:682: error: invalid initializer
+<가림>/blog.c:8326:835: error: invalid initializer
+<가림>/blog.c:8326:1107: error: invalid initializer
+<가림>/blog.c:8353:663: error: invalid initializer
+<가림>/blog.c:8353:1002: error: invalid initializer
+<가림>/blog.c:8353:1523: error: invalid initializer
+<가림>/blog.c:8353:1863: error: invalid initializer
+<가림>/blog.c:8425:216: error: invalid initializer
+<가림>/blog.c:8425:271: error: invalid initializer
+<가림>/blog.c:8527:830: error: implicit declaration of function ‘tcp_drop’ [-Wimplicit-function-declaration]
+<가림>/blog.c:8538:6: error: type mismatch in conditional expression
+<가림>/blog.c:8663:46: error: implicit declaration of function ‘tcp_write’ [-Wimplicit-function-declaration]
+<가림>/blog.c:8663:120: error: invalid initializer
+<가림>/blog.c:8663:28: error: invalid initializer
+<가림>/blog.c:9063:597: error: implicit declaration of function ‘tcp_server_tls’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9063:756: error: implicit declaration of function ‘tcp_server_raw’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9063:57: error: invalid initializer
+<가림>/blog.c:9070:113: error: implicit declaration of function ‘tcp_server_stop’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9143:53: error: incompatible type for argument 1 of ‘sha256’
+<가림>/blog.c:9278:423: error: implicit declaration of function ‘auth_random_token’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9278:452: error: type mismatch in conditional expression
+<가림>/blog.c:9511:65: error: implicit declaration of function ‘auth_csrf_verify’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9511:65: error: invalid initializer
+<가림>/blog.c:9520:57: error: invalid initializer
+<가림>/blog.c:9539:486: error: implicit declaration of function ‘server_header’; did you mean ‘server_req_header’? [-Wimplicit-function-declaration]
+<가림>/blog.c:9539:512: error: incompatible type for argument 1 of ‘server_text’
+<가림>/blog.c:9573:294: error: invalid initializer
+<가림>/blog.c:9784:117: error: implicit declaration of function ‘rss_feed’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9784:117: error: invalid initializer
+<가림>/blog.c:9784:28: error: invalid initializer
+<가림>/blog.c:9789:72: error: implicit declaration of function ‘sitemap_xml’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9789:72: error: incompatible type for argument 1 of ‘server_text’
+<가림>/blog.c:9814:157: error: type mismatch in conditional expression
+<가림>/blog.c:9821:46: error: implicit declaration of function ‘auth_csrf_token’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9821:28: error: invalid initializer
+<가림>/blog.c:9826:46: error: implicit declaration of function ‘server_req_cookie’; did you mean ‘server_req_path’? [-Wimplicit-function-declaration]
+<가림>/blog.c:9826:28: error: invalid initializer
+<가림>/blog.c:9834:152: error: implicit declaration of function ‘auth_sha256’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9842:28: error: invalid initializer
+<가림>/blog.c:9847:829: error: type mismatch in conditional expression
+<가림>/blog.c:9886:28: error: invalid initializer
+<가림>/blog.c:9962:64: error: invalid initializer
+<가림>/blog.c:9962:1174: error: implicit declaration of function ‘auth_verify_password’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9962:1682: error: type mismatch in conditional expression
+<가림>/blog.c:9963:57: error: invalid initializer
+<가림>/blog.c:9965:117: error: implicit declaration of function ‘auth_password_needs_rehash’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9965:117: error: incompatible type for argument 1 of ‘fl_v11_truthy’
+<가림>/blog.c:9965:836: error: implicit declaration of function ‘auth_hash_password’ [-Wimplicit-function-declaration]
+<가림>/blog.c:9965:1423: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<가림>/blog.c:9965:2120: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<가림>/blog.c:9966:257: error: implicit declaration of function ‘server_redirect_cookie’; did you mean ‘server_redirect’? [-Wimplicit-function-declaration]
+<가림>/blog.c:9966:308: error: implicit declaration of function ‘server_set_cookie’; did you mean ‘fl_resp_set_cookie’? [-Wimplicit-function-declaration]
+<가림>/blog.c:9966:1178: error: type mismatch in conditional expression
+<가림>/blog.c:10027:57: error: invalid initializer
+<가림>/blog.c:10115:87: error: type mismatch in conditional expression
+<가림>/blog.c:10123:876: error: type mismatch in conditional expression
+<가림>/blog.c:10183:397: error: type mismatch in conditional expression
+<가림>/blog.c:10258:286: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<가림>/blog.c:10258:510: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<가림>/blog.c:10258:565: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<가림>/blog.c:10531:388: error: invalid initializer
+<가림>/blog.c:10616:57: error: invalid initializer
+<가림>/blog.c:10617:57: error: invalid initializer
+<가림>/blog.c:10618:466: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<가림>/blog.c:10648:121: error: type mismatch in conditional expression
+<가림>/blog.c:10669:57: error: implicit declaration of function ‘auth_bearer_extract’ [-Wimplicit-function-declaration]
+<가림>/blog.c:10669:57: error: invalid initializer
+<가림>/blog.c:10689:93: error: incompatible type for argument 2 of ‘server_status’
+<가림>/blog.c:10748:57: error: implicit declaration of function ‘server_req_json’; did you mean ‘server_req_path’? [-Wimplicit-function-declaration]
+<가림>/blog.c:10748:57: error: invalid initializer
+<가림>/blog.c:10751:57: error: invalid initializer
+<가림>/blog.c:10789:57: error: invalid initializer
+<가림>/blog.c:10876:57: error: invalid initializer
+<가림>/blog.c:10931:57: error: invalid initializer
+<가림>/blog.c:11052:339: error: type mismatch in conditional expression
+<가림>/blog.c:11056:57: error: invalid initializer
+<가림>/blog.c:11147:87: error: type mismatch in conditional expression
+<가림>/blog.c:11225:57: error: invalid initializer
+<가림>/blog.c:11269:57: error: invalid initializer
+<가림>/blog.c:11272:57: error: invalid initializer
+<fl>:18:5: error: implicit declaration of function ‘server_use’; did you mean ‘server_sse’? [-Wimplicit-function-declaration]
+<fl>:86:249: error: implicit declaration of function ‘server_static’; did you mean ‘server_status’? [-Wimplicit-function-declaration]
+<fl>:86:541: error: type mismatch in conditional expression
+<fl>:94:5: error: implicit declaration of function ‘server_body_limit’; did you mean ‘server_rate_limit’? [-Wimplicit-function-declaration]

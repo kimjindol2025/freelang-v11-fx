@@ -454,6 +454,7 @@ FLValue fl_get_default(FLValue obj, FLValue key, FLValue fallback) {
             error=fl_map_set(error,fl_str_val("code"),fl_str_val("E_TYPE_NIL"));
             error=fl_map_set(error,fl_str_val("type"),fl_str_val("TypeError"));
             error=fl_map_set(error,fl_str_val("hint"),fl_str_val("값이 nil인지 (nil? x) 또는 (get-or x :key default) 로 먼저 확인하세요."));
+            error.obj->type=FL_NATIVE_ERROR;
             fl_throw(error);
         }
         return fallback;

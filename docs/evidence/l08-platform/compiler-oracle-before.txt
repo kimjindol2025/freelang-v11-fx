@@ -1,0 +1,8 @@
+true
+true
+true
+true
+Uncaught error (line 1): expected=sample actual=null
+Stack trace:
+  at __fl_binding_2 (line 36)
+CORRECTED_ORACLE_BEFORE_EXIT=1

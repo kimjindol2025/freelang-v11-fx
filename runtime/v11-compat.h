@@ -727,6 +727,7 @@ static FLValue t_replace_all(FLValue input,FLValue pattern,FLValue replacement){
 
 #include "v11-time.h"
 #include "v11-regex.h"
+#include "v11-error.h"
 
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];

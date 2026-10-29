@@ -220,7 +220,7 @@ FLValue fl_heap_copy(FLValue v) {
         FLMap* src = (FLMap*)v.obj;
         FLMap* dst = (FLMap*)malloc(sizeof(FLMap));
         if (!dst) return fl_nil();
-        dst->base.type = FL_MAP;
+        dst->base.type = src->base.type;
         dst->base.rc   = 1;
         dst->len = src->len;
         dst->cap = src->len;

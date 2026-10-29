@@ -1,5 +1,5 @@
 (println (type_of true))
-(println (try (+ true 1) (catch e e)))
+(println (try (+ true 1) (catch e (error_message e))))
 (println (/ 1 (+ -0)))
 (println (str-replace-in "ab" "" "-"))
 (println (str-replace-in "aba" "a" "<$&>"))

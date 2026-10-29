@@ -152,7 +152,9 @@ static FLValue rb_node(FLResolver *r,FLBinding **env,FLValue n) {
             rb_pop(env,save); return rb_set(n,"args",out);
         }
         if(rb_is(op,"catch")) {
-            FLValue param=rb_bind(r,env,rb_name(fl_vec_get(args,fl_int(0))));
+            FLValue source=fl_vec_get(args,fl_int(0));
+            if(rb_is(rb_get(source,"kind"),"block")) source=fl_vec_get(rb_items(source),fl_int(0));
+            FLValue param=rb_bind(r,env,rb_name(source));
             out=fl_vec_push(out,rb_var(param)); FLVector *v=(FLVector*)args.obj;
             for(uint32_t i=1;i<v->len;i++) out=fl_vec_push(out,rb_node(r,env,v->data[i]));
             rb_pop(env,save); return rb_set(n,"args",out);

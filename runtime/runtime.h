@@ -42,7 +42,8 @@ typedef enum {
     FL_VECTOR,
     FL_MAP,
     FL_FN,
-    FL_TEXT /* Internal object brand; FLValue.tag remains FL_STRING. */
+    FL_TEXT, /* Internal object brand; FLValue.tag remains FL_STRING. */
+    FL_NATIVE_ERROR /* Internal map brand; FLValue.tag remains FL_MAP. */
 } FLTag;
 
 typedef struct FLObject FLObject;
@@ -570,6 +571,8 @@ extern __thread FLTryFrame fl_try_stack[FL_TRY_MAX];
 extern __thread int fl_try_top;
 void fl_throw(FLValue err);
 FLValue fl_make_error(const char* type, const char* msg);
+FLValue fl_v11_catch(FLValue raw);
+void fl_v11_throw(FLValue value);
 /* throw 시 FL 소스 라인 추적 (cgc-main이 설정, uncaught handler가 출력) */
 extern int __fl_throw_line;
 /* 콜스택 추적 */
