@@ -1,0 +1,21 @@
+(load "../app/store.fl")
+(ensure-table "l08_parallel"
+ [{"name" "id" "type" "TEXT" "nullable" false "primary" true}
+  {"name" "title" "type" "TEXT" "nullable" false}]
+ "id" [])
+(store-test-catalog engine-catalog)
+(define jobs (map (fn [worker] (fn []
+ (try (do (store-test-worker)
+  (doseq [n (range 0 4)]
+   (afj-tcp-commit-ast {"type" "insert" "table" "l08_parallel"
+    "row" {"id" (str "w" worker "-" n) "title" "병렬 글"}})) true)
+  (catch [e] (do (println (str "DB_WRITE_ERROR=" (error_message e))) false))))) (range 0 8)))
+(define results (run-parallel jobs))
+(define rows (get (execute-ast {"type" "select" "table" "l08_parallel"}) "rows"))
+(define unique (count (arr_unique (map (fn [row] (get row "id")) rows))))
+(println (str "DB_CONCURRENT_WORKERS=" (atom-test-workers)))
+(println (str "DB_CONCURRENT_OK_WORKERS=" (count (filter (fn [ok] ok) results))))
+(println (str "DB_CONCURRENT_ROWS=" (count rows)))
+(println (str "DB_CONCURRENT_UNIQUE_IDS=" unique))
+(if (and (= (atom-test-workers) 8) (= results [true true true true true true true true]) (= (count rows) 32) (= unique 32))
+ (println "DB_CONCURRENT_WRITE=PASS") (throw "DB_CONCURRENT_WRITE_MISMATCH"))
