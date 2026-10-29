@@ -20,12 +20,13 @@
          (if (= command "D") (tcp-drop id)
           (if (= command "X") (throw "fixture-handler-error")
            (if (= command "S")
-            (let [errors (fl-error-drain)]
+            (let [all-errors (fl-error-drain) errors (filter (fn [entry] (= (get entry 2) "handler")) all-errors)]
              (do
+              (if (= (count errors) 1) nil (throw "fixture-error-count"))
               (if (= (get (get errors 0) 2) "handler") nil (throw "fixture-error-source"))
               (if (= (get (get errors 0) 3) "fixture-handler-error") nil (throw "fixture-error-message"))
               (if (= peer "127.0.0.1") nil (throw "fixture-peer"))
-              (file_write (str root "/errors.json") (json_str errors))
+              (file_write (str root "/errors.json") (json_str all-errors))
               (println "TCP_HANDLER_ERROR_QUEUE=PASS")
               (tcp-server-stop 0)))
             (throw "fixture-command")))))))))) nil)
