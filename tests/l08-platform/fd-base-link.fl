@@ -1,0 +1,1 @@
+(println (try (do (fd_open (str (get (cli-args) 0) "/payload") "r") false) (catch [e] (str_starts (error_message e) "fd_open failed"))))

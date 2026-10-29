@@ -45,3 +45,7 @@ writer/reader는 별도 native 과정에서 합성 image-add/image-delete 기록
 ### C11 강제 오류 시험 정답 선행 고정
 
 `fd-faults.fl`은 공개 fd API를 호출하고 C LD_PRELOAD 보조기는 시험 소유 `fault.wal`의 syscall만 바꾼다. 다른 파일·과정에는 적용하지 않는다. 첫 write EINTR+2바이트 부분 쓰기, write 0, fsync EINTR/EIO, read EINTR/짧은 read, close EINTR/EIO를 실제 `.fl` 호출에서 확인한다. close 주입은 실제 native fd를 닫고 같은 번호에 sentinel을 열어 재시도가 새 fd를 닫지 않는지 확인한다. 보조기가 실제 활성화됐다는 marker와 sentinel 검사를 요구하며, C 함수를 직접 호출한 결과로 언어 완료를 판정하지 않는다. 고정 출력은 모드별 .expected에 먼저 보존한다. JSON·db95 재생 시험과 이 결과를 혼합하지 않는다.
+
+### C11 경계·실제 스레드 시험 선행 고정
+
+추가 `.fl` 정답은 UTF-8 바이트 경계별 replacement·NUL 보존, 64 MiB append 상한과 무변경, 경로 이탈·leaf/parent/base symlink·directory/FIFO 차단이다. 별도 시험용 C barrier는 FreeLang run-parallel의 pthread 8개가 모두 도착할 때까지 대기시킨다. 실제 fd_write는 `.fl`에서 같은 handle에 스레드당 100개 한글 레코드를 쓴다. 언어 출력과 별개로 Bash 고정 정답 800행을 생성해 정렬한 실제 파일과 cmp한다. C barrier는 스케줄 겹침을 보장하는 보조기이며 fd API를 대신 호출하지 않는다. 일반 원자·WAL 거래 동시성 C20 완료로 확대 해석하지 않는다.
