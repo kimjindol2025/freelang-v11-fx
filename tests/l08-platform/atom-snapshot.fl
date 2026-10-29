@@ -1,0 +1,17 @@
+(defn check [value expected label] (if (= value expected) (println label) (throw (str "SNAPSHOT_ASSERT " label))))
+(define state (atom {"table" {"columns" [{"name" "id"}] "rows" [{"id" "old"}]}}))
+(defn read-table [] (get (deref state) "table"))
+(define old-table (read-table))
+(reset! state {"table" {"columns" [{"name" "replacement"}] "rows" [{"id" "new"}]}})
+(check (get (get (get old-table "columns") 0) "name") "id" "RETURNED_SNAPSHOT=PASS")
+(check (get (get (get (read-table) "columns") 0) "name") "replacement" "CURRENT_VALUE=PASS")
+(defn replace-with-local []
+ (let [before (deref state)]
+  (do
+   (reset! state {"table" {"columns" [] "rows" []}})
+   (get (get (get (get before "table") "rows") 0) "id"))))
+(check (replace-with-local) "new" "LOCAL_SNAPSHOT=PASS")
+(define captured (atom []))
+(let [before (deref state)]
+ (do (reset! state {}) (reset! captured [before])))
+(check (json_str (first (deref captured))) "{\"table\":{\"columns\":[],\"rows\":[]}}" "SNAPSHOT_ESCAPE=PASS")

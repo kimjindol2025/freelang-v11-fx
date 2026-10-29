@@ -1,0 +1,91 @@
+=================================================================
+==735244==ERROR: AddressSanitizer: heap-use-after-free on address 0x7b6565be43c8 at pc 0x000000501224 bp 0x7ffcc3a3d670 sp 0x7ffcc3a3d668
+READ of size 4 at 0x7b6565be43c8 thread T0
+    #0 0x000000501223 in fl_eq <가림>:257
+    #1 0x00000052dd6a in fl_map_has <가림>:429
+    #2 0x00000052e3ac in fl_get_default <가림>:467
+    #3 0x00000041700f in __fl_binding_332 <가림>:3317
+    #4 0x00000041723b in __fl_wrap___fl_binding_332 <가림>:1995
+    #5 0x000000529382 in fl_fn_call <가림>:215
+    #6 0x000000430291 in __fl_binding_613 <가림>:3725
+    #7 0x00000043106e in __fl_wrap___fl_binding_613 <가림>:2260
+    #8 0x000000529382 in fl_fn_call <가림>:215
+    #9 0x0000004314a3 in __fl_binding_625 <가림>:3747
+    #10 0x000000431636 in __fl_wrap___fl_binding_625 <가림>:2265
+    #11 0x000000529382 in fl_fn_call <가림>:215
+    #12 0x0000004418e7 in __fl_binding_809 <가림>:4025
+    #13 0x000000441bb8 in __fl_wrap___fl_binding_809 <가림>:2405
+    #14 0x000000529382 in fl_fn_call <가림>:215
+    #15 0x00000044c1b9 in __fl_binding_927 <가림>:4180
+    #16 0x00000044c683 in __fl_wrap___fl_binding_927 <가림>:2465
+    #17 0x000000529382 in fl_fn_call <가림>:215
+    #18 0x0000004cd189 in main <가림><fl>:1304
+    #19 0x7f356705230d in __libc_start_call_main (<가림>+0x2a30d) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+    #20 0x7f35670523c8 in __libc_start_main@@GLIBC_2.34 (<가림>+0x2a3c8) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+    #21 0x0000004072a4 in _start (<가림>+0x4072a4) (BuildId: 13ae9775012cd2530372c87683860181e8f1720a)
+
+0x7b6565be43c8 is located 8 bytes inside of 17-byte region [0x7b6565be43c0,0x7b6565be43d1)
+freed by thread T0 here:
+    #0 0x7f35682e5beb in free.part.0 (<가림>+0xe5beb) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+    #1 0x00000057cf86 in fl_heap_release <가림>:300
+    #2 0x00000057d16d in fl_heap_release <가림>:313
+    #3 0x00000057d20d in fl_heap_release <가림>:314
+    #4 0x00000053ea0e in fl_atom_reset <가림>:220
+    #5 0x000000441812 in __fl_binding_809 <가림>:4024
+    #6 0x000000441bb8 in __fl_wrap___fl_binding_809 <가림>:2405
+    #7 0x000000529382 in fl_fn_call <가림>:215
+    #8 0x00000044c1b9 in __fl_binding_927 <가림>:4180
+    #9 0x00000044c683 in __fl_wrap___fl_binding_927 <가림>:2465
+    #10 0x000000529382 in fl_fn_call <가림>:215
+    #11 0x0000004cd189 in main <가림><fl>:1304
+    #12 0x7f356705230d in __libc_start_call_main (<가림>+0x2a30d) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+
+previously allocated by thread T0 here:
+    #0 0x7f35682e6f2b in malloc (<가림>+0xe6f2b) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+    #1 0x00000057b421 in fl_heap_copy <가림>:219
+    #2 0x00000057bfcf in fl_heap_copy <가림>:259
+    #3 0x00000057c106 in fl_heap_copy <가림>:260
+    #4 0x00000053e9f4 in fl_atom_reset <가림>:219
+    #5 0x00000043eac1 in __fl_binding_785 <가림>:3963
+    #6 0x00000043eb87 in __fl_wrap___fl_binding_785 <가림>:2385
+    #7 0x000000529382 in fl_fn_call <가림>:215
+    #8 0x00000044be47 in __fl_binding_927 <가림>:4180
+    #9 0x00000044c683 in __fl_wrap___fl_binding_927 <가림>:2465
+    #10 0x000000529382 in fl_fn_call <가림>:215
+    #11 0x0000004cce75 in main <가림><fl>:1303
+    #12 0x7f356705230d in __libc_start_call_main (<가림>+0x2a30d) (BuildId: c0e9a82b71634e9d11cf5236f914a7396d2ba753)
+
+SUMMARY: AddressSanitizer: heap-use-after-free <가림>:257 in fl_eq
+Shadow bytes around the buggy address:
+  0x7b6565be4100: 00 fa fa fa 00 00 03 fa fa fa 00 00 03 fa fa fa
+  0x7b6565be4180: 00 00 00 fa fa fa 00 00 00 fa fa fa 00 00 02 fa
+  0x7b6565be4200: fa fa 00 00 00 fa fa fa 00 00 00 fa fa fa 00 00
+  0x7b6565be4280: 02 fa fa fa 00 00 00 fa fa fa 00 00 00 00 fa fa
+  0x7b6565be4300: fd fd fd fa fa fa fd fd fd fd fa fa fd fd fd fa
+=>0x7b6565be4380: fa fa fd fd fd fa fa fa fd[fd]fd fa fa fa fd fd
+  0x7b6565be4400: fd fa fa fa fd fd fd fa fa fa fd fd fd fa fa fa
+  0x7b6565be4480: fd fd fd fa fa fa fd fd fd fa fa fa fd fd fd fa
+  0x7b6565be4500: fa fa fd fd fd fa fa fa 00 00 00 fa fa fa 00 00
+  0x7b6565be4580: 01 fa fa fa 00 00 00 fa fa fa 00 00 03 fa fa fa
+  0x7b6565be4600: 00 00 00 fa fa fa 00 00 00 fa fa fa 00 00 00 03
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==735244==ABORTING
+BLOG_STORE_SANITIZED_EXIT=1
