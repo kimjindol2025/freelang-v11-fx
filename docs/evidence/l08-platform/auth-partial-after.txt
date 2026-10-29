@@ -1,0 +1,22 @@
+<가림>: In function ‘create’:
+<가림>:32:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   32 |  if(!EVP_Digest(legacy,strlen(legacy),digest,&n,EVP_sha256(),NULL)||n!=32)fail();hex(digest,32,encoded);
+      |  ^~
+<가림>:32:82: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   32 |  if(!EVP_Digest(legacy,strlen(legacy),digest,&n,EVP_sha256(),NULL)||n!=32)fail();hex(digest,32,encoded);
+      |                                                                                  ^~~
+AUTH_SYNTHETIC_FIXTURES=READY
+AUTH_BASICS_PASS
+auth-basics_PROGRAM_EXIT=0
+AUTH_CSRF_PASS
+auth-csrf_PROGRAM_EXIT=0
+AUTH_LIVE_CLOCK_PASS
+auth-live_PROGRAM_EXIT=0
+AUTH_RNG_FAILURE_PASS
+AUTH_RNG_FAULT=ACTIVE
+AUTH_RNG_FAULT=ACTIVE
+auth-rng_PROGRAM_EXIT=0
+PASSWORD_CREATE_FORMAT_AND_KDF=PASS
+AUTH_PASSWORD_VERIFICATION=PENDING_USER_DECISION
+L08_AUTH_PARTIAL_PASS=5 FAIL=0
+AUTH_PARTIAL_SELF_EXIT=0

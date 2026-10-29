@@ -729,6 +729,7 @@ static FLValue t_replace_all(FLValue input,FLValue pattern,FLValue replacement){
 #include "v11-regex.h"
 #include "v11-error.h"
 #include "v11-json.h"
+#include "v11-auth.h"
 
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];
@@ -745,6 +746,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         TUnits text=t_units(ARG(0));TBuffer bytes={0};t_encode(&bytes,text.p,text.n,1);free(text.p);
         return sha256(t_finish(&bytes));
     }
+    if(!strncmp(op,"auth-",5))return va_auth(op,argv);
     if(!strncmp(op,"fd-",3)){
         FLValue args=argv;
         if(IS("fd-write")&&ARG(1).tag==FL_STRING){

@@ -29,7 +29,8 @@ static void create(void){
  vector(f,"pleaseletmein","SodiumChloride","N=3,r=8,p=1",def,0,1);
  vector(f,"pleaseletmein","SodiumChloride","N=1048576,r=8,p=1",def,0,1);
  unsigned char digest[32];unsigned n=0;char encoded[65];const char*legacy="0123456789abcdefpublic-legacy-fixture";
- if(!EVP_Digest(legacy,strlen(legacy),digest,&n,EVP_sha256(),NULL)||n!=32)fail();hex(digest,32,encoded);
+ if(!EVP_Digest(legacy,strlen(legacy),digest,&n,EVP_sha256(),NULL)||n!=32)fail();
+ hex(digest,32,encoded);
  fprintf(f,",{\"password\":\"public-legacy-fixture\",\"stored\":\"0123456789abcdef:%s\",\"valid\":true}",encoded);
  fprintf(f,",{\"password\":\"wrong\",\"stored\":\"0123456789abcdef:%s\",\"valid\":false}",encoded);
  fputs(",{\"password\":\"x\",\"stored\":\"$scrypt$broken\",\"valid\":false},{\"password\":\"x\",\"stored\":\"bad\",\"valid\":false}]",f);fclose(f);

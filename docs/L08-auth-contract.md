@@ -26,3 +26,7 @@ CSRF는 시험용 clock interpose로 boundary 3600초, expired 3601초, future 1
 ## 사용자 결정 대기: 빈 검증 key
 
 v11 verify는 decoded expected.length를 그대로 scryptSync keylen에 넘기며 참조 Node C++ source는 0을 허용한다. 따라서 빈 검증 key와 일반적인 손상 거부 요구가 충돌한다. 사용자에게 빈 key 거부를 호환 예외로 둘지 원문 동작을 보존할지 질문했다. 답변 전에는 이 분기를 임의로 확정하거나 auth_verify_password 전체 완료를 보고하지 않는다. 다른 인증 API와 정상 데이터 fixture는 계속 구현·검증한다. RFC의 빈 salt와 비어 있지 않은 key는 이 미결정 항목과 다르다.
+
+## 현재 구현 경계
+
+6개 API를 구현·부분 자체 시험했다. random_token은 source의 소수 버림을 보존하되 native byte 상한 1 MiB를 둔다. auth_verify_password 공개 연결과 password fixture는 사용자 결정 전 미구현·미실행이다. 이 항목이 남은 상태에서 C13 전체 완료나 blog1 로그인 성공을 주장하지 않는다.
