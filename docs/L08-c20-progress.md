@@ -33,18 +33,33 @@ atom 구현은 `471d9f4ef2286267519b0953637284ec6bf6e09c`, 정렬 문맥 구현�
 
 atom 구현 `471d9f4ef2286267519b0953637284ec6bf6e09c` 고정 checkout과 승인된 source-only blog 복사본에서 원래 writer 1회·별도 reader 10회를 ASan/UBSan으로 실행했다. 모두 종료 `0`, `DB95_NATIVE_STORE_PASS=11 FAIL=0`, `ATOM_STORE_SANITIZER_EXIT=0`, `DB95_NATIVE_WAL_READ_ONLY=PASS`다. 해당 합성 WAL SHA-256은 `3b9bd996b64ad4fae8e09269a0cdb756de8d46fa7a07539be03fd126190f5ebd`다. 원래 fixture·거래 기록을 빼거나 정답을 낮추지 않았다. 동시 writer 시험이나 운영 자료 검증으로 확대하지 않는다. [원문](evidence/l08-platform/atom-store-sanitized-after.txt).
 
+### 실제 HTTP worker의 요청 사이 atom 상태
+
+후속 HTTP fixture·정답을 `52ef13845a5bc9dda54f47fbb5380e4a63a99563`에, driver를 `561146155e36034610dc69c621ad6096e653d0d2`에 고정한 뒤 서로 다른 runtime을 같은 시험으로 비교했다. 수정 전 고정 `fe6bb4f4f38775404685ccf96e69f8e147d3633c`는 HTTP `200` 응답 `1000`개를 받았지만 counter와 고유 응답 값은 각각 `873`이었다. 실제 worker `4`, handler 겹침 peak `4`이며 `HTTP_ATOM_EXACT_VALUES=FAIL`, `HTTP_ATOM_REPEATED_READS=FAIL`, `HTTP_ATOM_BEFORE_EXIT=1`이다. [수정 전 HTTP 원문](evidence/l08-platform/http-atom-before.txt).
+
+수정 후 고정 `35a6ec853aaa535fdf284207045043ef7d4ebc37`는 ASan/UBSan에서 같은 실제 worker `4`, peak `4`, 동시 curl 과정 `10`, HTTP `200` 응답 `1000`개, counter `1000`, 고유 값 `1000`, 정확한 값 집합 `1~1000`, 후속 GET `10`회의 값 보존을 확인했다. `HTTP_ATOM_ACTIVE=0`, `HTTP_ATOM_EXACT_VALUES=PASS`, `HTTP_ATOM_REPEATED_READS=PASS`, `HTTP_ATOM_SELF=PASS`, `HTTP_ATOM_AFTER_EXIT=0`이다. 두 시험 server 과정 모두 정상 종료 `0`이다. [수정 후 HTTP 원문](evidence/l08-platform/http-atom-after.txt), [휘발 상태·범위 계약](../tests/l08-platform/http-atom-contract.md).
+
+이 fixture counter는 WAL을 쓰지 않는 휘발 상태이며 새 server 과정에서 `HTTP_ATOM_VOLATILE_RESTART_COUNTER=0`이 정답이다. blog 저장 자료를 초기화하거나 운영 서버를 재시작한 것이 아니다. OS bind(0)의 빈 포트·loopback만 사용했고, 자기 시험 server PID만 종료했다. 이 시험을 DB 동시 거래나 PRD blog 부하·p95 목표 통과로 집계하지 않는다.
+
+### 최신 전체 blog native 실행
+
+fx `35a6ec853aaa535fdf284207045043ef7d4ebc37` runtime으로 변경하지 않은 source-only blog의 전체 main.fl·원래 세션 seed·editor-http를 다시 native 링크했다. 세 빌드 종료는 각각 `0`, `C20_BLOG_EDITOR_EXIT=0`, `NATIVE_BLOG_EDITOR_PASS=3 FAIL=0`, `NATIVE_BLOG_RESTARTS=2`, `NATIVE_BLOG_WAL_RESTART_UNCHANGED=PASS`다. 매번 홈·로그인 화면·기존 script·글쓰기 HTML이 HTTP `200`이다. 전체 main 실행물 SHA-256은 `efa058819dca8dc29719ff55a77c22ab1e8e7fcaa9223cace76d5f8058b9429e`다. [최신 앱 원문](evidence/l08-platform/c20-blog-editor-after.txt).
+
+`AUTHENTICATION_METHOD=SYNTHETIC_PRESEEDED_SESSION`, `PASSWORD_LOGIN=UNEXECUTED`, `EXISTING_EDITOR_JS=SERVED_NOT_EXECUTED`다. 기존 내장 JS를 제공했으며 새 JS 작성·브라우저 J안·비밀번호 인증·사진 메뉴 실제 조작 성공으로 확대하지 않는다. 운영 자료는 사용하지 않았다.
+
 위 시험의 execve 감사는 각각 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. 사용 명령 형식은 다음과 같다. 실제 source-only 복사본·실행물·출력·라이브러리 위치는 `<가림>` 처리한다.
 
 ```bash
 L08_ATOM_UPDATE_OUT=<가림> L08_ATOM_UPDATE_COMPILER=<가림>/compiler L08_ATOM_UPDATE_SANITIZER_LIBDIR=<가림> strace -f -e trace=execve,clone,clone3 -o <가림>/execve.log bash scripts/verify-l08-atom-update.sh
 L08_SORT_CONTEXT_OUT=<가림> L08_SORT_CONTEXT_COMPILER=<가림>/compiler L08_SORT_CONTEXT_SANITIZER_LIBDIR=<가림> strace -f -e trace=execve,clone,clone3 -o <가림>/execve.log bash scripts/verify-l08-sort-context.sh
 L08_BLOG_SOURCE_ROOT=<가림> L08_BLOG_NATIVE_COMPILER=<가림>/compiler L08_BLOG_STORE_OUT=<가림> L08_BLOG_STORE_SANITIZER_LIBDIR=<가림> strace -f -e trace=execve -o <가림>/execve.log bash scripts/verify-l08-blog-store-native.sh
+L08_BLOG_SOURCE_ROOT=<가림> L08_BLOG_NATIVE_COMPILER=<가림>/compiler L08_BLOG_EDITOR_OUT=<가림> strace -f -e trace=execve -o <가림>/execve.log bash scripts/verify-l08-blog-editor-native.sh
+L08_HTTP_ATOM_RUNTIME_ROOT=<가림> L08_HTTP_ATOM_OUT=<가림> L08_HTTP_ATOM_COMPILER=<가림>/compiler L08_HTTP_ATOM_SANITIZER_LIBDIR=<가림> strace -f -e trace=execve,clone,clone3 -o <가림>/execve.log bash scripts/verify-l08-http-atom.sh
 ```
 
 ## 미확인
 
-- 두 구현을 포함한 최신 고정 `35a6ec853aaa535fdf284207045043ef7d4ebc37`에서 전체 회귀·L06/L07·native bootstrap을 실행 중이다. 이전 C 확장 고정 `fe6bb4f4f38775404685ccf96e69f8e147d3633c` 전체 실행도 종료 결과를 계속 관찰하며 이 두 소스를 혼합해 최신 통과라고 집계하지 않는다.
-- 최신 전체 blog native 빌드·editor HTTP/재시작도 source-only 복사본에서 재검증 중이다. 합성 세션 시험이며 비밀번호 로그인·실제 편집기 조작 완료 증거가 아니다.
+- 두 구현을 포함한 고정 `35a6ec853aaa535fdf284207045043ef7d4ebc37`에서 전체 회귀·L06/L07·native bootstrap을 실행 중이다. 이전 C 확장 고정 `fe6bb4f4f38775404685ccf96e69f8e147d3633c` 전체 실행도 종료 결과를 계속 관찰하며 이 두 소스를 혼합해 최신 통과라고 집계하지 않는다. 현재 compiler/runtime 소스는 `35a6ec853aaa535fdf284207045043ef7d4ebc37`와 동일하며 이후에는 HTTP fixture·gate·문서만 추가했다. 새 HTTP 자체 시험은 별도로 수행했고 다음 전체 driver에 연결했으나, 이미 실행 중인 고정 전체 driver에는 포함되지 않는다. 현재 작업 가지의 모든 gate가 한 번의 전체 실행에서 끝났다고 주장하지 않는다.
 - HTTP 요청 전체의 상태 수명, DB 동시 거래·WAL 일관성·crash/복구·부하 목표 검증은 남아 있다. atom 컨테이너는 기존처럼 영구 수명이어서 임시 atom·RC cycle·누수 해결이 필요하다. 이번 mutex 추가로 이 문제를 해결했다고 주장하지 않는다. 여러 callback이 여러 atom을 순환 대기하는 사용자 lock 의존성을 자동 해결한다고 주장하지 않는다.
 - sort-by 전체의 필드 이름 key·문자열 locale·동점 안정성·잘못된 인자 계약은 이 숫자/문맥 fixture의 검증 범위 밖이다.
 - 비밀번호 검증 결정·브라우저 J안·이미지 처리·댓글·다중 작성자·나머지 PRD·운영 자료 호환·백업/복구·성능은 남아 있다. C20 전체·L08 전체·플랫폼 전체 완료가 아니다. 서버 23·25 접속·운영 자료 변경·합치기·배포는 하지 않았다.

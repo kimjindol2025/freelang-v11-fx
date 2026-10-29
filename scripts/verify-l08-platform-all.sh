@@ -17,6 +17,8 @@ if L08_ATOM_UPDATE_OUT="$out/atom-update" L08_ATOM_UPDATE_COMPILER="$out/self/co
 cat "$out/atom-update.log";printf 'ATOM_UPDATE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_SORT_CONTEXT_OUT="$out/sort-context" L08_SORT_CONTEXT_COMPILER="$out/self/compiler" L08_SORT_CONTEXT_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/sort-context.execve.log" bash "$ROOT/scripts/verify-l08-sort-context.sh" > "$out/sort-context.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/sort-context.log";printf 'SORT_CONTEXT_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_HTTP_ATOM_OUT="$out/http-atom" L08_HTTP_ATOM_COMPILER="$out/self/compiler" L08_HTTP_ATOM_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/http-atom.execve.log" bash "$ROOT/scripts/verify-l08-http-atom.sh" > "$out/http-atom.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/http-atom.log";printf 'HTTP_ATOM_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 for phase in timer tcp fd-basic fd-extended json auth http feed http-client;do
  case "$phase" in
   timer) setting=L08_TIMER_OUT;script=verify-l08-timer-self.sh;tag=TIMER_PARTIAL;;
