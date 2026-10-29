@@ -40,3 +40,24 @@ environment는 고정된 17개 출력과 일치하며 종료 시험은 종료 �
 - 이번 C18 입력 범위 외 process_exit의 Node 전체 오류 코드 체계나 catch 객체·finally의 완전 호환을 주장하지 않는다. 기존 catch가 raw 값을 넘기는 차이는 별도 언어 시험으로 해결한다.
 
 진행 상태는 잠정 보고다. 실행 중 검증 결과가 확정되면 원문·종료 코드·SHA를 추가한다.
+
+## C18 원래 코드의 전체 검증 확정
+
+위 ‘실행 중’은 최초 중간 보고 상태다. 동일 실행이 종료됐으며 원래 C18 소스 `d5f6c0145094ed32af77b81f8cf735fc22cafb97`의 전체 결과를 확정한다. 실행 중 runtime·self·검증 드라이버와 기존 회귀 입력은 변경하지 않았음을 Git diff로 확인했다. 별도 체크아웃의 후속 컴파일러 수정 결과와 구분한다.
+
+```text
+L08_C18_PASS=3 FAIL=0
+L08_P3_PASS=11 FAIL=0
+L08_P2_PASS=11 FAIL=0
+L08_PASS=17 FAIL=0
+L08_HTTP_PASS=7
+L06_HTTP_PASS=110 FAIL=0
+L06_TLS_PASS=110 FAIL=0
+STAGE2_EQ_STAGE3=PASS
+BOOTSTRAP_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+L08_PLATFORM_CURRENT_GATES=PASS
+PLATFORM_FULL_EXIT=0
+```
+
+[전체 결과 원문](evidence/l08-platform/c18-full.txt). bootstrap의 `STAGE0_EQ_CANONICAL=DIFFERENT`는 기존 검증 정책의 원문을 그대로 보존했다. STAGE2와 STAGE3의 SHA는 `0d776b758fb638e3aa96551a2f7bc1dcd3739e8ae77bfa9b674a6959b9064967`로 같다. 언어 검증 통과가 앱 전체 실행·필수 기능·운영 배포의 완료를 뜻하지 않는다.
