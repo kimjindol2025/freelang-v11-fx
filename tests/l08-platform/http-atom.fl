@@ -1,0 +1,9 @@
+(define counter (atom 0))
+(server_post "/increment" (fn [req]
+ (do (http-atom-begin)
+  (let [value (swap! counter (fn [old] (do (http-atom-pause) (+ old 1))))]
+   (do (http-atom-end) (server_json {"value" value}))))))
+(server_get "/count" (fn [req] (server_text (str (deref counter)))))
+(server_get "/stats" (fn [req] (server_json (http-atom-stats))))
+(server_get "/health" (fn [req] (server_text "OK")))
+(server_start 0)
