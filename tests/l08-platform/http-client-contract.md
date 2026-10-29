@@ -11,3 +11,5 @@
 - TLS는 peer chain과 hostname을 모두 검증한다. 시험용 자체 서명 CA는 별도 생성하며 표준 SSL_CERT_FILE로 지정한 시험 과정에서만 신뢰한다. 기본 신뢰에서 실패, 지정한 CA에서 성공, hostname 불일치에서 실패해야 한다. cert/private key 내용은 출력·Git에 넣지 않는다.
 
 실제 loopback에서 FreeLang으로 컴파일한 서버/클라이언트를 실행한다. port 0과 소유 과정만 사용한다. 정답을 먼저 커밋하고 미연결 빌드 실패를 보존한 뒤 구현한다. TLS 도구가 없으면 미실행으로 명시한다. 함수 직접 호출만으로 완료 판정하지 않는다. 기존 legacy http_req API는 보존하며 새 v11 API에 앱 우회를 넣지 않는다.
+
+구현 전 fixture 정정: 최초 POST fixture는 X-Value에 한글을 넣었으나 source Node HTTP header 값은 Latin-1 범위만 허용한다. 성공 요청의 header를 ASCII sample로 고쳤으며 한글·이모지·NUL body 정답은 유지했다. native 구현을 시작하거나 시험 출력에 맞추기 전에 기준 header 계약으로 입력 오류를 정정한 것이다.

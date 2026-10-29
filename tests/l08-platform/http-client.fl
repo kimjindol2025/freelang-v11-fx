@@ -10,7 +10,7 @@
    (check (get result "error") nil "GET_ERROR_ABSENT=PASS")
    (check (get result "headers") nil "GET_SOURCE_SHAPE=PASS"))
   (check (get (http_request "gEt" (str base "/health") {} nil) "body") "OK" "METHOD_UPPERCASE=PASS")
-  (let [result (http_request "POST" (str base "/echo") {"X-Value" "한글" "Content-Type" "application/octet-stream"} "한글😀\u0000끝")]
+  (let [result (http_request "POST" (str base "/echo") {"X-Value" "sample" "Content-Type" "application/octet-stream"} "한글😀\u0000끝")]
    (check (get result "status") 200 "POST_STATUS=200")
    (let [body (json_parse (get result "body"))]
     (check (get body "method") "POST" "POST_METHOD=PASS")
