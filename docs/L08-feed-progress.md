@@ -28,7 +28,7 @@ FEED_SELF_EXIT=0
 NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
 ```
 
-[修正前](evidence/l08-platform/feed-before.txt), [수정 후 원문](evidence/l08-platform/feed-after.txt), [고정 계약](../tests/l08-platform/feed-contract.md). 독립 C 프로그램 xmllint/libxml `21205`는 시험에서만 실행하며 runtime 의존성에 추가하지 않았다. 네 개 XML과 기본 시계 출력이 파싱되며, CDATA XPath 내용은 `before]]>after` 그대로다. URI는 source처럼 조합하며 임의 정렬·주소 재작성은 하지 않는다.
+[수정 전](evidence/l08-platform/feed-before.txt), [수정 후 원문](evidence/l08-platform/feed-after.txt), [고정 계약](../tests/l08-platform/feed-contract.md). 독립 C 프로그램 xmllint/libxml `21205`는 시험에서만 실행하며 runtime 의존성에 추가하지 않았다. 네 개 XML과 기본 시계 출력이 파싱되며, CDATA XPath 내용은 `before]]>after` 그대로다. URI는 source처럼 조합하며 임의 정렬·주소 재작성은 하지 않는다.
 
 ## 전체 블로그 컴파일 재확인
 

@@ -1,4 +1,4 @@
-# C17 先行 정답 계약
+# C17 구현 전 고정 정답 계약
 
 기준 v11 `b49cc9194a00649b8cf58e1d6e8ee38ffce770d4`, `src/stdlib-feed.ts`의 rss_feed와 sitemap_xml을 텍스트로 조사했다. Node 실행은 금지한다. source XML 줄 순서·개행·5개 escape, truthy optional 필드, 입력 item 순서 유지, 기본 language en, URL 끝 slash 한 개 처리, 숫자 priority만 출력하는 계약으로 정답을 구현 전에 고정한다. 절대 URL을 별도 재해석하거나 item을 정렬하지 않는다.
 
