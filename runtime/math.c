@@ -259,6 +259,26 @@ FLValue fl_atom_reset(FLValue atom, FLValue val) {
     return val; /* v11 reset! returns the supplied value. */
 }
 
+FLValue fl_with_atom_lock(FLValue atom,FLValue callback) {
+    if(atom.tag!=FL_VECTOR||!atom.obj||
+       (atom.obj->type!=FL_MANAGED_ATOM&&__atomic_load_n(&atom.obj->rc,__ATOMIC_RELAXED)!=0xFF))
+        fl_throw(fl_str_val("with-atom-lock: expected atom"));
+    if(callback.tag!=FL_FN)fl_throw(fl_str_val("with-atom-lock: expected callback"));
+    if(fl_try_top>=FL_TRY_MAX)fl_throw(fl_str_val("with-atom-lock: try stack overflow"));
+    fl_heap_retain(atom);
+    pthread_mutex_t *mutex=atom_lock(atom);
+    if(pthread_mutex_lock(mutex)){
+        fl_heap_release(atom);fl_throw(fl_str_val("with-atom-lock: lock failed"));return fl_nil();
+    }
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){
+        FLValue error=frame->err;fl_try_top--;
+        pthread_mutex_unlock(mutex);fl_heap_release(atom);fl_throw(error);return fl_nil();
+    }
+    FLValue result=fl_call(callback,0,NULL);
+    fl_try_top--;pthread_mutex_unlock(mutex);fl_heap_release(atom);return result;
+}
+
 FLValue fl_swap_args(FLValue atom,FLValue fn,FLValue extra) {
     if(atom.tag!=FL_VECTOR||!atom.obj||!((FLVector*)atom.obj)->len)return fl_nil();
     if(extra.tag!=FL_VECTOR||!extra.obj)fl_throw(fl_str_val("swap!: invalid extra arguments"));

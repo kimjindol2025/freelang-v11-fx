@@ -1084,6 +1084,7 @@
   [(= $op "deref")         (str "fl_deref(" (cgc (get $args 0)) ")")]
   [(= $op "reset!")        (str "fl_atom_reset(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "swap!")         (cgc-swap! $args)]
+  [(= $op "with-atom-lock") (cgc-with-atom-lock $args)]
   ;; num: c-reserved? 목록에 있어 fl_num으로 잘못 변환되는 버그 수정
   [(= $op "num")           (str "num(" (cgc (get $args 0)) ")")]
   ;; S26: stdlib 매핑
@@ -1400,6 +1401,14 @@
          (cgc-eval-args $args $id 0 "")
          " fl_swap_args(__fl_arg_" $id "_0, __fl_arg_" $id "_1, "
          "fl_vec_from(__fl_av_" $id " + 2, " (- (length $args) 2) ")); }))")))
+
+(defn cgc-with-atom-lock [$args]
+  (if (not (= (length $args) 2))
+    (throw "with-atom-lock: expected 2 arguments")
+    (let [[$id @lambda-id-atom]
+          [$_ (swap! lambda-id-atom + 1)]]
+      (str "(__extension__ ({ " (cgc-eval-args $args $id 0 "")
+           " fl_with_atom_lock(__fl_arg_" $id "_0, __fl_arg_" $id "_1); }))"))))
 ;; ── 컴파일 타임 경고 헬퍼 ────────────────────────────────────────────
 ;; W2: (get ...) 를 산술/문자열 ops에 nil 체크 없이 넘기면 경고
 (defn cgc-is-get? [$n]

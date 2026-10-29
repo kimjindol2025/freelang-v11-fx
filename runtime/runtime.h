@@ -359,6 +359,8 @@ FLValue str_index_of(FLValue s, FLValue sub);
 FLValue fl_atom_new(FLValue init);
 FLValue fl_atom_deref(FLValue atom);
 FLValue fl_atom_reset(FLValue atom, FLValue val);
+/* Callback runs once under the atom's recursive lock; its value is preserved. */
+FLValue fl_with_atom_lock(FLValue atom, FLValue callback);
 
 /* ── S26: stdlib bridge ── */
 FLValue fl_includes_item(FLValue vec, FLValue item);
