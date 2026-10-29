@@ -1,0 +1,14 @@
+(load "../app/store.fl")
+(ensure-table "l08_http"
+ [{"name" "id" "type" "TEXT" "nullable" false "primary" true}
+  {"name" "title" "type" "TEXT" "nullable" false}] "id" [])
+(server_get "/health" (fn [req] (server_text "OK")))
+(server_get "/rows" (fn [req] (server_json (get (execute-ast {"type" "select" "table" "l08_http"}) "rows"))))
+(server_get "/stats" (fn [req] (server_json (http-atom-stats))))
+(server_post "/write" (fn [req]
+ (do (http-atom-begin)
+  (try (let [id (get (server_req_json req) "id")
+             result (afj-tcp-commit-ast {"type" "insert" "table" "l08_http" "row" {"id" id "title" "한🙂"}})]
+    (do (http-atom-end) (server_json {"id" id "ok" true})))
+   (catch [error] (do (http-atom-end) (server_status 409 "REJECTED")))))))
+(server_start 0)
