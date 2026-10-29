@@ -23,6 +23,7 @@
 
 #define _GNU_SOURCE
 #include "runtime.h"
+#include "internal.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -34,6 +35,28 @@
 */
 #define ARENA_CHUNK_SIZE (64 * 1024)
 #define FL_HEAP_RC UINT32_C(0x80000000)
+static pthread_mutex_t gc_mutex;
+static pthread_once_t gc_once=PTHREAD_ONCE_INIT;
+static int gc_init_error;
+static FLAtom *gc_atoms;
+static int gc_pending;
+static void gc_init(void){
+    pthread_mutexattr_t attr;gc_init_error=pthread_mutexattr_init(&attr);
+    if(gc_init_error)return;
+    gc_init_error=pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE);
+    if(!gc_init_error)gc_init_error=pthread_mutex_init(&gc_mutex,&attr);
+    pthread_mutexattr_destroy(&attr);
+}
+void fl_gc_lock(void){pthread_once(&gc_once,gc_init);if(gc_init_error||pthread_mutex_lock(&gc_mutex))abort();}
+void fl_gc_unlock(void){pthread_mutex_unlock(&gc_mutex);}
+void fl_gc_track_atom(FLAtom *atom){
+    fl_gc_lock();atom->gc_candidate=0;atom->gc_previous=NULL;atom->gc_next=gc_atoms;
+    if(gc_atoms)gc_atoms->gc_previous=atom;gc_atoms=atom;fl_gc_unlock();
+}
+static void gc_untrack_atom(FLAtom *atom){
+    if(atom->gc_previous)atom->gc_previous->gc_next=atom->gc_next;else gc_atoms=atom->gc_next;
+    if(atom->gc_next)atom->gc_next->gc_previous=atom->gc_previous;
+}
 typedef struct BorrowPin {FLValue value;struct BorrowPin*next;} BorrowPin;
 static __thread BorrowPin*borrow_pins;
 void*fl_borrow_mark(void){return borrow_pins;}
@@ -41,7 +64,7 @@ void fl_borrow_release_to(void*mark){while(borrow_pins&&(void*)borrow_pins!=mark
 /* Takes the reference retained while the atom lock was held. */
 FLValue fl_borrow_take(FLValue value){
     if(value.tag<FL_STRING||!value.obj)return value;
-    if(value.tag==FL_VECTOR&&__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)==0xFF)return value;
+    if(value.tag==FL_VECTOR&&value.obj->type!=FL_MANAGED_ATOM&&__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)==0xFF)return value;
     BorrowPin*pin=malloc(sizeof(*pin));
     if(!pin){fl_heap_release(value);fl_throw(fl_str_val("snapshot pin allocation failed"));return fl_nil();}
     pin->value=value;pin->next=borrow_pins;borrow_pins=pin;return value;
@@ -66,9 +89,11 @@ typedef struct ArenaCleanup {void (*call)(void*);void*value;struct ArenaCleanup*
 
 /* ── per-thread 아레나 ── */
 static __thread Arena* g_arena = NULL;
+int fl_arena_active(void){return g_arena!=NULL;}
 static void arena_clean(Arena*arena){
     if(arena)fl_borrow_release_to(arena->borrow_mark);
     while(arena&&arena->cleanups){ArenaCleanup*entry=arena->cleanups;arena->cleanups=entry->next;entry->call(entry->value);free(entry);}
+    fl_gc_collect_atoms();
 }
 int fl_arena_on_reset(void (*cleanup)(void*),void*value){
     if(!g_arena)return 0;
@@ -226,7 +251,7 @@ void fl_perm_cleanup(void) {
  */
 
 /* FLValue를 malloc 힙으로 deep-copy (RC = 1로 설정) */
-FLValue fl_heap_copy(FLValue v) {
+static FLValue heap_copy_locked(FLValue v) {
     if(v.tag==FL_MAP&&v.obj&&v.obj->type==FL_NATIVE_PROMISE){fl_heap_retain(v);return v;}
     switch (v.tag) {
     case FL_INT: case FL_FLOAT: case FL_BOOL: case FL_NIL:
@@ -245,6 +270,7 @@ FLValue fl_heap_copy(FLValue v) {
     }
 
     case FL_VECTOR: {
+        if(v.obj->type==FL_MANAGED_ATOM){fl_heap_retain(v);return v;}
         if(__atomic_load_n(&v.obj->rc,__ATOMIC_RELAXED)==0xFF)return v; /* Atoms keep their shared identity. */
         FLVector* src = (FLVector*)v.obj;
         FLVector* dst = (FLVector*)malloc(sizeof(FLVector));
@@ -292,19 +318,29 @@ FLValue fl_heap_copy(FLValue v) {
     }
     return fl_nil();
 }
+FLValue fl_heap_copy(FLValue v){fl_gc_lock();FLValue result=heap_copy_locked(v);fl_gc_unlock();return result;}
 
 /* RC++ (heap 객체에 대한 추가 참조) */
-void fl_heap_retain(FLValue v) {
+static void heap_retain_locked(FLValue v) {
     if (v.tag < FL_STRING || !v.obj) return;
-    if(v.obj->type==FL_OWNED_FN||v.obj->type==FL_NATIVE_PROMISE){__atomic_add_fetch(&v.obj->rc,1,__ATOMIC_RELAXED);return;}
+    if(v.obj->type==FL_OWNED_FN||v.obj->type==FL_NATIVE_PROMISE||v.obj->type==FL_MANAGED_ATOM){__atomic_add_fetch(&v.obj->rc,1,__ATOMIC_RELAXED);return;}
     uint32_t rc=__atomic_load_n(&v.obj->rc,__ATOMIC_RELAXED);
     if(rc==0||rc==0xFF)return;
     __atomic_add_fetch(&v.obj->rc,1,__ATOMIC_RELAXED);
 }
+void fl_heap_retain(FLValue v){fl_gc_lock();heap_retain_locked(v);fl_gc_unlock();}
 
 /* RC-- → 0이면 재귀 해제 */
-void fl_heap_release(FLValue v) {
+static void heap_release_locked(FLValue v) {
     if (v.tag < FL_STRING || !v.obj) return;
+    if(v.obj->type==FL_MANAGED_ATOM){
+        uint32_t rc=__atomic_load_n(&v.obj->rc,__ATOMIC_RELAXED);if(!rc)return;
+        FLAtom *atom=(FLAtom*)v.obj;
+        if(__atomic_fetch_sub(&v.obj->rc,1,__ATOMIC_ACQ_REL)!=1){atom->gc_candidate=1;gc_pending=1;return;}
+        gc_untrack_atom(atom);fl_heap_release(atom->vector.data[0]);
+        if(pthread_mutex_destroy(&atom->mutex)){fputs("atom release encountered a locked object\n",stderr);abort();}
+        free(atom->vector.data);free(atom);return;
+    }
     if(v.obj->type==FL_OWNED_FN||v.obj->type==FL_NATIVE_PROMISE){
         if(__atomic_fetch_sub(&v.obj->rc,1,__ATOMIC_ACQ_REL)!=1)return;
         if(v.obj->type==FL_NATIVE_PROMISE){fl_schedule_promise_destroy(v);return;}
@@ -344,18 +380,21 @@ void fl_heap_release(FLValue v) {
     default: break;
     }
 }
+void fl_heap_release(FLValue v){fl_gc_lock();heap_release_locked(v);fl_gc_unlock();}
+
+#include "atom-gc.h"
 
 static void snapshot_owned_cleanup(void*pointer) {
     FLObject*object=pointer;
-    FLValue value={.tag=object->type==FL_OWNED_FN?FL_FN:FL_MAP,.obj=object};
+    FLValue value={.tag=object->type==FL_MANAGED_ATOM?FL_VECTOR:object->type==FL_OWNED_FN?FL_FN:FL_MAP,.obj=object};
     fl_heap_release(value);
 }
 
 /* A returned child may outlive the pinned atom root that contains it. */
 static FLValue snapshot_copy(FLValue value) {
     if(value.tag<FL_STRING||!value.obj)return value;
-    if(value.tag==FL_VECTOR&&__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)==0xFF)return value;
-    if(value.tag==FL_FN||value.obj->type==FL_NATIVE_PROMISE){
+    if(value.tag==FL_VECTOR&&value.obj->type!=FL_MANAGED_ATOM&&__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)==0xFF)return value;
+    if(value.tag==FL_FN||value.obj->type==FL_NATIVE_PROMISE||value.obj->type==FL_MANAGED_ATOM){
         FLValue owned=fl_heap_copy(value);
         if(!owned.obj){fl_throw(fl_str_val("snapshot allocation failed"));return fl_nil();}
         if(fl_arena_on_reset(snapshot_owned_cleanup,owned.obj)<0){

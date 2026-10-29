@@ -1,11 +1,11 @@
 #include "runtime.h"
+#include "internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
-typedef struct {FLVector vector;pthread_mutex_t mutex;} FLAtom;
 static pthread_mutex_t atom_locks[64];
 static pthread_once_t atom_locks_once=PTHREAD_ONCE_INIT;
 static int atom_lock_error;
@@ -22,7 +22,7 @@ static void init_atom_locks(void){
 }
 static pthread_mutex_t*atom_lock(FLValue atom){
     /* Only atom_new creates immortal vectors; each keeps its own update lock. */
-    if(__atomic_load_n(&atom.obj->rc,__ATOMIC_RELAXED)==0xFF)return &((FLAtom*)atom.obj)->mutex;
+    if(atom.obj->type==FL_MANAGED_ATOM||__atomic_load_n(&atom.obj->rc,__ATOMIC_RELAXED)==0xFF)return &((FLAtom*)atom.obj)->mutex;
     pthread_once(&atom_locks_once,init_atom_locks);
     if(atom_lock_error)fl_throw(fl_str_val("atom: lock initialization failed"));
     return &atom_locks[((uintptr_t)atom.obj>>4)%64];
@@ -215,20 +215,26 @@ FLValue fl_get_argv(void) {
  * 해결: atom 벡터 + 보유값을 모두 heap_copy로 heap에 올림
  *       swap!할 때 이전 값 heap_release → 메모리 누수 방지
  */
+static void atom_arena_cleanup(void *object){fl_heap_release((FLValue){.tag=FL_VECTOR,.obj=object});}
 FLValue fl_atom_new(FLValue init) {
     /* atom 벡터를 malloc으로 직접 생성 (arena 우회) */
     FLAtom *shared=malloc(sizeof(*shared));
     if(!shared)return fl_nil();
     if(atom_mutex_init(&shared->mutex)){free(shared);return fl_nil();}
     FLVector* av = &shared->vector;
-    av->base.type = FL_VECTOR;
-    av->base.rc   = 0xFF;   /* 고정: atom 컨테이너는 절대 해제 안 함 */
+    int managed=fl_arena_active();
+    av->base.type = managed?FL_MANAGED_ATOM:FL_VECTOR;
+    av->base.rc   = managed?1:0xFF; /* Startup globals keep their process lifetime. */
     av->len  = 1;
     av->cap  = 1;
     av->data = (FLValue*)malloc(sizeof(FLValue));
     if (!av->data) { pthread_mutex_destroy(&shared->mutex);free(shared);return fl_nil(); }
     av->data[0] = fl_heap_copy(init);  /* 초기값도 heap으로 */
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)av;
+    if(managed){
+        fl_gc_track_atom(shared);
+        if(fl_arena_on_reset(atom_arena_cleanup,shared)<0){fl_heap_release(r);fl_throw(fl_str_val("atom cleanup allocation failed"));return fl_nil();}
+    }
     return r;
 }
 
@@ -244,8 +250,10 @@ FLValue fl_atom_reset(FLValue atom, FLValue val) {
     FLVector* av = (FLVector*)atom.obj;
     FLValue replacement=fl_heap_copy(val);
     pthread_mutex_t*mutex=atom_lock(atom);pthread_mutex_lock(mutex);
+    fl_gc_lock();
     FLValue old = av->data[0];
     av->data[0] = replacement;
+    fl_gc_unlock();
     pthread_mutex_unlock(mutex);
     fl_heap_release(old);              /* 이전 값 RC-- */
     return val; /* v11 reset! returns the supplied value. */

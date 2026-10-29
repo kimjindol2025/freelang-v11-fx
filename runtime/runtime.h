@@ -46,7 +46,8 @@ typedef enum {
     FL_NATIVE_ERROR, /* Internal map brand; FLValue.tag remains FL_MAP. */
     FL_OWNED_FN, /* Heap-promoted closure with owned environment. */
     FL_NATIVE_PROMISE, /* Internal managed map; opaque to user data. */
-    FL_NATIVE_TAIL /* Internal trampoline request; FLValue.tag remains FL_MAP. */
+    FL_NATIVE_TAIL, /* Internal trampoline request; FLValue.tag remains FL_MAP. */
+    FL_MANAGED_ATOM /* Internal shared-reference brand; FLValue.tag is FL_VECTOR. */
 } FLTag;
 
 typedef struct FLObject FLObject;

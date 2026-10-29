@@ -34,7 +34,7 @@ static FLValue return_snapshot(FLClosure*closure,int argc,FLValue*argv){
     return fl_atom_deref(shared);
 }
 int main(void){
-    fl_arena_begin();shared=fl_atom_new(record(0));
+    fl_arena_begin();shared=fl_heap_copy(fl_atom_new(record(0)));
     require(!pthread_barrier_init(&barrier,NULL,5),"barrier");
     pthread_t threads[4];
     for(int i=0;i<4;i++)require(!pthread_create(&threads[i],NULL,reader,NULL),"thread");
@@ -60,5 +60,6 @@ int main(void){
     require(fl_map_get(returned,fl_str_val("number")).i==2000,"returned snapshot");
     fl_arena_end();
     puts("RETURNED_ARENA_SNAPSHOT=PASS");
+    fl_heap_release(shared);
     return 0;
 }
