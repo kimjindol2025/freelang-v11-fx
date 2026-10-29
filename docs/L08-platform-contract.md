@@ -24,3 +24,11 @@ C18과 별도로 전체 앱의 실제 실패에서 최소 재현을 추출했다
 - C18의 `(error_message e)` 시험은 raw 문자열과 v11 오류 객체 모두에서 같은 결과이므로 catch 구조 호환의 증거가 아니다. catch 객체·범위·finally는 별도 시험으로 보완한다. 예전 음성 시험이 raw catch 문자열을 전제한다면 source 계약 근거와 변경 이력을 남겨 입력을 보완하며 정답을 구현에 맞춰 바꾸지 않는다.
 
 `compiler-blockers.fl`과 기대 출력은 위 재현의 수정 전에 고정한다. 이 파일은 C18 자체 시험 집계에 넣지 않는다.
+
+## C11 fd API의 선행 정답
+
+v11 동일 커밋의 `src/stdlib-fd.ts`가 근거다. fd_open은 r/w/a만 받으며 1000부터 증가하는 synthetic handle을 반환한다. fd_write/fd_fsync/fd_close/fd_flush의 성공 결과는 바이트 수가 아니라 true다. fd_read는 실제 읽은 바이트의 UTF-8 텍스트이며 EOF는 빈 문자열이다. fd_seek는 이름과 달리 offset/whence를 무시하고 fstat의 size를 반환하며 커서를 이동하지 않는다. 이 특성은 호환 계약으로 유지하고 임의의 POSIX seek 의미로 바꾸지 않는다. 실제 바이너리 파일은 기존 L07 API를 사용한다.
+
+writer/reader는 별도 native 과정에서 합성 image-add/image-delete 기록을 append·fsync·close하고 재시작 뒤 바이트에 해당하는 텍스트·EOF·closed handle·잘못된 모드를 검사한다. 이는 fd 자체 시험이며 db95 WAL 재생 성공과 같지 않다. db95의 checksum·잘린 끝·추가/삭제 반복 재생 검증은 C12·전체 통합에서 별도 증명해야 한다.
+
+구현에서는 C10의 경로 보호, 핸들 잠금, 부분 쓰기와 EINTR 처리, fsync 실제 syscall, close 오류 시 핸들 폐기를 보완한다. 실패·부분 쓰기·EINTR·fsync/close fault injection도 `.fl` 경로를 통해 검사한다. 기본 writer/reader와 정답을 먼저 고정하며, 이 문서 작성은 아직 fd 구현 완료가 아니다.
