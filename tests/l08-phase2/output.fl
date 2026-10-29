@@ -1,0 +1,7 @@
+(println "x" 1 "y")
+(println nil)
+(println [1 nil ["한글" true]])
+(println (str [1 nil "x"]))
+(println (str {"0.1" (str_to_num "0.1")}))
+(print "a" "b")
+(println "!")
