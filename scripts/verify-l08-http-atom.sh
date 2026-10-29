@@ -10,16 +10,16 @@ if [[ -z "${L08_HTTP_ATOM_COMPILER:-}" ]];then l07_build_compiler "$out" > "$out
 runtime_root="${L08_HTTP_ATOM_RUNTIME_ROOT:-$ROOT}"
 sources=()
 for unit in "${L07_RUNTIME[@]}";do sources+=("$runtime_root/runtime/$unit.c");done
-"$compiler" --extern http-atom-begin --extern http-atom-end --extern http-atom-pause --extern http-atom-stats "$ROOT/tests/l08-platform/http-atom.fl" "$out/server.c" > "$out/compile.log" 2>&1
+"$compiler" --extern http-atom-begin --extern http-atom-end --extern http-atom-pause --extern http-atom-stats --extern atom-meter-start --extern atom-meter-live --extern atom-meter-created "$ROOT/tests/l08-platform/http-atom.fl" "$out/server.c" > "$out/compile.log" 2>&1
 flags=(-O1 -g -w -D_GNU_SOURCE -I "$runtime_root/runtime" -include "$ROOT/tests/l08-platform/http-atom.h")
 if [[ -n "${L08_HTTP_ATOM_SANITIZER_LIBDIR:-}" ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_HTTP_ATOM_SANITIZER_LIBDIR")
  export LD_LIBRARY_PATH="$L08_HTTP_ATOM_SANITIZER_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
  export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
 fi
-gcc "${flags[@]}" -o "$out/server" "$out/server.c" "$ROOT/tests/l08-platform/http-atom.c" \
+gcc "${flags[@]}" -o "$out/server" "$out/server.c" "$ROOT/tests/l08-platform/http-atom.c" "$ROOT/tests/l08-platform/atom-lifetime.c" \
  "$ROOT/tests/l08/http-port.c" "$ROOT/tests/l08-platform/http-loopback.c" \
- -Wl,--wrap=listen -Wl,--wrap=bind "${sources[@]}" "${L07_LIBS[@]}" > "$out/build.log" 2>&1
+ -Wl,--wrap=listen -Wl,--wrap=bind,--wrap=fl_atom_new,--wrap=free "${sources[@]}" "${L07_LIBS[@]}" > "$out/build.log" 2>&1
 pid=""
 stop(){
  [[ -n "$pid" ]] || return 0
@@ -66,6 +66,36 @@ curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port/stats" > "$out/stat
  for iteration in {1..10};do [[ $(curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port/count") == 1000 ]] || reads=FAIL;done
  printf 'HTTP_ATOM_REPEATED_READS=%s\n' "$reads"
 } > "$out/results"
+mkdir -p "$out/lifetime"
+export HTTP_ATOM_LIFETIME="$out/lifetime"
+seq 1 100 | xargs -P10 -I '{}' bash -c '
+ curl --noproxy "*" -fsS --max-time 10 -X POST -d "" \
+  -o "$HTTP_ATOM_LIFETIME/$1.body" -w "%{http_code}\n" \
+  "http://127.0.0.1:$HTTP_ATOM_PORT/temporary" > "$HTTP_ATOM_LIFETIME/$1.status"
+' _ '{}'
+read_live(){
+ local expected="$1" label="$2"
+ for attempt in {1..100};do
+  curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port/lifetime" > "$out/$label.json"
+  live=$(jq -r '.live' "$out/$label.json")
+  [[ "$live" != "$expected" ]] || break
+  sleep .05
+ done
+}
+read_live 0 temporary
+{
+ printf 'HTTP_ATOM_TEMP_STATUS=%s\n' "$(sort -u "$out/lifetime/"*.status | paste -sd ',' -)"
+ printf 'HTTP_ATOM_TEMP_RESPONSES=%s\n' "$(find "$out/lifetime" -name '*.status' | wc -l)"
+ printf 'HTTP_ATOM_TEMP_LIVE=%s\n' "$live"
+ [[ $(curl --noproxy '*' -fsS --max-time 5 -X POST -d '' "http://127.0.0.1:$port/save") == SAVED ]]
+ read_live 1 saved
+ printf 'HTTP_ATOM_SAVED_LIVE=%s\n' "$live"
+ printf 'HTTP_ATOM_SAVED_TEXT=%s\n' "$(curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port/saved")"
+ [[ $(curl --noproxy '*' -fsS --max-time 5 -X POST -d '' "http://127.0.0.1:$port/clear") == CLEARED ]]
+ read_live 0 cleared
+ printf 'HTTP_ATOM_CLEARED_LIVE=%s\n' "$live"
+ printf 'HTTP_ATOM_CREATED=%s\n' "$(jq -r '.created' "$out/cleared.json")"
+} >> "$out/results"
 stop
 start second
 printf 'HTTP_ATOM_VOLATILE_RESTART_COUNTER=%s\n' "$(curl --noproxy '*' -fsS --max-time 5 "http://127.0.0.1:$port/count")" >> "$out/results"

@@ -1,4 +1,5 @@
 (define counter (atom 0))
+(define keeper (atom nil))
 (server_post "/increment" (fn [req]
  (do (http-atom-begin)
   (let [value (swap! counter (fn [old] (do (http-atom-pause) (+ old 1))))]
@@ -6,4 +7,11 @@
 (server_get "/count" (fn [req] (server_text (str (deref counter)))))
 (server_get "/stats" (fn [req] (server_json (http-atom-stats))))
 (server_get "/health" (fn [req] (server_text "OK")))
+(server_post "/temporary" (fn [req]
+ (do (doseq [n (range 0 100)] (let [a (atom nil)] (reset! a {"self" a "n" n}))) (server_text "OK"))))
+(server_post "/save" (fn [req] (let [a (atom nil)] (do (reset! a {"self" a "text" "한🙂"}) (reset! keeper a) (server_text "SAVED")))))
+(server_get "/saved" (fn [req] (server_text (get (deref (deref keeper)) "text"))))
+(server_post "/clear" (fn [req] (do (reset! keeper nil) (server_text "CLEARED"))))
+(server_get "/lifetime" (fn [req] (server_json {"live" (atom-meter-live) "created" (atom-meter-created)})))
+(atom-meter-start)
 (server_start 0)
