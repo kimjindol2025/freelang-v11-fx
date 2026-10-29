@@ -21,6 +21,8 @@ if L08_HTTP_ATOM_OUT="$out/http-atom" L08_HTTP_ATOM_COMPILER="$out/self/compiler
 cat "$out/http-atom.log";printf 'HTTP_ATOM_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_ATOM_LIFETIME_OUT="$out/atom-lifetime" L08_ATOM_LIFETIME_COMPILER="$out/self/compiler" L08_ATOM_LIFETIME_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/atom-lifetime.execve.log" bash "$ROOT/scripts/verify-l08-atom-lifetime.sh" > "$out/atom-lifetime.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/atom-lifetime.log";printf 'ATOM_LIFETIME_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_ARENA_CACHE_OUT="$out/arena-cache" L08_ARENA_CACHE_COMPILER="$out/self/compiler" L08_ARENA_CACHE_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/arena-cache.execve.log" bash "$ROOT/scripts/verify-l08-arena-cache.sh" > "$out/arena-cache.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/arena-cache.log";printf 'ARENA_CACHE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 for phase in timer tcp fd-basic fd-extended json auth http feed http-client;do
  case "$phase" in
   timer) setting=L08_TIMER_OUT;script=verify-l08-timer-self.sh;tag=TIMER_PARTIAL;;

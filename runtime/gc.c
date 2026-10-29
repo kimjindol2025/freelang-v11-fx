@@ -102,6 +102,7 @@ int fl_arena_on_reset(void (*cleanup)(void*),void*value){
 }
 
 static ArenaChunk* arena_new_chunk(size_t min_size) {
+    if(min_size>SIZE_MAX-2*sizeof(ArenaChunk))return NULL;
     size_t cap = ARENA_CHUNK_SIZE;
     if (min_size + sizeof(ArenaChunk) > cap)
         cap = min_size + sizeof(ArenaChunk);
@@ -111,6 +112,12 @@ static ArenaChunk* arena_new_chunk(size_t min_size) {
     c->used = 0;
     c->cap  = cap;
     return c;
+}
+static void arena_rewind(Arena *arena){
+    /* Keep the small common-request cache, not every prior large upload. */
+    ArenaChunk *chunk=arena->first->next;arena->first->next=NULL;
+    while(chunk){ArenaChunk *next=chunk->next;free(chunk);chunk=next;}
+    arena->first->used=0;arena->head=arena->first;
 }
 
 void fl_arena_begin(void) {
@@ -126,21 +133,19 @@ void fl_arena_begin(void) {
     } else {
         arena_clean(g_arena);
         g_arena->borrow_mark=fl_borrow_mark();
-        /* 아레나 재사용: 첫 청크로 리셋 */
-        g_arena->head = g_arena->first;
-        ArenaChunk* c = g_arena->first;
-        while (c) { c->used = 0; c = c->next; }
+        arena_rewind(g_arena);
     }
 }
 
 void* fl_arena_alloc(size_t size) {
+    if(size>SIZE_MAX-7)return NULL;
     if (!g_arena || !g_arena->head) return malloc(size);  /* 폴백 */
 
     /* 8바이트 정렬 */
     size = (size + 7) & ~(size_t)7;
 
     ArenaChunk* c = g_arena->head;
-    if (c->used + size <= c->cap) {
+    if (size <= c->cap-c->used) {
         void* ptr = c->data + c->used;
         c->used += size;
         g_arena->total_alloc += size;
@@ -154,7 +159,11 @@ void* fl_arena_alloc(size_t size) {
         nc = arena_new_chunk(size);
         if (nc) { nc->next = c->next; c->next = nc; }
     }
-    if (!nc) return malloc(size);  /* OOM 폴백 */
+    if (!nc) {
+        void *fallback=malloc(size);
+        if(fallback&&fl_arena_on_reset(free,fallback)!=1){free(fallback);return NULL;}
+        return fallback;
+    }
 
     nc->used = 0;
     g_arena->head = nc;
@@ -166,12 +175,10 @@ void* fl_arena_alloc(size_t size) {
 }
 
 void fl_arena_end(void) {
-    /* 아레나 리셋만 (메모리 유지 — 다음 요청에 재사용) */
+    /* Preserve one small cache after request-owned values have been released. */
     if (!g_arena) return;
     arena_clean(g_arena);
-    ArenaChunk* c = g_arena->first;
-    while (c) { c->used = 0; c = c->next; }
-    g_arena->head = g_arena->first;
+    arena_rewind(g_arena);
 }
 void*fl_arena_scope_enter(void){
     Arena*previous=g_arena;Arena*current=calloc(1,sizeof(*current));
