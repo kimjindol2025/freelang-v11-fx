@@ -34,3 +34,11 @@ NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
 C11·C12 변경 후 최신 소스 전체 회귀·native bootstrap은 별도 드라이버에서 실행해야 한다. 이전 C18·컴파일러 보완의 전체 통과 결과를 최신 HEAD에 적용하지 않는다. 실제 db95 복사본 재생·잘린 WAL 끝·원본 데이터·URL·SHA 보존·HTTP·백업/복구는 아직 미확인이다.
 
 전체 앱은 C 변환 후 fd·JSON·auth_sha256의 implicit declaration 오류가 없어졌다. 인증·HTTP·RSS/sitemap·타이머/TCP 연결이 남아 C 구문 검사는 여전히 종료 코드 1이다. 앱을 운영 데이터로 실행하지 않았으며 서버 23·25 접속·합치기·배포는 하지 않았다.
+
+## fd 보조기 수정 이후 전체 검증 확정
+
+검증 대상 커밋은 `45a31f4b6ea6071b8a5b9a7f0146191c1a1ab983`다. 새 전체 실행이 `CHECKED_PLATFORM_FULL_EXIT=0`으로 종료됐다. `L08_PLATFORM_PASS=5 FAIL=0`, fd basic `11`·extended `11`, JSON `13` 통과·0 실패다. extended는 오류 주입 8개·경계·base symlink·8-thread 800행 비교와 외부 sentinel 보존을 포함한다. 이전 L08 3차 `11`·2차 `11`·1차 `17`, HTTP `7`, L06 HTTP/TLS 각각 `110`, L07 자체 `221` 통과·0 실패 및 기존 회귀가 통과했다.
+
+`BOOTSTRAP_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`, STAGE2/STAGE3 SHA `66d1ff3f63de632194c7a858cdf8150ecff0528d711d5eeb39adb2da09ecc3b7`다. 전체 감사 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`. [전체 원문](evidence/l08-platform/fd-json-full.txt).
+
+이 결과는 이후 추가하는 auth·HTTP 코드의 전체 통과나 실제 db95 재생·운영 데이터 호환의 완료 증거가 아니다.

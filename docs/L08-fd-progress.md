@@ -36,3 +36,7 @@ C12 JSON·기존 WAL checksum 검증, db95의 잘린 끝·추가/삭제 반복 �
 ### 파일 번호 재사용 보조기의 재현성 수정
 
 최신 전체 실행은 close EINTR/EIO 보조기에서 각각 92로 종료돼 `L08_FD_FAULT_PASS=6 FAIL=2`, `JSON_PLATFORM_FULL_EXIT=1`로 실패했다. `/dev/null` open이 방금 닫은 번호보다 더 낮은 빈 번호를 받을 수 있는데 보조기가 이를 실패로 간주한 것이 원인이다. dup2로 시험할 번호를 명시적으로 재사용하도록 보조기만 수정했으며 API 구현과 기대 출력은 유지했다. 두 모드를 각각 5회 재검사해 모두 종료 코드 0·FD_REUSE_GUARD PASS였고 `dup2(3, 4) = 4`를 실제 추적했다. [실패 원문](evidence/l08-platform/fd-close-reuse-fixture-before.txt), [수정 후 원문](evidence/l08-platform/fd-close-reuse-fixture-after.txt). 전체 드라이버는 이 수정 이후 새로 실행해야 한다.
+
+### 보조기 수정 후 전체 확장 검사 확정
+
+`45a31f4b6ea6071b8a5b9a7f0146191c1a1ab983`의 새 전체 실행에서 `L08_FD_EXTENDED_PASS=11 FAIL=0`, `CONCURRENT_LINES=800`, `CONCURRENT_RECORDS=PASS`, `OUTSIDE_SENTINEL=PASS`를 확인했다. 전체 이전 회귀·native bootstrap도 종료 코드 0이며 원문과 범위는 L08-json-progress.md에 기록했다. 실제 db95 WAL 재생·운영 복사본 검증은 여전히 별도 남은 항목이다.
