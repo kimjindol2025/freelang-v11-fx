@@ -1,0 +1,4 @@
+STAGE1_SMALL_PROBE_EXIT=0
+STAGE2_SMALL_PROBE_EXIT=1
+Uncaught error (line 3367): [cgc-run] [cgc-run-positional] [generate-c] [cgc-top-level] [cgc] [cgc-sexpr] [to-string] Function not found: to-string (at line 1008, col 0)
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
