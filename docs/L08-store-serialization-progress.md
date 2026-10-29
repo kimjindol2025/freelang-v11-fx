@@ -47,3 +47,29 @@ L08_BLOG_SOURCE_ROOT=<가림> L08_BLOG_NATIVE_COMPILER=<가림>/compiler L08_BLO
 - 일반 LSan·장시간 RSS·opaque promise cycle·startup 수명·포기한 future/반복·동시 대기/예외도 남아 있다. sanitizer는 detect_leaks=0이다.
 - 실제 비밀번호 로그인·빈 scrypt 키 계약 결정, 브라우저 J안·이미지 처리·댓글·다중 작성자와 전체 PRD·운영 자료 호환·백업/복구는 완료되지 않았다. 기존 editor JS의 제공 시험은 브라우저 실행이나 J안 완료가 아니다.
 - 서버 23·25 접속·운영 자료 접근/변경·합치기·배포·강제 푸시·백업 삭제를 하지 않았다. 각 확보한 종료 원문의 execve 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이며 이후 아직 실행 중인 전체 시험까지 확대하지 않는다.
+
+## 후속으로 확인한 결과
+
+### 오류 차단 수정 뒤 전체 저장소·실제 앱 회귀
+
+fx 고정 `bd1213b76b23d6e12e17a329c2dafe4638000eaf`, blog source `29ff4123f0a5cc392cc756df030309ff88611469`의 fresh source-only 복사본에서 다섯 driver가 모두 종료 `0`, `RECOVERY_PIPELINE_EXIT=0`이다. 원래 중첩 FreeLang 화면 파일을 포함했다.
+
+| 실제 실행 | 원문 결과 | 증거 |
+|---|---|---|
+| commit fsync EIO | uncertain/read 거부/write 거부 각각 true, reader 1행, WAL 무변경 | [원문](evidence/l08-platform/recovery-fsync-after.txt) |
+| 실제 8-worker×4 거래 | live/고유 ID/replay 각각 32, WAL 무변경 | [원문](evidence/l08-platform/recovery-concurrent-after.txt) |
+| ASan/UBSan 실제 HTTP | worker/peak 4, 32건 200, 중복 8건 409, 재시작 2회 모두 정확한 32행·WAL 무변경 | [원문](evidence/l08-platform/recovery-store-http-after.txt) |
+| 기존 ASan/UBSan 저장소 | writer 1회·별도 reader 10회, `DB95_NATIVE_STORE_PASS=11 FAIL=0` | [원문](evidence/l08-platform/recovery-store-native-after.txt) |
+| 전체 main·seed·editor-http native | 세 빌드 0, HTTP 확인 3회, 재시작 2회, WAL 무변경, `NATIVE_BLOG_EDITOR_PASS=3 FAIL=0` | [원문](evidence/l08-platform/recovery-editor-native-after.txt) |
+
+각 execve 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. 편집 화면은 합성 세션·HTML HTTP 200·기존 JS 제공이며 `PASSWORD_LOGIN=UNEXECUTED`, `EXISTING_EDITOR_JS=SERVED_NOT_EXECUTED`다. 새 JS나 실제 비밀번호 로그인·브라우저 J안 완료를 뜻하지 않는다.
+
+### native source 이름의 공통 누락 보완
+
+별도 `60177c87e239c3c2ba90fea980ef8be946fb2115` bootstrap에서 stage2 binary를 실제로 확인하고 가장 작은 `(println 1)` 입력을 보냈다. stage1은 `0`, stage2는 `[to-string] Function not found`로 `1`이었다. 큰 자기 컴파일은 아직 CPU·메모리를 사용하고 있었으며 독립적으로 확인한 이 결함 때문에 해당 stage2만 종료했다. `JIT_NATIVE_BOOTSTRAP_EXIT=143`이며 timeout·전체 통과로 보고하지 않는다. 생성 C·작은 probe·중단 이유를 보존했다. [작은 실패](evidence/l08-platform/stage2-small-probe-before.txt), [큰 검증 중단 원문](evidence/l08-platform/jit-bootstrap-stopped-after-probe.txt).
+
+`bf6b99d4ab84ebdbb51794117dc9a2012c139d7b`에서 runtime.h에 선언된 FLValue C 함수의 underscore 이름과 hyphen source 이름을 공통 metadata에 함께 생성했다. 임의 미정의 함수 lookup이나 --extern 검증은 유지한다. 앞선 네 JIT 개별 dispatch는 공통 경로로 대체했다. [계약](../tests/l08-platform/native-spelling-contract.md), [to-string 수정 전](evidence/l08-platform/native-spelling-before.txt), [수정 후 실제 `42` 출력](evidence/l08-platform/native-spelling-after.txt).
+
+고정 `2754d8f7d83ce520395ab1c2bfc99b6d72336379`에서 기존 names/redefine/scope/aliases 4개를 원래 기대값으로 확인했고, 원래 JIT·GC runner도 다시 `10 PASS / 0 FAIL / 10 총`, `NATIVE_NAMES_SELECTED_EXIT=0`이다. [원문](evidence/l08-platform/native-names-selected-after.txt). 같은 고정 bootstrap의 새 stage1과 stage2는 작은 `(println 1)` 입력에서 각각 종료 `0`, 생성 C도 동일하다. [원문](evidence/l08-platform/native-names-stage2-small-after.txt). 이 작은 입력 통과로 큰 자기 입력이나 전체 bootstrap 통과를 대신하지 않는다.
+
+고정 `2754d8f7d83ce520395ab1c2bfc99b6d72336379` 전체 언어 회귀·native bootstrap은 실행 중이다. 공통 이름 보완 뒤 source-only blog의 실제 HTTP·전체 앱도 이 고정 소스와 새 compiler로 별도 재확인 중이다. 위의 종료한 다섯 단계와 구분하며 이후 실행을 미리 통과로 집계하지 않는다. 모든 PRD·실제 인증·브라우저·댓글·다중 작성자·운영 자료·백업/복구 완료는 여전히 미확인이다.
