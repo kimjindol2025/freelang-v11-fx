@@ -41,3 +41,7 @@ writer/reader는 별도 native 과정에서 합성 image-add/image-delete 기록
 동일 v11 커밋 `b49cc9194a00649b8cf58e1d6e8ee38ffce770d4`의 `bootstrap.js:38043~38055` (`evalThrow`)를 추가 조사했다. 이전 최소 시험은 catch만 읽고 그 앞의 throw 변환을 빠뜨렸다. 문자열·수·일반 map을 `.fl throw`하면 새 Error가 만들어지므로 catch.raw는 원래 문자열·map 자체가 아니라 Error이며 raw.message를 조회해야 한다. truthy map.message가 없으면 Error.message는 String(map)인 `[object Object]`다. 사용자 map.type·extra는 전달되지 않는다. compiler-blockers의 raw 확인 입력과 try-scope의 map/수 기대값을 이 근거로 정정했다. 기존 잘못된 커밋과 정답은 이력에 보존한다.
 
 `bootstrap.js:37969~38020`의 native Error 분기는 `FreeLang line 숫자:`를 제거하고 `[코드]` 접두사·`(at line 숫자...)`를 message에서 제거하며 line을 추출한다. 따라서 phase2 contracts.expected의 2행과 source-edge.expected의 1행에서 `[E_TYPE_MISMATCH] ` 접두사를 제거했다. 현재 구현 출력에 맞춘 변경이 아니며, 정정된 정답은 수정 전 후보에서 실패함을 확인한 뒤 Error 포장·메시지 정규화를 구현한다. 새 시험에서 raw.message와 catch.message를 구분한다.
+
+### C11 강제 오류 시험 정답 선행 고정
+
+`fd-faults.fl`은 공개 fd API를 호출하고 C LD_PRELOAD 보조기는 시험 소유 `fault.wal`의 syscall만 바꾼다. 다른 파일·과정에는 적용하지 않는다. 첫 write EINTR+2바이트 부분 쓰기, write 0, fsync EINTR/EIO, read EINTR/짧은 read, close EINTR/EIO를 실제 `.fl` 호출에서 확인한다. close 주입은 실제 native fd를 닫고 같은 번호에 sentinel을 열어 재시도가 새 fd를 닫지 않는지 확인한다. 보조기가 실제 활성화됐다는 marker와 sentinel 검사를 요구하며, C 함수를 직접 호출한 결과로 언어 완료를 판정하지 않는다. 고정 출력은 모드별 .expected에 먼저 보존한다. JSON·db95 재생 시험과 이 결과를 혼합하지 않는다.

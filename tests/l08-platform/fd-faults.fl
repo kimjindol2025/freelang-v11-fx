@@ -1,0 +1,33 @@
+(defn check [a b] (if (= a b) true (throw (str "expected=" b " actual=" a))))
+(define root (get (cli-args) 0))
+(define mode (env_get "L08_FD_FAULT"))
+(define path (str root "/fault.wal"))
+(define handle (fd_open path (if (str_starts mode "read-") "r" (if (= mode "write-partial") "w" "a"))))
+(if (= mode "write-partial")
+ (do
+  (println (check (fd_write handle (file_read (str root "/payload"))) true))
+  (println (check (fd_close handle) true))
+  (println (check (file_read path) (file_read (str root "/payload"))))
+  (println (check (file_size path) 7)))
+ (if (= mode "write-zero")
+  (do
+   (println (check (try (do (fd_write handle "never") false) (catch [e] (str_starts (error_message e) "fd_write failed"))) true))
+   (println (check (fd_close handle) true))
+   (println (check (file_read path) "seed")))
+  (if (str_starts mode "fsync-")
+   (do
+    (println (check (if (= mode "fsync-eintr") (fd_fsync handle)
+      (try (do (fd_fsync handle) false) (catch [e] (str_starts (error_message e) "fd_fsync failed")))) true))
+    (println (check (fd_close handle) true)))
+   (if (str_starts mode "close-")
+    (do
+     (println (check (try (do (fd_close handle) false) (catch [e] (str_starts (error_message e) "fd_close failed"))) true))
+     (println (check (try (do (fd_close handle) false) (catch [e] (str_starts (error_message e) "fd_close failed"))) true))
+     (let [next (fd_open path "a")]
+      (println (check (fd_write next "after") true))
+      (println (check (fd_close next) true))))
+    (do
+     (println (check (fd_read handle 64) (if (= mode "read-short") "s" "seed")))
+     (if (= mode "read-short") (println (check (fd_read handle 64) "eed")) nil)
+     (println (check (fd_read handle 64) ""))
+     (println (check (fd_close handle) true)))))))
