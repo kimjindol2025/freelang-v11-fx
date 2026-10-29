@@ -1,0 +1,56 @@
+(defn check [value expected label]
+ (if (= value expected) (println label) (throw (str "HTTP_CLIENT_ASSERT " label))))
+(define base (get (cli-args) 0))
+(define mode (get (cli-args) 1))
+(if (= mode "http")
+ (do
+  (let [result (http_get (str base "/health"))]
+   (check (get result "status") 200 "GET_STATUS=200")
+   (check (get result "body") "OK" "GET_BODY=PASS")
+   (check (get result "error") nil "GET_ERROR_ABSENT=PASS")
+   (check (get result "headers") nil "GET_SOURCE_SHAPE=PASS"))
+  (check (get (http_request "gEt" (str base "/health") {} nil) "body") "OK" "METHOD_UPPERCASE=PASS")
+  (let [result (http_request "POST" (str base "/echo") {"X-Value" "한글" "Content-Type" "application/octet-stream"} "한글😀\u0000끝")]
+   (check (get result "status") 200 "POST_STATUS=200")
+   (let [body (json_parse (get result "body"))]
+    (check (get body "method") "POST" "POST_METHOD=PASS")
+    (check (get body "body") "한글😀\u0000끝" "POST_UTF8_NUL=PASS")))
+  (doseq [method ["PUT" "PATCH" "DELETE"]]
+   (let [result (http_request method (str base "/echo") {"Content-Type" "text/plain" "X-Value" "sample"} "body")
+         body (json_parse (get result "body"))]
+    (check (get body "method") method (str method "_METHOD=PASS"))
+    (check (get body "body") "body" (str method "_BODY=PASS"))
+    (check (get body "header") "sample" (str method "_HEADER=PASS"))))
+  (let [result (http_request "GET" (str base "/redirect") {} nil)]
+   (check (get result "status") 302 "REDIRECT_NOT_FOLLOWED=302")
+   (check (get result "body") "" "REDIRECT_BODY=PASS"))
+  (let [result (http_get (str base "/missing"))]
+   (check (get result "status") 404 "HTTP_ERROR_STATUS=404")
+   (check (get result "body") "missing" "HTTP_ERROR_BODY=PASS")
+   (check (get result "error") nil "HTTP_ERROR_IS_RESPONSE=PASS"))
+  (check (get (http_get (str base "/raw")) "body") "A�B\u0000C" "RESPONSE_UTF8_NUL=PASS")
+  (let [result (http_request_timeout "GET" (str base "/slow") {} nil 50)]
+   (check (get result "status") 0 "TIMEOUT_STATUS=0")
+   (check (get result "body") "" "TIMEOUT_BODY=PASS")
+   (check (get result "error") "timeout" "TIMEOUT_ERROR=PASS"))
+  (let [result (http_get "http://127.0.0.1:0/")]
+   (check (get result "status") 0 "REFUSED_STATUS=0")
+   (check (get result "body") "" "REFUSED_BODY=PASS")
+   (check (> (length (get result "error")) 0) true "REFUSED_ERROR=PASS"))
+  (doseq [url ["not-url" "file:///not-read"]]
+   (let [result (http_get url)]
+    (check (get result "status") 0 "INVALID_URL_STATUS=0")
+    (check (> (length (get result "error")) 0) true "INVALID_URL_ERROR=PASS")))
+  (let [result (http_request "POST" (str base "/echo") {"X-Value" "safe\r\nInjected: bad"} "body")]
+   (check (get result "status") 0 "HEADER_INJECTION_REJECTED=PASS")))
+ (if (= mode "tls-untrusted")
+  (let [result (http_get (str base "/health"))]
+   (check (get result "status") 0 "TLS_UNTRUSTED_STATUS=0")
+   (check (> (length (get result "error")) 0) true "TLS_UNTRUSTED_ERROR=PASS"))
+  (do
+   (let [result (http_get (str base "/health"))]
+    (check (get result "status") 200 "TLS_TRUSTED_STATUS=200")
+    (check (get result "body") "OK" "TLS_TRUSTED_BODY=PASS"))
+   (let [result (http_get (str (get (cli-args) 2) "/health"))]
+    (check (get result "status") 0 "TLS_HOSTNAME_STATUS=0")
+    (check (> (length (get result "error")) 0) true "TLS_HOSTNAME_ERROR=PASS")))))
