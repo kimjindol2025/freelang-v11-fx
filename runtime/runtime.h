@@ -354,6 +354,8 @@ FLValue str_index_of(FLValue s, FLValue sub);
 #define fl_str_ends_with   str_ends_with
 
 /* ── S26: atom (mutable cell) ── */
+/* Arena-owned identity; native C roots escaping that arena must heap_copy/release.
+ * Creation without an arena retains the existing process lifetime. */
 FLValue fl_atom_new(FLValue init);
 FLValue fl_atom_deref(FLValue atom);
 FLValue fl_atom_reset(FLValue atom, FLValue val);

@@ -1096,13 +1096,23 @@ typedef struct {
 
 static void* future_runner(void* arg) {
     FLFuture* f = (FLFuture*)arg;
+    void *previous=fl_arena_scope_enter();
     FLValue result = fl_fn_call(f->fn, 0, NULL);
+    FLValue owned=fl_heap_copy(result);
+    fl_heap_release(f->fn);f->fn=fl_nil();
+    fl_arena_scope_leave(previous);
     pthread_mutex_lock(&f->mu);
-    f->result = fl_heap_copy(result);
+    f->result = owned;
     f->done   = 1;
     pthread_cond_broadcast(&f->cv);
     pthread_mutex_unlock(&f->mu);
     return NULL;
+}
+static FLValue future_take_result(FLValue owned){
+    if(fl_try_top>=FL_TRY_MAX){fl_heap_release(owned);fl_throw(fl_str_val("future: try stack overflow"));return fl_nil();}
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){FLValue error=frame->err;fl_try_top--;fl_heap_release(owned);fl_throw(error);return fl_nil();}
+    FLValue result=fl_arena_copy(owned);fl_try_top--;fl_heap_release(owned);return result;
 }
 
 /* fl_future(fn) → opaque FLValue (FL_MAP으로 래핑) */
@@ -1146,6 +1156,7 @@ FLValue fl_deref(FLValue handle) {
         pthread_mutex_destroy(&f->mu);
         pthread_cond_destroy(&f->cv);
         free(f);
+        return future_take_result(result);
     } else {
         pthread_mutex_unlock(&f->mu);
     }
@@ -1177,6 +1188,7 @@ FLValue fl_deref_timeout(FLValue handle, FLValue ms_v) {
         pthread_mutex_destroy(&f->mu);
         pthread_cond_destroy(&f->cv);
         free(f);
+        return future_take_result(result);
     } else {
         pthread_mutex_unlock(&f->mu);
     }
