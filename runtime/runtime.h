@@ -43,7 +43,9 @@ typedef enum {
     FL_MAP,
     FL_FN,
     FL_TEXT, /* Internal object brand; FLValue.tag remains FL_STRING. */
-    FL_NATIVE_ERROR /* Internal map brand; FLValue.tag remains FL_MAP. */
+    FL_NATIVE_ERROR, /* Internal map brand; FLValue.tag remains FL_MAP. */
+    FL_OWNED_FN, /* Heap-promoted closure with owned environment. */
+    FL_NATIVE_PROMISE /* Internal managed map; opaque to user data. */
 } FLTag;
 
 typedef struct FLObject FLObject;
@@ -554,6 +556,15 @@ FLValue mariadb_one_p(FLValue conn, FLValue sql, FLValue params);
 void    fl_arena_begin(void);
 void*   fl_arena_alloc(size_t size);
 void    fl_arena_end(void);
+int     fl_arena_on_reset(void (*cleanup)(void*), void* value);
+void*   fl_arena_scope_enter(void);
+void    fl_arena_scope_leave(void* previous);
+FLValue fl_v11_timer(FLValue name, FLValue argv);
+void    fl_schedule_tick(int wait_ms);
+int     fl_schedule_timeout_ms(int maximum);
+int     fl_schedule_wake_fd(void);
+void    fl_schedule_shutdown(void);
+void    fl_schedule_promise_destroy(FLValue value);
 void    fl_arena_stats(void);
 void*   fl_perm_alloc(size_t size);
 void    fl_perm_cleanup(void);

@@ -46,10 +46,20 @@ typedef struct {
     ArenaChunk* first;      /* 첫 청크 (재사용용) */
     size_t      total_alloc; /* 디버그: 총 할당량 */
     size_t      total_free;  /* 디버그: 총 해제량 */
+    struct ArenaCleanup* cleanups;
 } Arena;
+typedef struct ArenaCleanup {void (*call)(void*);void*value;struct ArenaCleanup*next;} ArenaCleanup;
 
 /* ── per-thread 아레나 ── */
 static __thread Arena* g_arena = NULL;
+static void arena_clean(Arena*arena){
+    while(arena&&arena->cleanups){ArenaCleanup*entry=arena->cleanups;arena->cleanups=entry->next;entry->call(entry->value);free(entry);}
+}
+int fl_arena_on_reset(void (*cleanup)(void*),void*value){
+    if(!g_arena)return 0;
+    ArenaCleanup*entry=malloc(sizeof(*entry));if(!entry)return -1;
+    *entry=(ArenaCleanup){cleanup,value,g_arena->cleanups};g_arena->cleanups=entry;return 1;
+}
 
 static ArenaChunk* arena_new_chunk(size_t min_size) {
     size_t cap = ARENA_CHUNK_SIZE;
@@ -65,12 +75,15 @@ static ArenaChunk* arena_new_chunk(size_t min_size) {
 
 void fl_arena_begin(void) {
     if (!g_arena) {
-        g_arena = malloc(sizeof(Arena));
+        g_arena = calloc(1,sizeof(Arena));
+        if(!g_arena){fl_throw(fl_str_val("arena allocation failed"));return;}
         g_arena->head  = arena_new_chunk(0);
+        if(!g_arena->head){free(g_arena);g_arena=NULL;fl_throw(fl_str_val("arena allocation failed"));return;}
         g_arena->first = g_arena->head;
         g_arena->total_alloc = 0;
         g_arena->total_free  = 0;
     } else {
+        arena_clean(g_arena);
         /* 아레나 재사용: 첫 청크로 리셋 */
         g_arena->head = g_arena->first;
         ArenaChunk* c = g_arena->first;
@@ -113,9 +126,22 @@ void* fl_arena_alloc(size_t size) {
 void fl_arena_end(void) {
     /* 아레나 리셋만 (메모리 유지 — 다음 요청에 재사용) */
     if (!g_arena) return;
+    arena_clean(g_arena);
     ArenaChunk* c = g_arena->first;
     while (c) { c->used = 0; c = c->next; }
     g_arena->head = g_arena->first;
+}
+void*fl_arena_scope_enter(void){
+    Arena*previous=g_arena;Arena*current=calloc(1,sizeof(*current));
+    if(!current){fl_throw(fl_str_val("arena allocation failed"));return NULL;}
+    current->first=current->head=arena_new_chunk(0);
+    if(!current->head){free(current);fl_throw(fl_str_val("arena allocation failed"));return NULL;}
+    g_arena=current;return previous;
+}
+void fl_arena_scope_leave(void*previous){
+    Arena*current=g_arena;arena_clean(current);
+    if(current){ArenaChunk*chunk=current->first;while(chunk){ArenaChunk*next=chunk->next;free(chunk);chunk=next;}free(current);}
+    g_arena=(Arena*)previous;
 }
 
 /* 누적 통계 (debug level 2+) */
@@ -183,6 +209,7 @@ void fl_perm_cleanup(void) {
 
 /* FLValue를 malloc 힙으로 deep-copy (RC = 1로 설정) */
 FLValue fl_heap_copy(FLValue v) {
+    if(v.tag==FL_MAP&&v.obj&&v.obj->type==FL_NATIVE_PROMISE){fl_heap_retain(v);return v;}
     switch (v.tag) {
     case FL_INT: case FL_FLOAT: case FL_BOOL: case FL_NIL:
         return v;  /* 스칼라: 값 복사로 충분 */
@@ -200,6 +227,7 @@ FLValue fl_heap_copy(FLValue v) {
     }
 
     case FL_VECTOR: {
+        if(v.obj->rc==0xFF)return v; /* Atoms keep their shared identity. */
         FLVector* src = (FLVector*)v.obj;
         FLVector* dst = (FLVector*)malloc(sizeof(FLVector));
         if (!dst) return fl_nil();
@@ -235,10 +263,14 @@ FLValue fl_heap_copy(FLValue v) {
         return r;
     }
 
-    case FL_FN:
-        /* 함수는 shared — RC++ */
-        if (v.obj && v.obj->rc < 0xFE) v.obj->rc++;
-        return v;
+    case FL_FN: {
+        if(v.obj->type==FL_OWNED_FN){fl_heap_retain(v);return v;}
+        FLClosure*src=(FLClosure*)v.obj;
+        FLClosure*dst=malloc(sizeof(*dst)+src->nenv*sizeof(FLValue));if(!dst)return fl_nil();
+        dst->base.type=FL_OWNED_FN;dst->base.rc=1;dst->call=src->call;dst->nenv=src->nenv;dst->hot_count=0;
+        for(uint32_t i=0;i<src->nenv;i++)dst->env[i]=fl_heap_copy(src->env[i]);
+        FLValue result={.tag=FL_FN,.obj=(FLObject*)dst};return result;
+    }
     }
     return fl_nil();
 }
@@ -246,6 +278,7 @@ FLValue fl_heap_copy(FLValue v) {
 /* RC++ (heap 객체에 대한 추가 참조) */
 void fl_heap_retain(FLValue v) {
     if (v.tag < FL_STRING || !v.obj) return;
+    if(v.obj->type==FL_OWNED_FN||v.obj->type==FL_NATIVE_PROMISE){__atomic_add_fetch(&v.obj->rc,1,__ATOMIC_RELAXED);return;}
     if (v.obj->rc == 0 || v.obj->rc == 0xFF) return;
     v.obj->rc++;
 }
@@ -253,6 +286,11 @@ void fl_heap_retain(FLValue v) {
 /* RC-- → 0이면 재귀 해제 */
 void fl_heap_release(FLValue v) {
     if (v.tag < FL_STRING || !v.obj) return;
+    if(v.obj->type==FL_OWNED_FN||v.obj->type==FL_NATIVE_PROMISE){
+        if(__atomic_fetch_sub(&v.obj->rc,1,__ATOMIC_ACQ_REL)!=1)return;
+        if(v.obj->type==FL_NATIVE_PROMISE){fl_schedule_promise_destroy(v);return;}
+        FLClosure*cl=(FLClosure*)v.obj;for(uint32_t i=0;i<cl->nenv;i++)fl_heap_release(cl->env[i]);free(cl);return;
+    }
     if (v.obj->rc == 0 || v.obj->rc == 0xFF) return;
     if (--v.obj->rc > 0) return;
 

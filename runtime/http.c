@@ -129,7 +129,7 @@ static void register_route(const char* method, FLValue path, FLValue handler) {
 
     if (handler.tag == FL_FN) {
         /* FL_FN 클로저 핸들러 */
-        r->closure = handler;
+        r->closure = fl_heap_copy(handler);
         fprintf(stderr, "[http] 라우트 등록: %s %s → <closure>\n", method, p);
     } else {
         /* 문자열 이름 → dlsym 룩업 */
@@ -872,7 +872,15 @@ FLValue server_start(FLValue port_val) {
     fl_debug_banner("fl-app", port);
 
     /* ── accept 루프 ── */
+    int scheduler_fd=fl_schedule_wake_fd();
     while (!g_pool.shutdown) {
+        fl_schedule_tick(0);
+        struct pollfd ready[2]={{server_fd,POLLIN,0},{scheduler_fd,POLLIN,0}};
+        int available=poll(ready,2,fl_schedule_timeout_ms(1000));
+        if(available<0){if(errno==EINTR)continue;break;}
+        if(g_pool.shutdown)break;
+        if(ready[0].revents&(POLLERR|POLLHUP|POLLNVAL))break;
+        if(!(ready[0].revents&POLLIN))continue;
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
@@ -918,6 +926,7 @@ FLValue server_start(FLValue port_val) {
     const char* env_st = getenv("FL_SHUTDOWN_TIMEOUT");
     int shutdown_timeout = env_st ? atoi(env_st) : 30;
     pool_shutdown(shutdown_timeout);
+    fl_schedule_shutdown();
 
     return fl_nil();
 }

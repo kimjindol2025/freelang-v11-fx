@@ -7,8 +7,9 @@ if L08_PLATFORM_OUT="$out/self" strace -f -e trace=execve -o "$out/self.execve.l
 cat "$out/self.log"
 printf 'PLATFORM_SELF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 ]]
-for phase in fd-basic fd-extended json auth http feed http-client;do
+for phase in timer fd-basic fd-extended json auth http feed http-client;do
  case "$phase" in
+  timer) setting=L08_TIMER_OUT;script=verify-l08-timer-self.sh;tag=TIMER_PARTIAL;;
   fd-basic) setting=L08_FD_OUT;script=verify-l08-fd-self.sh;tag=FD_BASIC;;
   fd-extended) setting=L08_FD_FAULT_OUT;script=verify-l08-fd-faults.sh;tag=FD_EXTENDED;;
   json) setting=L08_JSON_OUT;script=verify-l08-json-self.sh;tag=JSON;;
@@ -21,6 +22,12 @@ for phase in fd-basic fd-extended json auth http feed http-client;do
  cat "$out/$phase.log"
  printf '%s_EXIT=%s\n' "$tag" "$rc"
  [[ "$rc" == 0 ]]
+ if [[ "$phase" == timer ]];then
+  if [[ -n ${L08_TIMER_SANITIZER_LIBDIR:-} ]];then
+   if L08_TIMER_NATIVE_OUT="$out/timer" L08_TIMER_SANITIZER_OUT="$out/timer-sanitizers" strace -f -e trace=execve -o "$out/timer-sanitizers.execve.log" bash "$ROOT/scripts/verify-l08-timer-sanitizers.sh" > "$out/timer-sanitizers.log" 2>&1;then sanitizer_rc=0;else sanitizer_rc=$?;fi
+   cat "$out/timer-sanitizers.log";printf 'TIMER_SANITIZER_EXIT=%s\n' "$sanitizer_rc";[[ "$sanitizer_rc" == 0 ]]
+  else echo TIMER_SANITIZERS=UNEXECUTED_MISSING_LIBDIR;fi
+ fi
 done
 if L08_P3_OUT="$out/previous" bash "$ROOT/scripts/verify-l08-phase3-all.sh" > "$out/previous.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/previous.log"

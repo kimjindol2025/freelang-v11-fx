@@ -64,7 +64,7 @@ static void print_uncaught(FLValue err) {
 void fl_throw(FLValue err) {
     if (fl_try_top <= 0) {
         print_uncaught(err);
-        exit(1);
+        fl_schedule_shutdown();exit(1);
     }
     fl_try_stack[fl_try_top - 1].err = err;
     longjmp(fl_try_stack[fl_try_top - 1].buf, 1);

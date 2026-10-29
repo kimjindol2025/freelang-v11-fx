@@ -763,6 +763,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     if(!strncmp(op,"auth-",5))return va_auth(op,argv);
     if(!strncmp(op,"server-",7))return fl_v11_http(fl_str_val(op),argv);
     if(IS("http-get")||IS("http-request")||IS("http-request-timeout")||IS("http-with-timeout"))return fl_v11_http_client(fl_str_val(op),argv);
+    if(IS("set-timeout")||IS("await-result")||IS("fl-yield"))return fl_v11_timer(fl_str_val(op),argv);
     if(IS("rss-feed")||IS("sitemap-xml"))return vf_feed(op,argv);
     if(!strncmp(op,"fd-",3)){
         FLValue args=argv;
@@ -791,7 +792,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         double number=code.tag==FL_NIL?0:t_double(code);
         if((code.tag!=FL_NIL&&!t_numeric(code))||!isfinite(number)||trunc(number)!=number||number<INT_MIN||number>INT_MAX)
             fl_throw(fl_str_val("process_exit: integer exit code required"));
-        exit((int)number);
+        fl_schedule_shutdown();exit((int)number);
     }
     if(IS("uuid-short")){
         unsigned char bytes[4];char hex[9];

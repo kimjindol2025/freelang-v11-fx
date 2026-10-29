@@ -197,12 +197,15 @@ FLValue fl_map_set(FLValue map, FLValue key, FLValue val) {
    클로저는 전역 핸들러로 등록될 수 있어 요청 수명보다 길게 생존.
    반드시 malloc 사용 (Arena 비사용).
 */
+static void closure_cleanup(void*pointer){FLValue value={.tag=FL_FN,.obj=pointer};fl_heap_release(value);}
 FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
                   uint32_t nenv, FLValue* env) {
     FLClosure* cl = malloc(sizeof(FLClosure) + sizeof(FLValue) * nenv);
+    if(!cl){fl_throw(fl_str_val("closure allocation failed"));return fl_nil();}
     cl->base.type = FL_FN; cl->base.rc = 1;
     cl->call = call; cl->nenv = nenv; cl->hot_count = 0;
     for (uint32_t i = 0; i < nenv; i++) cl->env[i] = env[i];
+    if(fl_arena_on_reset(closure_cleanup,cl)<0){free(cl);fl_throw(fl_str_val("closure cleanup allocation failed"));return fl_nil();}
     FLValue r; r.tag = FL_FN; r.obj = (FLObject*)cl; return r;
 }
 
