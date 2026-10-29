@@ -1,0 +1,26 @@
+Compiled tests/l08-platform/tcp-control.fl -> <가림>
+<fl>: In function ‘main’:
+<fl>:3:47: error: implicit declaration of function ‘tcp_write’ [-Wimplicit-function-declaration]
+<fl>:3:101: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:4:47: error: implicit declaration of function ‘tcp_drop’ [-Wimplicit-function-declaration]
+<fl>:4:80: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:5:47: error: implicit declaration of function ‘tcp_server_stop’ [-Wimplicit-function-declaration]
+<fl>:5:75: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:6:47: error: implicit declaration of function ‘tcp_server_raw’ [-Wimplicit-function-declaration]
+<fl>:6:129: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:7:47: error: implicit declaration of function ‘tcp_server_running_p’ [-Wimplicit-function-declaration]
+<fl>:7:80: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:8:129: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:9:75: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:10:81: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:11:76: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:12:130: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:13:76: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:15:48: error: implicit declaration of function ‘tcp_server_tls’ [-Wimplicit-function-declaration]
+<fl>:15:217: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:16:134: error: implicit declaration of function ‘fl_error_drain’ [-Wimplicit-function-declaration]
+<fl>:16:134: error: invalid initializer
+<fl>:16:134: note: (near initialization for ‘__fl_arg_18_0’)
+<fl>:17:48: error: implicit declaration of function ‘fl_error_queue_size’ [-Wimplicit-function-declaration]
+<fl>:17:71: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+TCP_BEFORE_BUILD_EXIT=1
