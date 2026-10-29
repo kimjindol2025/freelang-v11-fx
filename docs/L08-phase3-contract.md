@@ -22,3 +22,5 @@ regex-guards는 잘못된 패턴, 지원 범위 밖 backreference/lookbehind의 
 첫 구현 자체 시험에서 파일 fixture의 공통 helper에 cli-args 선언이 누락되어 파일·이미지·보안 3개가 컴파일에 실패했다. helper에 선언만 추가한 커밋 8393f7b에서 시험 준비를 정정했고 의미상 정답은 바꾸지 않았다. 실패 원문도 보관한다.
 
 예외 검사는 작업 성공의 true와 catch의 true를 혼동하지 않도록 try 본문을 `(do 작업 false)`로 강화했다. 성공 반환값이 무엇이든 성공하면 false가 되고, 예외만 catch 기대값으로 검사한다. `.expected`와 API 의미상 정답은 변경하지 않았다. 경로 차단·잘못된 타입·잘못된 패턴·자원 상한의 예외 자체를 증명하기 위한 시험 강화다.
+
+시간대 추가 정답은 v11 Date.parse가 따르는 [ECMAScript UTC 변환 규칙](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-utc-t)을 근거로 한다. DST 반복 시각은 먼저 일어난 instant를, 사라진 시각은 전환 전 offset을 적용한다. 2024 New York의 봄 gap과 가을 overlap을 UTC·Seoul 대조와 함께 추가 고정했다. Node 실행으로 정답을 만든 것이 아니다.
