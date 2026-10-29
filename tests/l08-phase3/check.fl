@@ -1,0 +1,2 @@
+(defn check [actual expected]
+  (if (= actual expected) true (throw (str "expected=" expected " actual=" actual))))

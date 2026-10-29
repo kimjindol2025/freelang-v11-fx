@@ -1,0 +1,4 @@
+(println (format_date 0 "YYYY-MM-DD HH:mm:ss.SSS"))
+(println (format_date -1 "YYYY-MM-DD HH:mm:ss.SSS"))
+(println (date_parse "1970-01-01T00:00:00"))
+(println (- (date_parse "2024-03-10T03:30:00") (date_parse "2024-03-10T01:30:00")))
