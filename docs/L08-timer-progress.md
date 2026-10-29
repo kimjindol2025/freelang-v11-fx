@@ -56,3 +56,7 @@ source 복사본 전체 C 변환은 `BLOG_AFTER_TIMER_TRANSLATE_EXIT=0`, C 구�
 최신 timer/GC 전체 시험은 `ef5e597c21b875d29e889514fb314232431600fa`에서 실행 중이다. 이전 HTTP/feed/client 전체 통과를 이 코드에 적용하지 않는다. native pending timer cap은 `4096`, delay는 Node timer 범위로 제한한다. 종료한 HTTP runtime의 재사용, 모든 allocation 실패 경로, RC cycle·기존 atom 영구 보존 정책·전체 동시성/누수는 아직 미확인이다. C20에서 확인·보완할 항목이며 메모리 안정성 전체 완료로 집계하지 않는다.
 
 TCP·TLS 5개 API와 인증 verify의 결정 대기가 남아 C19/L08 전체는 미완료다. 실제 블로그 로그인·댓글·다중 작성자·브라우저·화면·운영 데이터 호환·백업/복구·운영 안정성도 별도다. 서버 23·25 접속·운영 데이터 변경·합치기·배포는 하지 않았다.
+
+## 고정 소스 전체 검증 확정
+
+위 실행은 종료됐으며 `L08_PLATFORM_CURRENT_GATES=PASS`, `PREVIOUS_GATES_EXIT=0`이다. timer 자체 `9`, sanitizer `5`, fd basic·extended 각각 `11`, JSON `13`, 인증 부분 `5`, HTTP `35`, feed `9`, HTTP client `6`, 이전 L08 3차 `11`·2차 `11`·1차 `17`, L06 HTTP·TLS 각각 `110`, L07 `221`과 native bootstrap이 통과했다. `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. [원문](evidence/l08-platform/timer-full.txt). 시험 대상은 앞의 `ef5e597c21b875d29e889514fb314232431600fa`이며 이후 TCP·atom snapshot 변경이나 실제 블로그 전체 실행의 통과를 뜻하지 않는다.

@@ -27,10 +27,24 @@ static int echo(const unsigned char*data,size_t length,int slow){
 }
 static void test(int ok,const char*name){printf("%s=%s\n",name,ok?"PASS":"FAIL");if(!ok)fail(name);}
 static unsigned char*file(const char*root,const char*name,size_t*length){char path[4096];snprintf(path,sizeof path,"%s/%s",root,name);FILE*f=fopen(path,"rb");if(!f)fail("fixture open");if(fseek(f,0,SEEK_END))fail("fixture seek");long size=ftell(f);if(size<0||fseek(f,0,SEEK_SET))fail("fixture size");unsigned char*data=malloc((size_t)size+1);if(!data)fail("fixture allocation");*length=fread(data,1,(size_t)size,f);if(*length!=(size_t)size)fail("fixture read");fclose(f);return data;}
-static void command(char command){Connection c;if(!open_connection(&c))fail("command handshake");unsigned char bytes[2]={(unsigned char)command,'\n'};if(!send_all(&c,bytes,2,1))fail("command send");if(command=='D'||command=='S'){unsigned char byte;int n=receive(&c,&byte,1);if(n>0)fail("command unexpected response");}close_connection(&c);}
+static void command(char command){
+ Connection c;if(!open_connection(&c))fail("command handshake");
+ unsigned char bytes[2]={(unsigned char)command,'\n'};
+ if(!send_all(&c,bytes,2,1))fail("command send");
+ if(command=='D'||command=='S'){
+  unsigned char byte;errno=0;int n=receive(&c,&byte,1),saved=errno;
+  if(n>0)fail("command unexpected response");
+  if(c.ssl){
+   int error=SSL_get_error(c.ssl,n);
+   if(error!=SSL_ERROR_ZERO_RETURN&&!(error==SSL_ERROR_SYSCALL&&(saved==ECONNRESET||(n==0&&saved==0))))fail("command did not close cleanly");
+  }else if(n<0&&saved!=ECONNRESET)fail("command close timed out or failed");
+ }
+ close_connection(&c);
+}
 static void*concurrent(void*unused){(void)unused;unsigned char data[65536];for(size_t i=0;i<sizeof data;i++)data[i]=(unsigned char)i;return(void*)(long)!echo(data,sizeof data,0);}
 int main(int argc,char**argv){
- if(argc!=7)return 2;signal(SIGPIPE,SIG_IGN);const char*mode=argv[1];port=atoi(argv[2]);tls=strncmp(mode,"tls",3)==0;wrong_host=!strcmp(mode,"tls-hostname");
+ if(argc!=7)return 2;
+ signal(SIGPIPE,SIG_IGN);const char*mode=argv[1];port=atoi(argv[2]);tls=strncmp(mode,"tls",3)==0;wrong_host=!strcmp(mode,"tls-hostname");
  if(!strcmp(mode,"abort")){int fd=dial();unsigned char bytes[2]={0x16,0x03};send(fd,bytes,2,MSG_NOSIGNAL);close(fd);puts("TLS_HANDSHAKE_ABORT=PASS");return 0;}
  if(tls){ctx=SSL_CTX_new(TLS_client_method());if(!ctx||SSL_CTX_load_verify_locations(ctx,argv[4],NULL)!=1)fail("client CA setup");SSL_CTX_set_verify(ctx,SSL_VERIFY_PEER,NULL);if(*argv[5]&&(SSL_CTX_use_certificate_file(ctx,argv[5],SSL_FILETYPE_PEM)!=1||SSL_CTX_use_PrivateKey_file(ctx,argv[6],SSL_FILETYPE_PEM)!=1))fail("client identity setup");}
  unsigned char sample[5]={'A',0,'B',0xff,'C'};

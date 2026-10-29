@@ -7,9 +7,12 @@ if L08_PLATFORM_OUT="$out/self" strace -f -e trace=execve -o "$out/self.execve.l
 cat "$out/self.log"
 printf 'PLATFORM_SELF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 ]]
-for phase in timer fd-basic fd-extended json auth http feed http-client;do
+if L08_SNAPSHOT_OUT="$out/atom-snapshot" L08_SNAPSHOT_COMPILER="$out/self/compiler" L08_SNAPSHOT_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/atom-snapshot.execve.log" bash "$ROOT/scripts/verify-l08-atom-snapshot.sh" > "$out/atom-snapshot.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/atom-snapshot.log";printf 'ATOM_SNAPSHOT_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+for phase in timer tcp fd-basic fd-extended json auth http feed http-client;do
  case "$phase" in
   timer) setting=L08_TIMER_OUT;script=verify-l08-timer-self.sh;tag=TIMER_PARTIAL;;
+  tcp) setting=L08_TCP_OUT;script=verify-l08-tcp-self.sh;tag=TCP;;
   fd-basic) setting=L08_FD_OUT;script=verify-l08-fd-self.sh;tag=FD_BASIC;;
   fd-extended) setting=L08_FD_FAULT_OUT;script=verify-l08-fd-faults.sh;tag=FD_EXTENDED;;
   json) setting=L08_JSON_OUT;script=verify-l08-json-self.sh;tag=JSON;;

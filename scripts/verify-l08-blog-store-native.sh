@@ -25,4 +25,4 @@ for iteration in {1..10};do run stage1-verify "reader-$iteration";done
 cmp "$out/root/store.wal" "$out/original-fixture.wal"
 echo DB95_NATIVE_WAL_READ_ONLY=PASS
 printf 'DB95_NATIVE_WAL_SHA256=%s\n' "$(sha256sum "$out/root/store.wal" | cut -d' ' -f1)"
-echo DB95_NATIVE_STORE_PASS=11_FAIL=0
+echo 'DB95_NATIVE_STORE_PASS=11 FAIL=0'
