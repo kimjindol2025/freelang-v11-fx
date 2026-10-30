@@ -15,6 +15,10 @@ if L08_DEFINE_OUT="$out/define-sequence" L08_DEFINE_COMPILER="$out/self/compiler
 cat "$out/define-sequence.log";printf 'DEFINE_SEQUENCE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_NATIVE_SPELLING_OUT="$out/native-spelling" L08_NATIVE_SPELLING_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/native-spelling.execve.log" bash "$ROOT/scripts/verify-l08-native-spelling.sh" > "$out/native-spelling.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/native-spelling.log";printf 'NATIVE_SPELLING_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_CONCAT_OUT="$out/concat-memory" L08_CONCAT_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/concat-memory.execve.log" bash "$ROOT/scripts/verify-l08-concat-memory.sh" > "$out/concat-memory.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/concat-memory.log";printf 'CONCAT_MEMORY_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_COMPILER_LEX_OUT="$out/compiler-lex-memory" L08_COMPILER_LEX_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/compiler-lex-memory.execve.log" bash "$ROOT/scripts/verify-l08-compiler-lex-memory.sh" > "$out/compiler-lex-memory.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/compiler-lex-memory.log";printf 'COMPILER_LEX_MEMORY_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_EXTERN_OUT="$out/extern" L08_EXTERN_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/extern.execve.log" bash "$ROOT/scripts/verify-l08-extern-self.sh" > "$out/extern.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/extern.log";printf 'EXTERN_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_ATOM_UPDATE_OUT="$out/atom-update" L08_ATOM_UPDATE_COMPILER="$out/self/compiler" L08_ATOM_UPDATE_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/atom-update.execve.log" bash "$ROOT/scripts/verify-l08-atom-update.sh" > "$out/atom-update.log" 2>&1;then rc=0;else rc=$?;fi
