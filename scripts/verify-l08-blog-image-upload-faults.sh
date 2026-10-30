@@ -16,6 +16,11 @@ if [[ -n "${L08_IMAGE_UPLOAD_SANITIZER_LIBDIR:-}" ]];then
  export LD_LIBRARY_PATH="$L08_IMAGE_UPLOAD_SANITIZER_LIBDIR" ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
 fi
 for phase in seed server;do
+ if [[ -n "${L08_IMAGE_UPLOAD_BIN_DIR:-}" ]];then
+  [[ -x "$L08_IMAGE_UPLOAD_BIN_DIR/$phase" ]]
+  ln -s "$L08_IMAGE_UPLOAD_BIN_DIR/$phase" "$out/$phase"
+  continue
+ fi
  cp "$ROOT/tests/l08-platform/image-upload-fault-$phase.fl" "$out/source/tests/$phase.fl"
  extra=();support=()
  if [[ "$phase" == server ]];then
@@ -55,7 +60,7 @@ get(){
 passed=0;failed=0
 : > "$out/result"
 for kind in admin ai;do
-for mode in none commit-sync commit-close;do
+for mode in none prepare-write prepare-partial commit-sync commit-close;do
  root="$out/$kind-$mode";mkdir -p "$root/tmp"
  export FL_FILE_BASE="$root" TMPDIR="$root/tmp" AFJ_DB_WAL="$root/blog.wal" L08_UPLOAD_FAULT_MODE="$mode" L08_WAL_FAULT_MARKER="$root/fault-marker"
  (cd "$root";timeout 90 "$out/seed") > "$root/seed.stdout" 2> "$root/seed.stderr"
@@ -89,11 +94,15 @@ for mode in none commit-sync commit-close;do
  [[ "$faults" == "$expected_faults" ]] || failed=$((failed+1))
  stop
  cp "$root/blog.wal" "$root/after-upload.wal"
+ expected_rows=1;[[ "$mode" != prepare-* ]] || expected_rows=0
  for restart in 1 2;do
   start "$restart"
   status=$(get /__l08_upload_images "$root/rows-$restart.json")
-  rows=FAIL;path="";image_status=NA;hash=FAIL;wal=FAIL
-  if [[ "$status" == 200 ]] && jq -e --argjson bytes "$image_size" 'length == 1 and .[0].mime == "image/gif" and .[0].size == $bytes and .[0].alt == "시험 한🙂"' "$root/rows-$restart.json" > /dev/null 2> "$root/rows-parse.stderr";then
+  rows=FAIL;path="";image_status=NA;hash=FAIL;wal=FAIL;files=NA
+  if [[ "$expected_rows" == 0 && "$status" == 200 ]] && jq -e 'length == 0' "$root/rows-$restart.json" > /dev/null 2> "$root/rows-parse.stderr";then
+   rows=0;hash=NA;files=FAIL
+   [[ -n $(find "$root/blog-images" -mindepth 1 -maxdepth 1 -print -quit) ]] || files=PASS
+  elif [[ "$expected_rows" == 1 && "$status" == 200 ]] && jq -e --argjson bytes "$image_size" 'length == 1 and .[0].mime == "image/gif" and .[0].size == $bytes and .[0].alt == "시험 한🙂"' "$root/rows-$restart.json" > /dev/null 2> "$root/rows-parse.stderr";then
    rows=1;path=$(jq -r '.[0].path' "$root/rows-$restart.json")
    if [[ "$path" =~ ^/images/[0-9a-f]{32}\.gif$ ]];then
     image_status=$(get "$path" "$root/image-$restart.body")
@@ -103,8 +112,9 @@ for mode in none commit-sync commit-close;do
   stop
   cmp -s "$root/blog.wal" "$root/after-upload.wal" && wal=PASS || true
   line="IMAGE_UPLOAD_RESTART=$kind:$mode:$restart ROWS=$rows IMAGE_HTTP=$image_status HASH=$hash WAL=$wal"
+  [[ "$expected_rows" != 0 ]] || line+=" FILES=$files"
   printf '%s\n' "$line" | tee -a "$out/result"
-  if [[ "$rows" == 1 && "$image_status" == 200 && "$hash" == PASS && "$wal" == PASS ]];then passed=$((passed+1));else failed=$((failed+1));fi
+  if [[ "$wal" == PASS && ( ( "$expected_rows" == 1 && "$rows" == 1 && "$image_status" == 200 && "$hash" == PASS ) || ( "$expected_rows" == 0 && "$rows" == 0 && "$hash" == NA && "$files" == PASS ) ) ]];then passed=$((passed+1));else failed=$((failed+1));fi
  done
 done
 done
