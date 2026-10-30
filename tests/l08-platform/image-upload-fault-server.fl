@@ -1,4 +1,5 @@
 ;; These diagnostic routes exist only in the private loopback test binary.
+(load "../app/store.fl")
 (server_get "/__l08_upload_arm" (fn [req]
   (do (store-fault-arm (env-get "L08_UPLOAD_FAULT_MODE")) (server_text "ARMED"))))
 (server_get "/__l08_upload_images" (fn [req] (server_json (blog-rows "images" 1))))
