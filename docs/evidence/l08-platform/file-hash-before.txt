@@ -1,0 +1,19 @@
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 10, col 0)
+FILE_HASH_CASE=normal EXIT=1
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 38, col 0)
+FILE_HASH_CASE=eintr EXIT=1
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 38, col 0)
+FILE_HASH_CASE=short EXIT=1
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 38, col 0)
+FILE_HASH_CASE=read EXIT=1
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 38, col 0)
+FILE_HASH_CASE=close EXIT=1
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 38, col 0)
+FILE_HASH_CASE=grow EXIT=1
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 38, col 0)
+FILE_HASH_CASE=rewrite EXIT=1
+Uncaught error: [file-sha256-result] Function not found: file-sha256-result (at line 38, col 0)
+FILE_HASH_CASE=truncate EXIT=1
+FILE_HASH_GROUP_PASS=0 FAIL=8
+Compiled <가림> -> <가림>
+FILE_HASH_BEFORE_CONFIGURED_EXIT=1
