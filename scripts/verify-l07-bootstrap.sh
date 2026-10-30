@@ -20,6 +20,13 @@ done
 rc=$?
 if [ -n "$log" ] && [ -f "$log" ]; then
   cp -- "$log" "$L07_TRACE_ARCHIVE/$(basename -- "$log")"
+  # Preserve generated inputs before the unchanged gate's cleanup trap runs.
+  directory=$(dirname -- "$log")
+  for artifact in stage1.c stage2.c stage3.c stage1-bin stage2-bin; do
+    if [ -f "$directory/$artifact" ]; then
+      cp -- "$directory/$artifact" "$L07_TRACE_ARCHIVE/$artifact"
+    fi
+  done
 fi
 exit "$rc"
 SH
