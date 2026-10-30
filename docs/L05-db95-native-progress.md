@@ -23,10 +23,14 @@ NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
 
 ## 미확인 / 진행 중
 
-고정 `2ff24ad6fbed7f6dba6e8301733bdc6dce70cdba`의 WAL 경계 시험은 실행 중이다. 실제 prepare 일부·완전한 prepare 뒤 commit 일부·LF 누락·invalid UTF-8·NUL의 다섯 상태에서 정상 쓰기를 재개한 뒤 각각 독립 재시작 `10`회가 정답이다. resume `5` + reader `50`의 `55`묶음을 먼저 고정했으며 아직 결과를 통과로 기록하지 않는다. 운영 WAL이나 기존 committed 거래를 빼는 시험이 아니다.
+고정 `2ff24ad6fbed7f6dba6e8301733bdc6dce70cdba`의 원래 DB WAL 경계 시험은 `DB95_TAIL_GROUP_PASS=5 FAIL=50`, `DB95_TAIL_BEFORE_EXIT=1`로 끝났다. 실제 prepare 일부·완전한 prepare 뒤 commit 일부·LF 누락·invalid UTF-8·NUL의 다섯 상태에서 정상 쓰기는 성공하지만 각각 독립 재시작 `10`회는 WAL_CORRUPT다. append가 불완전한 마지막 frame을 먼저 정리하지 않아 새 prepare와 붙기 때문이다. resume `5` + reader `50`의 `55`묶음·실패를 저장소 수정 전에 커밋했다. 운영 WAL이나 기존 committed 거래를 빼는 시험이 아니다. 원문은 docs/evidence/l08-platform/db95-tail-before.txt다.
 
-일반 WAL 보정·운영 guard는 아직 app/store에 남아 있다. 이 문제의 저장소 자체 해결, 긴 WAL·여러 작업자·I/O 실패·다중 과정 소유·실제 crash 내구성은 별도 작업이다. 새 파일 해시 runtime의 전체 언어 회귀/bootstrap도 진행 중이다.
+DB 별도 작업 가지 feat/fx-native-store의 정답/시험 커밋은 `03fb1635441fe6fbf0897e33f92bb6216cfa6564`, 구현은 `993ac6cabb09842289fe659316ade17d4185f0aa`다. 새 src/native-store.fl이 database 소유의 iterative replay·공통 guard·WAL frame repair·오류 후 차단과 commit 결과 판정을 제공한다. app/store의 일반 저장소 알고리즘을 동일한 오류 처리와 함께 FreeLang 모듈로 옮겼고, 원래 engine/tcp-server 소스와 WAL 형식은 유지했다. 블로그나 블로그 전용 표·함수를 로드하지 않는다. 이 DB 커밋은 아직 원격에 푸시하지 않았다.
 
-db95 submodule에는 GitHub 원격만 있다. Forgejo 공개 저장소 검색은 HTTP `403`이었으며 정확한 Forgejo 주소를 사용자에게 요청했다. 주소를 추측하여 제3 저장소에 푸시하지 않는다. 이는 fx/blog1의 이미 확인된 두 원격과 구분한다. DB 자체 변경·합치기·배포는 아직 하지 않았다.
+새 DB 진입점의 ASan/UBSan 실측은 `DB95_TAIL_GROUP_PASS=55 FAIL=0`, `DB95_NATIVE_TAIL_EXIT=0`이며, 같은 정답·재시작 횟수다. 별도 artifact 비교도 `DB95_TAIL_FORENSIC_PASS=5 FAIL=0`, `DB95_TAIL_PREFIX_PASS=5 FAIL=0`이다. raw 원본 전체와 기존 유효 prefix byte를 보존했다. 인덱스·rollback 자체 회귀도 `DB95_INDEX_GROUP_PASS=11 FAIL=0`, `DB95_NATIVE_INDEX_EXIT=0`이다. 각 trace 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. 원문은 docs/evidence/l08-platform/db95-native-tail.txt, db95-native-tail-artifacts.txt, db95-native-index.txt다.
+
+일반 WAL 보정·운영 guard는 실제 blog 작업 가지의 app/store에 아직 남아 있다. 새 DB 모듈의 앱 적용·중복 보정 제거와 통합 회귀, 긴 WAL·여러 작업자·I/O 실패·다중 과정 소유·실제 crash 내구성은 남아 있다. 따라서 L05 전체 완료가 아니다. 새 파일 해시 runtime의 전체 언어 회귀/bootstrap도 진행 중이다.
+
+db95 submodule에는 GitHub 원격만 있다. Forgejo 공개 저장소 검색은 HTTP `403`이었으며 정확한 Forgejo 주소를 사용자에게 요청했다. 주소를 추측하여 제3 저장소에 푸시하지 않는다. 이는 fx/blog1의 이미 확인된 두 원격과 구분한다. DB 변경은 별도 소스 작업 가지에서만 했으며 기존 submodule checkout·운영 자료·main은 바꾸지 않았다. 합치기·배포는 하지 않았다.
 
 테마·플러그인을 제외한 워드프레스 같은 플랫폼 전체가 목표이며, 로그인·브라우저 편집기·이미지 처리·예약·이력·운영 기능·필수 댓글/다중 작성자·화면·운영 복사본 인수는 계속 필요하다. 서버 23·25 접속·운영 자료 변경·원본 백업 삭제·합치기·배포·강제 푸시·새 TS/수작업 JS/Python·fl-build.sh 사용은 없다.
