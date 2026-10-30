@@ -9,7 +9,7 @@ mkdir -p "$out/source"
 head -n -1 "$ROOT/self/cgc-main.fl" > "$out/source/compiler-library.fl"
 cp "$ROOT/tests/l08-platform/compiler-lex-memory.fl" "$out/source/main.fl"
 (cd "$out/source";"$compiler" --extern compiler-lex-meter-start --extern compiler-lex-meter-live --extern compiler-lex-meter-peak main.fl "$out/main.c") > "$out/build.log" 2>&1
-gcc -O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l08-platform/compiler-lex-memory.h" -o "$out/main" "$out/main.c" "$ROOT/tests/l08-platform/compiler-lex-memory.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" -Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free >> "$out/build.log" 2>&1
+gcc -O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l08-platform/compiler-lex-memory.h" -o "$out/main" "$out/main.c" "$ROOT/tests/l08-platform/compiler-lex-memory.c" "${L07_SRCS[@]}" "$ROOT/runtime/cgc-bridge.c" "${L07_LIBS[@]}" -Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free >> "$out/build.log" 2>&1
 if timeout 90 "$out/main" > "$out/actual" 2> "$out/stderr";then rc=0;else rc=$?;fi
 cat "$out/actual" "$out/stderr"
 printf 'COMPILER_LEX_PROGRAM_EXIT=%s\n' "$rc"
