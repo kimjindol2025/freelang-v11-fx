@@ -39,6 +39,9 @@ for mode in prepare-partial commit-partial complete-no-newline;do
  fi
  cp "$root/blog.wal" "$root/before-resume.wal"
  original_hash=$(sha256sum "$root/before-resume.wal" | cut -d' ' -f1)
+ if [[ "${L08_BLOG_WAL_TAIL_PRESEED_BACKUP:-0}" == 1 ]];then
+  cp "$root/before-resume.wal" "$root/blog.wal.recovery-$original_hash"
+ fi
  run resume resume
  backup="$root/blog.wal.recovery-$original_hash"
  if [[ -f "$backup" ]] && cmp -s "$backup" "$root/before-resume.wal";then echo WAL_TAIL_ORIGINAL_BACKUP=PASS;else echo WAL_TAIL_ORIGINAL_BACKUP=FAIL;failed=$((failed+1));fi
