@@ -55,7 +55,7 @@ blog 구현 `bd252ac332fcbd5756ea8b2040d58ffa8880a113`은 새 version 2 manifest
 
 ## 미확인 / 남은 필수 작업
 
-- 최신 language implementation과 전체 driver를 고정한 `85a90c1b0f3f6e7b561ad4ad6f3c589244c33994`의 전체 회귀·L06/L07·포함된 bootstrap은 실행 중이다. 이후 변경은 앱·시험·문서이며 runtime/self/전체 driver의 차이는 0이다. 독립 bootstrap 통과를 이 전체 실행 완료로 대신하지 않는다. 이전 ad68090 고정의 전체 실행은 코드 생성 차이를 확인하고 수정 후 독립 gate 통과를 검증한 뒤 소유 과정만 중단해 `WAL_PARSER_FULL_EXIT=143`이다.
+- language implementation과 전체 driver를 고정한 `85a90c1b0f3f6e7b561ad4ad6f3c589244c33994`의 전체 회귀·L06/L07·포함된 bootstrap은 `SEQUENCED_PLATFORM_FULL_EXIT=0`으로 끝났다. 원문은 `L08_P3_PASS=11 FAIL=0`, `L08_P2_PASS=11 FAIL=0`, `L08_PASS=17 FAIL=0`, `L06_HTTP_PASS=110 FAIL=0`, `L06_TLS_PASS=110 FAIL=0`, `L07_SELF_PASS=221`, `L07_SELF_FAIL=0`, `STAGE2_EQ_STAGE3=PASS`, `BOOTSTRAP_EXIT=0`, `L08_PLATFORM_CURRENT_GATES=PASS`다. 공통 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. 이후 runtime/self/전체 driver 차이는 0이다. `L08_AUTH_PARTIAL_PASS=5 FAIL=0`은 아래 미구현 비밀번호 검증을 포함하지 않는다. 이 driver의 현재 gate 통과를 C13 전체나 PRD 완료로 확대하지 않는다. [전체 원문](https://github.com/kimjindol2025/freelang-v11-fx/blob/feat/blog-platform-completion/docs/evidence/l08-platform/sequenced-full-final.txt). 이전 ad68090 고정의 전체 실행은 코드 생성 차이를 확인하고 수정 후 독립 gate 통과를 검증한 뒤 소유 과정만 중단해 `WAL_PARSER_FULL_EXIT=143`이다.
 - 실제 비밀번호 검증은 빈 scrypt 검증값을 거부할지 source 동작을 보존할지 사용자 결정 대기다. 질문을 갱신했고 답변을 가정하지 않았다. C13 전체·실제 비밀번호 로그인은 완료가 아니다.
 - 관리자·AI 업로드의 불확실 commit 정리도 실제 HTTP 오류로 재현하여 파일 보존을 검증해야 한다. backup과 이미지 작업의 실제 동시 경합·복원 미리보기/운영 상태·중단된 작업 재조정은 남아 있다.
 - checksum 구현은 이미지를 request arena로 읽는 제한이 있다. 대량 미디어 인수 전에 streaming file hashing과 메모리 상한 검증이 필요하다. 복구 이미지와 상위 directory의 내구성, 실제 crash·전원 차단·원래 코드 복귀, 1000글/1000이미지·동시 10명 p95·일반 LSan/장시간 RSS도 미확인이다.
