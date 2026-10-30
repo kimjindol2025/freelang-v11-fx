@@ -1,0 +1,11 @@
+Uncaught error: [bytes-count] Function not found: bytes-count (at line 4, col 0)
+REPAIR_IO_repair-bytes_EXIT=1
+Uncaught error: [fd-create] Function not found: fd-create (at line 5, col 0)
+REPAIR_IO_repair-fd_EXIT=1
+REPAIR_IO_GROUP_PASS=0 FAIL=2
+REPAIR_IO_BEFORE_EXIT=1
+node=0
+npm=0
+npx=0
+js=0
+python=0
