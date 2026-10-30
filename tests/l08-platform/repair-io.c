@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-static void put(const char *path,const void *data,size_t n){FILE *f=fopen(path,"wb");if(!f||fwrite(data,1,n,f)!=n||fclose(f))fl_throw(fl_str_val("repair fixture write failed"));}
+static void put(const char *path,const void *data,size_t n){FILE *f=fopen(path,"wb");int ok=f&&fwrite(data,1,n,f)==n;if(f&&fclose(f))ok=0;if(!ok)fl_throw(fl_str_val("repair fixture write failed"));}
 FLValue repair_test_setup(void){
  unsigned char bytes[256];for(int i=0;i<256;i++)bytes[i]=i;put("all-bytes",bytes,sizeof bytes);put("existing","keep",4);
  const char *outside=getenv("L08_REPAIR_OUTSIDE");if(!outside)fl_throw(fl_str_val("outside fixture path required"));
