@@ -260,6 +260,12 @@ void fl_perm_cleanup(void) {
 /* FLValue를 malloc 힙으로 deep-copy (RC = 1로 설정) */
 static FLValue heap_copy_locked(FLValue v) {
     if(v.tag==FL_MAP&&v.obj&&v.obj->type==FL_NATIVE_PROMISE){fl_heap_retain(v);return v;}
+    /* Ordinary owned strings/containers are immutable; retain their shared
+       subtrees instead of cloning a full token stream at every tail step. */
+    if((v.tag==FL_STRING||v.tag==FL_VECTOR||v.tag==FL_MAP)&&v.obj&&
+       (__atomic_load_n(&v.obj->rc,__ATOMIC_RELAXED)&FL_HEAP_RC)){
+        fl_heap_retain(v);return v;
+    }
     switch (v.tag) {
     case FL_INT: case FL_FLOAT: case FL_BOOL: case FL_NIL:
         return v;  /* 스칼라: 값 복사로 충분 */
@@ -393,7 +399,8 @@ void fl_heap_release(FLValue v){fl_gc_lock();heap_release_locked(v);fl_gc_unlock
 
 static void snapshot_owned_cleanup(void*pointer) {
     FLObject*object=pointer;
-    FLValue value={.tag=object->type==FL_MANAGED_ATOM?FL_VECTOR:object->type==FL_OWNED_FN?FL_FN:FL_MAP,.obj=object};
+    FLValue value={.tag=object->type==FL_MANAGED_ATOM?FL_VECTOR:object->type==FL_OWNED_FN?FL_FN:
+                       object->type==FL_NATIVE_PROMISE||object->type==FL_NATIVE_TAIL?FL_MAP:object->type,.obj=object};
     fl_heap_release(value);
 }
 
@@ -401,7 +408,8 @@ static void snapshot_owned_cleanup(void*pointer) {
 static FLValue snapshot_copy(FLValue value) {
     if(value.tag<FL_STRING||!value.obj)return value;
     if(value.tag==FL_VECTOR&&value.obj->type!=FL_MANAGED_ATOM&&__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)==0xFF)return value;
-    if(value.tag==FL_FN||value.obj->type==FL_NATIVE_PROMISE||value.obj->type==FL_MANAGED_ATOM){
+    if(value.tag==FL_FN||value.obj->type==FL_NATIVE_PROMISE||value.obj->type==FL_MANAGED_ATOM||
+       (__atomic_load_n(&value.obj->rc,__ATOMIC_RELAXED)&FL_HEAP_RC)){
         FLValue owned=fl_heap_copy(value);
         if(!owned.obj){fl_throw(fl_str_val("snapshot allocation failed"));return fl_nil();}
         if(fl_arena_on_reset(snapshot_owned_cleanup,owned.obj)<0){

@@ -633,8 +633,7 @@
     $p)))
 
 ;; args 수집 (재귀): RParen 만나면 중단
-(defn parse-args [$_p $_acc]
-  (loop [$p $_p $acc $_acc]
+(defn parse-args [$p $acc]
   (let [[$t (p-peek $p)]]
   (cond
     [(null? $t)                              (r-pair $p $acc)]
@@ -643,7 +642,7 @@
     [(= (get $t :kind) "RBrace")             (r-pair $p $acc)]
     [true
      (let [[$one (parse-expr $p)]]
-       (recur (get $one :p) (append $acc (get $one :node))))]))))
+       (parse-args (get $one :p) (append $acc (get $one :node))))])))
 
 ;; ── 34 parse-bracket — [a b c] 또는 [FUNC ...] 블록
 
@@ -725,13 +724,12 @@
 
 ;; ── 40/44 공개 API: parse(tokens) → ast list
 
-(defn parse-all [$_p]
-  (loop [$p $_p]
+(defn parse-all [$p]
   (if (p-end? $p)
   (get $p :ast)
   (let [[$one (parse-expr $p)]
         [$p2 (p-append-ast (get $one :p) (get $one :node))]]
-    (recur $p2)))))
+    (parse-all $p2))))
 
 (defn parse [$tokens]
   (parse-all (p-make $tokens)))
