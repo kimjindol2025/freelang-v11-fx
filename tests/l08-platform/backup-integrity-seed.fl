@@ -1,0 +1,11 @@
+(load "../app/store.fl")
+(load "../app/images.fl")
+(load "../app/image-admin.fl")
+(load "../app/blog-backup.fl")
+(define image-id "66666666666666666666666666666666")
+(dir_create (str image-base "/blog-images"))
+(if (file_copy (str image-base "/fixture") (image-disk-path image-id "image/gif")) nil (throw "fixture copy failed"))
+(afj-tcp-commit-asts
+ [{"type" "insert" "table" "posts" "row" {"id" "backup-proof" "blog_id" 1 "slug" "backup-proof" "title" "원본 한🙂" "content" "본문 보존" "status" "published"}}
+  {"type" "insert" "table" "images" "row" {"id" image-id "blog_id" 1 "path" (str "/images/" image-id ".gif") "name" "raw.gif" "mime" "image/gif" "size" (file_size (image-disk-path image-id "image/gif")) "alt" "바이너리 원본" "uploaded_at" 1}}])
+(if (get (blog-backup-export 1 "integrity-proof") "ok") (println "BACKUP_INTEGRITY_EXPORT=PASS") (throw "export failed"))
