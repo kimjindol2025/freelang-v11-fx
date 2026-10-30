@@ -1613,13 +1613,17 @@
           [$id @lambda-id-atom] [$_ (swap! lambda-id-atom + 1)]
           [$fn-c (if (= $op "__apply__") (cgc (get $args 0))
                      (cgc (make-variable (substring $op 1 (length $op)) (get $node :line))))]
-          [$actual (if (= $op "__apply__") (slice $args 1 (length $args)) $args)]]
+          [$actual (if (= $op "__apply__") (slice $args 1 (length $args)) $args)]
+          ;; The frozen seed emits C call arguments with unspecified order.
+          ;; Sequence compiler side effects before assembling the output string.
+          [$tail-c (if (= (length $actual) 0) "" (cgc-tail-args $actual $id 0 ""))]
+          [$ordinary-c (cgc $node)]]
       (str "(fl_v11_tco_active() ? (__extension__ ({ "
-           (if (= (length $actual) 0) "" (cgc-tail-args $actual $id 0 ""))
+           $tail-c
            " fl_v11_tail_call(" $fn-c ", "
            (if (= (length $actual) 0) "fl_vec_new()"
                (str "fl_vec_from(__fl_av_" $id ", " (length $actual) ")"))
-           "); })) : " (cgc $node) ")"))
+           "); })) : " $ordinary-c ")"))
     (cgc $node)))
 
 (defn cgc-if [$args]
