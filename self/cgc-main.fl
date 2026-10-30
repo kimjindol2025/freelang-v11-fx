@@ -57,13 +57,13 @@
      :line (get $st :line) :col (+ (get $st :col) 1)
      :tokens (get $st :tokens)})))
 
-(defn token-chunk-add [$forest $chunk]
+(defn token-chunk-add [$_forest $_chunk]
   ;; Equal chunks merge like a binary carry, preserving immutable arrays.
-  (if (and (not (nil? $forest))
-           (= (count (get $forest :chunk)) (count $chunk)))
-    (token-chunk-add (get $forest :rest)
-                     (concat (get $forest :chunk) $chunk))
-    {:chunk $chunk :rest $forest}))
+  (loop [$forest $_forest $chunk $_chunk]
+    (if (and (not (nil? $forest))
+             (= (count (get $forest :chunk)) (count $chunk)))
+      (recur (get $forest :rest) (concat (get $forest :chunk) $chunk))
+      {:chunk $chunk :rest $forest})))
 
 (defn token-chunks-finish [$forest]
   (loop [$nodes $forest $result []]
