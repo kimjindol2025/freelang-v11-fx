@@ -6,6 +6,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <stdatomic.h>
+#include <stdio.h>
 static _Atomic int mode,closes,faults;
 static void faulted(void){
  faults++;
