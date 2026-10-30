@@ -10,17 +10,22 @@ out="${L08_BACKUP_INTEGRITY_OUT:-$(mktemp -d)}"
 mkdir -p "$out/source/tests" "$out/original/tmp"
 ln -s "$blog/app" "$out/source/app"
 ln -s "$blog/src" "$out/source/src"
+flags=(-O1 -g -w -I "$ROOT/runtime")
+if [[ -n "${L08_BACKUP_INTEGRITY_SANITIZER_LIBDIR:-}" ]];then
+ flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_BACKUP_INTEGRITY_SANITIZER_LIBDIR")
+ export LD_LIBRARY_PATH="$L08_BACKUP_INTEGRITY_SANITIZER_LIBDIR" ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+fi
 for phase in seed check;do
  cp "$ROOT/tests/l08-platform/backup-integrity-$phase.fl" "$out/source/tests/$phase.fl"
  (cd "$out/source/tests";"$compiler" "$phase.fl" "$out/$phase.c") > "$out/$phase.build.log" 2>&1
- gcc -O1 -g -w -I "$ROOT/runtime" -o "$out/$phase" "$out/$phase.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" >> "$out/$phase.build.log" 2>&1
+ gcc "${flags[@]}" -o "$out/$phase" "$out/$phase.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" >> "$out/$phase.build.log" 2>&1
 done
 printf 'GIF89a\0\xffRAW-archive' > "$out/original/fixture"
 original_hash=$(sha256sum "$out/original/fixture" | cut -d' ' -f1)
 passed=0;failed=0
 run(){
  local executable="$1" label="$2" expected="$3" rc
- if (cd "$root";env -i PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC FL_FILE_BASE="$root" TMPDIR="$root/tmp" AFJ_DB_MODE=development AFJ_DB_BIND_HOST=127.0.0.1 AFJ_DB_WAL="$root/blog.wal" L08_BACKUP_CASE="$label" L08_ORIGINAL_IMAGE_HASH="$original_hash" timeout 120 "$out/$executable") > "$root/actual" 2> "$root/stderr";then rc=0;else rc=$?;fi
+ if (cd "$root";env -i PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}" ASAN_OPTIONS="${ASAN_OPTIONS:-}" UBSAN_OPTIONS="${UBSAN_OPTIONS:-}" FL_FILE_BASE="$root" TMPDIR="$root/tmp" AFJ_DB_MODE=development AFJ_DB_BIND_HOST=127.0.0.1 AFJ_DB_WAL="$root/blog.wal" L08_BACKUP_CASE="$label" L08_ORIGINAL_IMAGE_HASH="$original_hash" timeout 120 "$out/$executable") > "$root/actual" 2> "$root/stderr";then rc=0;else rc=$?;fi
  cat "$root/actual" "$root/stderr"
  printf 'BACKUP_INTEGRITY_%s_EXIT=%s\n' "$label" "$rc"
  rg '^BACKUP_INTEGRITY_' "$root/actual" > "$root/result" || true
