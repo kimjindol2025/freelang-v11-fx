@@ -455,12 +455,21 @@ FLValue append(FLValue v1, FLValue v2) {
     if (v2.tag != FL_VECTOR) return v1;
     FLVector* va = (FLVector*)v1.obj;
     FLVector* vb = (FLVector*)v2.obj;
-    FLValue r = fl_vec_new();
-    for (uint32_t i = 0; i < va->len; i++)
-        r = fl_vec_push(r, va->data[i]);
-    for (uint32_t i = 0; i < vb->len; i++)
-        r = fl_vec_push(r, vb->data[i]);
-    return r;
+    uint64_t count=(uint64_t)va->len+vb->len;
+    if(count>UINT32_MAX||count>SIZE_MAX/sizeof(FLValue)){
+        fl_throw(fl_str_val("append: result too large"));return fl_nil();
+    }
+    FLVector *out=A(sizeof(*out));
+    if(!out){fl_throw(fl_str_val("append: allocation failed"));return fl_nil();}
+    *out=(FLVector){.base={.type=FL_VECTOR,.rc=1},.len=(uint32_t)count,.cap=(uint32_t)count};
+    out->data=count?A((size_t)count*sizeof(FLValue)):NULL;
+    if(count&&!out->data){
+        if(!fl_arena_active())free(out);
+        fl_throw(fl_str_val("append: allocation failed"));return fl_nil();
+    }
+    if(va->len)memcpy(out->data,va->data,va->len*sizeof(FLValue));
+    if(vb->len)memcpy(out->data+va->len,vb->data,vb->len*sizeof(FLValue));
+    return (FLValue){.tag=FL_VECTOR,.obj=(FLObject*)out};
 }
 
 /* C03: distinguish an absent key from a stored nil. */
