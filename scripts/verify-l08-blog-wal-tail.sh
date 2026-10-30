@@ -11,6 +11,11 @@ mkdir -p "$out/source/tests"
 ln -s "$blog/app" "$out/source/app"
 ln -s "$blog/src" "$out/source/src"
 for phase in create resume verify;do
+ if [[ -n "${L08_BLOG_WAL_TAIL_BIN_DIR:-}" ]];then
+  [[ -x "$L08_BLOG_WAL_TAIL_BIN_DIR/$phase" ]]
+  ln -s "$L08_BLOG_WAL_TAIL_BIN_DIR/$phase" "$out/$phase"
+  continue
+ fi
  cp "$ROOT/tests/l08-platform/wal-tail-$phase.fl" "$out/source/tests/$phase.fl"
  extra=();support=()
  if [[ "$phase" == create ]];then
@@ -22,8 +27,9 @@ for phase in create resume verify;do
 done
 passed=0;failed=0
 run(){
- local phase="$1" label="$2" rc
- if (cd "$root";env -i PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC FL_FILE_BASE="$root" TMPDIR="$root/tmp" AFJ_DB_MODE=development AFJ_DB_BIND_HOST=127.0.0.1 AFJ_DB_WAL="$root/blog.wal" L08_WAL_TAIL_MODE="$mode" timeout 120 "$out/$phase") > "$root/$label.actual" 2> "$root/$label.stderr";then rc=0;else rc=$?;fi
+ local phase="$1" label="$2" rc fixture_mode="$mode"
+ if [[ "$phase" == create && ( "$mode" == invalid-utf8 || "$mode" == nul-tail ) ]];then fixture_mode=complete-no-newline;fi
+ if (cd "$root";env -i PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC FL_FILE_BASE="$root" TMPDIR="$root/tmp" AFJ_DB_MODE=development AFJ_DB_BIND_HOST=127.0.0.1 AFJ_DB_WAL="$root/blog.wal" L08_WAL_TAIL_MODE="$fixture_mode" timeout 120 "$out/$phase") > "$root/$label.actual" 2> "$root/$label.stderr";then rc=0;else rc=$?;fi
  printf 'WAL_TAIL_CASE=%s PHASE=%s\n' "$mode" "$label"
  cat "$root/$label.actual" "$root/$label.stderr"
  printf 'WAL_TAIL_PROGRAM_EXIT=%s\n' "$rc"
@@ -31,13 +37,15 @@ run(){
  if [[ "$rc" == 0 && ! -s "$root/$label.stderr" ]] && diff -u "$ROOT/tests/l08-platform/wal-tail-$phase.expected" "$root/$label.result";then passed=$((passed+1));else failed=$((failed+1));fi
 }
 for backup_state in absent matching;do
-for mode in prepare-partial commit-partial complete-no-newline;do
+for mode in prepare-partial commit-partial complete-no-newline invalid-utf8 nul-tail;do
  root="$out/$backup_state/$mode";mkdir -p "$root/tmp"
  run create create
  if [[ "$mode" == complete-no-newline ]];then
   [[ $(tail -c 1 "$root/blog.wal" | od -An -tu1 | tr -d ' ') == 10 ]]
   truncate -s -1 "$root/blog.wal"
  fi
+ if [[ "$mode" == invalid-utf8 ]];then printf '\xff\xc3\xf0\x9f' >> "$root/blog.wal";fi
+ if [[ "$mode" == nul-tail ]];then printf '{"bad":"\0\xff' >> "$root/blog.wal";fi
  cp "$root/blog.wal" "$root/before-resume.wal"
  original_hash=$(sha256sum "$root/before-resume.wal" | cut -d' ' -f1)
  if [[ "$backup_state" == matching ]];then
