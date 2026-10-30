@@ -1,0 +1,6 @@
+(load "../app/store.fl")
+(define rows (get (execute-ast {"type" "select" "table" "l08_tail"}) "rows"))
+(define kept (filter (fn [row] (and (= (get row "id") "kept") (= (get row "title") "원본 한🙂"))) rows))
+(define resumed (filter (fn [row] (and (= (get row "id") "after-restart") (= (get row "title") "재개 한🙂"))) rows))
+(println (str "WAL_TAIL_VERIFY_ROWS=" (count rows)))
+(if (and (= (count rows) 2) (= (count kept) 1) (= (count resumed) 1)) (println "WAL_TAIL_VERIFY=PASS") (throw "replayed rows mismatch"))

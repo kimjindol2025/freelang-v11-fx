@@ -1,0 +1,7 @@
+(load "../app/store.fl")
+(define before (get (execute-ast {"type" "select" "table" "l08_tail"}) "rows"))
+(if (and (= (count before) 1) (= (get (first before) "id") "kept") (= (get (first before) "title") "원본 한🙂")) nil (throw "committed data changed before resume"))
+(afj-tcp-commit-ast {"type" "insert" "table" "l08_tail" "row" {"id" "after-restart" "title" "재개 한🙂"}})
+(define rows (get (execute-ast {"type" "select" "table" "l08_tail"}) "rows"))
+(println (str "WAL_TAIL_RESUME_ROWS=" (count rows)))
+(if (= (count rows) 2) (println "WAL_TAIL_RESUME=PASS") (throw "resume rows mismatch"))

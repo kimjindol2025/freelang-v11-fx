@@ -13,13 +13,13 @@ static int target(int fd){
 FLValue store_fault_arm(FLValue name){
  if(name.tag!=FL_STRING)fl_throw(fl_str_val("fault mode must be string"));
  const char *s=((FLString*)name.obj)->data;
- mode=!strcmp(s,"prepare-write")?1:!strcmp(s,"commit-sync")?2:!strcmp(s,"prepare-close")?3:!strcmp(s,"commit-close")?4:!strcmp(s,"prepare-partial")?5:0;
+ mode=!strcmp(s,"prepare-write")?1:!strcmp(s,"commit-sync")?2:!strcmp(s,"prepare-close")?3:!strcmp(s,"commit-close")?4:!strcmp(s,"prepare-partial")?5:!strcmp(s,"commit-partial")?7:0;
  if(!mode)fl_throw(fl_str_val("unknown WAL fault mode"));closes=faults=0;return fl_nil();
 }
 ssize_t __real_write(int,const void*,size_t);
 ssize_t __wrap_write(int fd,const void *data,size_t n){
  if(target(fd)){
-  if(mode==5&&n>1){ssize_t sent=__real_write(fd,data,n/2);if(sent>0)mode=6;return sent;}
+  if((mode==5||(mode==7&&closes==1))&&n>1){ssize_t sent=__real_write(fd,data,n/2);if(sent>0)mode=6;return sent;}
   if(mode==1||mode==6){mode=0;faults++;errno=EIO;return -1;}
  }
  return __real_write(fd,data,n);
@@ -28,9 +28,9 @@ int __real_fsync(int);
 int __wrap_fsync(int fd){if(mode==2&&target(fd)){mode=0;faults++;errno=EIO;return -1;}return __real_fsync(fd);}
 int __real_close(int);
 int __wrap_close(int fd){
- if((mode==3||mode==4)&&target(fd)){
+ if((mode==3||mode==4||mode==7)&&target(fd)){
   closes++;
-  if(mode==3||closes==2){mode=0;faults++;int rc=__real_close(fd);if(rc)return rc;errno=EIO;return -1;}
+  if(mode==3||(mode==4&&closes==2)){mode=0;faults++;int rc=__real_close(fd);if(rc)return rc;errno=EIO;return -1;}
  }
  return __real_close(fd);
 }
