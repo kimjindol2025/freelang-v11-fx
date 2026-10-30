@@ -6,6 +6,7 @@
 - fd-create: 기존 secure parent walk로 같은 base 안에 새 regular file만 O_EXCL/O_NOFOLLOW, mode 0600으로 연다. 기존 파일·symlink·외부 경로를 덮지 않는다. file fd와 실제로 생성한 parent directory fd를 함께 소유한다. 기존 fd-open의 descriptor 개수·계약은 유지한다.
 - fd-write-bytes / fd-read-bytes: 기존 fd 경계·크기 상한·부분 I/O 처리와 mutex를 재사용하되 UTF-8 변환하지 않는다. 텍스트 API의 대체나 동작 변경이 아니다.
 - fd-sync-parent: fd-create가 소유한 원래 parent fd를 fsync한다. 경로를 다시 해석하지 않는다. 기존 fd-open handle에는 이 기능을 허용하지 않는다.
+- fd-open-with-parent(path, mode): fd-open과 같은 r/w/a 계약과 secure parent walk를 사용하되 file fd와 원래 parent fd를 함께 소유한다. 이미 존재하는 forensic 원본의 동일성을 같은 handle로 확인하고 file·parent를 동기화한 뒤 복구를 재시도하기 위해 필요하다. 기존 fd-open은 여전히 file fd 하나만 소유한다. fd-sync-parent·fd-close가 retained parent를 처리한다. 함수 이름만으로 동기화 완료를 뜻하지 않는다.
 - fd-truncate: write 가능한 handle에서 0~67108864 byte의 정수 길이만 허용한다. 줄일 때 prefix를 유지하고 늘릴 때 kernel의 zero extension을 확인한다. read-only·closed·음수·소수·상한 초과는 오류다. durability는 명시적 fd-fsync로 확인한다.
 - fd-close는 file과 소유한 parent를 모두 닫고 Linux close 오류는 재시도하지 않는다. 실패 때 descriptor 정리·주입 오류는 별도 native 시험이 필요하다.
 
