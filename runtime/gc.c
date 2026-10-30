@@ -10,7 +10,7 @@
  *
  * 2. RC-Heap GC (atom 보유값 — 신규)
  *    - atom.data[0]이 가리키는 값은 반드시 heap에 있어야 함
- *    - fl_heap_copy(v): FLValue를 재귀적으로 malloc으로 복사
+ *    - fl_heap_copy(v): arena 값은 heap으로 복사, 소유된 불변 값은 참조 유지
  *    - fl_heap_release(v): RC--, 0이면 재귀 free
  *    - swap!: 새값 heap_copy → 이전값 heap_release
  *
@@ -257,7 +257,7 @@ void fl_perm_cleanup(void) {
  *   rc == 0xFF → 고정 (절대 해제 안 함, DB 연결 등)
  */
 
-/* FLValue를 malloc 힙으로 deep-copy (RC = 1로 설정) */
+/* Copy arena values to the heap; already owned immutable values retain RC. */
 static FLValue heap_copy_locked(FLValue v) {
     if(v.tag==FL_MAP&&v.obj&&v.obj->type==FL_NATIVE_PROMISE){fl_heap_retain(v);return v;}
     /* Ordinary owned strings/containers are immutable; retain their shared
