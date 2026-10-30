@@ -756,6 +756,31 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
     if(IS("identity"))return ARG(0);
+    if(IS("bytes-count")||IS("bytes-slice")){
+        int slicing=IS("bytes-slice");
+        if(n!=(slicing?3:1)||ARG(0).tag!=FL_STRING){
+            fl_throw(fl_make_error("TypeError","bytes API: string and exact argument count required"));return fl_nil();
+        }
+        FLString*s=(FLString*)ARG(0).obj;
+        if(!slicing)return fl_int(s->len);
+        int64_t bounds[2];
+        for(size_t i=0;i<2;i++){
+            FLValue value=ARG(i+1);
+            if(value.tag==FL_INT)bounds[i]=value.i;
+            else if(value.tag==FL_FLOAT&&isfinite(value.f)&&trunc(value.f)==value.f&&value.f>=0&&value.f<0x1p63)bounds[i]=(int64_t)value.f;
+            else {fl_throw(fl_make_error("TypeError","bytes-slice: integer bounds required"));return fl_nil();}
+        }
+        if(bounds[0]<0||bounds[1]<bounds[0]||(uint64_t)bounds[1]>s->len){
+            fl_throw(fl_make_error("RangeError","bytes-slice: invalid bounds"));return fl_nil();
+        }
+        size_t length=(size_t)(bounds[1]-bounds[0]);
+        if(length>SIZE_MAX-sizeof(FLString)-1){fl_throw(fl_make_error("RangeError","bytes-slice: size overflow"));return fl_nil();}
+        FLString*result=fl_arena_alloc(sizeof(*result)+length+1);
+        if(!result){fl_throw(fl_make_error("Error","bytes-slice: allocation failed"));return fl_nil();}
+        result->base.type=FL_STRING;result->base.rc=1;result->len=length;
+        memcpy(result->data,s->data+bounds[0],length);result->data[length]=0;
+        return (FLValue){.tag=FL_STRING,.obj=(FLObject*)result};
+    }
     if(IS("json-parse"))return vj_parse(ARG(0));
     if(IS("json-str")||IS("json-stringify"))return vj_stringify(ARG(0));
     if(IS("auth-sha256")){

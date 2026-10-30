@@ -12,6 +12,7 @@ static const char *const v11_ops[] = {
 "date-parse","now-ms","format-date",
 "env-get","env-or","error-message","process-exit","uuid-short",
 "fd-open","fd-write","fd-read","fd-fsync","fd-close","fd-seek","fd-flush",
+"bytes-count","bytes-slice","fd-create","fd-write-bytes","fd-read-bytes","fd-sync-parent","fd-truncate",
 "json-parse","json-str","json-stringify","auth-sha256",
 "auth-bearer-extract","auth-password-needs-rehash","auth-random-token","auth-hash-password","auth-csrf-token","auth-csrf-verify",
 "server-use","server-static","server-body-limit","server-header","server-set-cookie","server-redirect-cookie","server-req-cookie","server-req-json","server-req-header","server-req-query","server-json","server-html","server-text","server-status","server-redirect",
