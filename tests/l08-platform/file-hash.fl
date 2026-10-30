@@ -27,6 +27,10 @@
     (rejected "." "UNSUPPORTED_FILE" "FILE_HASH_DIRECTORY=PASS")
     (rejected "pipe" "UNSUPPORTED_FILE" "FILE_HASH_FIFO=PASS")
     (rejected "too-large" "SIZE_LIMIT" "FILE_HASH_LIMIT=PASS")
+    (check (try (do (file-sha256-result) false) (catch [e] true)) "FILE_HASH_REJECT_ARITY_ZERO=PASS")
+    (check (try (do (file-sha256-result "empty" "extra") false) (catch [e] true)) "FILE_HASH_REJECT_ARITY_TWO=PASS")
+    (let [f file-sha256-result]
+      (check (get (f "empty") "ok") "FILE_HASH_FUNCTION_VALUE=PASS"))
     (let [before (hash-test-rss)
           r (file-sha256-result "large")
           after (hash-test-rss)]
