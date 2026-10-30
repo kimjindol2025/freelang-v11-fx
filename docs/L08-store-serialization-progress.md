@@ -75,3 +75,7 @@ fx 고정 `bd1213b76b23d6e12e17a329c2dafe4638000eaf`, blog source `29ff4123f0a5c
 고정 `2754d8f7d83ce520395ab1c2bfc99b6d72336379` 전체 언어 회귀·native bootstrap은 실행 중이다. 공통 이름 보완 뒤 source-only blog의 실제 HTTP·전체 앱도 이 고정 소스와 새 compiler로 별도 재확인 중이다. 위의 종료한 다섯 단계와 구분하며 이후 실행을 미리 통과로 집계하지 않는다. 모든 PRD·실제 인증·브라우저·댓글·다중 작성자·운영 자료·백업/복구 완료는 여전히 미확인이다.
 
 최신 공통 native 이름 보완을 포함한 고정 `2754d8f7d83ce520395ab1c2bfc99b6d72336379`와 blog source `29ff4123f0a5cc392cc756df030309ff88611469`의 후속 실제 앱 두 단계도 종료했다. ASan/UBSan 실제 HTTP는 worker/peak `4`, 저장 `32`건 모두 `200`, 중복 `8`건 모두 `409`, 재시작 `2`회 정확한 `32`행·WAL 무변경이다. 전체 main·seed·editor-http native 빌드는 모두 `0`, HTTP 확인 `3`회·재시작 `2`회·WAL 무변경, `NATIVE_BLOG_EDITOR_PASS=3 FAIL=0`이다. `NATIVE_NAMES_APP_PIPELINE_EXIT=0`이며 두 execve 감사 모두 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. [실제 HTTP 원문](evidence/l08-platform/native-names-app-store-http-after.txt), [전체 앱·편집 HTML 원문](evidence/l08-platform/native-names-app-editor-native-after.txt). 합성 세션·기존 JS 제공만 확인했고 실제 비밀번호 로그인·JS 실행·브라우저 J안은 미확인이다. 전체 언어 회귀·큰 native bootstrap은 이 두 앱 결과와 별도로 아직 실행 중이다.
+
+## 후속 파일 정리·compiler 메모리 조사
+
+이후 WAL 중간 오류의 fd 누수·durable close 오류 분류를 실제로 재현하고 고쳤다. compiler의 큰 자기 입력에서 확인한 메모리 증가도 최소 lexer·concat 실패를 먼저 고정한 뒤 보완했다. 단계별 실패·최종 최소 시험 통과·아직 실행 중인 전체 검증의 구분은 [후속 진행](L08-wal-close-compiler-memory.md)을 따른다. 이 문서의 앞선 실행 중 표기는 당시 기록이다.
