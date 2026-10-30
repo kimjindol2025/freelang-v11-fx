@@ -88,6 +88,10 @@ for mode in none prepare-write prepare-partial commit-sync commit-close;do
  line="IMAGE_UPLOAD_POST=$kind:$mode STATUS=$status NOTICE=$notice"
  printf '%s\n' "$line" | tee -a "$out/result"
  if [[ "$curl_rc" == 0 && "$status" == "$wanted" && ( "$mode" == none || "$notice" == PASS ) ]];then passed=$((passed+1));else failed=$((failed+1));fi
+ readiness=$(get / "$root/readiness.body")
+ wanted_readiness=503;[[ "$mode" != none ]] || wanted_readiness=200
+ printf 'IMAGE_UPLOAD_READINESS=%s:%s STATUS=%s\n' "$kind" "$mode" "$readiness" | tee -a "$out/result"
+ if [[ "$readiness" == "$wanted_readiness" ]];then passed=$((passed+1));else failed=$((failed+1));fi
  faults=0;[[ ! -f "$root/fault-marker" ]] || faults=$(wc -l < "$root/fault-marker")
  expected_faults=1;[[ "$mode" != none ]] || expected_faults=0
  printf 'IMAGE_UPLOAD_FAULTS=%s EXPECTED=%s\n' "$faults" "$expected_faults"
