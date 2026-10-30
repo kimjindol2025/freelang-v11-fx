@@ -66,3 +66,7 @@ L08_PLATFORM_OUT=<가림> L08_TIMER_SANITIZER_LIBDIR=<가림> bash scripts/verif
 - concat의 새 overflow/OOM 가드 주입, WAL 열기 실패·catalog page 후처리 오류·health, 일반 LSan·장시간 RSS·future/promise 수명·실제 crash·백업/복원·성능 p95·전체 PRD 검증은 남아 있다.
 - 실제 비밀번호 검증·빈 scrypt 키 계약의 사용자 결정, 브라우저 J안·이미지 처리·댓글·다중 작성자·실제 화면과 승인된 운영 자료 복사본의 호환·백업/복구도 미완료다. 기존 editor JS의 제공을 실행이나 J안 완료로 보고하지 않는다.
 - 서버 23·25 접속·운영 자료 접근/변경·합치기·배포·강제 푸시·백업 삭제를 하지 않았다. 임시 시험 process의 중단은 goal 중단이나 운영 process 종료가 아니다.
+
+## 이후 종료한 검증
+
+고정 `54435153fb5a536b137730c815d07ec8baacf73d`의 runtime과 그 source에서 새로 만든 native compiler로 blog source `d3ebbebbd8aa27938b6793e0e452e763c1c33c0c`를 다시 생성한 뒤 WAL 오류 10개도 ASan/UBSan에서 통과했다. `WAL_FAULT_PASS=10 FAIL=0`, `LEXER_FINAL_APP_WAL-FAULTS_EXIT=0`, `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. [원문](evidence/l08-platform/wal-fault-latest-compiler-after.txt). 같은 pipeline의 실제 HTTP·전체 앱과 별도 전체 언어 회귀·큰 native bootstrap은 아직 실행 중이며 해당 결과를 미리 통과로 집계하지 않는다.
