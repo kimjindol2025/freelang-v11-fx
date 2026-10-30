@@ -1,0 +1,2078 @@
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+environment_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+compiler-blockers_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+try-scope_PROGRAM_EXIT=0
+exit-default_PROGRAM_EXIT=0
+exit-seven_PROGRAM_EXIT=7
+L08_PLATFORM_PASS=5 FAIL=0
+PLATFORM_SELF_EXIT=0
+RETURNED_SNAPSHOT=PASS
+CURRENT_VALUE=PASS
+LOCAL_SNAPSHOT=PASS
+SNAPSHOT_ESCAPE=PASS
+RESET_RETURN=PASS
+EXCEPTION_UNWIND=PASS
+MANY_PINS=PASS
+atom-snapshot_EXIT=0
+CONCURRENT_SNAPSHOTS_4X1000=PASS
+NESTED_ARENA_PINS=PASS
+RETURNED_ARENA_SNAPSHOT=PASS
+atom-snapshot-memory_EXIT=0
+L08_ATOM_SNAPSHOT_PASS=2 FAIL=0
+SNAPSHOT_LEAK_CHECK=UNEXECUTED
+ATOM_SNAPSHOT_EXIT=0
+IF_TAIL_CONTEXT=PASS
+LET_BODY_TAIL_CONTEXT=PASS
+LET_VALUE_CONTEXT=PASS
+ARGUMENT_VALUE_CONTEXT=PASS
+MUTUAL_TAIL_DEPTH_5000=PASS
+DEEP_TAIL_ERROR=PASS
+TAIL_ARGUMENT_LIFETIME=PASS
+TAIL_RETURNED_CLOSURE=PASS
+LOOP_VALUE_CONTEXT=PASS
+tail-call-context_PROGRAM_EXIT=0
+RECUR_TO_NAMED_TAIL=PASS
+TOP_LEVEL_LAMBDA_MODE=PASS
+INHERITED_LAMBDA_MODE=PASS
+MODE_AFTER_ERROR=PASS
+tail-call-extra_PROGRAM_EXIT=0
+WHILE_BODY_VALUE_MODE=PASS
+WHILE_ITERATIONS=PASS
+tail-while-mode_PROGRAM_EXIT=0
+SWAP_ZERO_EXTRA_RETURN=PASS
+SWAP_ZERO_EXTRA_STORED=PASS
+SWAP_ERROR_PROPAGATES=PASS
+SWAP_ERROR_UNCHANGED=PASS
+SWAP_EXTRA_ARGUMENTS=PASS
+SWAP_NIL_RETURN=PASS
+SWAP_NIL_STORED=PASS
+swap-zero-extra_PROGRAM_EXIT=0
+DIRECT_CALL=PASS
+NESTED_CALL=PASS
+PREFIX_ONCE=PASS
+PAREN_PREFIX=PASS
+ARGUMENT_CONTEXT=PASS
+LOCAL_CATCH=PASS
+AFTER_CATCH=PASS
+call-error-context_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+compiler-blockers_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+try-scope_PROGRAM_EXIT=0
+RETURNED_SNAPSHOT=PASS
+CURRENT_VALUE=PASS
+LOCAL_SNAPSHOT=PASS
+SNAPSHOT_ESCAPE=PASS
+RESET_RETURN=PASS
+EXCEPTION_UNWIND=PASS
+MANY_PINS=PASS
+atom-snapshot_PROGRAM_EXIT=0
+DORMANT_DEFINITION=PASS
+NESTED_MISSING_FUNCTION=PASS
+DIRECT_MISSING_FUNCTION=PASS
+EXECUTION_CONTINUES=PASS
+late-call_PROGRAM_EXIT=0
+DO_MIDDLE_BRANCH=PASS
+BODY_MIDDLE_BRANCH=PASS
+tail-nonlast_PROGRAM_EXIT=0
+RECUR_LET_SEQUENCE=PASS
+LOOP_LET_SEQUENCE=PASS
+tail-let-sequence_PROGRAM_EXIT=0
+L08_TAIL_PASS=11 FAIL=0
+TAIL_SELF_EXIT=0
+DEFINE_DO_SEQUENCE=PASS
+DEFINE_GLOBAL_REBIND=PASS
+DEFINE_WHEN_RECURSION=PASS
+DEFINE_SEQUENCE_PROGRAM_EXIT=0
+L08_DEFINE_SEQUENCE_PASS=1 FAIL=0
+DEFINE_SEQUENCE_EXIT=0
+42
+NATIVE_SPELLING_PROGRAM_EXIT=0
+L08_NATIVE_SPELLING_SEQUENCE_PASS=1 FAIL=0
+NATIVE_SPELLING_EXIT=0
+CONCAT_LIVE_BYTES=65686
+CONCAT_PEAK_BYTES=65735
+CONCAT_COUNT=PASS
+CONCAT_ORDER=PASS
+CONCAT_INPUTS=PASS
+CONCAT_BOUNDED_HEAP=PASS
+CONCAT_MEMORY_PROGRAM_EXIT=0
+CONCAT_MEMORY_SELF_EXIT=0
+CONCAT_MEMORY_EXIT=0
+COMPILER_LEX_LIVE_BYTES=64095103
+COMPILER_LEX_PEAK_BYTES=64095152
+COMPILER_LEX_COUNT=PASS
+COMPILER_LEX_EVERY_TOKEN=PASS
+COMPILER_LEX_BOUNDED_HEAP=PASS
+COMPILER_LEX_PROGRAM_EXIT=0
+COMPILER_LEX_SELF_EXIT=0
+COMPILER_LEX_MEMORY_EXIT=0
+COMPILER_PARSE_SITE=0x4e5422 LIVE=1615196 TOTAL=1615196 COUNT=64028
+COMPILER_PARSE_SITE=0x4c276d LIVE=0 TOTAL=473472 COUNT=7398
+COMPILER_PARSE_SITE=0x4e56f6 LIVE=31200 TOTAL=40800 COUNT=1700
+COMPILER_PARSE_SITE=0x4e5948 LIVE=150400 TOTAL=176000 COUNT=1700
+COMPILER_PARSE_SITE=0x4e57f6 LIVE=110020 TOTAL=122820 COUNT=7201
+COMPILER_PARSE_SITE=0x4e59d1 LIVE=0 TOTAL=12800 COUNT=400
+COMPILER_PARSE_SITE=0x4e584b LIVE=4824 TOTAL=14424 COUNT=601
+COMPILER_PARSE_SITE=0x4e58e9 LIVE=87200 TOTAL=98400 COUNT=600
+COMPILER_PARSE_SITE=0x4e548d LIVE=0 TOTAL=19200 COUNT=400
+COMPILER_PARSE_SITE=0x4e5127 LIVE=0 TOTAL=26224000 COUNT=400
+COMPILER_PARSE_SITE=0x4d3c4d LIVE=32 TOTAL=32 COUNT=1
+COMPILER_PARSE_LIVE_BYTES=1998872
+COMPILER_PARSE_PEAK_BYTES=2062056
+COMPILER_PARSE_COUNT=PASS
+COMPILER_PARSE_EVERY_NODE=PASS
+COMPILER_PARSE_BOUNDED_HEAP=PASS
+COMPILER_PARSE_PROGRAM_EXIT=0
+COMPILER_PARSE_SELF_EXIT=0
+COMPILER_PARSE_MEMORY_EXIT=0
+REPAIR_BYTES_COUNT=PASS
+REPAIR_BYTES_UTF8_COUNT=PASS
+REPAIR_BYTES_TEXT_LENGTH_UNCHANGED=PASS
+REPAIR_BYTES_ALL_VALUES=PASS
+REPAIR_BYTES_EMPTY=PASS
+REPAIR_BYTES_UTF8_PREFIX=PASS
+REPAIR_BYTES_UTF8_SUFFIX=PASS
+REPAIR_BYTES_WRITE=PASS
+REPAIR_BYTES_ROUNDTRIP=PASS
+REPAIR_BYTES_REJECT_TYPE=PASS
+REPAIR_BYTES_REJECT_NEGATIVE=PASS
+REPAIR_BYTES_REJECT_REVERSED=PASS
+REPAIR_BYTES_REJECT_END=PASS
+REPAIR_BYTES_REJECT_FRACTION=PASS
+REPAIR_BYTES_ARGUMENT_ORDER=PASS
+REPAIR_IO_repair-bytes_EXIT=0
+REPAIR_FD_PRIVATE_MODE=PASS
+REPAIR_FD_OWNS_PARENT=PASS
+REPAIR_FD_RAW_WRITE=PASS
+REPAIR_FD_SYNC_FILE=PASS
+REPAIR_FD_SYNC_PARENT=PASS
+REPAIR_FD_CLOSE=PASS
+REPAIR_FD_NO_LEAK=PASS
+REPAIR_FD_REOPEN_OWNS_PARENT=PASS
+REPAIR_FD_REOPEN_SYNC_FILE=PASS
+REPAIR_FD_REOPEN_SYNC_PARENT=PASS
+REPAIR_FD_REOPEN_NO_LEAK=PASS
+REPAIR_FD_REJECT_EXISTING=PASS
+REPAIR_FD_PRESERVE_EXISTING=PASS
+REPAIR_FD_REJECT_LEAF_LINK=PASS
+REPAIR_FD_REJECT_PARENT_LINK=PASS
+REPAIR_FD_REJECT_TRAVERSAL=PASS
+REPAIR_FD_REJECT_OUTSIDE=PASS
+REPAIR_FD_RAW_READ=PASS
+REPAIR_FD_REJECT_READ_ONLY=PASS
+REPAIR_FD_REJECT_UNOWNED_PARENT=PASS
+REPAIR_FD_TRUNCATE=PASS
+REPAIR_FD_TRUNCATE_LENGTH=PASS
+REPAIR_FD_EXTEND=PASS
+REPAIR_FD_EXTEND_LENGTH=PASS
+REPAIR_FD_REJECT_NEGATIVE=PASS
+REPAIR_FD_REJECT_LIMIT=PASS
+REPAIR_FD_REJECT_FRACTION=PASS
+REPAIR_FD_RESULT_LENGTH=PASS
+REPAIR_FD_PREFIX_AND_ZEROS=PASS
+REPAIR_FD_FINAL_NO_LEAK=PASS
+REPAIR_FD_REJECT_CLOSED=PASS
+REPAIR_IO_repair-fd_EXIT=0
+REPAIR_IO_GROUP_PASS=2 FAIL=0
+REPAIR_IO_EXIT=0
+Uncaught error: [native-ext-value] Function not found: native-ext-value (at line 2, col 0)
+no-declaration-before_EXIT=1
+EXTERN_VALUE_23=PASS
+EXTERN_VALUE_NEGATIVE=PASS
+EXTERN_ZERO_ARGUMENTS=PASS
+EXTERN_DECLARED_EXIT=0
+Uncaught error: [native-ext-value] Function not found: native-ext-value (at line 2, col 0)
+no-declaration-after_EXIT=1
+Uncaught error (line 2783): compiler: missing --extern name
+Stack trace:
+  at cgc_run (line 2780)
+EXTERN_missing_NAME_EXIT=1
+Uncaught error (line 2780): compiler: invalid --extern name
+Stack trace:
+  at cgc_run (line 2780)
+EXTERN_invalid_NAME_EXIT=1
+EXTERN_MISSING_IMPLEMENTATION_LINK_EXIT=1
+EXTERN_MISSING_IMPLEMENTATION=PASS
+EXTERN_AST_COMPATIBILITY=PASS
+L08_EXTERN_SELF=PASS
+EXTERN_SELF_EXIT=0
+ATOM_WORKERS_JOINED=PASS
+ATOM_ACTUAL_WORKERS=PASS
+ATOM_CONCURRENT_TOTAL=PASS
+ATOM_CALLBACK_EXACTLY_ONCE=PASS
+ATOM_MAP_WORKERS_JOINED=PASS
+ATOM_MAP_TOTAL=PASS
+ATOM_MAP_TEXT=PASS
+ATOM_NESTED_RESET_RETURN=PASS
+ATOM_NESTED_RESET_STORED=PASS
+ATOM_NESTED_SWAP_RETURN=PASS
+ATOM_NESTED_SWAP_STORED=PASS
+ATOM_ERROR_PROPAGATES=PASS
+ATOM_ERROR_UNCHANGED=PASS
+ATOM_ERROR_UNLOCKS_FOR_PEER=PASS
+ATOM_NESTED_ERROR_PROPAGATES=PASS
+ATOM_ERROR_PRESERVES_CALLBACK_EFFECT=PASS
+ATOM_NESTED_ERROR_UNLOCKS=PASS
+ATOM_DISTINCT_PROGRESS=PASS
+ATOM_DISTINCT_LEFT=PASS
+ATOM_DISTINCT_RIGHT=PASS
+atom-update_PROGRAM_EXIT=0
+ATOM_ALIAS_WORKERS_JOINED=PASS
+ATOM_ALIAS_ACTUAL_WORKERS=PASS
+ATOM_ALIAS_CONCURRENT_TOTAL=PASS
+atom-update-alias_PROGRAM_EXIT=0
+L08_ATOM_UPDATE_PASS=2 FAIL=0
+ATOM_UPDATE_LEAK_CHECK=UNEXECUTED
+ATOM_UPDATE_EXIT=0
+ATOM_LOCK_RETURN=PASS
+ATOM_LOCK_GUARD_UNCHANGED=PASS
+ATOM_LOCK_WORKERS_JOINED=PASS
+ATOM_LOCK_ACTUAL_WORKERS=PASS
+ATOM_LOCK_COMPOUND_TOTAL=PASS
+ATOM_LOCK_CALLBACK_ONCE=PASS
+ATOM_LOCK_REENTRANT=PASS
+ATOM_LOCK_CALLBACK_EFFECT=PASS
+ATOM_LOCK_ERROR_PROPAGATES=PASS
+ATOM_LOCK_ERROR_UNLOCKS=PASS
+ATOM_LOCK_EVALUATION_RETURN=PASS
+ATOM_LOCK_EVALUATION_ORDER=PASS
+ATOM_LOCK_DISTINCT_PROGRESS=PASS
+ATOM_LOCK_REJECT_VECTOR=PASS
+ATOM_LOCK_REJECT_NIL=PASS
+ATOM_LOCK_REJECT_CALLBACK=PASS
+ATOM_LOCK_VALIDATION_NO_LOCK_LEAK=PASS
+atom-lock_PROGRAM_EXIT=0
+L08_ATOM_LOCK_PASS=1 FAIL=0
+ATOM_LOCK_LEAK_CHECK=UNEXECUTED
+ATOM_LOCK_EXIT=0
+SORT_NESTED_CONTEXT=PASS
+SORT_INPUT_UNCHANGED=PASS
+SORT_NESTED_ERROR_CONTEXT=PASS
+SORT_ERROR_PROPAGATES=PASS
+SORT_AFTER_ERROR=PASS
+SORT_EMPTY=PASS
+SORT_CONCURRENT_CONTEXTS=PASS
+SORT_ACTUAL_WORKERS=PASS
+SORT_CONTEXT_PROGRAM_EXIT=0
+L08_SORT_CONTEXT_PASS=1 FAIL=0
+SORT_CONTEXT_LEAK_CHECK=UNEXECUTED
+SORT_CONTEXT_EXIT=0
+HTTP_ATOM_SERVER_EXIT=0
+HTTP_ATOM_SERVER_EXIT=0
+HTTP_ATOM_STATUS=200
+HTTP_ATOM_RESPONSES=1000
+HTTP_ATOM_COUNTER=1000
+HTTP_ATOM_UNIQUE_VALUES=1000
+HTTP_ATOM_WORKERS=4
+HTTP_ATOM_PEAK=4
+HTTP_ATOM_ACTIVE=0
+HTTP_ATOM_EXACT_VALUES=PASS
+HTTP_ATOM_REPEATED_READS=PASS
+HTTP_ATOM_TEMP_STATUS=200
+HTTP_ATOM_TEMP_RESPONSES=100
+HTTP_ATOM_TEMP_LIVE=0
+HTTP_ATOM_SAVED_LIVE=1
+HTTP_ATOM_SAVED_TEXT=한🙂
+HTTP_ATOM_CLEARED_LIVE=0
+HTTP_ATOM_CREATED=10001
+HTTP_ATOM_VOLATILE_RESTART_COUNTER=0
+HTTP_ATOM_SELF=PASS
+HTTP_ATOM_EXIT=0
+ATOM_METER_OBSERVED_ALLOCATIONS=PASS
+ATOM_TEMPORARY_RELEASED=PASS
+ATOM_RETURNED_IDENTITY=PASS
+ATOM_RETURNED_RELEASED=PASS
+ATOM_CAPTURE_FIRST=PASS
+ATOM_CAPTURE_SECOND=PASS
+ATOM_CAPTURE_RELEASED=PASS
+ATOM_WORKER_CAPTURE=PASS
+ATOM_WORKER_CAPTURE_RELEASED=PASS
+ATOM_WORKER_RETURN=PASS
+ATOM_WORKER_RETURN_RELEASED=PASS
+ATOM_CONTAINER_ALIAS=PASS
+ATOM_CONTAINER_RELEASED=PASS
+ATOM_MANY_STRONG_REFERENCES=PASS
+ATOM_MANY_REFERENCES_RELEASED=PASS
+ATOM_EXCEPTION_PROPAGATES=PASS
+ATOM_EXCEPTION_RELEASED=PASS
+ATOM_LIFETIME_8_THREADS=PASS
+ATOM_CONCURRENT_RELEASED=PASS
+atom-lifetime_PROGRAM_EXIT=0
+ATOM_SELF_CYCLE_RELEASED=PASS
+ATOM_TWO_CYCLE_RELEASED=PASS
+ATOM_RECURSIVE_CLOSURE_WORKS=PASS
+ATOM_CLOSURE_CYCLE_RELEASED=PASS
+ATOM_ESCAPED_CYCLE_RETAINED=PASS
+ATOM_ESCAPED_CYCLE_USABLE=PASS
+ATOM_ESCAPED_CYCLE_RELEASED=PASS
+ATOM_CYCLE_EXCEPTION=PASS
+ATOM_CYCLE_EXCEPTION_RELEASED=PASS
+atom-cycles_PROGRAM_EXIT=0
+L08_ATOM_LIFETIME_PASS=2 FAIL=0
+GENERAL_LSAN=UNEXECUTED
+ATOM_LIFETIME_EXIT=0
+ARENA_CALLBACK_REQUESTS=64
+ARENA_CALLBACK_BYTES=PASS
+ARENA_CACHE_AFTER_RESET_BYTES=0
+ARENA_FIRST_CHUNK_REUSED=PASS
+ARENA_NESTED_PARENT=PASS
+ARENA_ONE_SHOT_FALLBACK=PASS
+ARENA_FALLBACK_AFTER_RESET_BYTES=0
+ARENA_OOM_RETURNS_NULL=PASS
+ARENA_CLEANUP_OOM_SAFE=PASS
+ARENA_SIZE_OVERFLOW_REJECTED=PASS
+ARENA_CACHE_SELF=PASS
+ARENA_CACHE_PROGRAM_EXIT=0
+L08_ARENA_CACHE_PASS=1 FAIL=0
+GENERAL_LSAN=UNEXECUTED
+ARENA_CACHE_EXIT=0
+PENDING=PASS
+REGISTERED
+RESOLVED=42
+RESOLVED_REPEAT=42
+REJECTED=PASS
+INVALID_CALLBACK=PASS
+CAPTURE_ATOM_IDENTITY=PASS
+TIMER_PROGRAM_EXIT=0
+TIMER_EXPLICIT_EXIT=7
+EXIT_CANCELS_TIMER=PASS
+CAPTURED_FILE_AFTER_CHURN=PASS
+TIMER_ATOM_HTTP=PASS
+TIMER_ONCE=PASS
+TIMER_HTTP_SHUTDOWN=PASS
+TIMER_WITHOUT_FURTHER_HTTP=PASS
+TIMER_MEMORY_BOUNDARIES=PASS
+timer-memory_PROGRAM_EXIT=0
+TIMER_DISPATCH_SERIALIZATION=PASS
+timer-serialization_PROGRAM_EXIT=0
+TIMER_SCOPE_OOM_RESTORES_CALLER=PASS
+TIMER_SCOPE_OOM_REJECTED=PASS
+TIMER_SCOPE_OOM_RECOVERY=PASS
+timer-arena-oom_PROGRAM_EXIT=0
+TIMER_ASAN_UBSAN=SEPARATE_DRIVER
+L08_TIMER_PARTIAL_PASS=9 FAIL=0
+TIMER_PARTIAL_EXIT=0
+TIMER_MEMORY_BOUNDARIES=PASS
+timer-memory_SANITIZED_EXIT=0
+TIMER_DISPATCH_SERIALIZATION=PASS
+timer-serialization_SANITIZED_EXIT=0
+TIMER_SCOPE_OOM_RESTORES_CALLER=PASS
+TIMER_SCOPE_OOM_REJECTED=PASS
+TIMER_SCOPE_OOM_RECOVERY=PASS
+timer-arena-oom_SANITIZED_EXIT=0
+PENDING=PASS
+REGISTERED
+RESOLVED=42
+RESOLVED_REPEAT=42
+REJECTED=PASS
+INVALID_CALLBACK=PASS
+CAPTURE_ATOM_IDENTITY=PASS
+TIMER_CLI_SANITIZED_EXIT=0
+TIMER_WITHOUT_FURTHER_HTTP=PASS
+L08_TIMER_SANITIZER_PASS=5 FAIL=0
+TIMER_LEAK_CHECK=UNEXECUTED
+TIMER_SANITIZER_EXIT=0
+WRITE_UNKNOWN=not-found
+DROP_UNKNOWN=not-found
+STOP_UNKNOWN=not-running
+START=ok
+RUNNING=true
+DUPLICATE=already-running
+STOP=ok
+RUNNING_AFTER_STOP=false
+STOP_AGAIN=not-running
+RESTART=ok
+RESTART_STOP=ok
+BAD_PORT_REJECTED=PASS
+BAD_TLS_CONFIG=error
+TLS_ERROR_SOURCE=tls
+ERROR_DRAIN_CLEARS=0
+TCP_CONTROL_PROGRAM_EXIT=0
+BIND_CONFLICT=error
+BIND_ERROR_SOURCE=listen
+SERVICE_STILL_ALIVE=PASS
+NUL_BINARY=PASS
+EMPTY_BINARY=PASS
+ALL_256_BYTES=PASS
+LARGE_SLOW_READER=PASS
+image.png=PASS
+image.jpg=PASS
+image.gif=PASS
+CONCURRENT_ECHO=PASS
+DROP_CONNECTION=PASS
+HANDLER_ERROR_RECOVERY=PASS
+STOP_CONNECTION=PASS
+raw_SERVER_EXIT=0
+raw_EVENT_ORDER=PASS
+RAW_PARTIAL_WRITE_PRESSURE=PASS
+NUL_BINARY=PASS
+EMPTY_BINARY=PASS
+ALL_256_BYTES=PASS
+LARGE_SLOW_READER=PASS
+image.png=PASS
+image.jpg=PASS
+image.gif=PASS
+CONCURRENT_ECHO=PASS
+DROP_CONNECTION=PASS
+HANDLER_ERROR_RECOVERY=PASS
+STOP_CONNECTION=PASS
+raw-restart_SERVER_EXIT=0
+raw-restart_EVENT_ORDER=PASS
+RAW_PROCESS_RESTART=PASS
+TLS_REJECTED=PASS
+TLS_REJECTED=PASS
+TLS_HANDSHAKE_ABORT=PASS
+SERVICE_STILL_ALIVE=PASS
+NUL_BINARY=PASS
+EMPTY_BINARY=PASS
+ALL_256_BYTES=PASS
+LARGE_SLOW_READER=PASS
+image.png=PASS
+image.jpg=PASS
+image.gif=PASS
+CONCURRENT_ECHO=PASS
+DROP_CONNECTION=PASS
+HANDLER_ERROR_RECOVERY=PASS
+STOP_CONNECTION=PASS
+tls_SERVER_EXIT=0
+tls_EVENT_ORDER=PASS
+TLS_PARTIAL_WRITE_PRESSURE=PASS
+TLS_REJECTED=PASS
+TLS_REJECTED=PASS
+NUL_BINARY=PASS
+EMPTY_BINARY=PASS
+ALL_256_BYTES=PASS
+LARGE_SLOW_READER=PASS
+image.png=PASS
+image.jpg=PASS
+image.gif=PASS
+CONCURRENT_ECHO=PASS
+DROP_CONNECTION=PASS
+HANDLER_ERROR_RECOVERY=PASS
+STOP_CONNECTION=PASS
+mtls_SERVER_EXIT=0
+mtls_EVENT_ORDER=PASS
+TEST_PKI_FILES_UNCHANGED=PASS
+L08_TCP_PASS=8 FAIL=0
+TCP_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-writer_0_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_1_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_2_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_3_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_4_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_5_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_6_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_7_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_8_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_9_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-reader_10_PROGRAM_EXIT=0
+L08_FD_BASIC_PASS=11 FAIL=0
+FD_BASIC_EXIT=0
+true
+true
+true
+true
+FAULT_MODE=write-partial
+write-partial_PROGRAM_EXIT=0
+true
+true
+true
+FAULT_MODE=write-zero
+write-zero_PROGRAM_EXIT=0
+true
+true
+FAULT_MODE=fsync-eintr
+fsync-eintr_PROGRAM_EXIT=0
+true
+true
+FAULT_MODE=fsync-eio
+fsync-eio_PROGRAM_EXIT=0
+true
+true
+true
+true
+FAULT_MODE=close-eintr
+FD_REUSE_GUARD=PASS
+close-eintr_PROGRAM_EXIT=0
+true
+true
+true
+true
+FAULT_MODE=close-eio
+FD_REUSE_GUARD=PASS
+close-eio_PROGRAM_EXIT=0
+true
+true
+true
+FAULT_MODE=read-eintr
+read-eintr_PROGRAM_EXIT=0
+true
+true
+true
+true
+FAULT_MODE=read-short
+read-short_PROGRAM_EXIT=0
+L08_FD_FAULT_PASS=8 FAIL=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+fd-edges_PROGRAM_EXIT=0
+true
+fd-base-link_PROGRAM_EXIT=0
+true
+true
+true
+true
+true
+true
+fd-concurrent_PROGRAM_EXIT=0
+CONCURRENT_LINES=800
+CONCURRENT_RECORDS=PASS
+OUTSIDE_SENTINEL=PASS
+L08_FD_EXTENDED_PASS=11 FAIL=0
+FD_EXTENDED_EXIT=0
+FIXTURE_BODY_UTF16_LENGTH=128
+FIXTURE_BODY_SHA256=db00b9a5d401b1267eb4288bd565e715c6a09af4c6083f19b9706a322be25053
+{"2":"two","10":"ten","b":0.1,"a":null}
+[1,1,0.1,0,1e-7,1e+21,9007199254740992,null,false,true,"한😀"]
+{"b":3,"a":2}
+{"nested":[{"a":0.1}]}
+null
+null
+"😀\u0000\b\t\n\f\r\"\\/"
+["\ud800","\udc00"]
+json-serialize_0_PROGRAM_EXIT=0
+JSON_PARSE_PASS
+json-parse_0_PROGRAM_EXIT=0
+true
+json-invalid_0_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_1_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_2_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_3_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_4_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_5_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_6_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_7_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_8_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_9_PROGRAM_EXIT=0
+JSON_WAL_CHECKSUM_PASS
+json-wal_10_PROGRAM_EXIT=0
+FIXTURE_BYTES_UNCHANGED=PASS
+L08_JSON_PASS=13 FAIL=0
+JSON_EXIT=0
+AUTH_SYNTHETIC_FIXTURES=READY
+AUTH_BASICS_PASS
+auth-basics_PROGRAM_EXIT=0
+AUTH_CSRF_PASS
+auth-csrf_PROGRAM_EXIT=0
+AUTH_LIVE_CLOCK_PASS
+auth-live_PROGRAM_EXIT=0
+AUTH_RNG_FAILURE_PASS
+AUTH_RNG_FAULT=ACTIVE
+AUTH_RNG_FAULT=ACTIVE
+auth-rng_PROGRAM_EXIT=0
+PASSWORD_CREATE_FORMAT_AND_KDF=PASS
+AUTH_PASSWORD_VERIFICATION=PENDING_USER_DECISION
+L08_AUTH_PARTIAL_PASS=5 FAIL=0
+AUTH_PARTIAL_EXIT=0
+ORDER=200
+FALSE_MIDDLEWARE=200
+GUARD_DENIED=401
+GUARD_ALLOWED=200
+GUARD_BEFORE_FALLBACK=401
+PATH_QUERY_HEADERS=200
+LONG_QUERY=200
+LONG_PARAM=200
+HTML=201
+JSON_CREATED=201
+JSON_CONFLICT=409
+JSON_ECHO=200
+JSON_MALFORMED=200
+JSON_TEXT_FALSE=200
+JSON_NULL=200
+RESPONSE_HEADER=200
+IMMUTABLE_RESPONSE=200
+COOKIES=302
+HEADER_INJECTION=500
+STATIC_GATE=403
+STATIC_all.png=PASS
+STATIC_image.jpg=PASS
+STATIC_image.gif=PASS
+STATIC_TRAVERSAL=403
+STATIC_SYMLINK=403
+STATIC_MISSING=404
+BODY_LIMIT=413
+WILDCARD=404
+OUTSIDE_SENTINEL=PASS
+HTTP_LOG_REDACTION=PASS
+L08_HTTP_PLATFORM_PASS=35 FAIL=0
+HTTP_PLATFORM_EXIT=0
+FEED_UTC_PROGRAM_EXIT=0
+FEED_Asia-Seoul_PROGRAM_EXIT=0
+RSS_FULL_XML=PASS
+RSS_EMPTY_XML=PASS
+SITEMAP_FULL_XML=PASS
+SITEMAP_EMPTY_XML=PASS
+CDATA_CONTENT_PRESERVED=PASS
+FEED_CLOCK_PROGRAM_EXIT=0
+FEED_CLOCK_XML=PASS
+L08_FEED_PASS=9 FAIL=0
+FEED_EXIT=0
+GET_STATUS=200
+GET_BODY=PASS
+GET_ERROR_ABSENT=PASS
+GET_SOURCE_SHAPE=PASS
+METHOD_UPPERCASE=PASS
+POST_STATUS=200
+POST_METHOD=PASS
+POST_UTF8_NUL=PASS
+PUT_METHOD=PASS
+PUT_BODY=PASS
+PUT_HEADER=PASS
+PATCH_METHOD=PASS
+PATCH_BODY=PASS
+PATCH_HEADER=PASS
+DELETE_METHOD=PASS
+DELETE_BODY=PASS
+DELETE_HEADER=PASS
+REDIRECT_NOT_FOLLOWED=302
+REDIRECT_BODY=PASS
+HTTP_ERROR_STATUS=404
+HTTP_ERROR_BODY=PASS
+HTTP_ERROR_IS_RESPONSE=PASS
+RESPONSE_UTF8_NUL=PASS
+TIMEOUT_STATUS=0
+TIMEOUT_BODY=PASS
+TIMEOUT_ERROR=PASS
+REFUSED_STATUS=0
+REFUSED_BODY=PASS
+REFUSED_ERROR=PASS
+INVALID_URL_STATUS=0
+INVALID_URL_ERROR=PASS
+INVALID_URL_STATUS=0
+INVALID_URL_ERROR=PASS
+HEADER_INJECTION_REJECTED=PASS
+HTTP_CLIENT_PROGRAM_EXIT=0
+RAW_SERVER_WIRE_EXACT=PASS
+{"status":200,"body":"A�B\u0000C"}
+HTTP_CLIENT_RAW_PROGRAM_EXIT=0
+INVALID_HEADER_REJECTED=PASS
+INVALID_HEADER_REJECTED=PASS
+INVALID_HEADER_REJECTED=PASS
+INVALID_HEADER_REJECTED=PASS
+HEADER_STRING_VALUE=PASS
+HEADER_STRING_VALUE=PASS
+HEADER_STRING_VALUE=PASS
+BODY_UTF16_REPLACEMENT=PASS
+HTTP_CLIENT_BOUNDARIES_PROGRAM_EXIT=0
+TLS_UNTRUSTED_STATUS=0
+TLS_UNTRUSTED_ERROR=PASS
+HTTP_CLIENT_TLS_UNTRUSTED_PROGRAM_EXIT=0
+TLS_TRUSTED_STATUS=200
+TLS_TRUSTED_BODY=PASS
+TLS_HOSTNAME_STATUS=0
+TLS_HOSTNAME_ERROR=PASS
+HTTP_CLIENT_TLS_TRUSTED_PROGRAM_EXIT=0
+L08_HTTP_CLIENT_PASS=6 FAIL=0
+HTTP_CLIENT_EXIT=0
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+dates-default_PROGRAM_EXIT=0
+PASS dates-default
+1970-01-01 00:00:00.000
+1969-12-31 23:59:59.999
+0
+7200000
+1710037800000
+1730597400000
+timezone-utc_PROGRAM_EXIT=0
+PASS timezone-utc
+1970-01-01 09:00:00.000
+1970-01-01 08:59:59.999
+-32400000
+7200000
+1710005400000
+1730565000000
+timezone-seoul_PROGRAM_EXIT=0
+PASS timezone-seoul
+1969-12-31 19:00:00.000
+1969-12-31 18:59:59.999
+18000000
+3600000
+1710055800000
+1730611800000
+timezone-newyork_PROGRAM_EXIT=0
+PASS timezone-newyork
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+regex-patterns-default_PROGRAM_EXIT=0
+PASS regex-patterns-default
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+regex-default_PROGRAM_EXIT=0
+PASS regex-default
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+regex-guards-default_PROGRAM_EXIT=0
+PASS regex-guards-default
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+files-default_PROGRAM_EXIT=0
+PASS files-default
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+images-default_PROGRAM_EXIT=0
+PASS images-default
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+security-default_PROGRAM_EXIT=0
+PASS security-default
+true
+true
+base-symlink-default_PROGRAM_EXIT=0
+PASS base-symlink-default
+IMAGE_png_ORIGINAL_SHA256=271c4592954321d5edbed0cb5abc8969d261238438d822e48c4f5896a08c2af0
+IMAGE_png_COPY_SHA256=271c4592954321d5edbed0cb5abc8969d261238438d822e48c4f5896a08c2af0
+IMAGE_BYTES_png=PASS
+IMAGE_jpg_ORIGINAL_SHA256=5fd3bc76dc9268dac560ea1573dc88acae72ef69ab8fd729a4be8ab9cf29f048
+IMAGE_jpg_COPY_SHA256=5fd3bc76dc9268dac560ea1573dc88acae72ef69ab8fd729a4be8ab9cf29f048
+IMAGE_BYTES_jpg=PASS
+IMAGE_gif_ORIGINAL_SHA256=ef1955ae757c8b966c83248350331bd3a30f658ced11f387f8ebf05ab3368629
+IMAGE_gif_COPY_SHA256=ef1955ae757c8b966c83248350331bd3a30f658ced11f387f8ebf05ab3368629
+IMAGE_BYTES_gif=PASS
+OUTSIDE_UNCHANGED=PASS
+L08_P3_PASS=11 FAIL=0
+PHASE3_SELF_EXIT=0
+가,나
+가,나
+😀끝
+끝
+3
+3
+true
+true
+["a", "b", ""]
+["a", "b:c"]
+xx
+a-b
+%ED%95%9C%20%EA%B8%80%2F%F0%9F%98%80%3F%26
+한 글/😀?&
+URI_ERROR
+URI_ERROR
+strings_PROGRAM_EXIT=0
+PASS strings
+2
+3
+😀
+끝
+STRASSEFFI
+i̇ος
+οσα
+한글
+&amp;&lt;&gt;&quot;&#x27;한글
+&amp;amp;
+0
+
+unicode_PROGRAM_EXIT=0
+PASS unicode
+2
+true
+true
+3
+true
+3
+2
+true
+3
+bytes_PROGRAM_EXIT=0
+PASS bytes
+12
+true
+true
+-150
+0
+true
+7
+8
+9
+1e-7
+1.0000000000000002
+0
+5e-324
+1.7976931348623157e+308
+1.5
+0.5
+2
+Infinity
+NaN
+numbers_PROGRAM_EXIT=0
+PASS numbers
+[1, 2, 3]
+[1, 2, 3]
+[1, [2], 3]
+[1, {"a": 1}, [2]]
+["b", "a", "c"]
+["a", "c", "b"]
+["a", "b", "c"]
+{"x": 1, "y": 2}
+{"a": 1, "b": 2, "c": 3}
+[1, 2]
+abc
+[1, 2]
+[2, 3]
+arrays_PROGRAM_EXIT=0
+PASS arrays
+0
+[]
+0
+empty
+true
+0
+false
+0
+true
+true
+true
+false
+true
+false
+true
+6
+12502500
+core_PROGRAM_EXIT=0
+PASS core
+x 1 y
+null
+[1, null, ["한글", true]]
+[1,null,"x"]
+{"0.1":0.1}
+a b!
+output_PROGRAM_EXIT=0
+PASS output
+1.25e-7
+1e+21
+9007199254740992
+-Infinity
+literals_PROGRAM_EXIT=0
+PASS literals
+["\n\t\r"]
+[null]
+Infinity
+["b", "c", "a"]
+1
+�
+😀
+1
+URI_ERROR
+%00
+a+b c
+0
+bc
+["2", "10", "a"]
+true
+edges_PROGRAM_EXIT=0
+PASS edges
+[E_TYPE_MISMATCH] +: 인자 1번에 string 전달됨 — number 필요 (str-to-num 변환 확인)
+[E_TYPE_MISMATCH] -: 인자 1번에 nil 전달됨 — number 필요 (nil? 확인 후 기본값 사용)
+1
+글
+[null]
+[0, "", 2]
+[2]
+[3]
+[2, 3, 4]
+[5, 3, 1]
+[1, 1.25, 1.5, 1.75]
+take 인자 순서 오류: (take n coll) 형식이 올바릅니다. 현재 입력: (take coll n)
+contracts_PROGRAM_EXIT=0
+PASS contracts
+boolean
+[E_TYPE_MISMATCH] +: 인자 1번에 boolean 전달됨 — number 필요 (str-to-num 변환 확인)
+Infinity
+-a-b-
+<a>b<a>
+$::bb
+a_b
+[]
+["a", "b:c"]
+0
+false
+["한", "😀", 1]
+b
+bc
+ab
+23
+source-edge_PROGRAM_EXIT=0
+PASS source-edge
+RAW_L07_BYTES=PASS
+L08_P2_PASS=11 FAIL=0
+PHASE2_SELF_EXIT=0
+NATIVE_SYMBOL_METADATA=PASS
+11
+22
+33
+44
+db:x
+http:x
+names EXIT=0
+PASS names
+1
+2
+2
+1
+9
+redefine EXIT=0
+PASS redefine
+12
+22
+3
+11
+2
+scope EXIT=0
+PASS scope
+1
+2
+7
+9
+5
+5
+17
+6
+values EXIT=0
+PASS values
+7
+9
+default EXIT=0
+PASS default
+7
+true
+false
+0
+true
+8
+false
+0
+8
+8
+8
+글
+missing
+9
+true
+true
+true
+false
+3
+1
+get EXIT=0
+PASS get
+STRICT_NIL
+9
+strict EXIT=0
+PASS strict
+1
+42
+load EXIT=0
+PASS load
+1
+cycle EXIT=0
+PASS cycle
+9
+[1,2,3]
+DEFAULT_THROW
+CALLBACK_THROW
+4
+99
+1
+order EXIT=0
+PASS order
+7
+8
+7
+local EXIT=0
+PASS local
+11
+true
+false
+true
+true
+13
+5
+1
+true
+true
+false
+true
+get-edge EXIT=0
+PASS get-edge
+E_TYPE_NIL
+TypeError
+(get nil "x") — cannot access key on nil. Use (get-or coll key default).
+값이 nil인지 (nil? x) 또는 (get-or x :key default) 로 먼저 확인하세요.
+strict-fields EXIT=0
+PASS strict-fields
+7
+4
+11
+UPDATE_THROW
+2
+9
+callbacks EXIT=0
+PASS callbacks
+NOT_FN
+not-fn EXIT=0
+PASS not-fn
+11
+22
+33
+44
+55
+aliases EXIT=0
+PASS aliases
+Uncaught error (line 2625): [load] 파일 없음: fixtures/does-not-exist.fl
+Stack trace:
+  at expand_loads (line 2607)
+  at cgc_run_positional (line 2725)
+  at cgc_run (line 2780)
+missing EXIT=1
+PASS missing
+L08_PASS=17 FAIL=0
+self_EXIT=0
+GET_NAMED=200:named-new
+GET_SAVED=200:named-old
+POST_NAMED=200:named-new
+GET_UNDERSCORE=200:underscore
+GET_ALIAS=200:defined
+GET_LATE=200:late
+GET_PROTOCOL=200:db:x
+L08_HTTP_PASS=7
+http_EXIT=0
+BEGIN REPRO
+HTTP=200
+FORM_MAP=PASS
+REPRO_EXIT=0
+BEGIN HTTP
+TE_CL_OVERSIZE_HTTP=400
+DUPLICATE_CL_OVERSIZE_HTTP=400
+PASS urlencoded-map-unicode-plus-empty
+PASS urlencoded-empty
+PASS a=%
+PASS a=%GG
+PASS a=%00
+PASS a=%FF
+PASS a=1&a=2
+PASS =x
+PASS multipart-multiple-same-name-nul-quoted-boundary
+PASS binary-file-0
+PASS binary-file-65535
+PASS binary-file-65536
+PASS binary-file-65537
+PASS binary-file-15728639
+PASS binary-file-15728640
+PASS binary-file-15728641
+PASS binary-file-8193
+PASS four-files
+PASS five-files
+PASS four-15MiB-files
+PASS body-64MiB-1
+PASS body-64MiB+0
+PASS body-64MiB+1
+PASS ../x
+PASS /x
+PASS C:\\x
+PASS .
+PASS ..
+PASS a:b
+PASS %2e%2e%2f
+PASS unselected-file
+PASS empty-name-nonempty-file
+PASS multipart/form-data
+PASS multipart/form-data; boundary=""
+PASS multipart/form-data; boundary=B; boundary=C
+PASS multipart/form-data; boundary="B "
+PASS boundary-70
+PASS boundary-71
+PASS missing-close-boundary
+PASS Content-Transfer-Encoding: base64
+
+PASS Content-Type: multipart/mixed
+
+PASS Content-Type: text/plain; charset=iso-8859-1
+
+PASS filename-star
+PASS field-file-collision
+PASS field-byte-boundary
+PASS field-byte-boundary
+PASS field-byte-boundary
+PASS field-count-boundary
+PASS field-count-boundary
+PASS field-count-boundary
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS incomplete-body-half-close
+PASS /forbid
+PASS /throw
+PASS /copy
+PASS /delete
+PASS concurrent-request-isolation
+PASS concurrent-100-request-recovery-scan
+PASS WRITE
+PASS SHORT
+PASS FLUSH
+PASS CLOSE
+PASS ALLOC
+PASS UNLINK
+PASS recover-after-unlink-failure
+PASS RANDOM
+PASS WRITE_SECOND
+PASS RECOVERY_ENOENT
+PASS urlencoded-over-1024
+PASS total-field-byte-boundary
+PASS total-field-byte-boundary
+PASS total-field-byte-boundary
+PASS total-part-count-boundary
+PASS total-part-count-boundary
+PASS total-part-count-boundary
+PASS field-name-boundary
+PASS field-name-boundary
+PASS field-name-boundary
+PASS filename-boundary
+PASS filename-boundary
+PASS filename-boundary
+PASS part-header-count
+PASS part-header-count
+PASS part-header-count
+PASS part-header-byte-boundary
+PASS part-header-byte-boundary
+PASS part-header-byte-boundary
+PASS false-boundary-prefix-preserved
+PASS form-pipeline-closes-after-first
+PASS sample.png
+PASS sample.gif
+PASS sample.jpg
+PASS filename-600-size-error
+PASS http-header-total-boundary
+PASS http-header-total-boundary
+PASS http-header-total-boundary
+PROTOCOL_BODY_WS_HTTP=200
+PASS websocket-text-in-upload-is-data
+PROTOCOL_BODY_SSE_HTTP=200
+PASS sse-text-in-upload-is-data
+PASS existing-sse-route-regression
+PASS json-regression
+PASS raw-body-regression
+L06_HTTP_PASS=110 FAIL=0
+LOG_REDACTION=PASS
+TIMEOUT_IDLE_HTTP=408 SECONDS=60.061
+PASS body-idle-timeout
+TIMEOUT_TRICKLE_HTTP=408 SECONDS=60.002
+PASS absolute-deadline-trickle
+L06_TIMEOUT_PASS=2 FAIL=0
+DISCONNECTED_SENDER_RECOVERY=PASS
+LIVE_INSTANCE_TEMP_PRESERVED=PASS
+SIGKILL_RESTART_OWN_TEMP=0
+RESTART_HTTP=200
+PERMANENT_COPY_PRESERVED=PASS
+STORAGE_missing_HTTP=503
+STORAGE_symlink_HTTP=503
+PASS urlencoded-map-unicode-plus-empty
+PASS urlencoded-empty
+PASS a=%
+PASS a=%GG
+PASS a=%00
+PASS a=%FF
+PASS a=1&a=2
+PASS =x
+PASS multipart-multiple-same-name-nul-quoted-boundary
+PASS binary-file-0
+PASS binary-file-65535
+PASS binary-file-65536
+PASS binary-file-65537
+PASS binary-file-15728639
+PASS binary-file-15728640
+PASS binary-file-15728641
+PASS binary-file-8193
+PASS four-files
+PASS five-files
+PASS four-15MiB-files
+PASS body-64MiB-1
+PASS body-64MiB+0
+PASS body-64MiB+1
+PASS ../x
+PASS /x
+PASS C:\\x
+PASS .
+PASS ..
+PASS a:b
+PASS %2e%2e%2f
+PASS unselected-file
+PASS empty-name-nonempty-file
+PASS multipart/form-data
+PASS multipart/form-data; boundary=""
+PASS multipart/form-data; boundary=B; boundary=C
+PASS multipart/form-data; boundary="B "
+PASS boundary-70
+PASS boundary-71
+PASS missing-close-boundary
+PASS Content-Transfer-Encoding: base64
+
+PASS Content-Type: multipart/mixed
+
+PASS Content-Type: text/plain; charset=iso-8859-1
+
+PASS filename-star
+PASS field-file-collision
+PASS field-byte-boundary
+PASS field-byte-boundary
+PASS field-byte-boundary
+PASS field-count-boundary
+PASS field-count-boundary
+PASS field-count-boundary
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+PASS framing-error
+TLS_PEER_ABORT_NO_RESPONSE=1
+PASS incomplete-body-half-close
+PASS /forbid
+PASS /throw
+PASS /copy
+PASS /delete
+PASS concurrent-request-isolation
+PASS concurrent-100-request-recovery-scan
+PASS WRITE
+PASS SHORT
+PASS FLUSH
+PASS CLOSE
+PASS ALLOC
+PASS UNLINK
+PASS recover-after-unlink-failure
+PASS RANDOM
+PASS WRITE_SECOND
+PASS RECOVERY_ENOENT
+PASS urlencoded-over-1024
+PASS total-field-byte-boundary
+PASS total-field-byte-boundary
+PASS total-field-byte-boundary
+PASS total-part-count-boundary
+PASS total-part-count-boundary
+PASS total-part-count-boundary
+PASS field-name-boundary
+PASS field-name-boundary
+PASS field-name-boundary
+PASS filename-boundary
+PASS filename-boundary
+PASS filename-boundary
+PASS part-header-count
+PASS part-header-count
+PASS part-header-count
+PASS part-header-byte-boundary
+PASS part-header-byte-boundary
+PASS part-header-byte-boundary
+PASS false-boundary-prefix-preserved
+PASS form-pipeline-closes-after-first
+PASS sample.png
+PASS sample.gif
+PASS sample.jpg
+PASS filename-600-size-error
+PASS http-header-total-boundary
+PASS http-header-total-boundary
+PASS http-header-total-boundary
+PROTOCOL_BODY_WS_HTTP=200
+PASS websocket-text-in-upload-is-data
+PROTOCOL_BODY_SSE_HTTP=200
+PASS sse-text-in-upload-is-data
+PASS existing-sse-route-regression
+PASS json-regression
+PASS raw-body-regression
+L06_TLS_PASS=110 FAIL=0
+L06_HTTP_TLS=PASS
+HTTP_EXIT=0
+BEGIN REGRESSIONS
+PASS sha256-known-answer
+PASS empty:read-ok
+PASS empty:read-length
+PASS empty:legacy-read-hash
+PASS empty:write-ok
+PASS empty:write-length
+PASS empty:write-bytes
+PASS empty:legacy-write-nil
+PASS empty:legacy-write-bytes
+PASS empty:append-ok
+PASS empty:append-length
+PASS empty:append-bytes
+PASS empty:copy-ok
+PASS empty:copy-length
+PASS empty:copy-bytes
+PASS text:read-ok
+PASS text:read-length
+PASS text:legacy-read-hash
+PASS text:write-ok
+PASS text:write-length
+PASS text:write-bytes
+PASS text:legacy-write-nil
+PASS text:legacy-write-bytes
+PASS text:append-ok
+PASS text:append-length
+PASS text:append-bytes
+PASS text:copy-ok
+PASS text:copy-length
+PASS text:copy-bytes
+PASS nul-first:read-ok
+PASS nul-first:read-length
+PASS nul-first:legacy-read-hash
+PASS nul-first:write-ok
+PASS nul-first:write-length
+PASS nul-first:write-bytes
+PASS nul-first:legacy-write-nil
+PASS nul-first:legacy-write-bytes
+PASS nul-first:append-ok
+PASS nul-first:append-length
+PASS nul-first:append-bytes
+PASS nul-first:copy-ok
+PASS nul-first:copy-length
+PASS nul-first:copy-bytes
+PASS nul-middle:read-ok
+PASS nul-middle:read-length
+PASS nul-middle:legacy-read-hash
+PASS nul-middle:write-ok
+PASS nul-middle:write-length
+PASS nul-middle:write-bytes
+PASS nul-middle:legacy-write-nil
+PASS nul-middle:legacy-write-bytes
+PASS nul-middle:append-ok
+PASS nul-middle:append-length
+PASS nul-middle:append-bytes
+PASS nul-middle:copy-ok
+PASS nul-middle:copy-length
+PASS nul-middle:copy-bytes
+PASS nul-last:read-ok
+PASS nul-last:read-length
+PASS nul-last:legacy-read-hash
+PASS nul-last:write-ok
+PASS nul-last:write-length
+PASS nul-last:write-bytes
+PASS nul-last:legacy-write-nil
+PASS nul-last:legacy-write-bytes
+PASS nul-last:append-ok
+PASS nul-last:append-length
+PASS nul-last:append-bytes
+PASS nul-last:copy-ok
+PASS nul-last:copy-length
+PASS nul-last:copy-bytes
+PASS all-bytes:read-ok
+PASS all-bytes:read-length
+PASS all-bytes:legacy-read-hash
+PASS all-bytes:write-ok
+PASS all-bytes:write-length
+PASS all-bytes:write-bytes
+PASS all-bytes:legacy-write-nil
+PASS all-bytes:legacy-write-bytes
+PASS all-bytes:append-ok
+PASS all-bytes:append-length
+PASS all-bytes:append-bytes
+PASS all-bytes:copy-ok
+PASS all-bytes:copy-length
+PASS all-bytes:copy-bytes
+PASS non-utf8:read-ok
+PASS non-utf8:read-length
+PASS non-utf8:legacy-read-hash
+PASS non-utf8:write-ok
+PASS non-utf8:write-length
+PASS non-utf8:write-bytes
+PASS non-utf8:legacy-write-nil
+PASS non-utf8:legacy-write-bytes
+PASS non-utf8:append-ok
+PASS non-utf8:append-length
+PASS non-utf8:append-bytes
+PASS non-utf8:copy-ok
+PASS non-utf8:copy-length
+PASS non-utf8:copy-bytes
+PASS boundary-8191:read-ok
+PASS boundary-8191:read-length
+PASS boundary-8191:legacy-read-hash
+PASS boundary-8191:write-ok
+PASS boundary-8191:write-length
+PASS boundary-8191:write-bytes
+PASS boundary-8191:legacy-write-nil
+PASS boundary-8191:legacy-write-bytes
+PASS boundary-8191:append-ok
+PASS boundary-8191:append-length
+PASS boundary-8191:append-bytes
+PASS boundary-8191:copy-ok
+PASS boundary-8191:copy-length
+PASS boundary-8191:copy-bytes
+PASS boundary-8192:read-ok
+PASS boundary-8192:read-length
+PASS boundary-8192:legacy-read-hash
+PASS boundary-8192:write-ok
+PASS boundary-8192:write-length
+PASS boundary-8192:write-bytes
+PASS boundary-8192:legacy-write-nil
+PASS boundary-8192:legacy-write-bytes
+PASS boundary-8192:append-ok
+PASS boundary-8192:append-length
+PASS boundary-8192:append-bytes
+PASS boundary-8192:copy-ok
+PASS boundary-8192:copy-length
+PASS boundary-8192:copy-bytes
+PASS boundary-8193:read-ok
+PASS boundary-8193:read-length
+PASS boundary-8193:legacy-read-hash
+PASS boundary-8193:write-ok
+PASS boundary-8193:write-length
+PASS boundary-8193:write-bytes
+PASS boundary-8193:legacy-write-nil
+PASS boundary-8193:legacy-write-bytes
+PASS boundary-8193:append-ok
+PASS boundary-8193:append-length
+PASS boundary-8193:append-bytes
+PASS boundary-8193:copy-ok
+PASS boundary-8193:copy-length
+PASS boundary-8193:copy-bytes
+PASS multi-block:read-ok
+PASS multi-block:read-length
+PASS multi-block:legacy-read-hash
+PASS multi-block:write-ok
+PASS multi-block:write-length
+PASS multi-block:write-bytes
+PASS multi-block:legacy-write-nil
+PASS multi-block:legacy-write-bytes
+PASS multi-block:append-ok
+PASS multi-block:append-length
+PASS multi-block:append-bytes
+PASS multi-block:copy-ok
+PASS multi-block:copy-length
+PASS multi-block:copy-bytes
+PASS read-write-underscore-alias
+PASS read-underscore-binary-hash
+PASS append-underscore-return
+PASS append-underscore-bytes
+PASS copy-underscore-return
+PASS copy-underscore-bytes
+PASS append-kebab-return
+PASS append-kebab-bytes
+PASS legacy-nonstring-display
+PASS sandbox-absolute-inside
+PASS sandbox-relative-dot
+PASS empty-path
+PASS wrong-path-type
+PASS wrong-data-type
+PASS nul-path-before-truncate
+PASS long-path
+PASS missing-input
+PASS missing-parent
+PASS readonly-output
+PASS directory-output
+PASS directory-input
+PASS fifo-does-not-block
+PASS parent-traversal
+PASS absolute-traversal
+PASS absolute-outside-root
+PASS symlink-leaf-rejected
+PASS symlink-parent-rejected
+PASS copy-same-path-preserves-input
+PASS copy-same-inode-preserves-input
+PASS rejections-preserve-sentinel
+PASS copy-rejections-preserve-source
+PASS legacy-read-failure-nil
+PASS legacy-append-failure-false
+PASS legacy-copy-failure-false
+PASS read-size-limit
+PASS copy-size-limit-before-truncate
+PASS write-size-limit-before-truncate
+PASS append-total-size-limit
+PASS size-errors-preserve-sentinel
+PASS read-exact-limit
+PASS read-exact-limit-bytes
+PASS write-exact-limit
+PASS write-exact-limit-bytes
+PASS short-read-retries
+PASS short-read-bytes
+PASS short-write-retries
+PASS short-write-bytes
+PASS read-failure
+PASS write-failure
+PASS flush-failure
+PASS write-close-failure
+PASS read-close-failure
+PASS read-allocation-failure
+PASS stat-failure
+PASS read-stream-failure
+PASS write-stream-failure
+PASS truncate-failure
+PASS truncate-error-preserves-file
+PASS copy-read-failure
+PASS copy-write-failure
+PASS copy-close-failure
+PASS append-write-failure
+PASS append-close-failure
+PASS legacy-append-io-failure
+PASS legacy-copy-io-failure
+PASS failure-paths-close-descriptors
+L07_SELF_PASS=221
+L07_SELF_FAIL=0
+L07_INPUT_AND_OUTSIDE_HASHES=UNCHANGED
+PASS fl_nil tag
+PASS fl_int
+PASS fl_float
+PASS fl_bool
+PASS fl_str_val tag
+PASS fl_str_val data
+PASS truthy bool true
+PASS truthy bool false
+PASS truthy nil
+PASS truthy int 0
+PASS truthy int 1
+PASS fl_add int
+PASS fl_sub
+PASS fl_mul
+PASS fl_div
+PASS fl_mod
+PASS fl_eq true
+PASS fl_eq false
+PASS fl_lt true
+PASS fl_lt false
+PASS fl_lte eq
+PASS fl_gt
+PASS fl_gte eq
+PASS fl_neq
+PASS fl_not true
+PASS fl_not false
+PASS fl_str_n concat
+PASS fl_add string
+PASS fl_file_write returns nil
+PASS fl_file_read tag
+PASS fl_file_read data
+PASS fl_vec_new tag
+PASS fl_vec_new len
+PASS fl_vec_from len
+PASS fl_vec_get 0
+PASS fl_vec_get 2
+PASS fl_vec_push original unchanged
+PASS fl_vec_push new len
+PASS fl_vec_push new elem
+PASS fl_vec_set original unchanged
+PASS fl_vec_set new val
+PASS fl_vec_get OOB returns nil
+PASS fl_map_new tag
+PASS fl_map_new len
+PASS fl_map_from_pairs len
+PASS fl_map_get a
+PASS fl_map_get b
+PASS fl_map_get missing
+PASS fl_map_set original unchanged
+PASS fl_map_set new len
+PASS fl_map_set new val
+PASS fl_map_set upsert len unchanged
+PASS fl_map_set upsert val
+fl_println: 42
+(above should be 42)
+
+All tests PASS
+L07_RUNTIME_REGRESSION=PASS
+🔍 FreeLang C Native Runtime 테스트
+
+✅ JIT add1(41)=42
+✅ JIT mul2(21)=42
+✅ JIT addxy(10,32)
+✅ JIT add1(0)=1
+✅ JIT pool_cap=64KB
+✅ JIT ready=true
+✅ GC atom 초기화
+✅ GC 정수 누산 100회
+✅ GC 벡터 atom 20회
+✅ GC JIT 풀 준비
+
+────────────────────────────
+결과: 10 PASS / 0 FAIL / 10 총
+🎉 모든 테스트 통과!
+L06_EXISTING_REGRESSIONS=PASS
+REGRESSIONS_EXIT=0
+BEGIN BOOTSTRAP
+STAGE0_GENERATED_SOURCE_CONTAMINATION=0
+STAGE0_SHA=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
+STAGE0_EQ_CANONICAL=DIFFERENT
+STAGE0_C_BUILD=PASS
+STAGE0_TO_STAGE1=PASS
+STAGE0_NATIVE_EXEC=PASS
+STAGE1_C_BUILD=PASS
+STAGE1_TO_STAGE2=PASS
+STAGE2_C_BUILD=PASS
+STAGE2_TO_STAGE3=PASS
+STAGE2_EQ_STAGE3=PASS
+ARRAY_LOOP_GENERATE=PASS
+ARRAY_LOOP_BUILD=PASS
+ARRAY_LOOP=PASS
+NODE_INVOCATIONS=0
+NPM_INVOCATIONS=0
+TS_JS_INVOCATIONS=0
+CGC_BIN_INVOCATIONS=0
+AFJ_FILE_ACCESSES=0
+STAGE0_SHA=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
+STAGE1_SHA=cb872631385823f7b41a8c26b09faeb155b4cab649cb42b33343d24f3a5f8696
+STAGE2_SHA=a51faa52652845e488ff7920a16e85ad8f2a147b99089c0ebf623dd02f4ead3a
+STAGE3_SHA=a51faa52652845e488ff7920a16e85ad8f2a147b99089c0ebf623dd02f4ead3a
+RESIDUAL_PROCESSES=0
+CLEAN_CHECKOUT=PASS
+L07_BOOTSTRAP_TRACE_ARCHIVE=RETAINED
+BOOTSTRAP_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+L06_NATIVE_GATES=PASS
+REGRESSIONS_AND_BOOTSTRAP_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+L08_C01_C03_GATES=PASS
+PREVIOUS_GATES_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+L08_C05_C06_C08_C09_GATES=PASS
+PREVIOUS_GATES_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+L08_C04_C07_C10_GATES=PASS
+PREVIOUS_GATES_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+L08_PLATFORM_CURRENT_GATES=PASS
+SEQUENCED_PLATFORM_FULL_EXIT=0
