@@ -22,7 +22,10 @@ FLValue fl_v11_fd(FLValue name,FLValue argv){
     const char*op=_strval(name);FLVector*v=(FLVector*)argv.obj;
     FLValue arg=v->len?v->data[0]:fl_nil(),value=v->len>1?v->data[1]:fl_nil();
     int creating=!strcmp(op,"fd-create");
-    if(creating||!strcmp(op,"fd-open")){
+    int retaining=!strcmp(op,"fd-open-with-parent");
+    if(((creating||!strcmp(op,"fd-sync-parent"))&&v->len!=1)||
+       ((retaining||!strcmp(op,"fd-write-bytes")||!strcmp(op,"fd-read-bytes")||!strcmp(op,"fd-truncate"))&&v->len!=2))return vfd_error(op,EINVAL);
+    if(creating||retaining||!strcmp(op,"fd-open")){
         char mode='w';
         if(!creating){
             if(value.tag!=FL_STRING)return vfd_error(op,EINVAL);
@@ -36,7 +39,7 @@ FLValue fl_v11_fd(FLValue name,FLValue argv){
         if(mode=='a')flags|=O_APPEND;
         if(creating)flags|=O_EXCL;
         int fd=openat(parent,leaf,flags|O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK,creating?0600:0666),err=errno;
-        if(!creating){close(parent);parent=-1;}
+        if(!creating&&!retaining){close(parent);parent=-1;}
         if(fd<0){if(parent>=0)close(parent);return vfd_error(op,err);}
         struct stat st;
         if(creating&&fchmod(fd,0600))err=errno;
