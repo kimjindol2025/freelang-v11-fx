@@ -30,8 +30,9 @@ run(){
  rg '^WAL_TAIL_' "$root/$label.actual" > "$root/$label.result" || true
  if [[ "$rc" == 0 && ! -s "$root/$label.stderr" ]] && diff -u "$ROOT/tests/l08-platform/wal-tail-$phase.expected" "$root/$label.result";then passed=$((passed+1));else failed=$((failed+1));fi
 }
+for backup_state in absent matching;do
 for mode in prepare-partial commit-partial complete-no-newline;do
- root="$out/$mode";mkdir -p "$root/tmp"
+ root="$out/$backup_state/$mode";mkdir -p "$root/tmp"
  run create create
  if [[ "$mode" == complete-no-newline ]];then
   [[ $(tail -c 1 "$root/blog.wal" | od -An -tu1 | tr -d ' ') == 10 ]]
@@ -39,7 +40,7 @@ for mode in prepare-partial commit-partial complete-no-newline;do
  fi
  cp "$root/blog.wal" "$root/before-resume.wal"
  original_hash=$(sha256sum "$root/before-resume.wal" | cut -d' ' -f1)
- if [[ "${L08_BLOG_WAL_TAIL_PRESEED_BACKUP:-0}" == 1 ]];then
+ if [[ "$backup_state" == matching ]];then
   cp "$root/before-resume.wal" "$root/blog.wal.recovery-$original_hash"
  fi
  run resume resume
@@ -53,6 +54,7 @@ for mode in prepare-partial commit-partial complete-no-newline;do
   if ! cmp -s "$root/blog.wal" "$root/after-resume.wal";then echo WAL_TAIL_READER_UNCHANGED=FAIL;failed=$((failed+1));fi
  done
  if [[ -f "$backup" ]] && cmp -s "$backup" "$root/before-resume.wal";then echo WAL_TAIL_BACKUP_UNCHANGED=PASS;else echo WAL_TAIL_BACKUP_UNCHANGED=FAIL;failed=$((failed+1));fi
+done
 done
 printf 'WAL_TAIL_PASS=%s FAIL=%s\n' "$passed" "$failed"
 [[ "$failed" == 0 ]]

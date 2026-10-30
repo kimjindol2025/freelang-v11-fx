@@ -19,6 +19,8 @@ if L08_CONCAT_OUT="$out/concat-memory" L08_CONCAT_COMPILER="$out/self/compiler" 
 cat "$out/concat-memory.log";printf 'CONCAT_MEMORY_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_COMPILER_LEX_OUT="$out/compiler-lex-memory" L08_COMPILER_LEX_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/compiler-lex-memory.execve.log" bash "$ROOT/scripts/verify-l08-compiler-lex-memory.sh" > "$out/compiler-lex-memory.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/compiler-lex-memory.log";printf 'COMPILER_LEX_MEMORY_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_REPAIR_IO_OUT="$out/repair-io" L08_REPAIR_IO_COMPILER="$out/self/compiler" L08_REPAIR_IO_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/repair-io.execve.log" bash "$ROOT/scripts/verify-l08-repair-io.sh" > "$out/repair-io.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/repair-io.log";printf 'REPAIR_IO_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_EXTERN_OUT="$out/extern" L08_EXTERN_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/extern.execve.log" bash "$ROOT/scripts/verify-l08-extern-self.sh" > "$out/extern.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/extern.log";printf 'EXTERN_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_ATOM_UPDATE_OUT="$out/atom-update" L08_ATOM_UPDATE_COMPILER="$out/self/compiler" L08_ATOM_UPDATE_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve,clone,clone3 -o "$out/atom-update.execve.log" bash "$ROOT/scripts/verify-l08-atom-update.sh" > "$out/atom-update.log" 2>&1;then rc=0;else rc=$?;fi
