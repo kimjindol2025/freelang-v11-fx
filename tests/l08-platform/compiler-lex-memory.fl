@@ -1,0 +1,17 @@
+(load "compiler-library.fl")
+(define source (str-repeat "(println 1)\n" 1000))
+(compiler-lex-meter-start)
+(define tokens (lex source))
+(define live (compiler-lex-meter-live))
+(define peak (compiler-lex-meter-peak))
+(println (str "COMPILER_LEX_LIVE_BYTES=" live))
+(println (str "COMPILER_LEX_PEAK_BYTES=" peak))
+(if (= (count tokens) 4000) (println "COMPILER_LEX_COUNT=PASS") (throw "lexer count mismatch"))
+(doseq [i (range 0 1000)]
+ (let [a (get tokens (* i 4)) b (get tokens (+ (* i 4) 1)) c (get tokens (+ (* i 4) 2)) d (get tokens (+ (* i 4) 3))]
+  (if (and (= (get a "kind") "LParen") (= (get a "line") (+ i 1)) (= (get a "col") 1)
+           (= (get b "kind") "Symbol") (= (get b "value") "println") (= (get b "col") 2)
+           (= (get c "kind") "Number") (= (get c "value") "1") (= (get c "col") 10)
+           (= (get d "kind") "RParen") (= (get d "col") 11)) nil (throw "lexer token mismatch"))))
+(println "COMPILER_LEX_EVERY_TOKEN=PASS")
+(if (and (<= live 134217728) (<= peak 167772160)) (println "COMPILER_LEX_BOUNDED_HEAP=PASS") (throw "compiler lexer heap budget exceeded"))
