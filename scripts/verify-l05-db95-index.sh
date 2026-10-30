@@ -6,10 +6,12 @@ source "$ROOT/tests/l07/build.sh"
 src="${L05_DB_SOURCE_ROOT:?approved database source directory required}"
 compiler="${L05_DB_NATIVE_COMPILER:?native compiler required}"
 out="${L05_DB_INDEX_OUT:-$(mktemp -d)}"
-[[ -f "$src/tcp-server.fls" ]]
+entry="${L05_DB_ENTRY:-tcp-server.fls}"
+case "$entry" in tcp-server.fls|native-store.fl) ;; *) exit 1;;esac
+[[ -f "$src/$entry" ]]
 mkdir -p "$out/source/tests" "$out/root/tmp"
 ln -s "$src" "$out/source/src"
-cp "$ROOT/tests/l08-platform/db95-index.fl" "$out/source/tests/main.fl"
+sed "s@\"../src/tcp-server.fls\"@\"../src/$entry\"@" "$ROOT/tests/l08-platform/db95-index.fl" > "$out/source/tests/main.fl"
 flags=(-O1 -g -w -I "$ROOT/runtime")
 if [[ -n "${L05_DB_SANITIZER_LIBDIR:-}" ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L05_DB_SANITIZER_LIBDIR")
