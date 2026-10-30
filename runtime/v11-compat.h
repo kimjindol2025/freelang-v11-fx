@@ -756,6 +756,10 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
     if(IS("identity"))return ARG(0);
+    if(IS("file-sha256-result")||IS("file_sha256_result")){
+        if(n!=1){fl_throw(fl_make_error("TypeError","file-sha256-result: exactly one argument required"));return fl_nil();}
+        return fl_file_sha256_result(ARG(0));
+    }
     if(IS("bytes-count")||IS("bytes-slice")){
         int slicing=IS("bytes-slice");
         if(n!=(slicing?3:1)||ARG(0).tag!=FL_STRING){

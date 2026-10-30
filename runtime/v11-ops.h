@@ -14,6 +14,7 @@ static const char *const v11_ops[] = {
 "fd-open","fd-write","fd-read","fd-fsync","fd-close","fd-seek","fd-flush",
 "bytes-count","bytes-slice","fd-create","fd-write-bytes","fd-read-bytes","fd-sync-parent","fd-truncate",
 "fd-open-with-parent",
+"file-sha256-result","file_sha256_result",
 "json-parse","json-str","json-stringify","auth-sha256",
 "auth-bearer-extract","auth-password-needs-rehash","auth-random-token","auth-hash-password","auth-csrf-token","auth-csrf-verify",
 "server-use","server-static","server-body-limit","server-header","server-set-cookie","server-redirect-cookie","server-req-cookie","server-req-json","server-req-header","server-req-query","server-json","server-html","server-text","server-status","server-redirect",

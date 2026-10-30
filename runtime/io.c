@@ -10,6 +10,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#ifndef FL_NO_CRYPTO
+#include <openssl/evp.h>
+#endif
 
 FLValue fl_bit_xor(FLValue a, FLValue b) { return fl_int(a.i ^ b.i); }
 FLValue fl_bit_and(FLValue a, FLValue b) { return fl_int(a.i & b.i); }
@@ -121,6 +124,60 @@ static void file_write_all(FILE* stream, const char* data, size_t length, FileEr
         offset += n; e->bytes += n;
         if (!n || ferror(stream)) file_error(e, "WRITE_FAILED", errno);
     }
+}
+
+FLValue fl_file_sha256_result(FLValue path) {
+    FileError e = {0};
+#ifdef FL_NO_CRYPTO
+    (void)path;
+    file_error(&e, "HASH_UNAVAILABLE", ENOSYS);
+    return file_result(&e, fl_nil());
+#else
+    struct stat before, after;
+    int fd = file_open(path, O_RDONLY | O_NONBLOCK, &e);
+    if (fd < 0) return file_result(&e, fl_nil());
+    EVP_MD_CTX* ctx = NULL;
+    unsigned char digest[EVP_MAX_MD_SIZE], buffer[65536];
+    unsigned int digest_length = 0;
+    if (file_stat(fd, &before, 1, &e)) {
+        ctx = EVP_MD_CTX_new();
+        if (!ctx || EVP_DigestInit_ex(ctx, EVP_sha256(), NULL) != 1)
+            file_error(&e, "HASH_FAILED", EIO);
+    }
+    while (!e.code) {
+        ssize_t n = read(fd, buffer, sizeof buffer);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            file_error(&e, "READ_FAILED", errno); break;
+        }
+        if (!n) break;
+        if ((size_t)n > FL_FILE_IO_MAX_BYTES - e.bytes) {
+            file_error(&e, "SIZE_LIMIT", EFBIG); break;
+        }
+        e.bytes += (size_t)n;
+        if (EVP_DigestUpdate(ctx, buffer, (size_t)n) != 1)
+            file_error(&e, "HASH_FAILED", EIO);
+    }
+    if (!e.code) {
+        if (fstat(fd, &after)) file_error(&e, "READ_FAILED", errno);
+        else if (e.bytes != (uint64_t)before.st_size ||
+                 before.st_size != after.st_size ||
+                 before.st_mtim.tv_sec != after.st_mtim.tv_sec ||
+                 before.st_mtim.tv_nsec != after.st_mtim.tv_nsec ||
+                 before.st_ctim.tv_sec != after.st_ctim.tv_sec ||
+                 before.st_ctim.tv_nsec != after.st_ctim.tv_nsec)
+            file_error(&e, "FILE_CHANGED", EAGAIN);
+    }
+    if (!e.code && (EVP_DigestFinal_ex(ctx, digest, &digest_length) != 1 || digest_length != 32))
+        file_error(&e, "HASH_FAILED", EIO);
+    EVP_MD_CTX_free(ctx);
+    /* close may already have released the descriptor when it reports EINTR. */
+    if (close(fd)) file_error(&e, "CLOSE_FAILED", errno);
+    if (e.code) return file_result(&e, fl_nil());
+    char hex[65];
+    for (size_t i = 0; i < 32; i++) snprintf(hex + i * 2, 3, "%02x", digest[i]);
+    return file_result(&e, fl_str_val(hex));
+#endif
 }
 
 FLValue fl_file_read_result(FLValue path) {
