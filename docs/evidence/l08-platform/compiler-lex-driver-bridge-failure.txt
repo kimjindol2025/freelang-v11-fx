@@ -1,0 +1,7 @@
+COMPILER_LEX_BEFORE_FIXED_DRIVER_EXIT=1
+<가림>:4577:(.text+0x9ade7): undefined reference to `fl_compiler_bindings'
+<가림>:4895:(.text+0xac180): undefined reference to `fl_compiler_realpath'
+<가림>:4990:(.text+0xaf4df): undefined reference to `fl_compiler_realpath'
+<가림>:5009:(.text+0xb0444): undefined reference to `fl_compiler_realpath'
+<가림>:5075:(.text+0xb3e19): undefined reference to `fl_compiler_add_extern'
+collect2: error: ld returned 1 exit status
