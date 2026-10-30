@@ -1,5 +1,7 @@
 # WAL 경계 복구와 native 메모리 보완
 
+이 문서는 앞선 발행 당시 기록이다. 이후 자기 컴파일의 코드 생성 순서 수정·독립 gate 통과·백업 후속 결과는 [최신 후속 보고](https://github.com/kimjindol2025/freelang-v11-fx/blob/feat/blog-platform-completion/docs/L08-bootstrap-backup-progress.md)에 있다.
+
 ## 확인한 것
 
 플랫폼 전체 완료 보고가 아니다. 운영 자료·설정·계정에 접근하지 않고 승인된 소스 복사본과 새 합성 WAL만 사용했다. 서버 23·25 접속, 합치기·배포·강제 푸시, 백업 원본 삭제는 하지 않았다. 새 TS·수작업 JS·Python 파일은 없다.
