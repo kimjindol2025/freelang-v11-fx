@@ -1,0 +1,45 @@
+(defn check [condition label] (if condition (println label) (throw (str "FILE_HASH_ASSERT " label))))
+(defn rejected [path code label]
+  (let [r (file-sha256-result path)]
+    (check (and (= (get r "ok") false) (= (get r "error") code)
+                (= (get r "data") nil) (> (get r "errno") 0)) label)))
+(define mode (env-get "L08_HASH_CASE"))
+(define before-fds (hash-test-fds))
+(if (= mode "normal")
+  (do
+    (let [r (file-sha256-result "empty")]
+      (check (and (get r "ok") (= (get r "bytes") 0)
+                  (= (get r "data") "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+                  (= (get r "error") "") (= (get r "errno") 0)) "FILE_HASH_EMPTY=PASS"))
+    (let [r (file_sha256_result "all-bytes")]
+      (check (and (get r "ok") (= (get r "bytes") 256)
+                  (= (get r "data") (env-get "L08_HASH_ALL_SHA"))) "FILE_HASH_ALL_BYTES=PASS"))
+    (let [r (file-sha256-result "utf8")]
+      (check (and (get r "ok") (= (get r "data") (env-get "L08_HASH_UTF8_SHA"))) "FILE_HASH_UTF8_NUL=PASS"))
+    (rejected nil "INVALID_PATH" "FILE_HASH_NIL=PASS")
+    (rejected 7 "INVALID_PATH" "FILE_HASH_TYPE=PASS")
+    (rejected "" "INVALID_PATH" "FILE_HASH_EMPTY_PATH=PASS")
+    (rejected (get (file-read-result "nul-path") "data") "INVALID_PATH" "FILE_HASH_NUL_PATH=PASS")
+    (rejected "missing" "OPEN_FAILED" "FILE_HASH_MISSING=PASS")
+    (rejected "../outside/sentinel" "PATH_OUTSIDE_BASE" "FILE_HASH_TRAVERSAL=PASS")
+    (rejected "link" "OPEN_FAILED" "FILE_HASH_SYMLINK=PASS")
+    (rejected "parent-link/sentinel" "OPEN_FAILED" "FILE_HASH_PARENT_SYMLINK=PASS")
+    (rejected "." "UNSUPPORTED_FILE" "FILE_HASH_DIRECTORY=PASS")
+    (rejected "pipe" "UNSUPPORTED_FILE" "FILE_HASH_FIFO=PASS")
+    (rejected "too-large" "SIZE_LIMIT" "FILE_HASH_LIMIT=PASS")
+    (let [before (hash-test-rss)
+          r (file-sha256-result "large")
+          after (hash-test-rss)]
+      (check (and (get r "ok") (= (get r "bytes") 67108864)
+                  (= (get r "data") (env-get "L08_HASH_LARGE_SHA"))) "FILE_HASH_LARGE=PASS")
+      (check (< (- after before) 16384) "FILE_HASH_RSS_DELTA_LT_16_MIB=PASS")))
+  (do
+    (hash-test-arm mode)
+    (let [r (file-sha256-result "hash-target")]
+      (if (or (= mode "eintr") (= mode "short"))
+        (check (and (get r "ok") (= (get r "bytes") 256)
+                    (= (get r "data") (env-get "L08_HASH_ALL_SHA"))) (str "FILE_HASH_" mode "=PASS"))
+        (check (and (= (get r "ok") false) (= (get r "data") nil)
+                    (= (get r "error") (if (= mode "read") "READ_FAILED"
+                      (if (= mode "close") "CLOSE_FAILED" "FILE_CHANGED")))) (str "FILE_HASH_" mode "=PASS"))))))
+(check (= (hash-test-fds) before-fds) "FILE_HASH_NO_FD_LEAK=PASS")
