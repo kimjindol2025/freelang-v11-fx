@@ -9,6 +9,12 @@ printf 'PLATFORM_SELF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 ]]
 if L08_SNAPSHOT_OUT="$out/atom-snapshot" L08_SNAPSHOT_COMPILER="$out/self/compiler" L08_SNAPSHOT_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/atom-snapshot.execve.log" bash "$ROOT/scripts/verify-l08-atom-snapshot.sh" > "$out/atom-snapshot.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/atom-snapshot.log";printf 'ATOM_SNAPSHOT_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if L08_HASH_OUT="$out/file-hash" L08_HASH_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/file-hash.execve.log" bash "$ROOT/scripts/verify-l08-file-hash.sh" > "$out/file-hash.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/file-hash.log";printf 'FILE_HASH_NATIVE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+if [[ -n "${L08_TIMER_SANITIZER_LIBDIR:-}" ]];then
+ if L08_HASH_OUT="$out/file-hash-sanitizer" L08_HASH_COMPILER="$out/self/compiler" L08_HASH_SANITIZER_LIBDIR="$L08_TIMER_SANITIZER_LIBDIR" strace -f -e trace=execve -o "$out/file-hash-sanitizer.execve.log" bash "$ROOT/scripts/verify-l08-file-hash.sh" > "$out/file-hash-sanitizer.log" 2>&1;then rc=0;else rc=$?;fi
+ cat "$out/file-hash-sanitizer.log";printf 'FILE_HASH_SANITIZER_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
+else echo FILE_HASH_SANITIZERS=UNEXECUTED_MISSING_LIBDIR;fi
 if L08_TAIL_OUT="$out/tail" L08_TAIL_NATIVE_COMPILER="$out/self/compiler" L08_TAIL_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/tail.execve.log" bash "$ROOT/scripts/verify-l08-tail-self.sh" > "$out/tail.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/tail.log";printf 'TAIL_SELF_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_DEFINE_OUT="$out/define-sequence" L08_DEFINE_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/define-sequence.execve.log" bash "$ROOT/scripts/verify-l08-define-sequence.sh" > "$out/define-sequence.log" 2>&1;then rc=0;else rc=$?;fi
