@@ -1,0 +1,15 @@
+(load "../app/store.fl")
+(define rows (get (execute-ast {"type" "select" "table" "l08_tail"}) "rows"))
+(if (and (= (count rows) 1) (= (get (first rows) "id") "kept") (= (get (first rows) "title") "원본 한🙂"))
+  (println "WAL_REFUSE_DATA=PASS") (throw "committed record changed"))
+(if (= (env-get "L08_WAL_REFUSE_PHASE") "reader") nil
+  (let [baseline (repair-test-fds)
+        rejected (try
+                   (do (afj-tcp-commit-ast {"type" "insert" "table" "l08_tail" "row" {"id" "after-restart" "title" "재개 한🙂"}}) false)
+                   (catch [error] (str-includes (error_message error) "DB_WRITE_ABORTED_RESTART_REQUIRED")))]
+    (if rejected (println "WAL_REFUSE_WRITE=PASS") (throw "unsafe backup accepted"))
+    (if (try (do (execute-ast {"type" "select" "table" "l08_tail"}) false)
+          (catch [error] (str-includes (error_message error) "DB_RECOVERY_REQUIRED")))
+      (println "WAL_REFUSE_POISON=PASS") (throw "reads continued after failed repair"))
+    (if (= baseline (repair-test-fds))
+      (println "WAL_REFUSE_NO_LEAK=PASS") (throw "repair leaked descriptors"))))
