@@ -1,5 +1,17 @@
 # L01 J안: 최초 생성물의 실제 브라우저 검증
 
+## 최신 제품 연결과 자체 검증
+
+후속 `fa37289276bf9035e27c9497e94fa3a9387c1c8e`는 string?·typed focus·언어 공통 html-escape를 FreeLang 지원 소스에 제공한다. 정답을 먼저 고정했고 미지원 생성 실패와 focus 최초 표본 실패를 보존했다. 같은 생성물의 실제 입력은 정상이며 focus 표본은 자신의 page 활성화 전 `0`, 후 `1`이었다. C는 Element.focus를 대신 호출하지 않으며 actual Input.insertText와 :focus로 검사한다. 소스 계약은 [editor-required-contract](../tests/l01/editor-required-contract.md)다.
+
+최신 실제 Chrome 결과는 의미/HTML `37 PASS / 0 FAIL`, 입력·이벤트/focus `26 PASS / 0 FAIL`, DOM/URL `31 PASS / 0 FAIL`이다. 각 실행의 native 의미 정답·생성물 재현성·compiler 거부 `10/0`·종료 `0`을 확인했다. 원문은 l01-shared-html-semantics.txt, l01-shared-html-events.txt, l01-shared-html-dom.txt다. 기존 browser str의 atom 등 미지원 타입을 html-escape 전체 지원으로 주장하지 않는다.
+
+같은 .fl 제품 모델은 native/browser 각각 `21 PASS / 0 FAIL`이며 실제 블로그 새 작성·사진·포인터/키보드·undo/redo·저장·기존 시각 편집기 재열기는 세 크기 합계 `48 PASS / 0 FAIL`이다. 독립 reader `3/0`에서 합성 3글·1이미지의 정확한 본문·상태와 WAL 불변을 확인했고 공개 draft 경로는 각각 HTTP `404`다. 기존 편집기 회귀는 `27/0`이다. [제품 소스·실패·원문·화면·미확인](https://github.com/kimjindol2025/blog1/blob/feat/blog-platform-completion/docs/block-editor-progress.md)에 구분했다. 새 화면은 생성 JS, 기존 화면 재열기/회귀는 기존 JS 무수정 실행이며 실제 비밀번호 로그인은 미실행이다.
+
+초기 고정 `188ea729681f4a652769835fdb82f48986a14fd8`의 전체 native 회귀는 `L01_NATIVE_FULL_EXIT=0`, `L08_PLATFORM_CURRENT_GATES=PASS`다. L08 3차 11/0·2차 11/0·1차 17/0, L06 HTTP/TLS 각각 110/0, L07 221/0, 변경하지 않은 bootstrap 0이다. stage2·stage3 SHA-256은 모두 `6f7c143734a8492fb6ae9ab77036f619c41915d0181a6f263e95985cf90ad423`다. [전체 원문](evidence/l08-platform/l01-native-full.txt)을 보존했다. 이후 string?/focus 고정 `f6fc692759fbb3a44603518f777c5f1a3b470c32`의 새 전체 회귀는 진행 중이며 HTML 후속 변경의 위 자체 결과와 구분한다. 앞선 통과를 최신 코드 전체 통과로 대신하지 않는다.
+
+모든 도구 execve 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. Chrome 내부에서 생성 JS/기존 JS를 실행한 것과 별도 도구 미호출을 구분한다. JS 주입/Runtime.evaluate는 0이다. L01 전체·제품 1단계·전체 PRD를 완료 처리하지 않았다.
+
 ## 확인한 것
 
 사용자가 결정한 J안에 따라 FreeLang에서 브라우저 JS를 생성했다. 제품 JS를 손으로 작성하거나 생성물에 패치하지 않았다. 구현 대상은 `fa05146fa670080bb39f2ce38a7250f3c2600f1e`이며 runtime/self 구현은 증거 보존 커밋 `188ea729681f4a652769835fdb82f48986a14fd8`까지 동일하다.
@@ -67,6 +79,6 @@ DOM 생성 JS SHA-256은 `8c352d4255359d13b77c178064dc00a98f651318034c3790c61d69
 
 L01 전체와 PRD는 미완료다. 위 입력·이벤트와 제한된 DOM 구성을 제외한 선택 영역·fetch/취소·타이머·undo/redo·직렬화·자동저장·제품 편집기 전환은 아직 인수하지 않았다. 실제 IME composition·붙여넣기·모바일 가상 키보드와 전체 DOM/브라우저 호환은 이 작은 자체 시험으로 대신하지 않는다. 지원하지 않는 전체 표준 라이브러리를 호환으로 주장하지 않는다. 기존 --ast 숫자 debug JSON 오류도 미수정이다.
 
-이전 runtime `cdad51e78deee1c3cde014fd106566db77159afc`의 전체 회귀와 변경하지 않은 bootstrap은 종료 `0`으로 확인했다. 이후 L01 compiler 변경과 generation-only 관문을 포함한 고정 `188ea729681f4a652769835fdb82f48986a14fd8`의 새 전체 실행은 진행 중이며 앞선 통과로 대신하지 않는다. generation-only는 browser 미실행을 명시한다.
+이전 runtime `cdad51e78deee1c3cde014fd106566db77159afc`와 초기 L01 고정 `188ea729681f4a652769835fdb82f48986a14fd8`의 전체 회귀·변경하지 않은 bootstrap은 각각 종료 `0`이다. 현재 새 전체 실행은 `f6fc692759fbb3a44603518f777c5f1a3b470c32`이며 그 이후 코드의 전체 결과로 확대하지 않는다. generation-only는 browser 미실행을 명시하고 위 별도 Chrome 검증과 구분한다.
 
 서버 23·25·운영 자료·기존 backup에는 접근하거나 변경하지 않았다. 합치기·배포·강제 푸시는 하지 않았다. 실제 경로는 `<가림>`이다.

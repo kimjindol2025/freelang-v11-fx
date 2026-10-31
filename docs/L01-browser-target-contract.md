@@ -4,7 +4,7 @@
 
 ## CLI와 경계
 
-제안 CLI는 `compiler --browser-js input.fl output.js`다. 입력 load 확장과 기존 parser를 재사용하며 별도 JS parser나 Node를 도입하지 않는다. 출력은 생성물이며 compiler/source/runtime/options와 SHA-256을 기록한다. 지원하지 않는 IR·잘못된 인자·알 수 없는 host intrinsic은 명확하게 실패한다. native C·raw JS·eval로 우회하지 않는다. 실패를 정상 생성물로 표시하지 않는다.
+CLI는 `compiler --browser-js input.fl output.js`다. 입력 load 확장과 기존 parser를 재사용하며 별도 JS parser나 Node를 도입하지 않는다. 출력은 생성물이며 compiler/source/runtime/options와 SHA-256을 기록한다. 지원하지 않는 IR·잘못된 인자·알 수 없는 host intrinsic은 명확하게 실패한다. native C·raw JS·eval로 우회하지 않는다. 실패를 정상 생성물로 표시하지 않는다.
 
 브라우저 host API의 첫 계약은 browser-by-id(존재하지 않으면 nil)와 browser-set-text!(요소,문자열)다. textContent를 사용하며 문자열을 HTML로 실행하지 않는다. DOM node 없는 경우·잘못된 타입은 실패한다. 후속 작업에 DOM 생성/속성·이벤트·선택 영역·타이머·fetch/취소·편집 이력을 추가하고 각각 .fl 자체 시험을 둔다. 두 API만으로 L01 전체 완료를 판정하지 않는다.
 
