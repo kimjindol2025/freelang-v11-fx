@@ -12,6 +12,7 @@
 (record "J_HOST_VALUE_UNICODE" (= (browser-value editor) "한😀<b>"))
 (browser-set-text! literal "<img src=x>")
 (record "J_HOST_TEXT_LITERAL" (= (browser-text literal) "<img src=x>"))
+(record "J_HOST_ELEMENT_IDENTITY" (and (= editor (browser-by-id "editor")) (= (= editor literal) false)))
 (record "J_HOST_VALUE_TYPE_REJECT" (rejects (fn [] (browser-set-value! editor 1))))
 (record "J_HOST_VALUE_ELEMENT_REJECT" (rejects (fn [] (browser-value literal))))
 (record "J_HOST_VALUE_ARITY_REJECT" (rejects (fn [] (browser-value editor "extra"))))
@@ -37,6 +38,7 @@
 (define click-handler (fn [event] (swap! click-count (fn [count] (+ count 1)))))
 (define first-token (browser-on! button "click" click-handler))
 (define second-token (browser-on! button "click" click-handler))
+(record "J_HOST_TOKEN_IDENTITY" (and (= first-token first-token) (= (= first-token second-token) false)))
 (define phase (atom 0))
 (browser-on! button "click" (fn [event]
   (if (= (deref phase) 0)
