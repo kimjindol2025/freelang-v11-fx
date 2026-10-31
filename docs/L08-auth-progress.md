@@ -51,3 +51,9 @@ native random_token 상한은 1 MiB로 명시했다. source Node의 더 큰 모�
 2026-10-31 사용자가 손상 값 거부를 선택했다. 정답 고정은 `9d71b9ca29509270be6b94abcdf6070892929666`, 구현은 `5859f61fd4e8fc310c2f021b5fedad1403de82d4`다. 기존 실행물에서 `fl_verify_password` 미연결 C 빌드 실패 `AUTH_VERIFY_BEFORE_EXIT=1`을 보존했다. 이후 RFC/legacy·비용 오류·손상/빈 key·Unicode/NUL·오답·잘못된 입력의 `AUTH_VERIFY_PASS=35 FAIL=0`, 기존 4개 인증 묶음+독립 생성 KDF 검증을 포함해 `L08_AUTH_SELF_PASS=6 FAIL=0`, `AUTH_VERIFY_SELF_EXIT=0`이다. 새 비용/입력 상한과 허용하는 Buffer 형식은 계약에 명시했다. 비교는 CRYPTO_memcmp이며 기존 OpenSSL만 사용한다.
 
 [수정 전 원문](https://github.com/kimjindol2025/freelang-v11-fx/blob/feat/blog-platform-completion/docs/evidence/l08-platform/auth-verify-before.txt), [수정 후 전체 자체 시험 원문](https://github.com/kimjindol2025/freelang-v11-fx/blob/feat/blog-platform-completion/docs/evidence/l08-platform/auth-verify-self.txt). 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. 정상 관리자 실제 화면·최신 전체 회귀/bootstrap은 별도 체크포인트이며 이 35개로 통과시키지 않는다. 운영 계정·자료는 사용하지 않았다. 사용자 중단 규칙에 따라 이번 연속 실행의 기대 실패 재현도 미통과 1회로 기록했다.
+
+## Bootstrap 검증기의 필수 도구 누락 재현
+
+후속 검증 호출에서 외부 strace와 검증기 내부 strace의 중첩으로 한 번 미통과했다. 외부 추적을 제거한 다음 실행은 PATH를 지나치게 제한해 rg가 없었다. stage2=stage3·array 결과가 맞고 프로세스 종료 0이어도 오염/금지 실행/잔여 과정 검사가 실행되지 않아 검증 통과로 인정하지 않았다. 실패 원문은 블로그 저장소의 store-adoption 증거에 보관한다. 사용자 3회 한도에 두 실행 모두 미통과로 포함했다.
+
+새 작은 정답은 rg 없는 PATH에서 즉시 `REQUIRED_TOOL=FAIL:rg`, 종료 1로 끝나는 것이다. 빌드나 검증을 건너뛰어 성공을 표시하지 않아야 한다. 고정 stage0·bootstrap 기대 해시·컴파일/배열 시험·금지 실행 검사·동등성 기준은 변경하지 않는다. 원래 검증기는 내부 strace를 그대로 사용하고 호출자만 외부 중복 추적을 제거한다.
