@@ -26,7 +26,7 @@ int main(int argc,char**argv){
  command("Emulation.setDeviceMetricsOverride",put(put(put(put(obj(),"width",fl_int(768)),"height",fl_int(1024)),"deviceScaleFactor",fl_int(1)),"mobile",fl_bool(false)));
  command("Page.navigate",put(obj(),"url",fl_str_val(argv[2])));document_root=0;
  wait_text("#ready","READY");
- command("DOM.focus",put(obj(),"nodeId",fl_int(wait_node("#editor"))));
+ int focused=node("#editor:focus")!=0;
  command("Input.insertText",put(obj(),"text",fl_str_val("가😀<b>")));
  FLValue key=put(put(put(put(obj(),"key",fl_str_val("Enter")),"code",fl_str_val("Enter")),"windowsVirtualKeyCode",fl_int(13)),"nativeVirtualKeyCode",fl_int(13));
  command("Input.dispatchKeyEvent",put(put(key,"type",fl_str_val("keyDown")),"text",fl_str_val("\r")));
@@ -35,9 +35,10 @@ int main(int argc,char**argv){
  const char *result=node_text("#proof");int literal_safe=node("#literal img")==0;
  if(strcmp(result,"WAIT")&&*result)fputs(result,stdout);else die("proof_missing");
  printf("J_HOST_NO_HTML=%s\n",literal_safe?"PASS":"FAIL");
- printf("L01_BROWSER_RUNTIME_EXIT=%d\n",exceptions||!literal_safe?1:0);
+ printf("J_HOST_FOCUS_TARGET=%s\n",focused?"PASS":"FAIL");
+ printf("L01_BROWSER_RUNTIME_EXIT=%d\n",exceptions||!literal_safe||!focused?1:0);
  puts("L01_BROWSER_CODE=COMPILER_GENERATED");puts("L01_BROWSER_INJECTED_JS=0");
  screenshot(argv[3],768);
  send_message(put(put(obj(),"id",fl_int(++serial)),"method",fl_str_val("Browser.close")));
- curl_easy_cleanup(ws);curl_global_cleanup();free(incoming);return exceptions||!literal_safe?1:0;
+ curl_easy_cleanup(ws);curl_global_cleanup();free(incoming);return exceptions||!literal_safe||!focused?1:0;
 }

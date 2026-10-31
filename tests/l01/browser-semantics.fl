@@ -10,6 +10,7 @@
         captured (let [value 4] (fn [] value))]
     (str
       (browser-case "J_ARITHMETIC" (+ 1 2 3) 6)
+      (browser-case "J_STRING_PREDICATE" [(string? "한😀") (string? 0) (string? nil) (string? []) (string? {}) (string? (atom "x"))] [true false false false false false])
       (browser-case "J_FRACTION" (/ 7 2) 3.5)
       (browser-case "J_NUMBER_TYPE_GUARD" (try (do (+ "2" 1) false) (catch [error] true)) true)
       (browser-case "J_MINUS_EMPTY" (try (do (-) false) (catch [error] true)) true)

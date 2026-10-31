@@ -12,6 +12,7 @@
 (record "J_HOST_VALUE_UNICODE" (= (browser-value editor) "한😀<b>"))
 (browser-set-text! literal "<img src=x>")
 (record "J_HOST_TEXT_LITERAL" (= (browser-text literal) "<img src=x>"))
+(record "J_HOST_FOCUS_REJECT" (rejects (fn [] (browser-focus! nil))))
 (record "J_HOST_ELEMENT_IDENTITY" (and (= editor (browser-by-id "editor")) (= (= editor literal) false)))
 (record "J_HOST_VALUE_TYPE_REJECT" (rejects (fn [] (browser-set-value! editor 1))))
 (record "J_HOST_VALUE_ELEMENT_REJECT" (rejects (fn [] (browser-value literal))))
@@ -53,4 +54,5 @@
     (do
       (record "J_EVENT_OFF_IDEMPOTENT" (= (deref click-count) 2))
       (browser-set-text! (browser-by-id "proof") (deref proof))))))
+(browser-focus! editor)
 (browser-set-text! (browser-by-id "ready") "READY")
