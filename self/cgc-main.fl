@@ -2780,6 +2780,28 @@
       (emit $cur "Number" $text $line $col)
       (recur (advance $cur) (str $text (peek $cur))))))
 
+(defn browser-emit [$argv]
+  (if (not (= (length $argv) 3))
+    (throw "compiler: --browser-js requires input.fl and output.js")
+    (let [[$input (get $argv 1)]
+          [$output (get $argv 2)]
+          [$_output-check
+            (if (or (str-ends $output ".js") (str-ends $output ".mjs")) nil
+              (throw "compiler: browser output must end in .js or .mjs"))]
+          [$_same-check
+            (if (and (not (nil? (fl_compiler_realpath $output)))
+                     (= (fl_compiler_realpath $input) (fl_compiler_realpath $output)))
+              (throw "compiler: input and output must differ") nil)]
+          [$read (file-read-result $input)]
+          [$_read-check (if (get $read "ok") nil (throw "compiler: browser input read failed"))]
+          [$_reset (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
+          [$nodes (expand-loads (parse (lex (get $read "data"))) (path-dir $input))]
+          [$generated (fl_compiler_browser_generate $nodes)]
+          [$written (file-write-result $output $generated)]]
+      (if (get $written "ok")
+        (println (str "Compiled browser " $input " -> " $output))
+        (throw "compiler: browser output write failed")))))
+
 (defn cgc-run [$argv]
   (loop [$rest $argv]
     (if (= (get $rest 0) "--extern")
@@ -2787,6 +2809,7 @@
         (throw "compiler: missing --extern name")
         (do (fl_compiler_add_extern (get $rest 1))
             (recur (slice $rest 2 (length $rest)))))
-      (cgc-run-positional $rest))))
+      (if (= (get $rest 0) "--browser-js") (browser-emit $rest)
+        (cgc-run-positional $rest)))))
 
 (cgc-run (cli-args))
