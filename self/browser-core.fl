@@ -1,6 +1,7 @@
 ;; Browser-target support logic is FreeLang, not a handwritten JS runtime.
 ;; j-host-* are compiler-only primitive IR operations; user modules cannot call them.
 (define jcore-atoms (j-host-weak-new))
+(define jcore-listeners (j-host-weak-map-new))
 
 (defn jcore-arg [args index] (j-host-at args index))
 (defn jcore-atom? [value] (j-host-weak-has jcore-atoms value))
@@ -156,3 +157,57 @@
     (if (j-host-and (j-host-eq (j-host-len args) 2)
                    (j-host-and (j-host-element? element) (j-host-eq (j-host-type value) "string")))
       (do (j-host-dom-set-text! element value) nil) (throw "browser-set-text!: element and string required"))))
+
+(defn jcore-text [args]
+  (let [element (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-element? element))
+      (j-host-at element "textContent") (throw "browser-text: one element required"))))
+(defn jcore-value [args]
+  (let [element (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-input? element))
+      (j-host-at element "value") (throw "browser-value: one input or textarea required"))))
+(defn jcore-set-value [args]
+  (let [element (j-host-at args 0) value (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+                   (j-host-and (j-host-input? element) (j-host-eq (j-host-type value) "string")))
+      (do (j-host-set! element "value" value) nil)
+      (throw "browser-set-value!: input or textarea and string required"))))
+(defn jcore-event-name? [name]
+  (j-host-or (j-host-eq name "input")
+    (j-host-or (j-host-eq name "change")
+      (j-host-or (j-host-eq name "click")
+        (j-host-or (j-host-eq name "keydown")
+          (j-host-or (j-host-eq name "beforeinput")
+            (j-host-or (j-host-eq name "compositionstart")
+              (j-host-or (j-host-eq name "compositionend")
+                (j-host-or (j-host-eq name "paste")
+                  (j-host-or (j-host-eq name "focus") (j-host-eq name "blur")))))))))))
+(defn jcore-on [args]
+  (let [element (j-host-at args 0) name (j-host-at args 1) callback (j-host-at args 2)]
+    (if (j-host-and (j-host-eq (j-host-len args) 3)
+          (j-host-and (j-host-element? element)
+            (j-host-and (jcore-event-name? name) (j-host-eq (j-host-type callback) "function"))))
+      (let [token [] listener (fn [event] (callback event))]
+        (do (j-host-dom-on! element name listener)
+            (j-host-weak-set! jcore-listeners token [element name listener true]) token))
+      (throw "browser-on!: element, allowed event name and function required"))))
+(defn jcore-off [args]
+  (let [token (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-weak-has jcore-listeners token))
+      (let [record (j-host-weak-get jcore-listeners token)]
+        (if (j-host-at record 3)
+          (do (j-host-dom-off! (j-host-at record 0) (j-host-at record 1) (j-host-at record 2))
+              (j-host-set! record 3 false) nil) nil))
+      (throw "browser-off!: one listener token required"))))
+(defn jcore-event [args]
+  (let [event (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-event? event)) event
+      (throw "browser event: one Event required"))))
+(defn jcore-event-target [args]
+  (let [target (j-host-at (jcore-event args) "target")]
+    (if (j-host-element? target) target nil)))
+(defn jcore-event-key [args]
+  (let [event (jcore-event args)]
+    (if (j-host-keyboard? event) (j-host-at event "key") nil)))
+(defn jcore-prevent-default [args]
+  (do (j-host-prevent-default! (jcore-event args)) nil))

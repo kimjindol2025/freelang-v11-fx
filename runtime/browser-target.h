@@ -66,7 +66,10 @@ static const char *bj_builtin(const char*op){
   "substring","jcore-substring","nil?","jcore-nil","null?","jcore-nil",
   "atom","jcore-atom","deref","jcore-deref","reset!","jcore-reset","swap!","jcore-swap",
   "append","jcore-append","map","jcore-map",
-  "browser-by-id","jcore-by-id","browser-set-text!","jcore-set-text",NULL};
+  "browser-by-id","jcore-by-id","browser-set-text!","jcore-set-text",
+  "browser-text","jcore-text","browser-value","jcore-value","browser-set-value!","jcore-set-value",
+  "browser-on!","jcore-on","browser-off!","jcore-off","browser-event-target","jcore-event-target",
+  "browser-event-key","jcore-event-key","browser-prevent-default!","jcore-prevent-default",NULL};
  for(unsigned i=0;pairs[i];i+=2)if(!strcmp(op,pairs[i]))return pairs[i+1];return NULL;
 }
 static void bj_core_ref(BJ*b,const char*name){
@@ -129,13 +132,23 @@ static int bj_host(BJ*b,const char*op,FLValue args){
   bj_out(b,"((");bj_expr(b,bj_at(args,0));bj_out(b,set?").textContent=":").length");if(set)bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;
  }
  if(!strcmp(op,"j-host-element?")){if(n!=1)bj_fail(b,"host element arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b," instanceof Element)");return 1;}
+ if(!strcmp(op,"j-host-input?")){
+  if(n!=1)bj_fail(b,"host input arity");
+  bj_out(b,"((");bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLInputElement)||(");
+  bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLTextAreaElement))");return 1;
+ }
+ if(!strcmp(op,"j-host-event?")||!strcmp(op,"j-host-keyboard?")){
+  if(n!=1)bj_fail(b,"host event arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));
+  bj_out(b,!strcmp(op,"j-host-event?")?" instanceof Event)":" instanceof KeyboardEvent)");return 1;
+ }
  if(!strcmp(op,"j-host-weak-new")){if(n)bj_fail(b,"host weak constructor arity");bj_out(b,"new WeakSet()");return 1;}
+ if(!strcmp(op,"j-host-weak-map-new")){if(n)bj_fail(b,"host weak map constructor arity");bj_out(b,"new WeakMap()");return 1;}
  const char *call=NULL;unsigned arity=0;
  const char *calls[]={"j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}
  if(call){if(n!=arity)bj_fail(b,"host call arity");bj_out(b,call);bj_out(b,"(");bj_args(b,args,0);bj_out(b,")");return 1;}
  const char *method=NULL;unsigned argc=0;
- const char *methods[]={"j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2",NULL};
+ const char *methods[]={"j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0",NULL};
  for(unsigned i=0;methods[i];i+=3)if(!strcmp(op,methods[i])){method=methods[i+1];argc=(unsigned)atoi(methods[i+2]);}
  if(method){if(n!=argc+1)bj_fail(b,"host method arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,").");bj_out(b,method);bj_out(b,"(");bj_args(b,args,1);bj_out(b,")");return 1;}
  if(!strcmp(op,"j-host-call")){if(n!=2)bj_fail(b,"host apply arity");bj_out(b,"Reflect.apply(");bj_expr(b,bj_at(args,0));bj_out(b,",null,");bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;}
