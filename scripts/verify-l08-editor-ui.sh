@@ -6,13 +6,18 @@ source "$ROOT/tests/l07/build.sh"
 out="${L08_EDITOR_UI_OUT:-$(mktemp -d)}"
 blog="${L08_BLOG_SOURCE_ROOT:?approved source-only copy required}"
 compiler="${L08_BLOG_NATIVE_COMPILER:?native compiler required}"
-fixture="${L08_UI_PNG_FIXTURE:?approved synthetic PNG required}"
-[[ -f "$blog/app/main.fl" && ! -e "$blog/data/blog.wal" && -f "$fixture" ]]
+fixture="${L08_UI_PNG_FIXTURE:-}"
+[[ -f "$blog/app/main.fl" && ! -e "$blog/data/blog.wal" ]]
 mkdir -p "$out/source/tests" "$out/root/tmp" "$out/profile"
 ln -s "$blog/app" "$out/source/app"
 ln -s "$blog/src" "$out/source/src"
 cp "$ROOT/tests/l08-platform/editor-ui-seed.fl" "$out/source/tests/seed.fl"
-cp "$fixture" "$out/root/ui-fixture.png"
+if [[ -n "$fixture" ]];then
+ [[ -f "$fixture" ]];cp "$fixture" "$out/root/ui-fixture.png"
+else
+ gcc -O2 -Wall -Wextra "$ROOT/tests/l08-platform/editor-ui-png.c" -o "$out/png-fixture" > "$out/png.build.log" 2>&1
+ "$out/png-fixture" "$out/root/ui-fixture.png"
+fi
 sha256sum "$out/root/ui-fixture.png" > "$out/fixture-before.sha256"
 for phase in main seed;do
  if [[ -n "${L08_EDITOR_UI_BIN_DIR:-}" ]];then
