@@ -11,6 +11,13 @@
     (str
       (browser-case "J_ARITHMETIC" (+ 1 2 3) 6)
       (browser-case "J_STRING_PREDICATE" [(string? "한😀") (string? 0) (string? nil) (string? []) (string? {}) (string? (atom "x"))] [true false false false false false])
+      (browser-case "J_HTML_CHARACTERS" (html-escape "<&>\"'한😀") "&lt;&amp;&gt;&quot;&#x27;한😀")
+      (browser-case "J_HTML_DOUBLE_ESCAPE" (html-escape "&amp;") "&amp;amp;")
+      (browser-case "J_HTML_NIL" (html-escape nil) "")
+      (browser-case "J_HTML_NUMBER" (html-escape 0) "0")
+      (browser-case "J_HTML_BOOLEAN" (html-escape false) "false")
+      (browser-case "J_HTML_ARRAY" (html-escape [nil "<"]) ",&lt;")
+      (browser-case "J_HTML_MAP" (html-escape {}) "[object Object]")
       (browser-case "J_FRACTION" (/ 7 2) 3.5)
       (browser-case "J_NUMBER_TYPE_GUARD" (try (do (+ "2" 1) false) (catch [error] true)) true)
       (browser-case "J_MINUS_EMPTY" (try (do (-) false) (catch [error] true)) true)
