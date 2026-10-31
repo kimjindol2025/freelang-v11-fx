@@ -82,3 +82,9 @@ L01 전체와 PRD는 미완료다. 위 입력·이벤트와 제한된 DOM 구성
 이전 runtime `cdad51e78deee1c3cde014fd106566db77159afc`와 초기 L01 고정 `188ea729681f4a652769835fdb82f48986a14fd8`의 전체 회귀·변경하지 않은 bootstrap은 각각 종료 `0`이다. 현재 새 전체 실행은 `f6fc692759fbb3a44603518f777c5f1a3b470c32`이며 그 이후 코드의 전체 결과로 확대하지 않는다. generation-only는 browser 미실행을 명시하고 위 별도 Chrome 검증과 구분한다.
 
 서버 23·25·운영 자료·기존 backup에는 접근하거나 변경하지 않았다. 합치기·배포·강제 푸시는 하지 않았다. 실제 경로는 `<가림>`이다.
+
+## 후속: string?·focus 포함 전체 native 관문 완료
+
+확인한 것: 고정 `f6fc692759fbb3a44603518f777c5f1a3b470c32`의 전체 실행이 `BLOCK_LANGUAGE_FULL_EXIT=0`, `L08_PLATFORM_CURRENT_GATES=PASS`로 끝났다. L08 3차 `11/0`·2차 `11/0`·1차 `17/0`, L06 HTTP `110/0`·TLS `110/0`·timeout `2/0`, L07 `221/0`, bootstrap `0`이다. stage2·stage3 SHA-256은 모두 `6f7c143734a8492fb6ae9ab77036f619c41915d0181a6f263e95985cf90ad423`다. `[NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0]`이며 [전체 출력·명령·종료 코드](https://github.com/kimjindol2025/freelang-v11-fx/blob/feat/blog-platform-completion/docs/evidence/l08-platform/l01-focus-native-full.txt)를 보관했다. root의 DAC 우회 권한을 뺀 자기 namespace에서 기존 파일 권한 정답도 유지했다.
+
+미확인: 이 전체 실행 뒤 추가한 `fa37289276bf9035e27c9497e94fa3a9387c1c8e` HTML escape의 전체 관문은 별도다. HTML 변경은 실제 native/Chrome 의미 `37/0`, 입력 `26/0`, DOM `31/0`과 블로그 화면 시험으로 확인했으며 위 전체 통과에 포함됐다고 주장하지 않는다. L01·PRD 전체 인수와 실제 비밀번호 로그인은 미완료다.
