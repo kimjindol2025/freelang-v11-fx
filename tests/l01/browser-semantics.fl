@@ -11,6 +11,9 @@
     (str
       (browser-case "J_ARITHMETIC" (+ 1 2 3) 6)
       (browser-case "J_FRACTION" (/ 7 2) 3.5)
+      (browser-case "J_NUMBER_TYPE_GUARD" (try (do (+ "2" 1) false) (catch [error] true)) true)
+      (browser-case "J_MINUS_EMPTY" (try (do (-) false) (catch [error] true)) true)
+      (browser-case "J_NEGATIVE_ZERO" (str (/ 1 (- 0))) "-Infinity")
       (browser-case "J_NUMBER_MAP_KEY" (get {1 "one"} 1) "one")
       (browser-case "J_MAP_DEFAULT" (get {} "missing" 9) 9)
       (browser-case "J_MAP_NIL" (nil? (get {"n" nil} "n" 9)) true)
@@ -35,6 +38,7 @@
       (browser-case "J_LOOP_RECUR"
         (loop [i 0 total 0] (if (< i 10000) (recur (+ i 1) (+ total 1)) total)) 10000)
       (browser-case "J_MAP_CALLBACK" (map (fn [x] (+ x 1)) [1 2 3]) [2 3 4])
+      (browser-case "J_APPEND_VECTOR" (append [1] [2 3]) [1 2 3])
       (browser-case "J_PROTO_KEY" (get {"__proto__" "safe"} "__proto__") "safe")
       (browser-case "J_TRY_FINALLY"
         (let [done (atom false)]
