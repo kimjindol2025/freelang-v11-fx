@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+for required_tool in gcc rg strace sha256sum awk sed cmp mktemp tr pgrep rm dirname env; do
+  command -v "$required_tool" >/dev/null 2>&1 || {
+    echo "REQUIRED_TOOL=FAIL:$required_tool" >&2
+    exit 1
+  }
+done
+
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT_DIR/runtime}"
 CGC_MAIN="${CGC_MAIN:-$ROOT_DIR/self/cgc-main.fl}"
