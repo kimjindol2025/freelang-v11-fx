@@ -34,7 +34,9 @@ for spec in extension same-source;do
 done
 printf 'L01_COMPILER_REJECT_PASS=%s FAIL=%s\n' "$passed" "$failed"
 [[ "$failed" == 0 ]]
-for spec in native server;do
+specs=(native server)
+[[ "${L01_TARGET_GENERATION_ONLY:-0}" != 1 ]] || specs=(native)
+for spec in "${specs[@]}";do
  input="$out/source/browser-native.fl";[[ "$spec" != server ]] || input="$out/source/browser-server.fl"
  "$compiler" "$input" "$out/$spec.c" > "$out/$spec.build.log" 2>&1
  support=();[[ "$spec" != server ]] || support=("$ROOT/tests/l08/http-port.c" "$ROOT/tests/l08-platform/http-loopback.c" -Wl,--wrap=listen,--wrap=bind)
@@ -45,6 +47,11 @@ cat "$out/native.actual" "$out/native.stderr"
 [[ ! -s "$out/native.stderr" ]]
 diff -u "$ROOT/tests/l01/browser-semantics.expected" "$out/native.actual"
 echo L01_NATIVE_ORACLE=PASS
+if [[ "${L01_TARGET_GENERATION_ONLY:-0}" == 1 ]];then
+ echo L01_BROWSER_EXECUTION=UNEXECUTED_GENERATION_ONLY
+ echo L01_TARGET_NATIVE_GATE=PASS
+ exit 0
+fi
 gcc -O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -o "$out/proof" "$ROOT/tests/l01/browser-proof.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" > "$out/proof.build.log" 2>&1
 server_pid="";browser_pid=""
 stop(){

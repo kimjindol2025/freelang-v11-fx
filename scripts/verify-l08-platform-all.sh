@@ -7,6 +7,8 @@ if L08_PLATFORM_OUT="$out/self" strace -f -e trace=execve -o "$out/self.execve.l
 cat "$out/self.log"
 printf 'PLATFORM_SELF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 ]]
+if L01_TARGET_COMPILER="$out/self/compiler" L01_TARGET_OUT="$out/browser-generation" L01_TARGET_GENERATION_ONLY=1 strace -f -e trace=execve -o "$out/browser-generation.execve.log" bash "$ROOT/scripts/verify-l01-browser-target.sh" > "$out/browser-generation.log" 2>&1;then rc=0;else rc=$?;fi
+cat "$out/browser-generation.log";printf 'BROWSER_TARGET_NATIVE_GATE_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_SNAPSHOT_OUT="$out/atom-snapshot" L08_SNAPSHOT_COMPILER="$out/self/compiler" L08_SNAPSHOT_SANITIZER_LIBDIR="${L08_TIMER_SANITIZER_LIBDIR:-}" strace -f -e trace=execve -o "$out/atom-snapshot.execve.log" bash "$ROOT/scripts/verify-l08-atom-snapshot.sh" > "$out/atom-snapshot.log" 2>&1;then rc=0;else rc=$?;fi
 cat "$out/atom-snapshot.log";printf 'ATOM_SNAPSHOT_EXIT=%s\n' "$rc";[[ "$rc" == 0 ]]
 if L08_HASH_OUT="$out/file-hash" L08_HASH_COMPILER="$out/self/compiler" strace -f -e trace=execve -o "$out/file-hash.execve.log" bash "$ROOT/scripts/verify-l08-file-hash.sh" > "$out/file-hash.log" 2>&1;then rc=0;else rc=$?;fi
