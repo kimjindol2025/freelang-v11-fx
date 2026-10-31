@@ -30,3 +30,7 @@ v11 verify는 decoded expected.length를 그대로 scryptSync keylen에 넘기�
 ## 현재 구현 경계
 
 6개 API를 구현·부분 자체 시험했다. random_token은 source의 소수 버림을 보존하되 native byte 상한 1 MiB를 둔다. auth_verify_password 공개 연결과 password fixture는 사용자 결정 전 미구현·미실행이다. 이 항목이 남은 상태에서 C13 전체 완료나 blog1 로그인 성공을 주장하지 않는다.
+
+## 사용자 확정: 손상 hash 거부
+
+2026-10-31 사용자가 D01에 ‘손상 값으로 거부하고 정상 계정만 인증한다’를 선택했다. 빈 scrypt 검증 key는 false로 거부한다. 정상 scrypt·legacy 검증을 구현하고, 손상 값·잘못된 비용·자원 상한 초과는 인증 실패로 처리한다. 이 명시적 결정은 과거 빈 key 허용 동작에 대한 승인된 호환 예외다. 실제 계정·비밀번호를 시험에 사용하지 않는다.
