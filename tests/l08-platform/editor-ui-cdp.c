@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 static CURL *ws;
-static int serial, exceptions, passed, failed, document_retries;
+static int serial, exceptions, passed, failed, document_retries, document_root;
 static char *incoming;
 static const size_t limit=16u*1024u*1024u;
 static FLValue obj(void){return fl_map_new();}
@@ -38,11 +38,12 @@ static FLValue command(const char *method,FLValue params){
   if(frame->bytesleft||(frame->flags&CURLWS_CONT))continue;
   incoming[used]=0;FLValue msg=fl_json_parse(fl_str_val(incoming));used=0;
   if(!strcmp(text(field(msg,"method")),"Runtime.exceptionThrown"))exceptions++;
+  if(!strcmp(text(field(msg,"method")),"DOM.documentUpdated"))document_root=0;
   if((int)number(field(msg,"id"))!=id)continue;
   if(field(msg,"error").tag!=FL_NIL){
    FLValue error=field(msg,"error");
    /* Navigation can invalidate the root between getDocument and querySelector. */
-   if(!strcmp(method,"DOM.querySelector")&&number(field(error,"code"))==-32000){document_retries++;return fl_nil();}
+   if(!strcmp(method,"DOM.querySelector")&&number(field(error,"code"))==-32000){document_root=0;document_retries++;return fl_nil();}
    fprintf(stderr,"EDITOR_UI_CDP_METHOD=%s CODE=%.0f\n",method,number(field(error,"code")));
    if(!strncmp(method,"DOM.",4)||!strncmp(method,"CSS.",4))fprintf(stderr,"EDITOR_UI_CDP_MESSAGE=%s\n",text(field(error,"message")));
    die("protocol_error");
@@ -52,8 +53,8 @@ static FLValue command(const char *method,FLValue params){
  die("response_timeout");return fl_nil();
 }
 static int node(const char *selector){
- FLValue r=command("DOM.getDocument",obj());int root=(int)number(field(field(r,"root"),"nodeId"));
- r=command("DOM.querySelector",put(put(obj(),"nodeId",fl_int(root)),"selector",fl_str_val(selector)));
+ if(!document_root){FLValue r=command("DOM.getDocument",obj());document_root=(int)number(field(field(r,"root"),"nodeId"));}
+ FLValue r=command("DOM.querySelector",put(put(obj(),"nodeId",fl_int(document_root)),"selector",fl_str_val(selector)));
  return (int)number(field(r,"nodeId"));
 }
 static int wait_node(const char *selector){
@@ -111,7 +112,7 @@ int main(int argc,char**argv){
  for(int i=0;i<3;i++){
   int w=widths[i];exceptions=0;
   p=put(put(put(put(obj(),"width",fl_int(w)),"height",fl_int(heights[i])),"deviceScaleFactor",fl_int(1)),"mobile",fl_bool(false));command("Emulation.setDeviceMetricsOverride",p);
-  char url[4096];snprintf(url,sizeof url,"%s/admin/posts/new",argv[2]);command("Page.navigate",put(obj(),"url",fl_str_val(url)));
+  char url[4096];snprintf(url,sizeof url,"%s/admin/posts/new",argv[2]);command("Page.navigate",put(obj(),"url",fl_str_val(url)));document_root=0;
   int visual=wait_node("#editor-visual");if(!visual)die("editor_navigation");
   double ready=now()+10;
   while(!strcmp(style(visual,"display"),"none")&&now()<ready)poll(NULL,0,30);
