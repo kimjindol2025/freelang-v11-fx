@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keep the upstream gate unchanged. Its native runs already invoke strace;
+# The native gate already invokes strace;
 # retain those logs and trace gcc separately, avoiding nested ptrace tracers.
 set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -22,7 +22,7 @@ if [ -n "$log" ] && [ -f "$log" ]; then
   cp -- "$log" "$L07_TRACE_ARCHIVE/$(basename -- "$log")"
   # Preserve generated inputs before the unchanged gate's cleanup trap runs.
   directory=$(dirname -- "$log")
-  for artifact in stage1.c stage2.c stage3.c stage1-bin stage2-bin; do
+  for artifact in stage1.c stage2.c stage3.c stage4.c stage1-bin stage2-bin stage3-bin; do
     if [ -f "$directory/$artifact" ]; then
       cp -- "$directory/$artifact" "$L07_TRACE_ARCHIVE/$artifact"
     fi
