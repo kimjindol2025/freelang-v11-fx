@@ -10,7 +10,8 @@
 #include <time.h>
 #include <unistd.h>
 static CURL *ws;
-static int serial, exceptions, passed, failed, document_retries, document_root;
+static int serial, exceptions, passed, failed, document_retries, document_root, draft_dialogs;
+static const char *owned_base;
 static char *incoming;
 static const size_t limit=16u*1024u*1024u;
 static FLValue obj(void){return fl_map_new();}
@@ -39,6 +40,12 @@ static FLValue command(const char *method,FLValue params){
   incoming[used]=0;FLValue msg=fl_json_parse(fl_str_val(incoming));used=0;
   if(!strcmp(text(field(msg,"method")),"Runtime.exceptionThrown"))exceptions++;
   if(!strcmp(text(field(msg,"method")),"DOM.documentUpdated"))document_root=0;
+  if(!strcmp(text(field(msg,"method")),"Page.javascriptDialogOpening")){
+   FLValue dialog=field(msg,"params");
+   if(strcmp(text(field(dialog,"type")),"beforeunload")||strncmp(text(field(dialog,"url")),owned_base,strlen(owned_base)))die("unexpected_dialog");
+   FLValue reply=put(put(put(obj(),"id",fl_int(++serial)),"method",fl_str_val("Page.handleJavaScriptDialog")),"params",put(obj(),"accept",fl_bool(true)));
+   send_message(reply);draft_dialogs++;
+  }
   if((int)number(field(msg,"id"))!=id)continue;
   if(field(msg,"error").tag!=FL_NIL){
    FLValue error=field(msg,"error");
@@ -50,7 +57,7 @@ static FLValue command(const char *method,FLValue params){
   }
   return field(msg,"result");
  }
- die("response_timeout");return fl_nil();
+ fprintf(stderr,"EDITOR_UI_CDP_METHOD=%s\n",method);die("response_timeout");return fl_nil();
 }
 static int node(const char *selector){
  if(!document_root){FLValue r=command("DOM.getDocument",obj());document_root=(int)number(field(field(r,"root"),"nodeId"));}
@@ -101,6 +108,7 @@ static void screenshot(const char *out,int width){
 int main(int argc,char**argv){
  if(argc!=4)return 2;fl_init_argv(argc,argv);
  if(strncmp(argv[1],"ws://127.0.0.1:",15)||strncmp(argv[2],"http://127.0.0.1:",17))die("loopback_required");
+ owned_base=argv[2];
  const char *token=getenv("BLOG_TEST_SESSION_TOKEN");if(!token||strlen(token)!=64)die("synthetic_session_required");
  incoming=malloc(limit);if(!incoming)die("allocation");curl_global_init(CURL_GLOBAL_DEFAULT);ws=curl_easy_init();if(!ws)die("curl_init");
  curl_easy_setopt(ws,CURLOPT_URL,argv[1]);curl_easy_setopt(ws,CURLOPT_PROXY,"");curl_easy_setopt(ws,CURLOPT_CONNECT_ONLY,2L);curl_easy_setopt(ws,CURLOPT_TIMEOUT,15L);
@@ -132,6 +140,7 @@ int main(int argc,char**argv){
  }
  printf("EDITOR_UI_PASS=%d FAIL=%d\n",passed,failed);
  printf("EDITOR_UI_DOCUMENT_RETRIES=%d\n",document_retries);
+ printf("EDITOR_UI_OWN_DRAFT_DIALOGS=%d\n",draft_dialogs);
  puts("EDITOR_UI_AUTHENTICATION=SYNTHETIC_SESSION");puts("EDITOR_UI_PASSWORD_LOGIN=UNEXECUTED");puts("EDITOR_UI_EXISTING_JS=EXECUTED_UNCHANGED");puts("EDITOR_UI_INJECTED_JS=0");
  /* Request normal shutdown without depending on a reply after the socket closes. */
  send_message(put(put(obj(),"id",fl_int(++serial)),"method",fl_str_val("Browser.close")));
