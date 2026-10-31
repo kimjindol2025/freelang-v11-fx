@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "browser-core-data.h"
 typedef struct {char *code;size_t len,cap;unsigned serial;FLValue names;} BJ;
 typedef struct BJLoop {FLValue names;struct BJLoop *parent;} BJLoop;
@@ -164,7 +165,8 @@ static void bj_expr(BJ*b,FLValue n){
   if(bj_is(type,"nil")){bj_out(b,"null");return;}
   if(bj_is(type,"boolean")||bj_is(type,"bool")){bj_out(b,fl_truthy(value)?"true":"false");return;}
   if(bj_is(type,"string")){bj_quote(b,value);return;}
-  if(bj_is(type,"number")){FLValue argv[1]={value};FLValue number=fl_v11_builtin(fl_str_val("str-to-num"),fl_vec_from(argv,1));bj_out(b,bj_text(fl_v11_number(number)));return;}
+  if(bj_is(type,"number")){FLValue argv[1]={value};FLValue number=fl_v11_builtin(fl_str_val("str-to-num"),fl_vec_from(argv,1));
+   if(number.tag==FL_FLOAT&&number.f==0&&signbit(number.f))bj_out(b,"-0");else bj_out(b,bj_text(fl_v11_number(number)));return;}
   if(bj_is(type,"symbol")){char op[128];bj_op(value,op);const char*core=bj_builtin(op);if(!core)bj_fail(b,"unresolved symbol");bj_out(b,"((...__j_args)=>");bj_core_ref(b,core);bj_out(b,"(__j_args))");return;}
   bj_fail(b,"unsupported literal");
  }
