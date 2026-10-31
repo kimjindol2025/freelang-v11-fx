@@ -69,7 +69,12 @@ static const char *bj_builtin(const char*op){
   "browser-by-id","jcore-by-id","browser-set-text!","jcore-set-text",
   "browser-text","jcore-text","browser-value","jcore-value","browser-set-value!","jcore-set-value",
   "browser-on!","jcore-on","browser-off!","jcore-off","browser-event-target","jcore-event-target",
-  "browser-event-key","jcore-event-key","browser-prevent-default!","jcore-prevent-default",NULL};
+  "browser-event-key","jcore-event-key","browser-prevent-default!","jcore-prevent-default",
+  "browser-create","jcore-create","browser-append!","jcore-dom-append",
+  "browser-insert-before!","jcore-dom-before","browser-remove!","jcore-dom-remove",
+  "browser-clear!","jcore-dom-clear","browser-children","jcore-dom-children",
+  "browser-attribute","jcore-dom-attribute","browser-set-attribute!","jcore-dom-set-attribute",
+  "browser-set-hidden!","jcore-dom-hidden",NULL};
  for(unsigned i=0;pairs[i];i+=2)if(!strcmp(op,pairs[i]))return pairs[i+1];return NULL;
 }
 static void bj_core_ref(BJ*b,const char*name){
@@ -147,12 +152,16 @@ static int bj_host(BJ*b,const char*op,FLValue args){
   if(n!=1)bj_fail(b,"host plain object arity");
   bj_out(b,"(Object.getPrototypeOf(");bj_expr(b,bj_at(args,0));bj_out(b,")===Object.prototype)");return 1;
  }
+ if(!strcmp(op,"j-host-url")){
+  if(n!=1)bj_fail(b,"host URL arity");bj_out(b,"new URL(");bj_expr(b,bj_at(args,0));bj_out(b,",document.baseURI)");return 1;
+ }
+ if(!strcmp(op,"j-host-origin")){if(n)bj_fail(b,"host origin arity");bj_out(b,"location.origin");return 1;}
  const char *call=NULL;unsigned arity=0;
- const char *calls[]={"j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1",NULL};
+ const char *calls[]={"j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}
  if(call){if(n!=arity)bj_fail(b,"host call arity");bj_out(b,call);bj_out(b,"(");bj_args(b,args,0);bj_out(b,")");return 1;}
  const char *method=NULL;unsigned argc=0;
- const char *methods[]={"j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0",NULL};
+ const char *methods[]={"j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0","j-host-dom-append!","appendChild","1","j-host-dom-before!","insertBefore","2","j-host-dom-remove!","remove","0","j-host-dom-clear!","replaceChildren","0","j-host-dom-attribute","getAttribute","1","j-host-dom-set-attribute!","setAttribute","2",NULL};
  for(unsigned i=0;methods[i];i+=3)if(!strcmp(op,methods[i])){method=methods[i+1];argc=(unsigned)atoi(methods[i+2]);}
  if(method){if(n!=argc+1)bj_fail(b,"host method arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,").");bj_out(b,method);bj_out(b,"(");bj_args(b,args,1);bj_out(b,")");return 1;}
  if(!strcmp(op,"j-host-call")){if(n!=2)bj_fail(b,"host apply arity");bj_out(b,"Reflect.apply(");bj_expr(b,bj_at(args,0));bj_out(b,",null,");bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;}

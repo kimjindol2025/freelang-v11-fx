@@ -213,3 +213,71 @@
     (if (j-host-keyboard? event) (j-host-at event "key") nil)))
 (defn jcore-prevent-default [args]
   (do (j-host-prevent-default! (jcore-event args)) nil))
+
+(define jcore-tags {"div" true "section" true "article" true "p" true "span" true
+  "strong" true "em" true "u" true "s" true "blockquote" true "pre" true "code" true
+  "h2" true "h3" true "ul" true "ol" true "li" true "hr" true "br" true "a" true
+  "img" true "figure" true "figcaption" true "label" true "button" true "input" true "textarea" true})
+(define jcore-attributes {"id" true "class" true "title" true "alt" true "width" true
+  "height" true "role" true "aria-label" true "aria-expanded" true "tabindex" true
+  "contenteditable" true "type" true "accept" true "data-block-id" true "href" true "src" true})
+(defn jcore-attribute-name? [name]
+  (j-host-and (j-host-eq (j-host-type name) "string") (j-host-own? jcore-attributes name)))
+(defn jcore-element-args? [args count]
+  (if (j-host-eq (j-host-len args) count)
+    (loop [index 0]
+      (if (j-host-lt index count)
+        (if (j-host-element? (j-host-at args index)) (recur (j-host-add index 1)) false) true)) false))
+(defn jcore-create [args]
+  (let [tag (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1)
+          (j-host-and (j-host-eq (j-host-type tag) "string") (j-host-own? jcore-tags tag)))
+      (j-host-dom-create tag) (throw "browser-create: one allowed tag required"))))
+(defn jcore-dom-append [args]
+  (if (jcore-element-args? args 2)
+    (do (j-host-dom-append! (j-host-at args 0) (j-host-at args 1)) nil)
+    (throw "browser-append!: two elements required")))
+(defn jcore-dom-before [args]
+  (let [parent (j-host-at args 0) child (j-host-at args 1) before (j-host-at args 2)]
+    (if (j-host-and (j-host-eq (j-host-len args) 3)
+          (j-host-and (j-host-and (j-host-element? parent) (j-host-element? child))
+            (j-host-or (j-host-nullish? before) (j-host-element? before))))
+      (do (j-host-dom-before! parent child before) nil)
+      (throw "browser-insert-before!: parent, child and element or nil required"))))
+(defn jcore-dom-remove [args]
+  (if (jcore-element-args? args 1) (do (j-host-dom-remove! (j-host-at args 0)) nil)
+    (throw "browser-remove!: one element required")))
+(defn jcore-dom-clear [args]
+  (if (jcore-element-args? args 1) (do (j-host-dom-clear! (j-host-at args 0)) nil)
+    (throw "browser-clear!: one element required")))
+(defn jcore-dom-children [args]
+  (if (jcore-element-args? args 1) (j-host-array-from (j-host-at (j-host-at args 0) "children"))
+    (throw "browser-children: one element required")))
+(defn jcore-dom-attribute [args]
+  (let [element (j-host-at args 0) name (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+          (j-host-and (j-host-element? element)
+            (j-host-or (jcore-attribute-name? name) (j-host-eq name "hidden"))))
+      (j-host-dom-attribute element name) (throw "browser-attribute: element and allowed attribute required"))))
+(defn jcore-dom-url [element name value]
+  (if (j-host-or (j-host-eq name "href") (j-host-eq name "src"))
+    (if (j-host-eq (j-host-at element "tagName") (if (j-host-eq name "src") "IMG" "A"))
+      (let [url (j-host-url value) protocol (j-host-at url "protocol")]
+        (if (j-host-and (j-host-or (j-host-eq protocol "http:") (j-host-eq protocol "https:"))
+              (j-host-or (j-host-eq name "href") (j-host-eq (j-host-at url "origin") (j-host-origin))))
+          (j-host-at url "href") (throw "browser URL: protocol or image origin rejected")))
+      (throw "browser URL: attribute requires its link or image element")) value))
+(defn jcore-dom-set-attribute [args]
+  (let [element (j-host-at args 0) name (j-host-at args 1) value (j-host-at args 2)]
+    (if (j-host-and (j-host-eq (j-host-len args) 3)
+          (j-host-and (j-host-element? element)
+            (j-host-and (jcore-attribute-name? name) (j-host-eq (j-host-type value) "string"))))
+      (let [safe-value (jcore-dom-url element name value)]
+        (do (j-host-dom-set-attribute! element name safe-value) nil))
+      (throw "browser-set-attribute!: element, allowed attribute and string required"))))
+(defn jcore-dom-hidden [args]
+  (let [element (j-host-at args 0) hidden (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+          (j-host-and (j-host-element? element) (j-host-eq (j-host-type hidden) "boolean")))
+      (do (j-host-set! element "hidden" hidden) nil)
+      (throw "browser-set-hidden!: element and boolean required"))))
