@@ -1,0 +1,41 @@
+(defn browser-case [label actual expected]
+  (if (= actual expected) (str label "=PASS\n")
+    (throw (str "BROWSER_SEMANTICS_ASSERT " label))))
+(defn make-adder [x] (fn [y] (+ x y)))
+(define old-add make-adder)
+(defn make-adder [x] (fn [y] (+ x y 1)))
+(defn browser-semantics []
+  (let [counter (atom 0)
+        order (atom [])
+        captured (let [value 4] (fn [] value))]
+    (str
+      (browser-case "J_ARITHMETIC" (+ 1 2 3) 6)
+      (browser-case "J_FRACTION" (/ 7 2) 3.5)
+      (browser-case "J_NUMBER_MAP_KEY" (get {1 "one"} 1) "one")
+      (browser-case "J_MAP_DEFAULT" (get {} "missing" 9) 9)
+      (browser-case "J_MAP_NIL" (nil? (get {"n" nil} "n" 9)) true)
+      (browser-case "J_MAP_FALSE" (get {"f" false} "f" 9) false)
+      (browser-case "J_VECTOR_NIL_DEFAULT" (get [nil] 0 9) 9)
+      (browser-case "J_VECTOR_ZERO" (get [0] 0 9) 0)
+      (browser-case "J_UTF16_LENGTH" (length "한🙂") 3)
+      (browser-case "J_UTF16_SLICE" (substring "한🙂" 1 3) "🙂")
+      (browser-case "J_ESCAPED_TEXT" "따옴표\"와 줄\n바꿈" "따옴표\"와 줄\n바꿈")
+      (browser-case "J_IF_FALSE" (if false "bad" "good") "good")
+      (browser-case "J_IF_ZERO" (if 0 "bad" "good") "good")
+      (browser-case "J_OR_ZERO" (or 0 7) 0)
+      (browser-case "J_AND_VALUE" (and true "value") "value")
+      (browser-case "J_CLOSURE" (captured) 4)
+      (browser-case "J_OLD_FUNCTION_VALUE" ((old-add 4) 5) 9)
+      (browser-case "J_REDEFINED_FUNCTION" ((make-adder 4) 5) 10)
+      (browser-case "J_SWAP_ONCE" (do (swap! counter + 1) (deref counter)) 1)
+      (browser-case "J_ARGUMENT_ORDER"
+        (do (get (do (swap! order append 1) {})
+                 (do (swap! order append 2) "x")
+                 (do (swap! order append 3) 0)) (deref order)) [1 2 3])
+      (browser-case "J_LOOP_RECUR"
+        (loop [i 0 total 0] (if (< i 10000) (recur (+ i 1) (+ total 1)) total)) 10000)
+      (browser-case "J_MAP_CALLBACK" (map (fn [x] (+ x 1)) [1 2 3]) [2 3 4])
+      (browser-case "J_PROTO_KEY" (get {"__proto__" "safe"} "__proto__") "safe")
+      (browser-case "J_TRY_FINALLY"
+        (let [done (atom false)]
+          (do (try (throw "test") (catch [error] nil) (finally (reset! done true))) (deref done))) true))))
