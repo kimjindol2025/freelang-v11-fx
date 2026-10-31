@@ -2725,7 +2725,7 @@
   (let [[$input  (get $argv 0)]
         [$output (get $argv 1)]
         [$_option-check
-          (if (and (string? $input) (str-starts $input "--")
+          (if (and (string? $input) (str-starts-with $input "--")
                    (not (= $input "--ast")))
             (throw "compiler: unknown option") nil)]]
   (if (null? $input)
@@ -2786,18 +2786,19 @@
     (let [[$input (get $argv 1)]
           [$output (get $argv 2)]
           [$_output-check
-            (if (or (str-ends $output ".js") (str-ends $output ".mjs")) nil
+            (if (or (= (substring $output (- (length $output) 3) (length $output)) ".js")
+                    (= (substring $output (- (length $output) 4) (length $output)) ".mjs")) nil
               (throw "compiler: browser output must end in .js or .mjs"))]
           [$_same-check
             (if (and (not (nil? (fl_compiler_realpath $output)))
                      (= (fl_compiler_realpath $input) (fl_compiler_realpath $output)))
               (throw "compiler: input and output must differ") nil)]
-          [$read (file-read-result $input)]
+          [$read (fl_file_read_result $input)]
           [$_read-check (if (get $read "ok") nil (throw "compiler: browser input read failed"))]
           [$_reset (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
           [$nodes (expand-loads (parse (lex (get $read "data"))) (path-dir $input))]
           [$generated (fl_compiler_browser_generate $nodes)]
-          [$written (file-write-result $output $generated)]]
+          [$written (fl_file_write_result $output $generated)]]
       (if (get $written "ok")
         (println (str "Compiled browser " $input " -> " $output))
         (throw "compiler: browser output write failed")))))
