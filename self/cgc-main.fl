@@ -2723,7 +2723,11 @@
 
 (defn cgc-run-positional [$argv]
   (let [[$input  (get $argv 0)]
-        [$output (get $argv 1)]]
+        [$output (get $argv 1)]
+        [$_option-check
+          (if (and (string? $input) (str-starts $input "--")
+                   (not (= $input "--ast")))
+            (throw "compiler: unknown option") nil)]]
   (if (null? $input)
     (println "usage: cgc-bin <input.fl> <output.c>\n       cgc-bin --ast <input.fl>")
     (if (= $input "--ast")
