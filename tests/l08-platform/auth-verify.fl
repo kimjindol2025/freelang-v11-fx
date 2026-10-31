@@ -1,0 +1,15 @@
+(define checks (atom 0))
+(defn verify-check [ok]
+  (let [index (swap! checks (fn [n] (+ n 1)))]
+    (if ok (println (str "AUTH_VERIFY_CASE_" index "=PASS")) (throw (str "AUTH_VERIFY_CASE_" index "=FAIL")))))
+(define root (get (cli-args) 0))
+(define fixtures (json_parse (file_read (str root "/password-fixtures.json"))))
+(doseq [fixture fixtures]
+  (verify-check (= (auth_verify_password (get fixture "password") (get fixture "stored")) (get fixture "valid"))))
+(doseq [stored [nil 42 false {} []]] (verify-check (= (auth_verify_password "x" stored) false)))
+(define created (file_read (str root "/created.phc")))
+(verify-check (auth_verify_password (file_read (str root "/password.txt")) created))
+(verify-check (= (auth_verify_password "wrong" created) false))
+(verify-check (= (auth-verify-password nil created) false))
+(verify-check (= (auth-verify-password 42 created) false))
+(println (str "AUTH_VERIFY_PASS=" (deref checks) " FAIL=0"))

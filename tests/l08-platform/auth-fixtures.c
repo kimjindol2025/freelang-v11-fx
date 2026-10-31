@@ -33,7 +33,15 @@ static void create(void){
  hex(digest,32,encoded);
  fprintf(f,",{\"password\":\"public-legacy-fixture\",\"stored\":\"0123456789abcdef:%s\",\"valid\":true}",encoded);
  fprintf(f,",{\"password\":\"wrong\",\"stored\":\"0123456789abcdef:%s\",\"valid\":false}",encoded);
- fputs(",{\"password\":\"x\",\"stored\":\"$scrypt$broken\",\"valid\":false},{\"password\":\"x\",\"stored\":\"bad\",\"valid\":false}]",f);fclose(f);
+ fputs(",{\"password\":\"x\",\"stored\":\"$scrypt$broken\",\"valid\":false},{\"password\":\"x\",\"stored\":\"bad\",\"valid\":false}",f);
+ const char*bad[]={"$scrypt$N=16,r=1,p=1$$", "$scrypt$N=16,r=1,p=1$$AA==",
+  "$scrypt$N=-1,r=1,p=1$$AA==", "$scrypt$N=16.5,r=1,p=1$$AA==",
+  "$scrypt$N=4294967296,r=1,p=1$$AA==", "$scrypt$N=16,r=-1,p=1$$AA==",
+  "$scrypt$N=16,r=1,p=-1$$AA==", "$scrypt$N=16,r=1,p=4294967296$$AA==",
+  "$scrypt$r=1,p=1$$AA==", "$scrypt$N=16,r=1,p=NaN$$AA==", "", ":00", "salt:not-hex", NULL};
+ for(int i=0;bad[i];i++)fprintf(f,",{\"password\":\"\",\"stored\":\"%s\",\"valid\":false}",bad[i]);
+ fprintf(f,",{\"password\":\"public-legacy-fixture\",\"stored\":\"0123456789abcdef:%s:ignored\",\"valid\":true}",encoded);
+ fputs("]",f);fclose(f);
  unsigned char random[32];char key[65];if(RAND_bytes(random,sizeof(random))!=1)fail();hex(random,32,key);
  f=file("csrf.key","wb");fwrite(key,1,64,f);fclose(f);
  f=file("csrf.json","wb");fputs("{",f);token(f,"now","1800000000",key,0);token(f,"boundary","1799996400",key,1);token(f,"expired","1799996399",key,1);token(f,"future","1800000001",key,1);token(f,"padded"," +1800000000tail",key,1);token(f,"invalid","no-time",key,1);fputs("}",f);fclose(f);
