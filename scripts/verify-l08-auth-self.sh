@@ -10,7 +10,7 @@ gcc -O2 -Wall -Wextra -fPIC -shared "$ROOT/tests/l08-platform/auth-interpose.c" 
 "$out/fixtures" create "$out/root"
 l07_build_compiler "$out" > "$out/compiler-build.log" 2>&1
 pass=0;fail=0
-for spec in auth-basics auth-csrf auth-live auth-rng;do
+for spec in auth-basics auth-verify auth-csrf auth-live auth-rng;do
  if l07_build_app "$out" "$ROOT/tests/l08-platform/$spec.fl" "$spec" > "$out/$spec.build.log" 2>&1;then
   envs=(FL_FILE_BASE="$out/root")
   [[ "$spec" != auth-csrf ]] || envs+=(LD_PRELOAD="$out/interpose.so" L08_AUTH_FIXED_CLOCK=1)
@@ -24,6 +24,6 @@ for spec in auth-basics auth-csrf auth-live auth-rng;do
  else rc=$?;cat "$out/$spec.build.log";printf '%s_BUILD_EXIT=%s\n' "$spec" "$rc";fail=$((fail+1));fi
 done
 if "$out/fixtures" validate "$out/root";then pass=$((pass+1));else fail=$((fail+1));fi
-echo AUTH_PASSWORD_VERIFICATION=PENDING_USER_DECISION
-printf 'L08_AUTH_PARTIAL_PASS=%s FAIL=%s\n' "$pass" "$fail"
+[[ "$fail" != 0 ]] || echo AUTH_PASSWORD_VERIFICATION=PASS
+printf 'L08_AUTH_SELF_PASS=%s FAIL=%s\n' "$pass" "$fail"
 [[ "$fail" == 0 ]]

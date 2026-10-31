@@ -36,3 +36,5 @@ v11 verify는 decoded expected.length를 그대로 scryptSync keylen에 넘기�
 2026-10-31 사용자가 D01에 ‘손상 값으로 거부하고 정상 계정만 인증한다’를 선택했다. 빈 scrypt 검증 key는 false로 거부한다. 정상 scrypt·legacy 검증을 구현하고, 손상 값·잘못된 비용·자원 상한 초과는 인증 실패로 처리한다. 이 명시적 결정은 과거 빈 key 허용 동작에 대한 승인된 호환 예외다. 실제 계정·비밀번호를 시험에 사용하지 않는다.
 
 검증 재개 정답은 기존 RFC/legacy fixture 12건을 유지하고 빈 key·형식/비용 오류·legacy 추가 조각의 14건과 비문자 저장값 5건, Unicode/NUL roundtrip·오답·잘못된 password 형식 4건을 합한 35건이다. 정답을 구현 전에 고정한다. v11 source의 legacy 첫 두 조각 사용과 Number 기반 비용·0 default를 보존한다. scrypt 검증 key가 0바이트인 경우만 사용자 결정으로 명시 거부한다. 외부 언어 실행이나 실제 비밀번호/hash는 사용하지 않는다.
+
+Native 검증은 기존 OpenSSL과 32 MiB scrypt 메모리 예산을 사용한다. 입력 wire는 1 MiB, N×r×p 연산 비용은 16777216 이하로 제한하고 상한 초과는 false다. 정상 생성 포맷과 RFC 벡터를 지원하며 임의로 큰 v11 비용 전체를 지원한다고 주장하지 않는다. base64의 URL alphabet·생략한 padding·무시되는 문자와 legacy hex의 첫 유효 바이트 규칙은 기존 Buffer 계약대로 처리하되 decoded key 0바이트는 명시 거부한다. key 비교는 CRYPTO_memcmp이고 password/key 임시 버퍼는 정리한다.
