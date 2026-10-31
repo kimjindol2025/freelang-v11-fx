@@ -10,7 +10,7 @@
 
 ## 정답 먼저 고정
 
-tests/l01/browser-semantics.fl의 같은 함수가 native와 browser에서 같은 24개 정답을 내야 한다. arithmetic/소수·숫자 map key·get 기본값과 저장된 nil/false/0·UTF-16 글자 단위·escape·조건/논리·클로저·함수 값/재정의·atom/swap·인자 평가 순서·10000회 loop/recur·배열 callback·__proto__ key·try/finally를 포함한다. 정답은 기존 v11 호환 계약과 native 자체 시험에 맞추며 구현 결과에 맞춰 낮추지 않는다. 불일치가 있으면 원문 근거와 정정 이력을 먼저 남긴다.
+tests/l01/browser-semantics.fl의 같은 함수가 native와 browser에서 같은 28개 정답을 내야 한다. 최초 24개에 native 소스 근거로 숫자 타입 거부·빈 뺄셈 거부·음의 0·배열 append 네 항목을 추가했다. arithmetic/소수·숫자 map key·get 기본값과 저장된 nil/false/0·UTF-16 글자 단위·escape·조건/논리·클로저·함수 값/재정의·atom/swap·인자 평가 순서·10000회 loop/recur·배열 callback·__proto__ key·try/finally를 포함한다. 정답은 기존 v11 호환 계약과 native 자체 시험에 맞추며 구현 결과에 맞춰 낮추지 않는다. 불일치가 있으면 원문 근거와 정정 이력을 먼저 남긴다.
 
 native wrapper와 browser wrapper만 입출력이 다르다. browser는 .fl에서 proof 요소의 text를 설정하고 실제 Chrome에서 DOM 결과를 고정 정답과 비교한다. C 기반 CDP는 DOM/CSS/Input/Page만 사용하며 주입 JS/Runtime.evaluate·Node·Python은 사용하지 않는다. Native toolchain의 JS 미호출과 브라우저에서 compiler 생성 JS 실행을 별도 보고한다.
 
@@ -19,3 +19,9 @@ native wrapper와 browser wrapper만 입출력이 다르다. browser는 .fl에�
 ## 아직 전체 완료가 아닌 항목
 
 이 첫 fixture 외 언어 의미·동적 타입/오류·async·선택 영역·입력/붙여넣기·undo/redo·저장/재접속·브라우저 호환/출력 크기·성능과 모든 제품 흐름은 별도 증거가 필요하다. 기존 편집기 JS의 무수정 실행은 보존할 수 있지만 J안의 증거로 바꾸지 않는다. 프레임워크·추가 라이브러리 설치·합치기·배포·운영 자료 변경은 이 계약으로 승인되지 않는다.
+
+## 구현 중인 지원 코드의 경계
+
+self/browser-core.fl은 FreeLang으로 작성한 browser 지원 로직의 초안이다. 아직 출력 backend/CLI에 연결하지 않았으며 browser에서 실행·검증하지 않았다. delimiter와 기존 parser로 소스를 확인했지만 이것을 target 통과로 집계하지 않는다. jcore-/j-host- 이름은 compiler 내부용으로 설계하며 실제 backend에서 사용자 모듈 접근을 거부해야 한다. 일부 타입·API는 명시적 미지원 오류이며 전체 언어 호환으로 보고하지 않는다.
+
+native/debug --ast의 숫자 출력에 fl_int(...) C 표현이 들어가 JSON이 되지 않는 기존 문제도 확인했다. browser target은 이 텍스트를 JSON으로 재해석하는 우회를 쓰지 않고 기존 in-memory AST를 직접 재사용한다. debug export 문제를 고쳤다고 보고하지 않는다.

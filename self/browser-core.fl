@@ -1,0 +1,158 @@
+;; Browser-target support logic is FreeLang, not a handwritten JS runtime.
+;; j-host-* are compiler-only primitive IR operations; user modules cannot call them.
+(define jcore-atoms (j-host-weak-new))
+
+(defn jcore-arg [args index] (j-host-at args index))
+(defn jcore-atom? [value] (j-host-weak-has jcore-atoms value))
+(defn jcore-key [value]
+  (if (j-host-eq (j-host-type value) "string")
+    (if (j-host-eq (j-host-at value 0) ":") (j-host-slice value 1) value)
+    (if (j-host-nullish? value) (j-host-string value)
+      (if (j-host-or (j-host-eq (j-host-type value) "number")
+                     (j-host-eq (j-host-type value) "boolean"))
+        (j-host-string value) "[object Object]"))))
+
+(defn jcore-string [value]
+  (if (j-host-nullish? value) (j-host-string value)
+    (if (j-host-eq (j-host-type value) "function") "<fn:λ>"
+      (if (jcore-atom? value) (throw "browser str: atom rendering not supported")
+        (if (j-host-array? value)
+          (loop [index 0 result ""]
+            (if (j-host-lt index (j-host-len value))
+              (let [item (j-host-at value index)
+                    part (if (j-host-nullish? item) "" (jcore-string item))]
+                (recur (j-host-add index 1)
+                  (j-host-add (j-host-add result (if (j-host-eq index 0) "" ",")) part))) result))
+          (if (j-host-eq (j-host-type value) "object") "[object Object]" (j-host-string value)))))))
+
+(defn jcore-str [args]
+  (loop [index 0 result ""]
+    (if (j-host-lt index (j-host-len args))
+      (recur (j-host-add index 1) (j-host-add result (jcore-string (j-host-at args index)))) result)))
+
+(defn jcore-get [args]
+  (let [value (j-host-at args 0) key (j-host-at args 1)
+        fallback (if (j-host-lt 2 (j-host-len args)) (j-host-at args 2) nil)]
+    (if (j-host-nullish? value) fallback
+      (if (j-host-or (j-host-array? value) (j-host-eq (j-host-type value) "string"))
+        (if (j-host-and (j-host-integer? key) (j-host-and (j-host-gte key 0) (j-host-lt key (j-host-len value))))
+          (let [found (j-host-at value key)] (if (j-host-nullish? found) fallback found)) fallback)
+        (if (j-host-and (j-host-eq (j-host-type value) "object") (j-host-not (jcore-atom? value)))
+          (let [normalized (jcore-key key)]
+            (if (j-host-own? value normalized) (j-host-at value normalized)
+              (if (j-host-and (j-host-eq (j-host-type key) "string") (j-host-own? value key))
+                (j-host-at value key) fallback))) fallback)))))
+
+(defn jcore-same [left right]
+  (if (j-host-eq left right) true
+    (if (j-host-or (j-host-nullish? left) (j-host-nullish? right)) false
+      (if (j-host-not (j-host-eq (j-host-type left) (j-host-type right))) false
+        (if (j-host-or (jcore-atom? left) (jcore-atom? right)) false
+          (if (j-host-array? left)
+            (if (j-host-and (j-host-array? right) (j-host-eq (j-host-len left) (j-host-len right)))
+              (loop [index 0]
+                (if (j-host-lt index (j-host-len left))
+                  (if (jcore-same (j-host-at left index) (j-host-at right index))
+                    (recur (j-host-add index 1)) false) true)) false)
+            (if (j-host-and (j-host-eq (j-host-type left) "object") (j-host-not (j-host-array? right)))
+              (let [keys (j-host-keys left)]
+                (if (j-host-eq (j-host-len keys) (j-host-len (j-host-keys right)))
+                  (loop [index 0]
+                    (if (j-host-lt index (j-host-len keys))
+                      (let [key (j-host-at keys index)]
+                        (if (j-host-and (j-host-own? right key) (jcore-same (j-host-at left key) (j-host-at right key)))
+                          (recur (j-host-add index 1)) false)) true)) false)) false)))))))
+
+(defn jcore-equal [args]
+  (loop [index 1]
+    (if (j-host-lt index (j-host-len args))
+      (if (jcore-same (j-host-at args 0) (j-host-at args index))
+        (recur (j-host-add index 1)) false) true)))
+
+(defn jcore-number [value]
+  (if (j-host-eq (j-host-type value) "number") value
+    (throw "browser numeric operator: number required")))
+
+(defn jcore-add [args]
+  (loop [index 0 total 0]
+    (if (j-host-lt index (j-host-len args))
+      (recur (j-host-add index 1) (j-host-add total (jcore-number (j-host-at args index)))) total)))
+(defn jcore-sub [args]
+  (if (j-host-eq (j-host-len args) 0) (throw "browser -: nonempty arguments required")
+    (if (j-host-eq (j-host-len args) 1) (j-host-neg (jcore-number (j-host-at args 0)))
+      (loop [index 1 total (jcore-number (j-host-at args 0))]
+        (if (j-host-lt index (j-host-len args))
+          (recur (j-host-add index 1) (j-host-sub total (jcore-number (j-host-at args index)))) total)))))
+(defn jcore-mul [args]
+  (loop [index 0 total 1]
+    (if (j-host-lt index (j-host-len args))
+      (recur (j-host-add index 1) (j-host-mul total (jcore-number (j-host-at args index)))) total)))
+(defn jcore-div [args]
+  (if (j-host-eq (j-host-len args) 0) (throw "browser /: nonempty arguments required")
+    (if (j-host-eq (j-host-len args) 1) (j-host-div 1 (jcore-number (j-host-at args 0)))
+      (loop [index 1 total (jcore-number (j-host-at args 0))]
+        (if (j-host-lt index (j-host-len args))
+          (recur (j-host-add index 1) (j-host-div total (jcore-number (j-host-at args index)))) total)))))
+(defn jcore-less [args]
+  (loop [index 1]
+    (if (j-host-lt index (j-host-len args))
+      (if (j-host-lt (j-host-at args (j-host-sub index 1)) (j-host-at args index))
+        (recur (j-host-add index 1)) false) true)))
+
+(defn jcore-length [args]
+  (let [value (j-host-at args 0)]
+    (if (j-host-nullish? value) 0
+      (if (j-host-or (j-host-array? value) (j-host-eq (j-host-type value) "string"))
+        (j-host-len value)
+        (if (j-host-and (j-host-eq (j-host-type value) "object") (j-host-not (jcore-atom? value)))
+          (j-host-len (j-host-keys value)) 0)))))
+(defn jcore-substring [args]
+  (let [value (jcore-string (j-host-at args 0))]
+    (j-host-substring value (j-host-at args 1)
+      (if (j-host-lt 2 (j-host-len args)) (j-host-at args 2) (j-host-len value)))))
+(defn jcore-nil [args] (j-host-nullish? (j-host-at args 0)))
+
+(defn jcore-atom [args]
+  (let [value [(if (j-host-eq (j-host-len args) 0) nil (j-host-at args 0))]]
+    (do (j-host-weak-add jcore-atoms value) value)))
+(defn jcore-deref [args]
+  (let [value (j-host-at args 0)]
+    (if (jcore-atom? value) (j-host-at value 0) (throw "browser deref: atom required"))))
+(defn jcore-reset [args]
+  (let [value (j-host-at args 0) next (j-host-at args 1)]
+    (if (jcore-atom? value) (do (j-host-set! value 0 next) next) (throw "browser reset!: atom required"))))
+(defn jcore-swap [args]
+  (let [value (j-host-at args 0) callback (j-host-at args 1)]
+    (if (j-host-and (jcore-atom? value) (j-host-eq (j-host-type callback) "function"))
+      (let [parameters (j-host-concat [(j-host-at value 0)] (j-host-slice args 2))
+            next (j-host-call callback parameters)]
+        (do (j-host-set! value 0 next) next)) (throw "browser swap!: atom and function required"))))
+(defn jcore-append [args]
+  (let [source (j-host-at args 0)]
+    (if (j-host-or (j-host-nullish? source) (j-host-array? source))
+      (if (j-host-and (j-host-array? source)
+                     (j-host-and (j-host-eq (j-host-len args) 2) (j-host-array? (j-host-at args 1))))
+        (j-host-concat source (j-host-at args 1))
+      (let [result (if (j-host-nullish? source) [] (j-host-copy source))]
+        (loop [index 1]
+          (if (j-host-lt index (j-host-len args))
+            (do (j-host-push! result (j-host-at args index)) (recur (j-host-add index 1))) result))))
+      (throw "browser append: this target currently requires an array"))))
+(defn jcore-map [args]
+  (let [callback (j-host-at args 0) source (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-type callback) "function") (j-host-array? source))
+      (let [result []]
+        (loop [index 0]
+          (if (j-host-lt index (j-host-len source))
+            (do (j-host-push! result (j-host-call callback [(j-host-at source index)]))
+                (recur (j-host-add index 1))) result)))
+      (throw "browser map: function and array required"))))
+
+(defn jcore-by-id [args]
+  (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-eq (j-host-type (j-host-at args 0)) "string"))
+    (j-host-dom-by-id (j-host-at args 0)) (throw "browser-by-id: one string required")))
+(defn jcore-set-text [args]
+  (let [element (j-host-at args 0) value (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+                   (j-host-and (j-host-element? element) (j-host-eq (j-host-type value) "string")))
+      (do (j-host-dom-set-text! element value) nil) (throw "browser-set-text!: element and string required"))))
