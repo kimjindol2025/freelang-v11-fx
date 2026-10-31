@@ -90,6 +90,8 @@ cat "$out/browser.actual" "$out/browser-error.log"
 printf 'L01_BROWSER_PROOF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 && ! -s "$out/browser-error.log" ]]
 rg '^J_' "$out/browser.actual" > "$out/browser.result"
+passed=$(rg -c '=PASS$' "$out/browser.result" || true)
+failed=$(rg -c '=FAIL$' "$out/browser.result" || true)
+printf 'L01_BROWSER_%s_PASS=%s FAIL=%s\n' "$group" "${passed:-0}" "${failed:-0}"
 diff -u "$ROOT/tests/l01/$expected" "$out/browser.result"
-printf 'L01_BROWSER_%s_PASS=%s FAIL=0\n' "$group" "$(wc -l < "$out/browser.result")"
 echo L01_TARGET_SELF=PASS
