@@ -1,0 +1,116 @@
+BROWSER_CORE_EMBEDDING=PASS
+e0e6d51d588c509e2e07a91707d94258c02de0144ee829986c49ddc60d50549d  <가림>
+6270a82e0c224a346ae806819a685258762ddb91e5d3f886e56c23906b85a36a  <가림>
+4504aba9f5e13451962327e89de262b894b62051d92eba5a6af46adf963af306  <가림>
+aabf2566668aa88a146543c8d1a36ad5cea78d2b31c44de5b4ce12f6bfdde0dc  <가림>
+Compiled browser <가림> -> <가림>
+L01_GENERATION_REPRODUCIBLE=PASS
+238171a29442297e7e5e00918f8abcb46334541acc82e7d13bd2dea6377ec13f  <가림>
+Uncaught error (line 2607): browser target: compiler-private name in user module
+Stack trace:
+  at browser_emit (line 2784)
+  at cgc_run (line 2806)
+L01_REJECT_CASE=private EXIT=1
+Uncaught error (line 2607): browser target: compiler-private name in user module
+Stack trace:
+  at browser_emit (line 2784)
+  at cgc_run (line 2806)
+L01_REJECT_CASE=private-alias EXIT=1
+Uncaught error (line 2607): browser target: compiler-private name in user module
+Stack trace:
+  at browser_emit (line 2784)
+  at cgc_run (line 2806)
+L01_REJECT_CASE=private-definition EXIT=1
+Uncaught error (line 440): browser target: unsupported operation
+L01_REJECT_CASE=native EXIT=1
+Uncaught error (line 440): browser target: unsupported operation
+L01_REJECT_CASE=eval EXIT=1
+Uncaught error (line 440): browser target: function parameter vector required
+L01_REJECT_CASE=parameters EXIT=1
+Uncaught error (line 440): browser target: binding vector required
+L01_REJECT_CASE=bindings EXIT=1
+Uncaught error (line 440): browser target: recur outside tail loop
+L01_REJECT_CASE=recur EXIT=1
+Uncaught error (line 2790): compiler: browser output must end in .js or .mjs
+Stack trace:
+  at browser_emit (line 2784)
+  at cgc_run (line 2806)
+L01_REJECT_CASE=extension EXIT=1
+Uncaught error (line 2794): compiler: input and output must differ
+Stack trace:
+  at browser_emit (line 2784)
+  at cgc_run (line 2806)
+L01_REJECT_CASE=same-source EXIT=1
+L01_COMPILER_REJECT_PASS=10 FAIL=0
+J_ARITHMETIC=PASS
+J_STRING_PREDICATE=PASS
+J_FRACTION=PASS
+J_NUMBER_TYPE_GUARD=PASS
+J_MINUS_EMPTY=PASS
+J_NEGATIVE_ZERO=PASS
+J_NEGATIVE_ZERO_LITERAL=PASS
+J_NUMBER_MAP_KEY=PASS
+J_MAP_DEFAULT=PASS
+J_MAP_NIL=PASS
+J_MAP_FALSE=PASS
+J_VECTOR_NIL_DEFAULT=PASS
+J_VECTOR_ZERO=PASS
+J_UTF16_LENGTH=PASS
+J_UTF16_SLICE=PASS
+J_ESCAPED_TEXT=PASS
+J_IF_FALSE=PASS
+J_IF_ZERO=PASS
+J_OR_ZERO=PASS
+J_AND_VALUE=PASS
+J_CLOSURE=PASS
+J_OLD_FUNCTION_VALUE=PASS
+J_REDEFINED_FUNCTION=PASS
+J_SWAP_ONCE=PASS
+J_ARGUMENT_ORDER=PASS
+J_LOOP_RECUR=PASS
+J_MAP_CALLBACK=PASS
+J_APPEND_VECTOR=PASS
+J_PROTO_KEY=PASS
+J_TRY_FINALLY=PASS
+L01_NATIVE_ORACLE=PASS
+J_ARITHMETIC=PASS
+J_STRING_PREDICATE=PASS
+J_FRACTION=PASS
+J_NUMBER_TYPE_GUARD=PASS
+J_MINUS_EMPTY=PASS
+J_NEGATIVE_ZERO=PASS
+J_NEGATIVE_ZERO_LITERAL=PASS
+J_NUMBER_MAP_KEY=PASS
+J_MAP_DEFAULT=PASS
+J_MAP_NIL=PASS
+J_MAP_FALSE=PASS
+J_VECTOR_NIL_DEFAULT=PASS
+J_VECTOR_ZERO=PASS
+J_UTF16_LENGTH=PASS
+J_UTF16_SLICE=PASS
+J_ESCAPED_TEXT=PASS
+J_IF_FALSE=PASS
+J_IF_ZERO=PASS
+J_OR_ZERO=PASS
+J_AND_VALUE=PASS
+J_CLOSURE=PASS
+J_OLD_FUNCTION_VALUE=PASS
+J_REDEFINED_FUNCTION=PASS
+J_SWAP_ONCE=PASS
+J_ARGUMENT_ORDER=PASS
+J_LOOP_RECUR=PASS
+J_MAP_CALLBACK=PASS
+J_APPEND_VECTOR=PASS
+J_PROTO_KEY=PASS
+J_TRY_FINALLY=PASS
+L01_BROWSER_RUNTIME_EXIT=0
+L01_BROWSER_CODE=COMPILER_GENERATED
+L01_BROWSER_INJECTED_JS=0
+EDITOR_UI_SCREENSHOT=768
+L01_BROWSER_PROOF_EXIT=0
+L01_BROWSER_SEMANTICS_PASS=30 FAIL=0
+L01_TARGET_SELF=PASS
+L01_OWN_browser_EXIT=0
+L01_OWN_server_EXIT=0
+BLOCK_LANGUAGE_SEMANTICS_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
