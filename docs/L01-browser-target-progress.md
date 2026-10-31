@@ -39,11 +39,33 @@ L01_SELF_FIRST_EXIT=0
 
 같은 compiler의 기존 의미 회귀도 실제 Chrome `L01_BROWSER_SEMANTICS_PASS=29 FAIL=0`, `L01_EVENTS_SEMANTICS_EXIT=0`이다. compiler 거부 `10 PASS / 0 FAIL`, 생성물 두 번 byte 일치도 두 시나리오 각각 확인했다. 원문은 l01-events-before.txt, l01-events-compiler-build.txt, l01-events-first-pass.txt, l01-events-semantics.txt이며 [입력·이벤트 화면](evidence/l08-platform/l01-events-proof-768.png)을 보관했다. 감사는 각각 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. Chrome 내부에서 생성 JS를 실행한 사실과 구분한다.
 
-첫 22개 뒤 서로 다른 Element/token이 구조적 equality로 같아지는 문제를 검토했다. 수정 전 `3fe9861c4a5b39bea0194754cd0aae113ffb448b`에서 두 정답을 추가했다. 실제 24개 중 Element/token identity 두 개가 FAIL이며 `L01_IDENTITY_BEFORE_EXIT=1`이다. [실패 원문](evidence/l08-platform/l01-identity-before.txt)을 먼저 보존했다. 수정 `49ff5c915561e7de36b5c4c27b3261c7991c5a47`는 일반 map/vector 구조 비교를 유지하고 host object/token만 참조로 구분한다. 고정 seed에서 다시 빌드한 수정본의 실제 Chrome 결과는 `L01_BROWSER_EVENT_PASS=24 FAIL=0`, `L01_IDENTITY_EVENTS_EXIT=0`이다. 기존 의미 회귀도 `L01_BROWSER_SEMANTICS_PASS=29 FAIL=0`, `L01_IDENTITY_SEMANTICS_EXIT=0`이다. 두 실행 모두 compiler 거부 10/0·재현성 PASS·브라우저 예외 0·종료 0이며 원문은 l01-identity-events.txt와 l01-identity-semantics.txt다. 이 고정 소스의 변경하지 않은 bootstrap도 별도로 실행 중이다.
+첫 22개 뒤 서로 다른 Element/token이 구조적 equality로 같아지는 문제를 검토했다. 수정 전 `3fe9861c4a5b39bea0194754cd0aae113ffb448b`에서 두 정답을 추가했다. 실제 24개 중 Element/token identity 두 개가 FAIL이며 `L01_IDENTITY_BEFORE_EXIT=1`이다. [실패 원문](evidence/l08-platform/l01-identity-before.txt)을 먼저 보존했다. 수정 `49ff5c915561e7de36b5c4c27b3261c7991c5a47`는 일반 map/vector 구조 비교를 유지하고 host object/token만 참조로 구분한다. 고정 seed에서 다시 빌드한 수정본의 실제 Chrome 결과는 `L01_BROWSER_EVENT_PASS=24 FAIL=0`, `L01_IDENTITY_EVENTS_EXIT=0`이다. 기존 의미 회귀도 `L01_BROWSER_SEMANTICS_PASS=29 FAIL=0`, `L01_IDENTITY_SEMANTICS_EXIT=0`이다. 두 실행 모두 compiler 거부 10/0·재현성 PASS·브라우저 예외 0·종료 0이며 원문은 l01-identity-events.txt와 l01-identity-semantics.txt다. 이 고정 소스의 변경하지 않은 bootstrap도 `L01_IDENTITY_BOOTSTRAP_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`다. stage2·stage3 SHA-256은 모두 `6f7c143734a8492fb6ae9ab77036f619c41915d0181a6f263e95985cf90ad423`, ARRAY_LOOP=PASS·RESIDUAL_PROCESSES=0이다. 원문은 l01-identity-bootstrap.txt다. 완료와 cleanup 뒤 정리된 임시 실행물을 가리킨 추가 식 진단은 시작 실패 `L01_BOOTSTRAP_FORMS_EXIT=127`로 보존했으며 본 bootstrap 실패로 집계하지 않는다. 통과 뒤 불필요한 추가 식 진단은 반복하지 않았다.
+
+## J3 블록·사진 DOM 구성 후속 구현
+
+고정 정답·계약 `d46accb4eb81a6f6b0833798fc74595770bcb6d9` 뒤 API 미지원의 `L01_DOM_BEFORE_EXIT=1`을 먼저 보존했다. 구현 `b63710cd6fffee38995e5f19a795dbcde22342fe`는 FreeLang 지원 소스에서 허용 tag/attribute와 URL 경계를 검사한다. 문단/사진 요소 생성, 이동/삽입/삭제/비우기, 자식 vector snapshot, 속성·hidden을 지원한다. innerHTML·eval API는 없다. private C host는 표준 DOM primitive와 URL parser 호출을 출력한다.
+
+같은 고정 source에서 fixed stage0로 새 compiler를 빌드한 뒤 실제 Chrome을 세 번 실행했다.
+
+```text
+L01_DOM_COMPILER_BUILD_EXIT=0
+L01_BROWSER_DOM_PASS=31 FAIL=0
+L01_DOM_DOM_EXIT=0
+L01_BROWSER_EVENT_PASS=24 FAIL=0
+L01_DOM_EVENTS_EXIT=0
+L01_BROWSER_SEMANTICS_PASS=29 FAIL=0
+L01_DOM_SEMANTICS_EXIT=0
+```
+
+각 시나리오에서 compiler 거부 `10 PASS / 0 FAIL`, 생성물 두 번 byte 일치, 브라우저 예외/주입 JS `0`, 자신의 server/browser 종료 `0`이다. DOM 시험은 기존 요소의 동일성/순서, 자식 snapshot의 독립성, cycle/다른 부모의 before 오류, script/iframe/on*/style·위험한 URL·외부 이미지 origin 거부와 기존 속성 보존을 확인했다. 최종 DOM 구조와 literal 문자열의 HTML 미실행은 C CDP에서 별도로 검사했다. 이 DOM fixture의 이미지 검사는 URL 속성 계약이며 이미지 HTTP 200·decoding/처리 시험이 아니다.
+
+DOM 생성 JS SHA-256은 `8c352d4255359d13b77c178064dc00a98f651318034c3790c61d6999d38aaba0`이다. 원문은 l01-dom-before.txt, l01-dom-compiler-build.txt, l01-dom-dom.txt, l01-dom-events.txt, l01-dom-semantics.txt다. [768×1024 언어 시험 화면](evidence/l08-platform/l01-dom-proof-768.png)은 제품 편집기 화면 인수와 구분한다. 감사는 각각 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이며 Chrome은 생성 JS를 실행했다.
+
+처음 parser callback 구현부터 J2·identity·J3까지 고정 seed가 만든 compiler.c는 모두 SHA-256 `8a3b18e7347840bb9f0afbe31736abed9b5f2c629ede40e7c13b4aecd4cbd650`이다. 지원 소스/host backend는 바뀌었고 실행물 hash는 다르다. 이 C 소스 일치를 자기 컴파일 stage2=stage3 결과로 확대하지 않는다.
 
 ## 미확인
 
-L01 전체와 PRD는 미완료다. 위 입력·이벤트 부분을 제외한 DOM 구성·선택 영역·fetch/취소·타이머·undo/redo·직렬화·자동저장·제품 편집기 전환은 아직 인수하지 않았다. 실제 IME composition·붙여넣기·모바일 가상 키보드는 이 작은 자체 시험으로 대신하지 않는다. 지원하지 않는 전체 표준 라이브러리를 호환으로 주장하지 않는다. 기존 --ast 숫자 debug JSON 오류도 미수정이다.
+L01 전체와 PRD는 미완료다. 위 입력·이벤트와 제한된 DOM 구성을 제외한 선택 영역·fetch/취소·타이머·undo/redo·직렬화·자동저장·제품 편집기 전환은 아직 인수하지 않았다. 실제 IME composition·붙여넣기·모바일 가상 키보드와 전체 DOM/브라우저 호환은 이 작은 자체 시험으로 대신하지 않는다. 지원하지 않는 전체 표준 라이브러리를 호환으로 주장하지 않는다. 기존 --ast 숫자 debug JSON 오류도 미수정이다.
 
 이전 runtime `cdad51e78deee1c3cde014fd106566db77159afc`의 전체 회귀와 변경하지 않은 bootstrap은 종료 `0`으로 확인했다. 이후 L01 compiler 변경과 generation-only 관문을 포함한 고정 `188ea729681f4a652769835fdb82f48986a14fd8`의 새 전체 실행은 진행 중이며 앞선 통과로 대신하지 않는다. generation-only는 browser 미실행을 명시한다.
 
