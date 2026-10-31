@@ -57,3 +57,11 @@ native random_token 상한은 1 MiB로 명시했다. source Node의 더 큰 모�
 후속 검증 호출에서 외부 strace와 검증기 내부 strace의 중첩으로 한 번 미통과했다. 외부 추적을 제거한 다음 실행은 PATH를 지나치게 제한해 rg가 없었다. stage2=stage3·array 결과가 맞고 프로세스 종료 0이어도 오염/금지 실행/잔여 과정 검사가 실행되지 않아 검증 통과로 인정하지 않았다. 실패 원문은 블로그 저장소의 store-adoption 증거에 보관한다. 사용자 3회 한도에 두 실행 모두 미통과로 포함했다.
 
 새 작은 정답은 rg 없는 PATH에서 즉시 `REQUIRED_TOOL=FAIL:rg`, 종료 1로 끝나는 것이다. 빌드나 검증을 건너뛰어 성공을 표시하지 않아야 한다. 고정 stage0·bootstrap 기대 해시·컴파일/배열 시험·금지 실행 검사·동등성 기준은 변경하지 않는다. 원래 검증기는 내부 strace를 그대로 사용하고 호출자만 외부 중복 추적을 제거한다.
+
+## 필수 도구 guard와 정상 bootstrap 확정
+
+가드 정답 고정 `c8c3524` 뒤 수정 `7445dbd2ed71f3ecd1c51825b053006fe92540fe`에서 required tool을 먼저 확인하도록 보강했다. rg 없는 PATH의 자체 시험은 `BOOTSTRAP_REQUIRED_TOOLS=PASS`, 종료 `0`이다. stage0·bootstrap 기대 해시·검사 기준은 변경하지 않았다.
+
+같은 소스의 원래 내부 strace와 필요한 rg 경로를 사용한 최종 전체 bootstrap은 `STORE_NATIVE_BOOTSTRAP_FINAL_EXIT=0`, `STAGE2_EQ_STAGE3=PASS`, `ARRAY_LOOP=PASS`, `RESIDUAL_PROCESSES=0`이다. stage2·stage3 SHA-256은 모두 `6f7c143734a8492fb6ae9ab77036f619c41915d0181a6f263e95985cf90ad423`이며 stage0는 기존 고정 `f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c`다. 오염·Node/npm/TS_JS·AFJ 접근 검사도 도구가 실제 존재하는 상태에서 실행했다. rg가 빠진 이전 종료 0을 통과로 사용하지 않았다. [성공/실패 원문·앱 DB 적용의 정확한 대상과 한계](https://github.com/kimjindol2025/blog1/blob/feat/blog-platform-completion/docs/native-store-adoption-progress.md).
+
+이는 최신 전체 언어 자체 시험·L06/L07 등 전 회귀의 완료를 뜻하지 않는다. 그 전체 실행은 별도 미실행이다. 앱의 실제 로그인은 DB 변경 뒤 다시 화면 21/0·HTTP 8/0·독립 reader 2/0으로 통과했고 비밀번호/세션 값·운영 자료는 사용/기록하지 않았다.
