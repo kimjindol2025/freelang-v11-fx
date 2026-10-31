@@ -2,7 +2,7 @@
 
 ## 최신 제품 연결과 자체 검증
 
-후속 `fa37289276bf9035e27c9497e94fa3a9387c1c8e`는 string?·typed focus·언어 공통 html-escape를 FreeLang 지원 소스에 제공한다. 정답을 먼저 고정했고 미지원 생성 실패와 focus 최초 표본 실패를 보존했다. 같은 생성물의 실제 입력은 정상이며 focus 표본은 자신의 page 활성화 전 `0`, 후 `1`이었다. C는 Element.focus를 대신 호출하지 않으며 actual Input.insertText와 :focus로 검사한다. 소스 계약은 [editor-required-contract](../tests/l01/editor-required-contract.md)다.
+후속 `fa37289276bf9035e27c9497e94fa3a9387c1c8e`는 string?·typed focus·언어 공통 html-escape를 FreeLang 지원 소스에 제공한다. 정답을 먼저 고정했고 미지원 생성 실패와 focus 최초 표본 실패를 보존했다. 같은 생성물의 실제 입력은 정상이며 focus 표본은 자신의 page 활성화 전 `0`, 후 `1`이었다. C는 Element.focus를 대신 호출하지 않으며 실제 Input.insertText와 :focus로 검사한다. 소스 계약은 [editor-required-contract](../tests/l01/editor-required-contract.md)다.
 
 최신 실제 Chrome 결과는 의미/HTML `37 PASS / 0 FAIL`, 입력·이벤트/focus `26 PASS / 0 FAIL`, DOM/URL `31 PASS / 0 FAIL`이다. 각 실행의 native 의미 정답·생성물 재현성·compiler 거부 `10/0`·종료 `0`을 확인했다. 원문은 l01-shared-html-semantics.txt, l01-shared-html-events.txt, l01-shared-html-dom.txt다. 기존 browser str의 atom 등 미지원 타입을 html-escape 전체 지원으로 주장하지 않는다.
 
