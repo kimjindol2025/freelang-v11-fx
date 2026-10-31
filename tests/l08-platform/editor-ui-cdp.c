@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 static CURL *ws;
-static int serial, exceptions, passed, failed;
+static int serial, exceptions, passed, failed, document_retries;
 static char *incoming;
 static const size_t limit=16u*1024u*1024u;
 static FLValue obj(void){return fl_map_new();}
@@ -39,7 +39,14 @@ static FLValue command(const char *method,FLValue params){
   incoming[used]=0;FLValue msg=fl_json_parse(fl_str_val(incoming));used=0;
   if(!strcmp(text(field(msg,"method")),"Runtime.exceptionThrown"))exceptions++;
   if((int)number(field(msg,"id"))!=id)continue;
-  if(field(msg,"error").tag!=FL_NIL){fprintf(stderr,"EDITOR_UI_CDP_METHOD=%s\n",method);die("protocol_error");}
+  if(field(msg,"error").tag!=FL_NIL){
+   FLValue error=field(msg,"error");
+   /* Navigation can invalidate the root between getDocument and querySelector. */
+   if(!strcmp(method,"DOM.querySelector")&&number(field(error,"code"))==-32000){document_retries++;return fl_nil();}
+   fprintf(stderr,"EDITOR_UI_CDP_METHOD=%s CODE=%.0f\n",method,number(field(error,"code")));
+   if(!strncmp(method,"DOM.",4)||!strncmp(method,"CSS.",4))fprintf(stderr,"EDITOR_UI_CDP_MESSAGE=%s\n",text(field(error,"message")));
+   die("protocol_error");
+  }
   return field(msg,"result");
  }
  die("response_timeout");return fl_nil();
@@ -123,6 +130,7 @@ int main(int argc,char**argv){
   check(w,"BROWSER_EXCEPTION_FREE",exceptions==0);
  }
  printf("EDITOR_UI_PASS=%d FAIL=%d\n",passed,failed);
+ printf("EDITOR_UI_DOCUMENT_RETRIES=%d\n",document_retries);
  puts("EDITOR_UI_AUTHENTICATION=SYNTHETIC_SESSION");puts("EDITOR_UI_PASSWORD_LOGIN=UNEXECUTED");puts("EDITOR_UI_EXISTING_JS=EXECUTED_UNCHANGED");puts("EDITOR_UI_INJECTED_JS=0");
  /* Request normal shutdown without depending on a reply after the socket closes. */
  send_message(put(put(obj(),"id",fl_int(++serial)),"method",fl_str_val("Browser.close")));

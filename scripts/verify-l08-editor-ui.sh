@@ -15,6 +15,12 @@ cp "$ROOT/tests/l08-platform/editor-ui-seed.fl" "$out/source/tests/seed.fl"
 cp "$fixture" "$out/root/ui-fixture.png"
 sha256sum "$out/root/ui-fixture.png" > "$out/fixture-before.sha256"
 for phase in main seed;do
+ if [[ -n "${L08_EDITOR_UI_BIN_DIR:-}" ]];then
+  [[ -x "$L08_EDITOR_UI_BIN_DIR/$phase" ]]
+  ln -s "$L08_EDITOR_UI_BIN_DIR/$phase" "$out/$phase"
+  sha256sum "$L08_EDITOR_UI_BIN_DIR/$phase"
+  continue
+ fi
  input="$blog/app/main.fl";[[ "$phase" != seed ]] || input="$out/source/tests/seed.fl"
  "$compiler" "$input" "$out/$phase.c" > "$out/$phase.build.log" 2>&1
  support=()
