@@ -8,10 +8,12 @@ static void chunk(FILE*f,const char*type,const unsigned char*data,size_t n){
  unsigned char size[4];be32(size,(uint32_t)n);if(fwrite(size,1,4,f)!=4||fwrite(type,1,4,f)!=4)exit(1);
  uint32_t crc=~0u;
  for(size_t i=0;i<n+4;i++){unsigned char byte=i<4?(unsigned char)type[i]:data[i-4];crc^=byte;for(int k=0;k<8;k++)crc=(crc>>1)^(0xedb88320u&-(crc&1u));}
- if(n&&fwrite(data,1,n,f)!=n)exit(1);be32(size,~crc);if(fwrite(size,1,4,f)!=4)exit(1);
+ if(n&&fwrite(data,1,n,f)!=n)exit(1);
+ be32(size,~crc);if(fwrite(size,1,4,f)!=4)exit(1);
 }
 int main(int argc,char**argv){
- if(argc!=2)return 2;enum{width=320,height=180,row=width*3+1,length=row*height};
+ if(argc!=2)return 2;
+ enum{width=320,height=180,row=width*3+1,length=row*height};
  unsigned char *raw=malloc(length),*z=malloc(length+32);if(!raw||!z)return 1;
  for(int y=0;y<height;y++){
   raw[y*row]=0;
