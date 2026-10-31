@@ -31,6 +31,19 @@
     (if (j-host-lt index (j-host-len args))
       (recur (j-host-add index 1) (j-host-add result (jcore-string (j-host-at args index)))) result)))
 
+(defn jcore-html-escape [args]
+  (let [value (j-host-at args 0)
+        text (if (j-host-nullish? value) "" (jcore-string value))
+        replacements {"&" "&amp;" "<" "&lt;" ">" "&gt;" "\"" "&quot;" "'" "&#x27;"}]
+    (loop [index 0 start 0 result ""]
+      (if (j-host-lt index (j-host-len text))
+        (let [char (j-host-at text index)]
+          (if (j-host-own? replacements char)
+            (recur (j-host-add index 1) (j-host-add index 1)
+              (j-host-add (j-host-add result (j-host-substring text start index)) (j-host-at replacements char)))
+            (recur (j-host-add index 1) start result)))
+        (j-host-add result (j-host-substring text start (j-host-len text)))))))
+
 (defn jcore-get [args]
   (let [value (j-host-at args 0) key (j-host-at args 1)
         fallback (if (j-host-lt 2 (j-host-len args)) (j-host-at args 2) nil)]

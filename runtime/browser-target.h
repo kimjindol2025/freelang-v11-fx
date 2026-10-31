@@ -62,7 +62,7 @@ static const char *bj_builtin(const char*op){
  static const char *const pairs[]={
   "+","jcore-add","-","jcore-sub","*","jcore-mul","/","jcore-div",
   "=","jcore-equal","eq","jcore-equal","<","jcore-less",
-  "str","jcore-str","get","jcore-get","length","jcore-length","count","jcore-length",
+  "str","jcore-str","html-escape","jcore-html-escape","get","jcore-get","length","jcore-length","count","jcore-length",
   "substring","jcore-substring","nil?","jcore-nil","null?","jcore-nil","string?","jcore-string?",
   "atom","jcore-atom","deref","jcore-deref","reset!","jcore-reset","swap!","jcore-swap",
   "append","jcore-append","map","jcore-map",
