@@ -1,0 +1,8 @@
+(server_get "/" (fn [req]
+  (server_html "<!doctype html><html lang='ko'><meta charset='utf-8'><title>FreeLang 입력·이벤트 시험</title><body><h1>FreeLang 입력·이벤트</h1><label for='editor'>본문</label><textarea id='editor'></textarea><button id='commit' type='button'>확인</button><p id='literal'></p><p id='ready'>WAIT</p><pre id='proof'>WAIT</pre><script src='/program.js' defer></script></body></html>")))
+(server_get "/program.js" (fn [req]
+  (let [result (file-read-result "program.js")]
+    (if (get result "ok")
+      (server_header (server_text (get result "data")) "Content-Type" "application/javascript; charset=utf-8")
+      (server_status 500 "generated output unavailable")))))
+(server_start 0)

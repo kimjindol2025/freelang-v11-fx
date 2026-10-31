@@ -4,14 +4,20 @@ umask 077
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 source "$ROOT/tests/l07/build.sh"
 compiler="${L01_TARGET_COMPILER:?verified native target compiler required}"
+scenario="${L01_TARGET_SCENARIO:-semantics}"
+case "$scenario" in
+ semantics) entry=browser-entry.fl;server=browser-server.fl;proof=browser-proof.c;expected=browser-semantics.expected;group=SEMANTICS;;
+ events) entry=browser-events.fl;server=browser-events-server.fl;proof=browser-events-proof.c;expected=browser-events.expected;group=EVENT;;
+ *) echo L01_TARGET_SCENARIO=INVALID >&2;exit 2;;
+esac
 out="${L01_TARGET_OUT:-$(mktemp -d)}"
 mkdir -p "$out/source" "$out/root" "$out/profile"
 cp "$ROOT/tests/l01/"*.fl "$out/source/"
 bash "$ROOT/scripts/refresh-browser-core.sh" --check
-sha256sum "$compiler" "$ROOT/self/browser-core.fl" "$out/source/browser-semantics.fl" "$out/source/browser-entry.fl"
-"$compiler" --browser-js "$out/source/browser-entry.fl" "$out/root/program.js" > "$out/generate.log" 2>&1
+sha256sum "$compiler" "$ROOT/self/browser-core.fl" "$out/source/browser-semantics.fl" "$out/source/$entry"
+"$compiler" --browser-js "$out/source/$entry" "$out/root/program.js" > "$out/generate.log" 2>&1
 cat "$out/generate.log"
-"$compiler" --browser-js "$out/source/browser-entry.fl" "$out/again.js" > "$out/generate-again.log" 2>&1
+"$compiler" --browser-js "$out/source/$entry" "$out/again.js" > "$out/generate-again.log" 2>&1
 cmp "$out/root/program.js" "$out/again.js"
 echo L01_GENERATION_REPRODUCIBLE=PASS
 sha256sum "$out/root/program.js"
@@ -37,7 +43,7 @@ printf 'L01_COMPILER_REJECT_PASS=%s FAIL=%s\n' "$passed" "$failed"
 specs=(native server)
 [[ "${L01_TARGET_GENERATION_ONLY:-0}" != 1 ]] || specs=(native)
 for spec in "${specs[@]}";do
- input="$out/source/browser-native.fl";[[ "$spec" != server ]] || input="$out/source/browser-server.fl"
+ input="$out/source/browser-native.fl";[[ "$spec" != server ]] || input="$out/source/$server"
  "$compiler" "$input" "$out/$spec.c" > "$out/$spec.build.log" 2>&1
  support=();[[ "$spec" != server ]] || support=("$ROOT/tests/l08/http-port.c" "$ROOT/tests/l08-platform/http-loopback.c" -Wl,--wrap=listen,--wrap=bind)
  gcc -O1 -g -w -I "$ROOT/runtime" -o "$out/$spec" "$out/$spec.c" "${support[@]}" "${L07_SRCS[@]}" "${L07_LIBS[@]}" >> "$out/$spec.build.log" 2>&1
@@ -52,7 +58,7 @@ if [[ "${L01_TARGET_GENERATION_ONLY:-0}" == 1 ]];then
  echo L01_TARGET_NATIVE_GATE=PASS
  exit 0
 fi
-gcc -O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -o "$out/proof" "$ROOT/tests/l01/browser-proof.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" > "$out/proof.build.log" 2>&1
+gcc -O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -o "$out/proof" "$ROOT/tests/l01/$proof" "${L07_SRCS[@]}" "${L07_LIBS[@]}" > "$out/proof.build.log" 2>&1
 server_pid="";browser_pid=""
 stop(){
  for kind in browser server;do
@@ -84,6 +90,6 @@ cat "$out/browser.actual" "$out/browser-error.log"
 printf 'L01_BROWSER_PROOF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 && ! -s "$out/browser-error.log" ]]
 rg '^J_' "$out/browser.actual" > "$out/browser.result"
-diff -u "$ROOT/tests/l01/browser-semantics.expected" "$out/browser.result"
-printf 'L01_BROWSER_SEMANTICS_PASS=%s FAIL=0\n' "$(wc -l < "$out/browser.result")"
+diff -u "$ROOT/tests/l01/$expected" "$out/browser.result"
+printf 'L01_BROWSER_%s_PASS=%s FAIL=0\n' "$group" "$(wc -l < "$out/browser.result")"
 echo L01_TARGET_SELF=PASS
