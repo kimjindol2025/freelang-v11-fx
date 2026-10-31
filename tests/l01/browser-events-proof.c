@@ -26,7 +26,11 @@ int main(int argc,char**argv){
  command("Emulation.setDeviceMetricsOverride",put(put(put(put(obj(),"width",fl_int(768)),"height",fl_int(1024)),"deviceScaleFactor",fl_int(1)),"mobile",fl_bool(false)));
  command("Page.navigate",put(obj(),"url",fl_str_val(argv[2])));document_root=0;
  wait_text("#ready","READY");
- int focused=node("#editor:focus")!=0;
+ int before_front=node("#editor:focus")!=0;
+ command("Page.bringToFront",obj());
+ int focused=0;double focus_until=now()+2;
+ do{focused=node("#editor:focus")!=0;if(focused)break;poll(NULL,0,20);}while(now()<focus_until);
+ printf("L01_FOCUS_BEFORE_FRONT=%d AFTER_FRONT=%d\n",before_front,focused);
  command("Input.insertText",put(obj(),"text",fl_str_val("가😀<b>")));
  FLValue key=put(put(put(put(obj(),"key",fl_str_val("Enter")),"code",fl_str_val("Enter")),"windowsVirtualKeyCode",fl_int(13)),"nativeVirtualKeyCode",fl_int(13));
  command("Input.dispatchKeyEvent",put(put(key,"type",fl_str_val("keyDown")),"text",fl_str_val("\r")));
