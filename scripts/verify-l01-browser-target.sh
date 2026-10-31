@@ -9,11 +9,21 @@ case "$scenario" in
  semantics) entry=browser-entry.fl;server=browser-server.fl;proof=browser-proof.c;expected=browser-semantics.expected;group=SEMANTICS;;
  events) entry=browser-events.fl;server=browser-events-server.fl;proof=browser-events-proof.c;expected=browser-events.expected;group=EVENT;;
  dom) entry=browser-dom.fl;server=browser-events-server.fl;proof=browser-dom-proof.c;expected=browser-dom.expected;group=DOM;;
+ blog-model) entry=tests/block-model-browser.fl;server=browser-server.fl;proof=browser-proof.c;expected=block-model.expected;group=BLOCK_MODEL;;
  *) echo L01_TARGET_SCENARIO=INVALID >&2;exit 2;;
 esac
 out="${L01_TARGET_OUT:-$(mktemp -d)}"
 mkdir -p "$out/source" "$out/root" "$out/profile"
 cp "$ROOT/tests/l01/"*.fl "$out/source/"
+expected_file="$ROOT/tests/l01/$expected"
+if [[ "$scenario" == blog-model ]];then
+ blog="${L01_TARGET_BLOG_SOURCE:?approved source-only blog required}"
+ [[ -f "$blog/web/block-model.fl" && ! -e "$blog/data/blog.wal" ]]
+ mkdir -p "$out/source/tests" "$out/source/web"
+ cp "$blog/web/block-model.fl" "$out/source/web/"
+ cp "$blog/tests/"block-model*.fl "$out/source/tests/"
+ expected_file="$blog/tests/block-model.expected"
+fi
 bash "$ROOT/scripts/refresh-browser-core.sh" --check
 sha256sum "$compiler" "$ROOT/self/browser-core.fl" "$out/source/browser-semantics.fl" "$out/source/$entry"
 "$compiler" --browser-js "$out/source/$entry" "$out/root/program.js" > "$out/generate.log" 2>&1
@@ -90,9 +100,9 @@ if timeout 90 "$out/proof" "$ws" "$base" "$out" > "$out/browser.actual" 2> "$out
 cat "$out/browser.actual" "$out/browser-error.log"
 printf 'L01_BROWSER_PROOF_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 && ! -s "$out/browser-error.log" ]]
-rg '^J_' "$out/browser.actual" > "$out/browser.result"
+rg '^(J_|BM_)' "$out/browser.actual" > "$out/browser.result"
 passed=$(rg -c '=PASS$' "$out/browser.result" || true)
 failed=$(rg -c '=FAIL$' "$out/browser.result" || true)
 printf 'L01_BROWSER_%s_PASS=%s FAIL=%s\n' "$group" "${passed:-0}" "${failed:-0}"
-diff -u "$ROOT/tests/l01/$expected" "$out/browser.result"
+diff -u "$expected_file" "$out/browser.result"
 echo L01_TARGET_SELF=PASS
