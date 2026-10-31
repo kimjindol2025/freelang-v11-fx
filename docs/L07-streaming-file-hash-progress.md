@@ -43,11 +43,13 @@ blog `1783dbcd2a07e96f2c3a9a58c1aab502d300dfe8`은 checksum 계산을 이 API로
 
 계약은 tests/l08-platform/file-hash-contract.md, .fl 시험과 고정 정답은 같은 폴더의 file-hash.fl 및 file-hash.expected다. 원문은 docs/evidence/l08-platform의 file-hash-initial-build-environment.txt, file-hash-before.txt, file-hash-old-compiler-failure.txt, file-hash-native.txt, file-hash-sanitizer.txt에 보존했다.
 
-## 미확인 / 진행 중
+## 전체 회귀 결과와 미확인
 
-새 runtime의 전체 L08/L06/L07 회귀와 변경하지 않은 verify-native-bootstrap.sh를 포함한 전체 실행은 고정 `cdad51e78deee1c3cde014fd106566db77159afc`에서 진행 중이다. 이전 `85a90c1b0f3f6e7b561ad4ad6f3c589244c33994`의 전체 통과를 새 runtime 결과로 대신하지 않는다.
+고정 `cdad51e78deee1c3cde014fd106566db77159afc`의 최초 전체 실행은 mode 000 파일 읽기 거부에서 `L08_P3_PASS=10 FAIL=1`, `STREAM_HASH_PLATFORM_FULL_EXIT=1`이었다. mapped root의 DAC 우회 capability가 원인이며 같은 실행물은 일반 사용자 또는 DAC 우회 capability 제거 뒤 원래 정답으로 통과했다. runtime과 기대값을 수정하지 않았다. 실패와 동일 실행물 비교는 stream-hash-full-permission-failure.txt 및 permission-context-reproduction.txt에 보존했다.
 
-실제 비밀번호 로그인·브라우저 편집기·댓글·다중 작성자·L05 자체 DB·이미지 처리·예약 발행·운영 복사본 호환과 전체 출시 기준은 여전히 미완료다.
+같은 고정 소스·정답을 사용하고 namespace에서 DAC_OVERRIDE와 DAC_READ_SEARCH만 제거한 전체 실행은 `UNPRIVILEGED_STREAM_HASH_FULL_EXIT=0`, `L08_PLATFORM_CURRENT_GATES=PASS`다. L08 3차 `11 PASS / 0 FAIL`, 2차 `11 PASS / 0 FAIL`, 1차 `17 PASS / 0 FAIL`, L06 HTTP/TLS 각각 `110 PASS / 0 FAIL`, L07 `221 PASS / 0 FAIL`이며 파일 hash 일반·sanitizer 각각 `8 PASS / 0 FAIL`을 포함한다. 변경하지 않은 자기 컴파일도 `STAGE2_EQ_STAGE3=PASS`, `BOOTSTRAP_EXIT=0`이다. 원문은 [stream-hash-unprivileged-full.txt](evidence/l08-platform/stream-hash-unprivileged-full.txt), 증거 커밋은 `5d851f03200e930ee4b85b70df60ef440519ebec`다. 감사는 `NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0`이다. 이후 추가한 L01 compiler의 새 전체 검증과 구분한다.
+
+실제 비밀번호 로그인·전체 브라우저 편집기·댓글·다중 작성자·L05 자체 DB 통합·이미지 처리·예약 발행·운영 복사본 호환과 전체 출시 기준은 여전히 미완료다. 기존 JS 편집기의 사진 메뉴·삽입·미리보기 27개와 생성 JS의 언어 의미 29개는 별도 부분 검증이며 제품 전체 인수를 대신하지 않는다.
 
 동시 수정이 전부 차단된 snapshot hash를 제공하지 않는다. 파일 크기·mtime/ctime 변화와 읽은 byte 수를 검사하지만 다중 과정의 원자적 snapshot을 보장하지 않는다. FL_FILE_BASE 설정 시 기존 안전 경로 계약을 따른다. FL_NO_CRYPTO 빌드의 HASH_UNAVAILABLE 분기는 이번 자체 실행에 포함하지 않았다.
 

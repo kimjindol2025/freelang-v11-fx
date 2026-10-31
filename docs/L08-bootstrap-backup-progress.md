@@ -1,6 +1,6 @@
 # 자기 컴파일과 백업·복구 후속 검증
 
-이 문서의 전체 회귀 통과 대상은 `85a90c1b0f3f6e7b561ad4ad6f3c589244c33994`다. 이후 파일 해시 API가 추가된 runtime의 자체 통과·전체 회귀 진행 상태는 [L07 후속 보고](L07-streaming-file-hash-progress.md)로 구분한다. 앞선 전체 통과를 새 코드의 전체 결과로 대신하지 않는다.
+이 문서의 과거 전체 회귀 통과 대상은 `85a90c1b0f3f6e7b561ad4ad6f3c589244c33994`다. 이후 파일 해시 API를 추가한 고정 `cdad51e78deee1c3cde014fd106566db77159afc`도 DAC 우회 capability를 제거한 전체 회귀와 변경하지 않은 bootstrap에서 종료 `0`으로 끝났다. 최초 권한 문맥 실패·같은 실행물 재현·새 전체 원문은 [L07 후속 보고](L07-streaming-file-hash-progress.md)에 분리했다. 이후 L01 compiler 변경의 전체 결과를 앞선 통과로 대신하지 않는다.
 
 ## 확인한 것
 
