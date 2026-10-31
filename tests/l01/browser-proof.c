@@ -2,6 +2,9 @@
 #define main editor_ui_unused_main
 #include "../l08-platform/editor-ui-cdp.c"
 #undef main
+#ifndef L01_PROOF_EXTRA
+#define L01_PROOF_EXTRA() 1
+#endif
 int main(int argc,char**argv){
  if(argc!=4)return 2;fl_init_argv(argc,argv);transport_prefix="L01";
  if(strncmp(argv[1],"ws://127.0.0.1:",15)||strncmp(argv[2],"http://127.0.0.1:",17))die("loopback_required");
@@ -34,6 +37,7 @@ int main(int argc,char**argv){
  }
  if(!exceptions&&strcmp(result,"WAIT")){fputs(result,stdout);if(*result&&result[strlen(result)-1]!='\n')putchar('\n');}
  int ok=!exceptions&&strcmp(result,"WAIT")!=0;
+ if(ok)ok=L01_PROOF_EXTRA();
  printf("L01_BROWSER_RUNTIME_EXIT=%d\n",ok?0:1);
  puts("L01_BROWSER_CODE=COMPILER_GENERATED");puts("L01_BROWSER_INJECTED_JS=0");
  if(ok)screenshot(argv[3],768);
