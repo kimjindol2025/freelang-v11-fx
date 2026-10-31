@@ -14,6 +14,7 @@
       (browser-case "J_NUMBER_TYPE_GUARD" (try (do (+ "2" 1) false) (catch [error] true)) true)
       (browser-case "J_MINUS_EMPTY" (try (do (-) false) (catch [error] true)) true)
       (browser-case "J_NEGATIVE_ZERO" (str (/ 1 (- 0))) "-Infinity")
+      (browser-case "J_NEGATIVE_ZERO_LITERAL" (str (/ 1 -0)) "-Infinity")
       (browser-case "J_NUMBER_MAP_KEY" (get {1 "one"} 1) "one")
       (browser-case "J_MAP_DEFAULT" (get {} "missing" 9) 9)
       (browser-case "J_MAP_NIL" (nil? (get {"n" nil} "n" 9)) true)
