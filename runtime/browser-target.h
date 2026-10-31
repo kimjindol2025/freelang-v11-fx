@@ -143,6 +143,10 @@ static int bj_host(BJ*b,const char*op,FLValue args){
  }
  if(!strcmp(op,"j-host-weak-new")){if(n)bj_fail(b,"host weak constructor arity");bj_out(b,"new WeakSet()");return 1;}
  if(!strcmp(op,"j-host-weak-map-new")){if(n)bj_fail(b,"host weak map constructor arity");bj_out(b,"new WeakMap()");return 1;}
+ if(!strcmp(op,"j-host-plain?")){
+  if(n!=1)bj_fail(b,"host plain object arity");
+  bj_out(b,"(Object.getPrototypeOf(");bj_expr(b,bj_at(args,0));bj_out(b,")===Object.prototype)");return 1;
+ }
  const char *call=NULL;unsigned arity=0;
  const char *calls[]={"j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}

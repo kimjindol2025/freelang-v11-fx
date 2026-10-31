@@ -48,14 +48,16 @@
   (if (j-host-eq left right) true
     (if (j-host-or (j-host-nullish? left) (j-host-nullish? right)) false
       (if (j-host-not (j-host-eq (j-host-type left) (j-host-type right))) false
-        (if (j-host-or (jcore-atom? left) (jcore-atom? right)) false
+        (if (j-host-or (j-host-or (jcore-atom? left) (jcore-atom? right))
+                      (j-host-or (j-host-weak-has jcore-listeners left) (j-host-weak-has jcore-listeners right))) false
           (if (j-host-array? left)
             (if (j-host-and (j-host-array? right) (j-host-eq (j-host-len left) (j-host-len right)))
               (loop [index 0]
                 (if (j-host-lt index (j-host-len left))
                   (if (jcore-same (j-host-at left index) (j-host-at right index))
                     (recur (j-host-add index 1)) false) true)) false)
-            (if (j-host-and (j-host-eq (j-host-type left) "object") (j-host-not (j-host-array? right)))
+            (if (j-host-and (j-host-eq (j-host-type left) "object")
+                           (j-host-and (j-host-plain? left) (j-host-plain? right)))
               (let [keys (j-host-keys left)]
                 (if (j-host-eq (j-host-len keys) (j-host-len (j-host-keys right)))
                   (loop [index 0]
