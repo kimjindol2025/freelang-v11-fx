@@ -2796,7 +2796,7 @@
           [$_read-check (if (get $read "ok") nil (throw "compiler: browser input read failed"))]
           [$_reset (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
           [$nodes (expand-loads (parse (lex (get $read "data"))) (path-dir $input))]
-          [$generated (fl_compiler_browser_generate $nodes)]
+          [$generated (fl_compiler_browser_generate $nodes (fn [$text] (parse (lex $text))))]
           [$written (fl_file_write_result $output $generated)]]
       (if (get $written "ok")
         (println (str "Compiled browser " $input " -> " $output))

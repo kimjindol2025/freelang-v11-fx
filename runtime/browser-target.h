@@ -196,13 +196,15 @@ static void bj_expr(BJ*b,FLValue n){
  const char*core=bj_builtin(op);if(core){bj_core_ref(b,core);bj_out(b,"(");bj_array(b,args);bj_out(b,")");return;}
  bj_fail(b,"unsupported operation");
 }
-FLValue fl_compiler_browser_generate(FLValue user){
+FLValue fl_compiler_browser_generate(FLValue user,FLValue parse_source){
  BJ b={0};b.names=fl_map_new();
  if(user.tag!=FL_VECTOR)bj_fail(&b,"program must be a node vector");
  if(rb_externs)bj_fail(&b,"C externs are not available in browser target");
  bj_validate_user(&b,user,0);
+ if(parse_source.tag!=FL_FN)bj_fail(&b,"parser callback required");
  char source[sizeof fl_browser_core+1];memcpy(source,fl_browser_core,sizeof fl_browser_core);source[sizeof fl_browser_core]=0;
- FLValue all=fl_parse(fl_str_val(source));if(all.tag!=FL_VECTOR)bj_fail(&b,"support source parse failed");
+ FLValue core_source=fl_str_val(source);
+ FLValue all=fl_fn_call(parse_source,1,&core_source);if(all.tag!=FL_VECTOR)bj_fail(&b,"support source parse failed");
  for(unsigned i=0;i<bj_len(user);i++)all=fl_vec_push(all,bj_at(user,i));
  FLValue nodes=fl_compiler_bindings(all),globals=fl_map_new();
  for(unsigned i=0;i<bj_len(nodes);i++){
