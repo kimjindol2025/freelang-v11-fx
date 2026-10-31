@@ -2786,8 +2786,7 @@
     (let [[$input (get $argv 1)]
           [$output (get $argv 2)]
           [$_output-check
-            (if (or (= (substring $output (- (length $output) 3) (length $output)) ".js")
-                    (= (substring $output (- (length $output) 4) (length $output)) ".mjs")) nil
+            (if (or (str-ends-with $output ".js") (str-ends-with $output ".mjs")) nil
               (throw "compiler: browser output must end in .js or .mjs"))]
           [$_same-check
             (if (and (not (nil? (fl_compiler_realpath $output)))

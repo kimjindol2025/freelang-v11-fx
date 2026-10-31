@@ -12,6 +12,8 @@
 static CURL *ws;
 static int serial, exceptions, passed, failed, document_retries, document_root, draft_dialogs;
 static const char *owned_base;
+static const char *transport_prefix="EDITOR_UI";
+static FLValue last_browser_exception;
 static char *incoming;
 static const size_t limit=16u*1024u*1024u;
 static FLValue obj(void){return fl_map_new();}
@@ -20,7 +22,7 @@ static FLValue field(FLValue o,const char*k){return fl_map_get(o,fl_str_val(k));
 static const char *text(FLValue v){return v.tag==FL_STRING?((FLString*)v.obj)->data:"";}
 static double number(FLValue v){return v.tag==FL_INT?(double)v.i:v.tag==FL_FLOAT?v.f:0;}
 static double now(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec/1e9;}
-static void die(const char *stage){fprintf(stderr,"EDITOR_UI_CDP_FAILURE=%s\n",stage);exit(1);}
+static void die(const char *stage){fprintf(stderr,"%s_CDP_FAILURE=%s\n",transport_prefix,stage);exit(1);}
 static void send_message(FLValue message){
  FLValue encoded=fl_json_stringify(message);FLString*s=(FLString*)encoded.obj;size_t sent=0;
  CURLcode rc=curl_ws_send(ws,s->data,s->len,&sent,0,CURLWS_TEXT);
@@ -38,7 +40,7 @@ static FLValue command(const char *method,FLValue params){
   used+=count;if(used>=limit-1)die("message_limit");
   if(frame->bytesleft||(frame->flags&CURLWS_CONT))continue;
   incoming[used]=0;FLValue msg=fl_json_parse(fl_str_val(incoming));used=0;
-  if(!strcmp(text(field(msg,"method")),"Runtime.exceptionThrown"))exceptions++;
+  if(!strcmp(text(field(msg,"method")),"Runtime.exceptionThrown")){exceptions++;last_browser_exception=field(field(msg,"params"),"exceptionDetails");}
   if(!strcmp(text(field(msg,"method")),"DOM.documentUpdated"))document_root=0;
   if(!strcmp(text(field(msg,"method")),"Page.javascriptDialogOpening")){
    FLValue dialog=field(msg,"params");
