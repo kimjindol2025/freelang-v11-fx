@@ -114,6 +114,7 @@
     (j-host-substring value (j-host-at args 1)
       (if (j-host-lt 2 (j-host-len args)) (j-host-at args 2) (j-host-len value)))))
 (defn jcore-nil [args] (j-host-nullish? (j-host-at args 0)))
+(defn jcore-string? [args] (j-host-eq (j-host-type (j-host-at args 0)) "string"))
 
 (defn jcore-atom [args]
   (let [value [(if (j-host-eq (j-host-len args) 0) nil (j-host-at args 0))]]
@@ -281,3 +282,6 @@
           (j-host-and (j-host-element? element) (j-host-eq (j-host-type hidden) "boolean")))
       (do (j-host-set! element "hidden" hidden) nil)
       (throw "browser-set-hidden!: element and boolean required"))))
+(defn jcore-dom-focus [args]
+  (if (jcore-element-args? args 1) (do (j-host-dom-focus! (j-host-at args 0)) nil)
+    (throw "browser-focus!: one element required")))
