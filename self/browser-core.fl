@@ -2,6 +2,7 @@
 ;; j-host-* are compiler-only primitive IR operations; user modules cannot call them.
 (define jcore-atoms (j-host-weak-new))
 (define jcore-listeners (j-host-weak-map-new))
+(define jcore-timers (j-host-weak-map-new))
 
 (defn jcore-arg [args index] (j-host-at args index))
 (defn jcore-atom? [value] (j-host-weak-has jcore-atoms value))
@@ -62,7 +63,9 @@
     (if (j-host-or (j-host-nullish? left) (j-host-nullish? right)) false
       (if (j-host-not (j-host-eq (j-host-type left) (j-host-type right))) false
         (if (j-host-or (j-host-or (jcore-atom? left) (jcore-atom? right))
-                      (j-host-or (j-host-weak-has jcore-listeners left) (j-host-weak-has jcore-listeners right))) false
+                      (j-host-or
+                        (j-host-or (j-host-weak-has jcore-listeners left) (j-host-weak-has jcore-listeners right))
+                        (j-host-or (j-host-weak-has jcore-timers left) (j-host-weak-has jcore-timers right)))) false
           (if (j-host-array? left)
             (if (j-host-and (j-host-array? right) (j-host-eq (j-host-len left) (j-host-len right)))
               (loop [index 0]
@@ -188,6 +191,36 @@
                    (j-host-and (j-host-input? element) (j-host-eq (j-host-type value) "string")))
       (do (j-host-set! element "value" value) nil)
       (throw "browser-set-value!: input or textarea and string required"))))
+(defn jcore-after [args]
+  (let [delay (j-host-at args 0) callback (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+          (j-host-and (j-host-integer? delay)
+            (j-host-and (j-host-gte delay 0)
+              (j-host-and (j-host-lt delay 2147483648) (j-host-eq (j-host-type callback) "function")))))
+      (let [token [] record [true callback nil]]
+        (do
+          (j-host-weak-set! jcore-timers token record)
+          (j-host-set! record 2
+            (j-host-timer-set (fn []
+              (if (j-host-at record 0)
+                (let [run (j-host-at record 1)]
+                  (do (j-host-set! record 0 false)
+                      (j-host-set! record 1 nil)
+                      (j-host-set! record 2 nil)
+                      (j-host-call run []))) nil)) delay))
+          token))
+      (throw "browser-after!: integer delay 0..2147483647 and function required"))))
+(defn jcore-cancel [args]
+  (let [token (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-weak-has jcore-timers token))
+      (let [record (j-host-weak-get jcore-timers token)]
+        (if (j-host-at record 0)
+          (do (j-host-timer-clear (j-host-at record 2))
+              (j-host-set! record 0 false)
+              (j-host-set! record 1 nil)
+              (j-host-set! record 2 nil) true) false))
+      (throw "browser-cancel!: one timer handle required"))))
+
 (defn jcore-event-name? [name]
   (j-host-or (j-host-eq name "input")
     (j-host-or (j-host-eq name "change")

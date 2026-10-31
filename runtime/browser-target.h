@@ -74,7 +74,8 @@ static const char *bj_builtin(const char*op){
   "browser-insert-before!","jcore-dom-before","browser-remove!","jcore-dom-remove",
   "browser-clear!","jcore-dom-clear","browser-children","jcore-dom-children",
   "browser-attribute","jcore-dom-attribute","browser-set-attribute!","jcore-dom-set-attribute",
-  "browser-set-hidden!","jcore-dom-hidden","browser-focus!","jcore-dom-focus",NULL};
+  "browser-set-hidden!","jcore-dom-hidden","browser-focus!","jcore-dom-focus",
+  "browser-after!","jcore-after","browser-cancel!","jcore-cancel",NULL};
  for(unsigned i=0;pairs[i];i+=2)if(!strcmp(op,pairs[i]))return pairs[i+1];return NULL;
 }
 static void bj_core_ref(BJ*b,const char*name){
@@ -156,6 +157,10 @@ static int bj_host(BJ*b,const char*op,FLValue args){
   if(n!=1)bj_fail(b,"host URL arity");bj_out(b,"new URL(");bj_expr(b,bj_at(args,0));bj_out(b,",document.baseURI)");return 1;
  }
  if(!strcmp(op,"j-host-origin")){if(n)bj_fail(b,"host origin arity");bj_out(b,"location.origin");return 1;}
+ if(!strcmp(op,"j-host-timer-set")||!strcmp(op,"j-host-timer-clear")){
+  int set=!strcmp(op,"j-host-timer-set");if(n!=(set?2u:1u))bj_fail(b,"host timer arity");
+  bj_out(b,set?"globalThis.setTimeout(":"globalThis.clearTimeout(");bj_args(b,args,0);bj_out(b,")");return 1;
+ }
  const char *call=NULL;unsigned arity=0;
  const char *calls[]={"j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}

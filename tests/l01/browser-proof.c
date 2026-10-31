@@ -5,6 +5,9 @@
 #ifndef L01_PROOF_EXTRA
 #define L01_PROOF_EXTRA() 1
 #endif
+#ifndef L01_EXPECTED_EXCEPTIONS
+#define L01_EXPECTED_EXCEPTIONS 0
+#endif
 int main(int argc,char**argv){
  if(argc!=4)return 2;fl_init_argv(argc,argv);transport_prefix="L01";
  if(strncmp(argv[1],"ws://127.0.0.1:",15)||strncmp(argv[2],"http://127.0.0.1:",17))die("loopback_required");
@@ -15,6 +18,7 @@ int main(int argc,char**argv){
  command("Page.enable",obj());command("DOM.enable",obj());command("Runtime.enable",obj());
  command("Emulation.setDeviceMetricsOverride",put(put(put(put(obj(),"width",fl_int(768)),"height",fl_int(1024)),"deviceScaleFactor",fl_int(1)),"mobile",fl_bool(false)));
  command("Page.navigate",put(obj(),"url",fl_str_val(argv[2])));document_root=0;
+ command("Page.bringToFront",obj());
  const char *result="WAIT";double deadline=now()+20;
  do{
   int target=node("#proof");
@@ -25,18 +29,19 @@ int main(int argc,char**argv){
     for(unsigned i=0;i<v->len;i++)if(number(field(v->data[i],"nodeType"))==3)result=text(field(v->data[i],"nodeValue"));
    }
   }
-  if(exceptions||strcmp(result,"WAIT"))break;
+  if(exceptions>L01_EXPECTED_EXCEPTIONS||strcmp(result,"WAIT"))break;
   poll(NULL,0,30);
  }while(now()<deadline);
- if(exceptions){
+ if(exceptions!=L01_EXPECTED_EXCEPTIONS){
   fprintf(stderr,"L01_BROWSER_EXCEPTIONS=%d\n",exceptions);
   fprintf(stderr,"L01_BROWSER_EXCEPTION_TEXT=%s\n",text(field(last_browser_exception,"text")));
   FLValue exception=field(last_browser_exception,"exception");
   fprintf(stderr,"L01_BROWSER_EXCEPTION_DESCRIPTION=%s\n",text(field(exception,"description")));
   fprintf(stderr,"L01_BROWSER_EXCEPTION_VALUE=%s\n",text(field(exception,"value")));
  }
- if(!exceptions&&strcmp(result,"WAIT")){fputs(result,stdout);if(*result&&result[strlen(result)-1]!='\n')putchar('\n');}
- int ok=!exceptions&&strcmp(result,"WAIT")!=0;
+ printf("L01_BROWSER_OBSERVED_EXCEPTIONS=%d\n",exceptions);
+ if(exceptions==L01_EXPECTED_EXCEPTIONS&&strcmp(result,"WAIT")){fputs(result,stdout);if(*result&&result[strlen(result)-1]!='\n')putchar('\n');}
+ int ok=exceptions==L01_EXPECTED_EXCEPTIONS&&strcmp(result,"WAIT")!=0;
  if(ok)ok=L01_PROOF_EXTRA();
  printf("L01_BROWSER_RUNTIME_EXIT=%d\n",ok?0:1);
  puts("L01_BROWSER_CODE=COMPILER_GENERATED");puts("L01_BROWSER_INJECTED_JS=0");

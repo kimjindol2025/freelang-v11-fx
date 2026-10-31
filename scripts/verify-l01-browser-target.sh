@@ -9,6 +9,8 @@ case "$scenario" in
  semantics) entry=browser-entry.fl;server=browser-server.fl;proof=browser-proof.c;expected=browser-semantics.expected;group=SEMANTICS;;
  events) entry=browser-events.fl;server=browser-events-server.fl;proof=browser-events-proof.c;expected=browser-events.expected;group=EVENT;;
  dom) entry=browser-dom.fl;server=browser-events-server.fl;proof=browser-dom-proof.c;expected=browser-dom.expected;group=DOM;;
+ timers) entry=browser-timers.fl;server=browser-events-server.fl;proof=browser-proof.c;expected=browser-timers.expected;group=TIMER;;
+ timer-exception) entry=browser-timer-exception.fl;server=browser-events-server.fl;proof=browser-timer-exception-proof.c;expected=browser-timer-exception.expected;group=TIMER_EXCEPTION;;
  blog-model) entry=tests/block-model-browser.fl;server=browser-server.fl;proof=browser-proof.c;expected=block-model.expected;group=BLOCK_MODEL;;
  *) echo L01_TARGET_SCENARIO=INVALID >&2;exit 2;;
 esac
