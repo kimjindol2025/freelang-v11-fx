@@ -1,0 +1,3 @@
+L01_COMPATIBLE_BUILD_EXIT=0
+L01_COMPATIBLE_GENERATE_EXIT=1
+Uncaught error (line 2597): not a function
