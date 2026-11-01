@@ -12,9 +12,9 @@ cleanup() {
 trap cleanup EXIT
 
 "$native" "$root/tests/native-bootstrap/peer-address.fl" "$work/peer.c"
-gcc -O2 -w -I "$root/runtime" -o "$work/peer" "$work/peer.c" "$root"/runtime/{core,collection,io,math,error,process,json,aliases,user-fns,gc,http,websocket,sqlite,mariadb,debug,http_client,regex,smtp,sse}.c -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl
+gcc -O2 -w -rdynamic -I "$root/runtime" -o "$work/peer" "$work/peer.c" "$root"/runtime/{core,collection,io,math,error,process,json,aliases,user-fns,gc,http,websocket,sqlite,mariadb,debug,http_client,regex,smtp,sse}.c -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl
 
-port="${FX_PEER_TEST_PORT:-40977}"
+port="${FX_PEER_TEST_PORT:-$((40000 + RANDOM % 20000))}"
 FX_PEER_TEST_PORT="$port" "$work/peer" >"$work/server.log" 2>&1 &
 server_pid=$!
 body=''
