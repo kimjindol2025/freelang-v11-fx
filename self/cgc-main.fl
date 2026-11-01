@@ -1433,6 +1433,8 @@
                       (if (includes-item $acc $vn) $acc (push $acc $vn)))
                     $acc)]]
        (cgc-collect-vars-loop (get $node :args) 0 $acc2))]
+    [(and (= (get $node :kind) "block") (= (get $node :type) "Map"))
+     (cgc-collect-map-values (get (get $node :fields) "items") 1 $acc)]
     [(= (get $node :kind) "block")
      (cgc-collect-vars-loop (get-block-items $node) 0 $acc)]
     [(= (get $node :kind) "and")
@@ -1445,6 +1447,11 @@
   (loop [$i $_i $acc $_acc]
     (if (or (null? $_args) (>= $i (length $_args))) $acc
     (recur (+ $i 1) (cgc-collect-vars (get $_args $i) $acc)))))
+
+(defn cgc-collect-map-values [$items $i $acc]
+  (if (or (null? $items) (>= $i (length $items))) $acc
+    (cgc-collect-map-values $items (+ $i 2)
+      (cgc-collect-vars (get $items $i) $acc))))
 
 ;; _self->env[i] 복원 구문
 (defn cgc-fn-env-decls [$_caps $_i $_acc]
