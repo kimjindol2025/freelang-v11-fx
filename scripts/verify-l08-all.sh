@@ -17,6 +17,11 @@ if L06_OUT="$out/regressions" bash "$ROOT/scripts/verify-l06-all.sh" >"$out/regr
 cat "$out/regressions.log"
 printf 'REGRESSIONS_AND_BOOTSTRAP_EXIT=%s\n' "$rc"
 [[ "$rc" == 0 ]]
+bootstrap_traces=("$out/regressions/bootstrap/traces/"*.execve.log)
+if [[ "${FL_BOOTSTRAP_AUDIT:-trace}" == static ]];then
+ rg -qx 'BOOTSTRAP_STATIC_AUDIT=PASS' "$out/regressions/bootstrap/static/static-audit.txt"
+ bootstrap_traces=()
+fi
 bash "$ROOT/scripts/audit-l07-execve.sh" "$out/"*.execve.log \
-    "$out/regressions/"*.execve.log "$out/regressions/bootstrap/traces/"*.execve.log
+    "$out/regressions/"*.execve.log "${bootstrap_traces[@]}"
 echo L08_C01_C03_GATES=PASS

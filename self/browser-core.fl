@@ -3,6 +3,10 @@
 (define jcore-atoms (j-host-weak-new))
 (define jcore-listeners (j-host-weak-map-new))
 (define jcore-timers (j-host-weak-map-new))
+(define jcore-requests (j-host-weak-map-new))
+
+(defn jcore-task? [value]
+  (j-host-or (j-host-weak-has jcore-timers value) (j-host-weak-has jcore-requests value)))
 
 (defn jcore-arg [args index] (j-host-at args index))
 (defn jcore-atom? [value] (j-host-weak-has jcore-atoms value))
@@ -65,7 +69,7 @@
         (if (j-host-or (j-host-or (jcore-atom? left) (jcore-atom? right))
                       (j-host-or
                         (j-host-or (j-host-weak-has jcore-listeners left) (j-host-weak-has jcore-listeners right))
-                        (j-host-or (j-host-weak-has jcore-timers left) (j-host-weak-has jcore-timers right)))) false
+                        (j-host-or (jcore-task? left) (jcore-task? right)))) false
           (if (j-host-array? left)
             (if (j-host-and (j-host-array? right) (j-host-eq (j-host-len left) (j-host-len right)))
               (loop [index 0]
@@ -210,16 +214,31 @@
                       (j-host-call run []))) nil)) delay))
           token))
       (throw "browser-after!: integer delay 0..2147483647 and function required"))))
+(defn jcore-http-release [state]
+  (j-host-set! state 0 true)
+  (j-host-timer-clear (j-host-at state 1))
+  (j-host-timer-clear (j-host-at state 3))
+  (j-host-set! state 1 nil)
+  (j-host-set! state 2 nil)
+  (j-host-set! state 3 nil)
+  (j-host-set! state 4 nil))
 (defn jcore-cancel [args]
+  (if (j-host-not (j-host-eq (j-host-len args) 1))
+    (throw "browser-cancel!: one task handle required") nil)
   (let [token (j-host-at args 0)]
-    (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-weak-has jcore-timers token))
+    (if (j-host-weak-has jcore-timers token)
       (let [record (j-host-weak-get jcore-timers token)]
         (if (j-host-at record 0)
           (do (j-host-timer-clear (j-host-at record 2))
               (j-host-set! record 0 false)
               (j-host-set! record 1 nil)
               (j-host-set! record 2 nil) true) false))
-      (throw "browser-cancel!: one timer handle required"))))
+      (if (j-host-weak-has jcore-requests token)
+        (let [state (j-host-weak-get jcore-requests token)]
+          (if (j-host-at state 0) false
+            (let [controller (j-host-at state 4)]
+              (do (jcore-http-release state) (j-host-abort controller) true))))
+        (throw "browser-cancel!: one task handle required")))))
 
 (defn jcore-event-name? [name]
   (j-host-or (j-host-eq name "input")
@@ -361,29 +380,32 @@
                 (j-host-and (j-host-integer? delay)
                   (j-host-and (j-host-gte delay 1) (j-host-lt delay 2147483648)))))))
         (throw "browser-http!: GET/POST, string body and integer timeout 1..2147483647 required") nil)
-      (let [controller (j-host-abort-new) state [false nil callback]
+      (let [token [] state [false nil callback nil (j-host-abort-new)]
             finish (fn [result]
               (if (j-host-at state 0) nil
                 (let [deliver (j-host-at state 2)]
-                  (do (j-host-set! state 0 true)
-                      (j-host-timer-clear (j-host-at state 1))
-                      (j-host-set! state 1 nil)
-                      (j-host-set! state 2 nil)
+                  (do (jcore-http-release state)
                       (j-host-call deliver [result])))))
             failed (fn [error] (finish {"ok" false "status" 0 "body" "" "error" "network"}))]
+        (j-host-weak-set! jcore-requests token state)
         (j-host-set! state 1 (j-host-timer-set (fn []
-          (do (j-host-abort controller)
-              (finish {"ok" false "status" 0 "body" "" "error" "timeout"}))) delay))
-        (try
-          (j-host-then
-            (j-host-fetch (j-host-at parsed "href")
-              {"method" method "body" (if (j-host-eq method "GET") nil body)
-               "signal" (j-host-at controller "signal")})
-            (fn [response]
-              (j-host-then (j-host-response-text response)
-                (fn [text]
-                  (finish {"ok" (j-host-at response "ok") "status" (j-host-at response "status")
-                    "body" text "error" (if (j-host-at response "ok") nil "http")})) failed))
-            failed)
-          (catch error (j-host-timer-set (fn [] (failed error)) 0)))
-        nil))))
+          (if (j-host-at state 0) nil
+            (do (j-host-abort (j-host-at state 4))
+                (finish {"ok" false "status" 0 "body" "" "error" "timeout"})))) delay))
+        (j-host-set! state 3 (j-host-timer-set (fn []
+          (if (j-host-at state 0) nil
+            (do
+              (j-host-set! state 3 nil)
+              (try
+                (j-host-then
+                  (j-host-fetch (j-host-at parsed "href")
+                    {"method" method "body" (if (j-host-eq method "GET") nil body)
+                     "signal" (j-host-at (j-host-at state 4) "signal")})
+                  (fn [response]
+                    (j-host-then (j-host-response-text response)
+                      (fn [text]
+                        (finish {"ok" (j-host-at response "ok") "status" (j-host-at response "status")
+                          "body" text "error" (if (j-host-at response "ok") nil "http")})) failed))
+                  failed)
+                (catch error (failed error)))))) 0))
+        token))))

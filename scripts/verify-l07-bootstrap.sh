@@ -4,6 +4,10 @@
 set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 out="${L07_OUT:-$(mktemp -d)}"
+if [[ "${FL_BOOTSTRAP_AUDIT:-trace}" == static ]];then
+ E10_BOOTSTRAP_OUT="$out/static" exec bash "$ROOT/scripts/verify-e10-bootstrap.sh"
+fi
+[[ "${FL_BOOTSTRAP_AUDIT:-trace}" == trace ]]
 mkdir -p "$out/bin" "$out/traces"
 export L07_TRACE_ARCHIVE="$out/traces"
 export L07_REAL_STRACE="$(command -v strace)"

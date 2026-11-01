@@ -23,5 +23,10 @@ if unshare --user --map-root-user --pid --fork --mount-proc \
 cat "$out/BOOTSTRAP.log"
 printf 'BOOTSTRAP_EXIT=%s\n' "$rc" | tee "$out/BOOTSTRAP.exit"
 test "$rc" = 0
-bash "$ROOT/scripts/audit-l07-execve.sh" "$out"/*.execve.log "$out/bootstrap/traces"/*.execve.log | tee "$out/trace-audit.log"
+bootstrap_traces=("$out/bootstrap/traces/"*.execve.log)
+if [[ "${FL_BOOTSTRAP_AUDIT:-trace}" == static ]];then
+ rg -qx 'BOOTSTRAP_STATIC_AUDIT=PASS' "$out/bootstrap/static/static-audit.txt"
+ bootstrap_traces=()
+fi
+bash "$ROOT/scripts/audit-l07-execve.sh" "$out"/*.execve.log "${bootstrap_traces[@]}" | tee "$out/trace-audit.log"
 echo L06_NATIVE_GATES=PASS
