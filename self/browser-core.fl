@@ -331,3 +331,59 @@
 (defn jcore-dom-focus [args]
   (if (jcore-element-args? args 1) (do (j-host-dom-focus! (j-host-at args 0)) nil)
     (throw "browser-focus!: one element required")))
+
+;; HTTP owns completion until the entire response body has arrived.
+(defn jcore-json-parse [args]
+  (if (j-host-and (j-host-eq (j-host-len args) 1)
+        (j-host-eq (j-host-type (j-host-at args 0)) "string"))
+    (j-host-json-parse (j-host-at args 0))
+    (throw "browser-json-parse: one string required")))
+(defn jcore-http [args]
+  (let [url (j-host-at args 0) options (j-host-at args 1) callback (j-host-at args 2)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-len args) 3)
+          (j-host-and (j-host-eq (j-host-type url) "string")
+            (j-host-and (j-host-not (j-host-nullish? options))
+              (j-host-and (j-host-eq (j-host-type options) "object")
+                (j-host-and (j-host-plain? options) (j-host-eq (j-host-type callback) "function")))))))
+      (throw "browser-http!: URL, options map and callback required") nil)
+    (let [method (j-host-at options "method") body (j-host-at options "body")
+          delay (j-host-at options "timeout") parsed (j-host-url url)]
+      (if (j-host-not (j-host-and
+            (j-host-or (j-host-eq (j-host-at parsed "protocol") "http:")
+                      (j-host-eq (j-host-at parsed "protocol") "https:"))
+            (j-host-and (j-host-eq (j-host-at parsed "username") "")
+              (j-host-eq (j-host-at parsed "password") ""))))
+        (throw "browser-http!: HTTP(S) URL without credentials required") nil)
+      (if (j-host-not (j-host-and
+            (j-host-or (j-host-eq method "GET") (j-host-eq method "POST"))
+            (j-host-and (j-host-eq (j-host-type body) "string")
+              (j-host-and (j-host-or (j-host-eq method "POST") (j-host-eq body ""))
+                (j-host-and (j-host-integer? delay)
+                  (j-host-and (j-host-gte delay 1) (j-host-lt delay 2147483648)))))))
+        (throw "browser-http!: GET/POST, string body and integer timeout 1..2147483647 required") nil)
+      (let [controller (j-host-abort-new) state [false nil callback]
+            finish (fn [result]
+              (if (j-host-at state 0) nil
+                (let [deliver (j-host-at state 2)]
+                  (do (j-host-set! state 0 true)
+                      (j-host-timer-clear (j-host-at state 1))
+                      (j-host-set! state 1 nil)
+                      (j-host-set! state 2 nil)
+                      (j-host-call deliver [result])))))
+            failed (fn [error] (finish {"ok" false "status" 0 "body" "" "error" "network"}))]
+        (j-host-set! state 1 (j-host-timer-set (fn []
+          (do (j-host-abort controller)
+              (finish {"ok" false "status" 0 "body" "" "error" "timeout"}))) delay))
+        (try
+          (j-host-then
+            (j-host-fetch (j-host-at parsed "href")
+              {"method" method "body" (if (j-host-eq method "GET") nil body)
+               "signal" (j-host-at controller "signal")})
+            (fn [response]
+              (j-host-then (j-host-response-text response)
+                (fn [text]
+                  (finish {"ok" (j-host-at response "ok") "status" (j-host-at response "status")
+                    "body" text "error" (if (j-host-at response "ok") nil "http")})) failed))
+            failed)
+          (catch error (j-host-timer-set (fn [] (failed error)) 0)))
+        nil))))
