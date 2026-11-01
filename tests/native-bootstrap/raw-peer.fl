@@ -1,0 +1,13 @@
+(define port (str-to-num (env-get "FX_RAW_TEST_PORT")))
+
+(tcp-server-raw port
+  (fn [event conn payload address peer-port]
+    (if (= event "connect")
+      (tcp-write conn
+        (if (and (= address "127.0.0.1") (> peer-port 0))
+          "RAW_PEER=PASS\n"
+          "RAW_PEER=FAIL\n"))
+      nil))
+  "127.0.0.1")
+
+(dotimes i 100 (fl-yield 100))
