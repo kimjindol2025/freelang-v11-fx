@@ -1417,6 +1417,9 @@
 (defn cgc-collect-vars [$node $acc]
   (cond
     [(null? $node) $acc]
+    [(and (= (get $node :kind) "literal") (= (get $node :type) "symbol"))
+     (let [[$n (c-name (get $node :value))]]
+       (if (includes-item $acc $n) $acc (push $acc $n)))]
     [(= (get $node :kind) "variable")
      (let [[$n (c-name (get $node :name))]]
        (if (includes-item $acc $n) $acc (push $acc $n)))]
