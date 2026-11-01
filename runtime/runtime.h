@@ -595,6 +595,7 @@ FLValue mariadb_one_p(FLValue conn, FLValue sql, FLValue params);
 
 /* ── 메모리/GC (gc.c) ── */
 void    fl_arena_begin(void);
+int     fl_arena_active(void);
 void*   fl_arena_alloc(size_t size);
 void    fl_arena_end(void);
 int     fl_arena_on_reset(void (*cleanup)(void*), void* value);
