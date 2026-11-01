@@ -46,6 +46,8 @@ readelf -d "$binary" | rg 'Shared library: \[libasan\.so' >/dev/null
 if L08_TIMER_NO_VISIT_OUT="$out/timer-http" L08_TIMER_NO_VISIT_SERVER="$binary" bash "$ROOT/scripts/verify-l08-timer-no-visit.sh" > "$out/timer-http.log" 2>&1; then rc=0; else rc=$?; fi
 cat "$out/timer-http.log" "$out/timer-http/server.stderr"
 printf 'TIMER_HTTP_LSAN_EXIT=%s\n' "$rc"
-[[ "$rc" == 0 && ! -s "$out/timer-http/server.stderr" ]]
+[[ "$rc" == 0 ]]
+# http.c logs route/start/shutdown diagnostics on stderr even on success.
+! rg -q 'Sanitizer|runtime error:|SUMMARY:' "$out/timer-http/server.stderr"
 pass=$((pass+1))
 printf 'REGRESSION_LEAK_CASES=%s/14\n' "$pass"
