@@ -8,7 +8,7 @@ export LD_LIBRARY_PATH="$libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 LSAN_OPTIONS=exitcode=23
 for name in cancelled pending active; do
  "$compiler" --extern worker-timer-run --extern worker-observe --extern worker-pending --extern worker-exit "$ROOT/tests/worker-cleanup/$name.fl" "$out/$name.c" > "$out/$name.compile.log" 2>&1
- strace -f -e trace=execve -o "$out/$name.build.execve.log" gcc -O1 -g -w -fsanitize=address,undefined -fno-omit-frame-pointer -L "$libdir" -I "$ROOT/runtime" -include "$ROOT/tests/worker-cleanup/support.h" -o "$out/$name" "$out/$name.c" "$ROOT/tests/worker-cleanup/support.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" > "$out/$name.build.log" 2>&1
+ strace -f -e trace=execve -o "$out/$name.build.execve.log" gcc -O1 -g -w -D_GNU_SOURCE -fsanitize=address,undefined -fno-omit-frame-pointer -L "$libdir" -I "$ROOT/runtime" -include "$ROOT/tests/worker-cleanup/support.h" -o "$out/$name" "$out/$name.c" "$ROOT/tests/worker-cleanup/support.c" "${L07_SRCS[@]}" "${L07_LIBS[@]}" > "$out/$name.build.log" 2>&1
  if timeout 120 "$out/$name" > "$out/$name.stdout" 2> "$out/$name.stderr"; then rc=0;else rc=$?;fi
  printf '%s\n' "$rc" > "$out/$name.exit"
  cat "$out/$name.stdout" "$out/$name.stderr"
