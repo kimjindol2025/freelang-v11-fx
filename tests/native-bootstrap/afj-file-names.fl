@@ -1,0 +1,6 @@
+(define path (env-get "FX_AFL_TEST_FILE"))
+(file_append path "a")
+(file_append path "b")
+(if (= (file_size path) 2)
+  (println "AFJ_FILE_NAMES=PASS")
+  (println "AFJ_FILE_NAMES=FAIL"))
