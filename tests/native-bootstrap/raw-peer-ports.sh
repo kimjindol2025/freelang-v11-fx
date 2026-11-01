@@ -34,11 +34,12 @@ run_one() {
   server_pid=''
 }
 
-fixed="${FX_RAW_FIXED_PORT:-49381}"
+# Keep test listeners outside this host's ephemeral-client range.
+fixed="${FX_RAW_FIXED_PORT:-31000}"
 for run in 1 2 3 4 5 6 7 8 9 10; do run_one "$fixed"; done
 printf 'TCP_FIXED_PORT=10/10\n'
 for run in 1 2 3 4 5 6 7 8 9 10; do
-  port="$((40000 + RANDOM % 20000))"
+  port="$((20000 + RANDOM % 10000))"
   run_one "$port"
 done
 printf 'TCP_RANDOM_PORT=10/10\n'
