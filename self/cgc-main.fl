@@ -1185,6 +1185,7 @@
   ;; N-11: 파일 ops — stub → 실제 구현
   [(= $op "_fl_file_append")  (str "_fl_file_append(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "file-append")      (str "_fl_file_append(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "file_append")      (str "_fl_file_append(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "_fl_file_copy")    (str "_fl_file_copy(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "_fl_file_delete")  (str "_fl_file_delete(" (cgc (get $args 0)) ")")]
   [(= $op "file-delete")      (str "_fl_file_delete(" (cgc (get $args 0)) ")")]
@@ -1194,6 +1195,7 @@
   [(= $op "_fl_file_list")    (str "_fl_file_list(" (cgc (get $args 0)) ")")]
   [(= $op "file-list")        (str "_fl_file_list(" (cgc (get $args 0)) ")")]
   [(= $op "_fl_file_size")    (str "_fl_file_size(" (cgc (get $args 0)) ")")]
+  [(= $op "file_size")        (str "_fl_file_size(" (cgc (get $args 0)) ")")]
   [(= $op "_fl_file_modified")(str "_fl_file_modified(" (cgc (get $args 0)) ")")]
   [(= $op "_fl_file_rename")  (str "_fl_file_rename(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "_fl_file_is_file") (str "_fl_file_is_file(" (cgc (get $args 0)) ")")]
