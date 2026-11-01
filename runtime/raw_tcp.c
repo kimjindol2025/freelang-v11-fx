@@ -76,9 +76,11 @@ static void raw_close(RawClient* client) {
 }
 
 FLValue fl_tcp_server_stop(void) {
-    for (int i = 0; i < RAW_CLIENTS; i++) raw_close(&raw_clients[i]);
-    if (raw_server >= 0) close(raw_server);
+    if (raw_server < 0) return fl_str_val("ok");
+    int server = raw_server;
     raw_server = -1;
+    for (int i = 0; i < RAW_CLIENTS; i++) raw_close(&raw_clients[i]);
+    close(server);
     if (raw_handler.tag >= FL_STRING) fl_heap_release(raw_handler);
     raw_handler = fl_nil();
     raw_named_handler = NULL;
@@ -153,6 +155,10 @@ FLValue fl_tcp_peer_port(FLValue connection) {
 FLValue fl_tcp_yield(FLValue timeout) {
     int milliseconds = timeout.tag == FL_INT && timeout.i > 0 ?
         (timeout.i > 60000 ? 60000 : (int)timeout.i) : 0;
+    if (raw_server < 0) {
+        poll(NULL, 0, milliseconds);
+        return fl_int(0);
+    }
     struct pollfd fds[RAW_CLIENTS + 1];
     RawClient* slots[RAW_CLIENTS + 1];
     int count = 0;
@@ -185,7 +191,8 @@ FLValue fl_tcp_yield(FLValue timeout) {
             if (getnameinfo((struct sockaddr*)&peer, length, client->address,
                             sizeof(client->address), service, sizeof(service),
                             NI_NUMERICHOST | NI_NUMERICSERV)) {
-                raw_close(client);
+                close(fd);
+                client->fd = -1;
                 continue;
             }
             client->port = atoi(service);
