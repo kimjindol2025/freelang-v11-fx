@@ -90,6 +90,29 @@ typedef struct ArenaCleanup {void (*call)(void*);void*value;struct ArenaCleanup*
 
 /* ── per-thread 아레나 ── */
 static __thread Arena* g_arena = NULL;
+static __thread Arena* cli_arena;
+static __thread int thread_watched,thread_cleaning;
+static pthread_key_t thread_key;
+static pthread_once_t thread_once=PTHREAD_ONCE_INIT;
+static int thread_key_error;
+static void thread_cleanup(void*unused){
+    (void)unused;thread_cleaning=1;thread_watched=0;
+    pthread_setspecific(thread_key,NULL);
+    fl_schedule_worker_cleanup();
+    while(g_arena)fl_arena_scope_leave(g_arena->previous);
+    fl_borrow_release_to(NULL);cli_arena=NULL;thread_cleaning=0;
+}
+static void process_thread_cleanup(void){thread_cleanup(NULL);}
+static void thread_key_init(void){
+    thread_key_error=pthread_key_create(&thread_key,thread_cleanup);
+    if(!thread_key_error&&atexit(process_thread_cleanup))thread_key_error=1;
+}
+int fl_thread_lifetime_begin(void){
+    if(thread_watched||thread_cleaning)return 1;
+    pthread_once(&thread_once,thread_key_init);
+    if(thread_key_error||pthread_setspecific(thread_key,(void*)1))return 0;
+    thread_watched=1;return 1;
+}
 int fl_arena_active(void){return g_arena!=NULL;}
 static void arena_clean(Arena*arena){
     if(arena)fl_borrow_release_to(arena->borrow_mark);
@@ -122,6 +145,7 @@ static void arena_rewind(Arena *arena){
 }
 
 void fl_arena_begin(void) {
+    if(!fl_thread_lifetime_begin()){fl_throw(fl_str_val("thread lifecycle initialization failed"));return;}
     if (!g_arena) {
         g_arena = calloc(1,sizeof(Arena));
         if(!g_arena){fl_throw(fl_str_val("arena allocation failed"));return;}
@@ -182,6 +206,7 @@ void fl_arena_end(void) {
     arena_rewind(g_arena);
 }
 void*fl_arena_scope_enter(void){
+    if(!fl_thread_lifetime_begin()){fl_throw(fl_str_val("thread lifecycle initialization failed"));return NULL;}
     Arena*previous=g_arena;Arena*current=calloc(1,sizeof(*current));
     if(!current){fl_throw(fl_str_val("arena allocation failed"));return NULL;}
     current->first=current->head=arena_new_chunk(0);
@@ -195,15 +220,16 @@ void fl_arena_scope_leave(void*previous){
 }
 
 /* Register before timer initialization: its atexit drain must run first. */
-static __thread Arena* cli_arena;
 static void cli_cleanup(void){
     if(!cli_arena)return;
+    fl_schedule_worker_cleanup();
     Arena*previous=cli_arena->previous;
     while(g_arena&&g_arena!=previous)fl_arena_scope_leave(g_arena->previous);
     cli_arena=NULL;
 }
 void fl_cli_runtime_begin(void){
     if(cli_arena)return;
+    if(!fl_thread_lifetime_begin()){fputs("FreeLang CLI initialization failed\n",stderr);exit(1);}
     Arena*current=calloc(1,sizeof(*current));
     if(current)current->first=current->head=arena_new_chunk(0);
     if(!current||!current->head){

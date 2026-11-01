@@ -304,6 +304,7 @@ FLValue fl_map_entries(FLValue map);
 
 /* ── S22: argv ── */
 void    fl_cli_runtime_begin(void);
+int     fl_thread_lifetime_begin(void);
 void    fl_init_argv(int argc, char** argv);
 FLValue fl_get_argv(void);
 
@@ -604,6 +605,7 @@ void    fl_schedule_tick(int wait_ms);
 int     fl_schedule_timeout_ms(int maximum);
 int     fl_schedule_wake_fd(void);
 void    fl_schedule_shutdown(void);
+void    fl_schedule_worker_cleanup(void);
 void    fl_schedule_promise_destroy(FLValue value);
 void    fl_arena_stats(void);
 void*   fl_perm_alloc(size_t size);
