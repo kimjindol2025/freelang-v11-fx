@@ -161,6 +161,18 @@ FLValue fl_map_get(FLValue map, FLValue key) {
     return fl_nil();
 }
 
+FLValue fl_map_has_key(FLValue map, FLValue key) {
+    if (map.tag != FL_MAP) {
+        fl_throw(fl_str_val("HAS_KEY_EXPECTED_MAP"));
+        return fl_nil();
+    }
+    FLMap* m = (FLMap*)map.obj;
+    for (uint32_t i = 0; i < m->len; i++) {
+        if (fl_truthy(fl_eq(m->entries[i].key, key))) return fl_bool(true);
+    }
+    return fl_bool(false);
+}
+
 FLValue fl_map_len(FLValue map) {
     if (map.tag != FL_MAP) return fl_int(0);
     return fl_int((int64_t)((FLMap*)map.obj)->len);

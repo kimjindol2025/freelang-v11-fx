@@ -146,6 +146,7 @@ FLValue fl_vec_builder_freeze(FLValue b);
 FLValue fl_map_new(void);
 FLValue fl_map_from_pairs(FLValue* kv, uint32_t n); /* n = 쌍의 수 */
 FLValue fl_map_get(FLValue map, FLValue key);
+FLValue fl_map_has_key(FLValue map, FLValue key);
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val);
 FLValue fl_map_len(FLValue map);
 
