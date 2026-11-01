@@ -469,7 +469,7 @@ void fl_heap_release(FLValue v){fl_gc_lock();heap_release_locked(v);fl_gc_unlock
 static void snapshot_owned_cleanup(void*pointer) {
     FLObject*object=pointer;
     FLValue value={.tag=object->type==FL_MANAGED_ATOM?FL_VECTOR:object->type==FL_OWNED_FN?FL_FN:
-                       object->type==FL_NATIVE_PROMISE||object->type==FL_NATIVE_TAIL?FL_MAP:object->type,.obj=object};
+                       object->type==FL_NATIVE_PROMISE||object->type==FL_NATIVE_TAIL||object->type==FL_NATIVE_ERROR?FL_MAP:object->type,.obj=object};
     fl_heap_release(value);
 }
 

@@ -19,7 +19,13 @@ for name in tail-call-context tail-call-extra tail-while-mode swap-zero-extra ca
  if timeout 60 "$out/$name" > "$out/$name.actual" 2> "$out/$name.stderr";then rc=0;else rc=$?;fi
  cat "$out/$name.actual" "$out/$name.stderr"
  printf '%s_PROGRAM_EXIT=%s\n' "$name" "$rc"
- if [[ "$rc" == 0 && ! -s "$out/$name.stderr" ]] && diff -u "$ROOT/tests/l08-platform/$name.expected" "$out/$name.actual";then pass=$((pass+1));else fail=$((fail+1));fi
+ if [[ "$rc" == 0 && ! -s "$out/$name.stderr" ]] && diff -u "$ROOT/tests/l08-platform/$name.expected" "$out/$name.actual";then
+  pass=$((pass+1))
+ else
+  fail=$((fail+1))
+  printf 'L08_TAIL_PASS=%s FAIL=%s\n' "$pass" "$fail"
+  exit 1
+ fi
 done
 printf 'L08_TAIL_PASS=%s FAIL=%s\n' "$pass" "$fail"
 [[ "$fail" == 0 ]]
