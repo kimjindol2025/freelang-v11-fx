@@ -1,0 +1,2 @@
+(has-key? 42 "key")
+(println "HAS_KEY_NON_MAP=FAIL")

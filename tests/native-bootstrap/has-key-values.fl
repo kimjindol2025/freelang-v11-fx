@@ -1,0 +1,8 @@
+(define doc {"present" 7 "unset" nil})
+
+(if (and (has-key? doc "present")
+         (not (has-key? doc "absent"))
+         (has-key? doc "unset")
+         (not (has-key? {} "anything")))
+  (println "HAS_KEY_VALUES=PASS")
+  (throw "HAS_KEY_VALUES=FAIL"))
