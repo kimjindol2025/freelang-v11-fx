@@ -15,7 +15,7 @@ flags=(-O1 -g -w -D_GNU_SOURCE -I "$runtime_root/runtime" -include "$ROOT/tests/
 if [[ -n "${L08_HTTP_ATOM_SANITIZER_LIBDIR:-}" ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_HTTP_ATOM_SANITIZER_LIBDIR")
  export LD_LIBRARY_PATH="$L08_HTTP_ATOM_SANITIZER_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
- export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 fi
 gcc "${flags[@]}" -o "$out/server" "$out/server.c" "$ROOT/tests/l08-platform/http-atom.c" "$ROOT/tests/l08-platform/atom-lifetime.c" \
  "$ROOT/tests/l08/http-port.c" "$ROOT/tests/l08-platform/http-loopback.c" \

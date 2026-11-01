@@ -9,7 +9,7 @@ flags=(-O1 -g -I "$ROOT/runtime")
 if [[ -n ${L08_SNAPSHOT_SANITIZER_LIBDIR:-} ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_SNAPSHOT_SANITIZER_LIBDIR")
  export LD_LIBRARY_PATH="$L08_SNAPSHOT_SANITIZER_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
- export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 fi
 "$compiler" "$ROOT/tests/l08-platform/atom-snapshot.fl" "$out/atom-snapshot.c" > "$out/build.log" 2>&1
 for name in atom-snapshot atom-snapshot-memory;do
@@ -22,4 +22,4 @@ for name in atom-snapshot atom-snapshot-memory;do
  [[ "$name" != atom-snapshot ]] || diff -u "$ROOT/tests/l08-platform/atom-snapshot.expected" "$out/$name.actual"
 done
 echo 'L08_ATOM_SNAPSHOT_PASS=2 FAIL=0'
-echo SNAPSHOT_LEAK_CHECK=UNEXECUTED
+if [[ -n ${L08_SNAPSHOT_SANITIZER_LIBDIR:-} ]];then echo SNAPSHOT_LEAK_CHECK=PASS;else echo SNAPSHOT_LEAK_CHECK=UNEXECUTED;fi

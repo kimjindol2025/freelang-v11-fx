@@ -10,7 +10,7 @@ if [[ -z "${L08_REPAIR_IO_COMPILER:-}" ]];then l07_build_compiler "$out" > "$out
 flags=(-O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l08-platform/repair-io.h")
 if [[ -n "${L08_REPAIR_IO_SANITIZER_LIBDIR:-}" ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_REPAIR_IO_SANITIZER_LIBDIR")
- export LD_LIBRARY_PATH="$L08_REPAIR_IO_SANITIZER_LIBDIR" ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ export LD_LIBRARY_PATH="$L08_REPAIR_IO_SANITIZER_LIBDIR" ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 fi
 extra=(--extern repair-test-setup --extern repair-test-byte --extern repair-test-fds --extern repair-test-mode --extern repair-test-umask)
 failed=0

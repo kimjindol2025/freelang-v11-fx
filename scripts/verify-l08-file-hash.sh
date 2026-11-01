@@ -9,7 +9,7 @@ mkdir -p "$out/root" "$out/outside"
 flags=(-O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l08-platform/file-hash.h")
 if [[ -n "${L08_HASH_SANITIZER_LIBDIR:-}" ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_HASH_SANITIZER_LIBDIR")
- export LD_LIBRARY_PATH="$L08_HASH_SANITIZER_LIBDIR" ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ export LD_LIBRARY_PATH="$L08_HASH_SANITIZER_LIBDIR" ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 fi
 "$compiler" --extern hash-test-arm --extern hash-test-fds --extern hash-test-rss "$ROOT/tests/l08-platform/file-hash.fl" "$out/main.c" > "$out/build.log" 2>&1
 gcc "${flags[@]}" -o "$out/main" "$out/main.c" "$ROOT/tests/l08-platform/file-hash.c" -Wl,--wrap=read,--wrap=close "${L07_SRCS[@]}" "${L07_LIBS[@]}" >> "$out/build.log" 2>&1

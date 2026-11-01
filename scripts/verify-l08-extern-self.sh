@@ -66,7 +66,7 @@ if [[ "${L08_EXTERN_SANITIZE:-0}" == 1 ]];then
   export LD_LIBRARY_PATH="$L08_EXTERN_SANITIZER_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
  fi
  build_app declared-sanitized "$out/declared.c" "${san_flags[@]}" > "$out/sanitized.build.log" 2>&1
- ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 "$out/declared-sanitized" > "$out/sanitized.stdout" 2> "$out/sanitized.stderr"
+ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 "$out/declared-sanitized" > "$out/sanitized.stdout" 2> "$out/sanitized.stderr"
  diff -u "$ROOT/tests/l08-platform/extern-c.expected" "$out/sanitized.stdout"
  [[ ! -s "$out/sanitized.stderr" ]]
  echo EXTERN_SANITIZER_EXIT=0

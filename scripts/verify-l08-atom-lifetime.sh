@@ -10,7 +10,7 @@ flags=(-O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l08-plat
 if [[ -n "${L08_ATOM_LIFETIME_SANITIZER_LIBDIR:-}" ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_ATOM_LIFETIME_SANITIZER_LIBDIR")
  export LD_LIBRARY_PATH="$L08_ATOM_LIFETIME_SANITIZER_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
- export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 fi
 for name in atom-lifetime atom-cycles;do
  "$compiler" --extern atom-meter-start --extern atom-meter-live --extern atom-meter-created --extern atom-meter-scope --extern atom-meter-barrier "$ROOT/tests/l08-platform/$name.fl" "$out/$name.c" > "$out/$name.compile.log" 2>&1
@@ -22,4 +22,4 @@ for name in atom-lifetime atom-cycles;do
  diff -u "$ROOT/tests/l08-platform/$name.expected" "$out/$name.actual"
 done
 echo 'L08_ATOM_LIFETIME_PASS=2 FAIL=0'
-echo 'GENERAL_LSAN=UNEXECUTED'
+if [[ -n ${L08_ATOM_LIFETIME_SANITIZER_LIBDIR:-} ]];then echo GENERAL_LSAN=PASS;else echo GENERAL_LSAN=UNEXECUTED;fi

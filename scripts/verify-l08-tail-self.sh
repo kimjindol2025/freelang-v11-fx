@@ -10,7 +10,7 @@ flags=(-O1 -g -I "$ROOT/runtime")
 if [[ -n ${L08_TAIL_SANITIZER_LIBDIR:-} ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_TAIL_SANITIZER_LIBDIR")
  export LD_LIBRARY_PATH="$L08_TAIL_SANITIZER_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
- export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 fi
 pass=0;fail=0
 for name in tail-call-context tail-call-extra tail-while-mode swap-zero-extra call-error-context compiler-blockers try-scope atom-snapshot late-call tail-nonlast tail-let-sequence;do

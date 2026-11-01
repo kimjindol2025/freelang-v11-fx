@@ -14,7 +14,7 @@ flags=(-O1 -g -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l08-plat
 if [[ -n "${L08_ATOM_LOCK_SANITIZER_LIBDIR:-}" ]];then
  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -L "$L08_ATOM_LOCK_SANITIZER_LIBDIR")
  export LD_LIBRARY_PATH="$L08_ATOM_LOCK_SANITIZER_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
- export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+ export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 fi
 for name in atom-lock;do
  "$compiler" "${extern_args[@]}" "$ROOT/tests/l08-platform/$name.fl" "$out/$name.c" > "$out/$name.compile.log" 2>&1
@@ -26,4 +26,4 @@ for name in atom-lock;do
  diff -u "$ROOT/tests/l08-platform/$name.expected" "$out/$name.actual"
 done
 echo L08_ATOM_LOCK_PASS=1 FAIL=0
-echo ATOM_LOCK_LEAK_CHECK=UNEXECUTED
+if [[ -n ${L08_ATOM_LOCK_SANITIZER_LIBDIR:-} ]];then echo ATOM_LOCK_LEAK_CHECK=PASS;else echo ATOM_LOCK_LEAK_CHECK=UNEXECUTED;fi

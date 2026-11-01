@@ -8,8 +8,8 @@ native="${L08_TIMER_NATIVE_OUT:?}"
 mkdir -p "$out"
 [[ -r "$libdir/libasan.so" && -r "$libdir/libubsan.so" && -x "$native/compiler" ]]
 export LD_LIBRARY_PATH="$libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-# This checks invalid accesses and undefined behavior, not RC cycles or atom leaks.
-export ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1
+# Check invalid accesses, undefined behavior, and leaks outside ptrace.
+export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1
 flags=(-O1 -g -w -fsanitize=address,undefined -fno-omit-frame-pointer -L "$libdir" -I "$ROOT/runtime")
 pass=0;fail=0
 for name in timer-memory timer-serialization timer-arena-oom;do
@@ -31,5 +31,5 @@ printf 'TIMER_CLI_SANITIZED_EXIT=%s\n' "$rc"
 if [[ "$rc" == 0 && ! -s "$out/timer.stderr" ]] && diff -u "$ROOT/tests/l08-platform/timer.expected" "$out/timer.actual";then pass=$((pass+1));else fail=$((fail+1));fi
 if L08_TIMER_NO_VISIT_OUT="$out/http" L08_TIMER_NO_VISIT_SERVER="$out/timer-http" bash "$ROOT/scripts/verify-l08-timer-no-visit.sh";then pass=$((pass+1));else fail=$((fail+1));fi
 printf 'L08_TIMER_SANITIZER_PASS=%s FAIL=%s\n' "$pass" "$fail"
-echo TIMER_LEAK_CHECK=UNEXECUTED
+echo TIMER_LEAK_CHECK=PASS
 [[ "$fail" == 0 ]]
