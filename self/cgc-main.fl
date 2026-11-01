@@ -1262,6 +1262,12 @@
   [(= $op "server-route")       (str "fl_http_route(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "server-get")         (str "fl_http_route(fl_str_val(\"GET\"), " (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "server-post")        (str "fl_http_route(fl_str_val(\"POST\"), " (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "tcp-server-raw")     (str "fl_tcp_server_raw(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
+  [(= $op "tcp-server-stop")    "fl_tcp_server_stop()"]
+  [(= $op "tcp-write")          (str "fl_tcp_write(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "tcp-drop")           (str "fl_tcp_drop(" (cgc (get $args 0)) ")")]
+  [(= $op "tcp-peer-port")      (str "fl_tcp_peer_port(" (cgc (get $args 0)) ")")]
+  [(= $op "fl-yield")           (str "fl_tcp_yield(" (cgc (get $args 0)) ")")]
   ;; N-06: SQLite3 DB
   [(= $op "db-open")   (str "fl_db_open(" (cgc (get $args 0)) ")")]
   [(= $op "db-close")  (str "fl_db_close(" (cgc (get $args 0)) ")")]

@@ -142,7 +142,7 @@ if [ "$NO_NET" = "1" ]; then
   NET_LIBS=""
   EXTRA_CFLAGS="-DFL_NO_CRYPTO"
 else
-  NET_SRCS="$RUNTIME_DIR/http.c $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c $RUNTIME_DIR/sse.c"
+  NET_SRCS="$RUNTIME_DIR/http.c $RUNTIME_DIR/raw_tcp.c $RUNTIME_DIR/websocket.c $RUNTIME_DIR/http_client.c $RUNTIME_DIR/sse.c"
   NET_LIBS="-lssl -lcrypto -lcurl"
   EXTRA_CFLAGS=""
 fi

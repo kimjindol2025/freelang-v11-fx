@@ -366,6 +366,12 @@ FLValue server_req_header(FLValue req, FLValue name);
 FLValue server_req_method(FLValue req);
 FLValue server_req_path(FLValue req);
 FLValue server_start(FLValue port);
+FLValue fl_tcp_server_raw(FLValue port, FLValue handler, FLValue host);
+FLValue fl_tcp_server_stop(void);
+FLValue fl_tcp_write(FLValue connection, FLValue data);
+FLValue fl_tcp_drop(FLValue connection);
+FLValue fl_tcp_peer_port(FLValue connection);
+FLValue fl_tcp_yield(FLValue timeout);
 /* kebab-case 앱 호환 alias */
 FLValue fl_http_route(FLValue method, FLValue path, FLValue handler);
 FLValue fl_http_start(FLValue port);

@@ -18,6 +18,7 @@ RUNTIME_SRCS=(
   "$RUNTIME_DIR/cgc-bridge.c"
   "$RUNTIME_DIR/gc.c"
   "$RUNTIME_DIR/http.c"
+  "$RUNTIME_DIR/raw_tcp.c"
   "$RUNTIME_DIR/websocket.c"
   "$RUNTIME_DIR/sqlite.c"
   "$RUNTIME_DIR/mariadb.c"
