@@ -88,7 +88,17 @@ FLValue fl_tcp_server_stop(void) {
 }
 
 FLValue fl_tcp_server_raw(FLValue port, FLValue handler, FLValue host) {
-    if (raw_server >= 0 || port.tag != FL_INT || port.i < 1 || port.i > 65535 ||
+    long long port_number = 0;
+    if (port.tag == FL_INT) port_number = port.i;
+    else if (port.tag == FL_FLOAT && port.f >= 1 && port.f <= 65535 &&
+             port.f == (double)(int)port.f) port_number = (int)port.f;
+    else if (port.tag == FL_STRING) {
+        const char* source = raw_text(port);
+        char* end;
+        long parsed = strtol(source, &end, 10);
+        if (source != end && !*end) port_number = parsed;
+    }
+    if (raw_server >= 0 || port_number < 1 || port_number > 65535 ||
         (handler.tag != FL_FN && handler.tag != FL_STRING)) return fl_str_val("error");
     if (handler.tag == FL_STRING) {
         char symbol[256];
@@ -101,7 +111,7 @@ FLValue fl_tcp_server_raw(FLValue port, FLValue handler, FLValue host) {
         if (!raw_named_handler) return fl_str_val("error");
     }
     char service[16];
-    snprintf(service, sizeof(service), "%lld", (long long)port.i);
+    snprintf(service, sizeof(service), "%lld", port_number);
     struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM};
     struct addrinfo* addresses = NULL;
     if (getaddrinfo(raw_text(host), service, &hints, &addresses)) return fl_str_val("error");
