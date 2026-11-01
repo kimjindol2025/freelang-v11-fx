@@ -2,8 +2,7 @@
 # LSan cannot execute under ptrace. Trace builds, run sanitized programs directly.
 platform_trace() {
  local script=${!#} trace="" real_gcc real_strace bin logs
- case "$script" in
-  */verify-l08-atom-snapshot.sh|*/verify-l08-atom-update.sh|*/verify-l08-atom-lock.sh|*/verify-l08-sort-context.sh|*/verify-l08-atom-lifetime.sh|*/verify-l08-arena-cache.sh|*/verify-l08-timer-sanitizers.sh|*/verify-l08-extern-self.sh|*/verify-l08-repair-io.sh|*/verify-l08-tail-self.sh|*/verify-l08-file-hash.sh|*/verify-l08-http-atom.sh)
+ if [[ -f "$script" ]] && rg -q -- '-fsanitize=address' "$script";then
    while (( $# )); do
     case "$1" in
      -f) shift;;
@@ -24,9 +23,9 @@ SH
    chmod +x "$bin/gcc" || return
    printf 'LSAN_PROGRAM_EXECUTION=OUTSIDE_PTRACE\nBUILD_EXECUTION=STRACE\n' > "${trace%.execve.log}.trace-mode.txt"
    PATH="$bin:$PATH" LSAN_REAL_GCC="$real_gcc" LSAN_REAL_STRACE="$real_strace" LSAN_BUILD_LOG="$logs" "$@"
-   ;;
-  *) command strace "$@";;
- esac
+ else
+  command strace "$@"
+ fi
 }
 platform_trace_env() {
  local assignment=$1;shift
