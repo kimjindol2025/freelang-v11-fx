@@ -1,0 +1,95 @@
+;; RUN-20261102-01. Fixed oracle before implementation.
+(define proof (atom ""))
+(defn record [name ok] (swap! proof (fn [old] (str old name "=" (if ok "PASS" "FAIL") "\n"))))
+(defn cancel [task] (try (browser-cancel! task) (catch error "ERROR")))
+(defn exact-error [run] (try (do (run) false) (catch error (= error "browser-cancel!: one task handle required"))))
+(define options {"method" "GET" "body" "" "timeout" 500})
+(define bad (atom 0))
+(define normal (atom 0))
+(define kept (atom []))
+;; One deliberately live control; cancelled callbacks must retain no other probe maps.
+(define live-control {"E10_CANCEL_PROBE" -1})
+(browser-after! 2147483647 (fn [] (str (get live-control "E10_CANCEL_PROBE") (length (deref kept)))))
+(defn probe-callback [n]
+  (let [probe {"E10_CANCEL_PROBE" n}]
+    (fn [result] (swap! bad (fn [old] (+ old 1 (get probe "E10_CANCEL_PROBE")))))))
+(defn hold [handle] (swap! kept (fn [old] (append old [handle]))))
+(define timer (browser-after! 1000 (fn [] (swap! bad (fn [n] (+ n 1))))))
+(record "J_CANCEL_TIMER_PRESTART" (= (cancel timer) true))
+(define queued (browser-http! "/queued" options (fn [r] (swap! bad (fn [n] (+ n 1))))))
+(record "J_CANCEL_HTTP_PRESTART" (= (cancel queued) true))
+(record "J_CANCEL_TIMER_DOUBLE" (= (cancel timer) false))
+(record "J_CANCEL_HTTP_DOUBLE" (= (cancel queued) false))
+(define other (browser-http! "/queued" options (fn [r] (swap! bad (fn [n] (+ n 1))))))
+(record "J_CANCEL_DISTINCT_HANDLES" (and (= (= queued other) false) (= (= queued timer) false)))
+(cancel other)
+(record "J_CANCEL_BAD_NIL_MESSAGE" (exact-error (fn [] (browser-cancel! nil))))
+(record "J_CANCEL_BAD_TARGET_MESSAGE" (and
+  (exact-error (fn [] (browser-cancel! {})))
+  (exact-error (fn [] (browser-cancel! [])))
+  (exact-error (fn [] (browser-cancel! 0)))
+  (exact-error (fn [] (browser-cancel! "task")))))
+(record "J_CANCEL_BAD_ARITY_MESSAGE" (and
+  (exact-error (fn [] (browser-cancel!)))
+  (exact-error (fn [] (browser-cancel! timer nil)))))
+;; Retain all handles while cancelling 400 capture-owning callbacks.
+(loop [i 1]
+  (if (< i 201)
+    (let [t (browser-after! 1000 (probe-callback i))
+          h (browser-http! "/queued" options (probe-callback i))]
+      (hold t) (hold h) (cancel t) (cancel h) (recur (+ i 1))) nil))
+(define active (atom nil))
+(define mixed (atom nil))
+(defn seen [key attempt next]
+  (browser-http! "/counts" options (fn [r]
+    (if (= (get (browser-json-parse (get r "body")) key) 1)
+      (next)
+      (if (< attempt 100)
+        (browser-after! 10 (fn [] (seen key (+ attempt 1) next)))
+        (throw "E10 server start not observed"))))))
+(defn finish-tests []
+  (browser-after! 1200 (fn []
+    (browser-http! "/counts" options (fn [r]
+      (record "J_CANCEL_QUEUED_REQUESTS_ZERO" (= (get (browser-json-parse (get r "body")) "queued") 0))
+      (record "J_CANCEL_CALLBACKS_ZERO" (= (deref bad) 0))
+      (record "J_CANCEL_NORMAL_CALLBACKS_ONCE" (and (= (deref normal) 4) (= (length (deref kept)) 402)))
+      (browser-set-text! (browser-by-id "proof") (str (deref proof)
+        "E10_CANCELLED_CALLBACKS=" (deref bad) "\n"
+        "E10_NORMAL_CALLBACKS=" (deref normal) "\n"
+        "E10_RETAINED_HANDLES=" (length (deref kept)) "\n")))))))
+(defn timeout-test []
+  (let [slot (atom nil)]
+    (reset! slot (browser-http! "/slow" {"method" "GET" "body" "" "timeout" 20} (fn [r]
+      (swap! normal (fn [n] (+ n 1)))
+      (record "J_CANCEL_HTTP_AFTER_TIMEOUT" (and (= (get r "error") "timeout") (= (cancel (deref slot)) false)))
+      (let [fired (atom nil)]
+        (reset! fired (browser-after! 0 (fn []
+          (swap! normal (fn [n] (+ n 1)))
+          (record "J_CANCEL_TIMER_IN_CALLBACK" (= (cancel (deref fired)) false))
+          (browser-after! 0 (fn []
+            (record "J_CANCEL_TIMER_AFTER_FIRE" (= (cancel (deref fired)) false))
+            (finish-tests))))))))))))
+(defn error-test []
+  (let [slot (atom nil)]
+    (reset! slot (browser-http! "/error" options (fn [r]
+      (swap! normal (fn [n] (+ n 1)))
+      (record "J_CANCEL_HTTP_AFTER_ERROR" (and (= (get r "status") 500) (= (cancel (deref slot)) false)))
+      (timeout-test))))))
+(defn new-test []
+  (let [slot (atom nil)]
+    (reset! slot (browser-http! "/ok" options (fn [r]
+      (swap! normal (fn [n] (+ n 1)))
+      (record "J_CANCEL_THEN_NEW_REQUEST" (and (= (get r "ok") true) (= (get r "body") "hello")))
+      (record "J_CANCEL_HTTP_AFTER_SUCCESS" (= (cancel (deref slot)) false))
+      (error-test))))))
+(reset! active (browser-http! "/active-one" options (probe-callback 1)))
+(hold (deref active))
+(seen "one" 0 (fn []
+  (record "J_CANCEL_HTTP_ACTIVE" (= (cancel (deref active)) true))
+  (record "J_CANCEL_HTTP_ACTIVE_DOUBLE" (= (cancel (deref active)) false))
+  (let [t (browser-after! 1000 (fn [] (swap! bad (fn [n] (+ n 1)))))]
+    (reset! mixed (browser-http! "/active-two" options (probe-callback 1)))
+    (hold (deref mixed))
+    (seen "two" 0 (fn []
+      (record "J_CANCEL_TIMER_HTTP_MIX" (and (= (cancel t) true) (= (cancel (deref mixed)) true)))
+      (new-test))))))

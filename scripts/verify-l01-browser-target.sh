@@ -9,6 +9,7 @@ case "$scenario" in
  semantics) entry=browser-entry.fl;server=browser-server.fl;proof=browser-proof.c;expected=browser-semantics.expected;group=SEMANTICS;;
  events) entry=browser-events.fl;server=browser-events-server.fl;proof=browser-events-proof.c;expected=browser-events.expected;group=EVENT;;
  dom) entry=browser-dom.fl;server=browser-events-server.fl;proof=browser-dom-proof.c;expected=browser-dom.expected;group=DOM;;
+ cancel) entry=browser-cancel.fl;server=browser-cancel-server.fl;proof=browser-cancel-proof.c;expected=browser-cancel.expected;group=CANCEL;;
  http) entry=browser-http.fl;server=browser-http-server.fl;proof=browser-proof.c;expected=browser-http.expected;group=HTTP;;
  timers) entry=browser-timers.fl;server=browser-events-server.fl;proof=browser-proof.c;expected=browser-timers.expected;group=TIMER;;
  timer-exception) entry=browser-timer-exception.fl;server=browser-events-server.fl;proof=browser-timer-exception-proof.c;expected=browser-timer-exception.expected;group=TIMER_EXCEPTION;;

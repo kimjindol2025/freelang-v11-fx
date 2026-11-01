@@ -28,6 +28,9 @@ static void send_message(FLValue message){
  CURLcode rc=curl_ws_send(ws,s->data,s->len,&sent,0,CURLWS_TEXT);
  if(rc||sent!=s->len)die("send");
 }
+#ifndef L01_CDP_EVENT
+#define L01_CDP_EVENT(message) ((void)0)
+#endif
 static FLValue command(const char *method,FLValue params){
  int id=++serial;
  send_message(put(put(put(obj(),"id",fl_int(id)),"method",fl_str_val(method)),"params",params));
@@ -40,6 +43,7 @@ static FLValue command(const char *method,FLValue params){
   used+=count;if(used>=limit-1)die("message_limit");
   if(frame->bytesleft||(frame->flags&CURLWS_CONT))continue;
   incoming[used]=0;FLValue msg=fl_json_parse(fl_str_val(incoming));used=0;
+  L01_CDP_EVENT(msg);
   if(!strcmp(text(field(msg,"method")),"Runtime.exceptionThrown")){exceptions++;last_browser_exception=field(field(msg,"params"),"exceptionDetails");}
   if(!strcmp(text(field(msg,"method")),"DOM.documentUpdated"))document_root=0;
   if(!strcmp(text(field(msg,"method")),"Page.javascriptDialogOpening")){
