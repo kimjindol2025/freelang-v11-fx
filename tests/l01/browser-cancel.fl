@@ -8,11 +8,12 @@
 (define normal (atom 0))
 (define kept (atom []))
 ;; One deliberately live control; cancelled callbacks must retain no other probe maps.
-(define live-control {"E10_CANCEL_PROBE" -1})
+(define live-control {"E10_CANCEL_PROBE" [-1]})
 (browser-after! 2147483647 (fn [] (str (get live-control "E10_CANCEL_PROBE") (length (deref kept)))))
 (defn probe-callback [n]
-  (let [probe {"E10_CANCEL_PROBE" n}]
-    (fn [result] (swap! bad (fn [old] (+ old 1 (get probe "E10_CANCEL_PROBE")))))))
+  (let [probe {"E10_CANCEL_PROBE" [n]}]
+    (fn [result] (if (< (get (get probe "E10_CANCEL_PROBE") 0) 0)
+      (throw "E10 invalid probe") (swap! bad (fn [old] (+ old 1))))) ))
 (defn hold [handle] (swap! kept (fn [old] (append old [handle]))))
 (define timer (browser-after! 1000 (fn [] (swap! bad (fn [n] (+ n 1))))))
 (record "J_CANCEL_TIMER_PRESTART" (= (cancel timer) true))
