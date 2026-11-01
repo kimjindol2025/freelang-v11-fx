@@ -454,7 +454,23 @@ static void send_response(int client_fd, FLValue resp, int keep_alive) {
    요청 → FLMap 변환
 ─────────────────────────────────────────── */
 
-static FLValue make_req_map(HttpRequest* hr, FLValue params) {
+static FLValue socket_peer_address(int fd) {
+    struct sockaddr_storage addr;
+    socklen_t len = sizeof(addr);
+    char text[INET6_ADDRSTRLEN];
+    const void* source = NULL;
+    if (getpeername(fd, (struct sockaddr*)&addr, &len) != 0) return fl_nil();
+    if (addr.ss_family == AF_INET)
+        source = &((const struct sockaddr_in*)&addr)->sin_addr;
+    else if (addr.ss_family == AF_INET6)
+        source = &((const struct sockaddr_in6*)&addr)->sin6_addr;
+    else
+        return fl_nil();
+    if (!inet_ntop(addr.ss_family, source, text, sizeof(text))) return fl_nil();
+    return fl_str_val(text);
+}
+
+static FLValue make_req_map(HttpRequest* hr, FLValue params, int client_fd) {
     /* 헤더 맵 */
     FLValue headers = fl_map_new();
     for (int i = 0; i < hr->nheaders; i++) {
@@ -491,6 +507,7 @@ static FLValue make_req_map(HttpRequest* hr, FLValue params) {
     req = fl_map_set(req, fl_str_val("params"),  params);
     req = fl_map_set(req, fl_str_val("headers"), headers);
     req = fl_map_set(req, fl_str_val("body"),    body);
+    req = fl_map_set(req, fl_str_val("peer-address"), socket_peer_address(client_fd));
     return req;
 }
 
@@ -730,7 +747,7 @@ static void* handle_connection(void* arg) {
             resp = make_response(404, "application/json", notfound_body);
         } else {
             /* ── 7. 핸들러 호출 (try/catch 보호) ── */
-            FLValue req = make_req_map(&hr, params);
+            FLValue req = make_req_map(&hr, params, client_fd);
             resp = fl_nil();
             if (fl_try_top < FL_TRY_MAX) {
                 FLTryFrame* frame = &fl_try_stack[fl_try_top++];
@@ -1328,7 +1345,7 @@ static void* handle_tls_connection(void* arg) {
         snprintf(nb, sizeof(nb), "{\"error\":\"Not Found\",\"path\":\"%s\"}", hr.path);
         resp = make_response(404, "application/json", nb);
     } else {
-        FLValue req = make_req_map(&hr, params);
+        FLValue req = make_req_map(&hr, params, client_fd);
         resp = fl_nil();
         if (fl_try_top < FL_TRY_MAX) {
             FLTryFrame* frame = &fl_try_stack[fl_try_top++];
