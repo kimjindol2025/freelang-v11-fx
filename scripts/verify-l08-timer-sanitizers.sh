@@ -31,5 +31,5 @@ printf 'TIMER_CLI_SANITIZED_EXIT=%s\n' "$rc"
 if [[ "$rc" == 0 && ! -s "$out/timer.stderr" ]] && diff -u "$ROOT/tests/l08-platform/timer.expected" "$out/timer.actual";then pass=$((pass+1));else fail=$((fail+1));fi
 if L08_TIMER_NO_VISIT_OUT="$out/http" L08_TIMER_NO_VISIT_SERVER="$out/timer-http" bash "$ROOT/scripts/verify-l08-timer-no-visit.sh";then pass=$((pass+1));else fail=$((fail+1));fi
 printf 'L08_TIMER_SANITIZER_PASS=%s FAIL=%s\n' "$pass" "$fail"
-echo TIMER_LEAK_CHECK=PASS
 [[ "$fail" == 0 ]]
+echo TIMER_LEAK_CHECK=PASS

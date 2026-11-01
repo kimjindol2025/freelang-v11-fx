@@ -90,6 +90,10 @@ typedef struct ArenaCleanup {void (*call)(void*);void*value;struct ArenaCleanup*
 
 /* ── per-thread 아레나 ── */
 static __thread Arena* g_arena = NULL;
+/* Startup/unscoped temporaries survive request resets, but not thread exit. */
+static __thread Arena* g_scratch;
+static Arena* scratch_arena(void);
+static void scratch_destroy(void);
 static __thread Arena* cli_arena;
 static __thread int thread_watched,thread_cleaning;
 static pthread_key_t thread_key;
@@ -100,6 +104,7 @@ static void thread_cleanup(void*unused){
     pthread_setspecific(thread_key,NULL);
     fl_schedule_worker_cleanup();
     while(g_arena)fl_arena_scope_leave(g_arena->previous);
+    scratch_destroy();
     fl_borrow_release_to(NULL);cli_arena=NULL;thread_cleaning=0;
 }
 static void process_thread_cleanup(void){thread_cleanup(NULL);}
@@ -120,9 +125,10 @@ static void arena_clean(Arena*arena){
     fl_gc_collect_atoms();
 }
 int fl_arena_on_reset(void (*cleanup)(void*),void*value){
-    if(!g_arena)return 0;
+    Arena*arena=g_arena?g_arena:scratch_arena();
+    if(!arena)return -1;
     ArenaCleanup*entry=malloc(sizeof(*entry));if(!entry)return -1;
-    *entry=(ArenaCleanup){cleanup,value,g_arena->cleanups};g_arena->cleanups=entry;return 1;
+    *entry=(ArenaCleanup){cleanup,value,arena->cleanups};arena->cleanups=entry;return 1;
 }
 
 static ArenaChunk* arena_new_chunk(size_t min_size) {
@@ -136,6 +142,14 @@ static ArenaChunk* arena_new_chunk(size_t min_size) {
     c->used = 0;
     c->cap  = cap;
     return c;
+}
+static Arena*scratch_arena(void){
+    if(g_scratch)return g_scratch;
+    if(!fl_thread_lifetime_begin())return NULL;
+    Arena*arena=calloc(1,sizeof(*arena));if(!arena)return NULL;
+    arena->first=arena->head=arena_new_chunk(0);
+    if(!arena->head){free(arena);return NULL;}
+    arena->borrow_mark=fl_borrow_mark();g_scratch=arena;return arena;
 }
 static void arena_rewind(Arena *arena){
     /* Keep the small common-request cache, not every prior large upload. */
@@ -164,16 +178,17 @@ void fl_arena_begin(void) {
 
 void* fl_arena_alloc(size_t size) {
     if(size>SIZE_MAX-7)return NULL;
-    if (!g_arena || !g_arena->head) return malloc(size);  /* 폴백 */
+    Arena*arena=g_arena?g_arena:scratch_arena();
+    if(!arena||!arena->head)return NULL;
 
     /* 8바이트 정렬 */
     size = (size + 7) & ~(size_t)7;
 
-    ArenaChunk* c = g_arena->head;
+    ArenaChunk* c = arena->head;
     if (size <= c->cap-c->used) {
         void* ptr = c->data + c->used;
         c->used += size;
-        g_arena->total_alloc += size;
+        arena->total_alloc += size;
         return ptr;
     }
 
@@ -191,11 +206,11 @@ void* fl_arena_alloc(size_t size) {
     }
 
     nc->used = 0;
-    g_arena->head = nc;
+    arena->head = nc;
 
     void* ptr = nc->data;
     nc->used = size;
-    g_arena->total_alloc += size;
+    arena->total_alloc += size;
     return ptr;
 }
 
@@ -213,9 +228,13 @@ void*fl_arena_scope_enter(void){
     if(!current->head){free(current);fl_throw(fl_str_val("arena allocation failed"));return NULL;}
     current->borrow_mark=fl_borrow_mark();current->previous=previous;g_arena=current;return previous;
 }
-void fl_arena_scope_leave(void*previous){
-    Arena*current=g_arena;arena_clean(current);
+static void arena_destroy(Arena*current){
+    arena_clean(current);
     if(current){ArenaChunk*chunk=current->first;while(chunk){ArenaChunk*next=chunk->next;free(chunk);chunk=next;}free(current);}
+}
+static void scratch_destroy(void){if(g_scratch){arena_destroy(g_scratch);g_scratch=NULL;}}
+void fl_arena_scope_leave(void*previous){
+    arena_destroy(g_arena);
     g_arena=(Arena*)previous;
 }
 
