@@ -1,0 +1,14 @@
+(server_get "/" (fn [req]
+  (server_html "<!doctype html><html lang='ko'><meta charset='utf-8'><title>FreeLang HTTP 20</title><body><h1>FreeLang 비동기 HTTP</h1><pre id='proof'>WAIT</pre><script src='/program.js' defer></script></body></html>")))
+(server_get "/program.js" (fn [req]
+  (server_header (server_text (get (file-read-result "program.js") "data")) "Content-Type" "application/javascript; charset=utf-8")))
+(server_get "/ok" (fn [req] (server_text "hello")))
+(server_get "/json" (fn [req] (server_text "{\"name\":\"FreeLang\"}")))
+(server_get "/array" (fn [req] (server_text "[1,false,null]")))
+(server_get "/null" (fn [req] (server_text "null")))
+(server_get "/missing" (fn [req] (server_status 404 "missing")))
+(server_get "/error" (fn [req] (server_status 500 "broken")))
+(server_get "/slow" (fn [req] (do (sleep 200) (server_text "late"))))
+(server_post "/echo" (fn [req] (server_text (get req "body"))))
+(server_get "/empty" (fn [req] (server_status 204 "")))
+(server_start 0)

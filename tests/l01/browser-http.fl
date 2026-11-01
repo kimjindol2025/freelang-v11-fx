@@ -1,0 +1,59 @@
+;; RUN-20261101-04: fixed 20-case oracle, committed before implementation.
+(define proof (atom ""))
+(defn record [name ok]
+  (swap! proof (fn [old] (str old name "=" (if ok "PASS" "FAIL") "\n"))))
+(defn rejects [run] (try (do (run) false) (catch error true)))
+(define options {"method" "GET" "body" "" "timeout" 2000})
+(define noop (fn [result] nil))
+(record "J_HTTP_ARITY" (and
+  (rejects (fn [] (browser-http! "/ok" options)))
+  (rejects (fn [] (browser-http! "/ok" options noop nil)))))
+(record "J_HTTP_URL_TYPE" (and
+  (rejects (fn [] (browser-http! nil options noop)))
+  (rejects (fn [] (browser-http! 1 options noop)))))
+(record "J_HTTP_URL_PROTOCOL" (and
+  (rejects (fn [] (browser-http! "javascript:void(0)" options noop)))
+  (rejects (fn [] (browser-http! "http://[" options noop)))))
+(record "J_HTTP_OPTIONS" (and
+  (rejects (fn [] (browser-http! "/ok" nil noop)))
+  (rejects (fn [] (browser-http! "/ok" [] noop)))))
+(record "J_HTTP_METHOD" (rejects (fn []
+  (browser-http! "/ok" {"method" "BAD" "body" "" "timeout" 2000} noop))))
+(record "J_HTTP_BODY" (and
+  (rejects (fn [] (browser-http! "/ok" {"method" "POST" "body" {} "timeout" 2000} noop)))
+  (rejects (fn [] (browser-http! "/ok" {"method" "GET" "body" "bad" "timeout" 2000} noop)))))
+(record "J_HTTP_TIMEOUT_ARGUMENT" (and
+  (rejects (fn [] (browser-http! "/ok" {"method" "GET" "body" "" "timeout" 0} noop)))
+  (rejects (fn [] (browser-http! "/ok" {"method" "GET" "body" "" "timeout" -1} noop)))
+  (rejects (fn [] (browser-http! "/ok" {"method" "GET" "body" "" "timeout" 0.5} noop)))
+  (rejects (fn [] (browser-http! "/ok" {"method" "GET" "body" "" "timeout" 2147483648} noop)))))
+(record "J_HTTP_CALLBACK" (rejects (fn [] (browser-http! "/ok" options nil))))
+(define inline (atom true))
+(define timeout-calls (atom 0))
+(define cases [
+  ["J_HTTP_SUCCESS" "/ok" options (fn [r] (and (= (get r "ok") true) (= (get r "status") 200) (= (get r "body") "hello") (= (get r "error") nil)))]
+  ["J_HTTP_ASYNC" "/ok" options (fn [r] (and (= (deref inline) false) (= (get r "ok") true)))]
+  ["J_HTTP_JSON_OBJECT" "/json" options (fn [r] (and (= (get r "ok") true) (= (get (browser-json-parse (get r "body")) "name") "FreeLang")))]
+  ["J_HTTP_JSON_ARRAY" "/array" options (fn [r] (= (browser-json-parse (get r "body")) [1 false nil]))]
+  ["J_HTTP_JSON_NULL" "/null" options (fn [r] (= (browser-json-parse (get r "body")) nil))]
+  ["J_HTTP_404" "/missing" options (fn [r] (and (= (get r "ok") false) (= (get r "status") 404) (= (get r "error") "http") (= (get r "body") "missing")))]
+  ["J_HTTP_500" "/error" options (fn [r] (and (= (get r "ok") false) (= (get r "status") 500) (= (get r "error") "http") (= (get r "body") "broken")))]
+  ["J_HTTP_NETWORK" "http://127.0.0.1:1/" options (fn [r] (and (= (get r "ok") false) (= (get r "status") 0) (= (get r "error") "network")))]
+  ["J_HTTP_TIMEOUT" "/slow" {"method" "GET" "body" "" "timeout" 20} (fn [r] (do (swap! timeout-calls (fn [n] (+ n 1))) (and (= (get r "ok") false) (= (get r "status") 0) (= (get r "error") "timeout"))))]
+  ["J_HTTP_POST" "/echo" {"method" "POST" "body" "FreeLang body" "timeout" 2000} (fn [r] (and (= (get r "ok") true) (= (get r "body") "FreeLang body")))]
+  ["J_HTTP_EMPTY" "/empty" options (fn [r] (and (= (get r "ok") true) (= (get r "status") 204) (= (get r "body") "")))]
+])
+(defn next-case [index]
+  (if (< index (length cases))
+    (let [case (get cases index)]
+      (browser-http! (get case 1) (get case 2) (fn [result]
+        (record (get case 0) ((get case 3) result))
+        (next-case (+ index 1)))))
+    (browser-after! 300 (fn []
+      (record "J_HTTP_ONCE_AND_JSON_ERROR" (and (= (deref timeout-calls) 1)
+        (rejects (fn [] (browser-json-parse "{")))
+        (rejects (fn [] (browser-json-parse nil)))
+        (rejects (fn [] (browser-json-parse "null" "extra")))))
+      (browser-set-text! (browser-by-id "proof") (deref proof))))))
+(next-case 0)
+(reset! inline false)
