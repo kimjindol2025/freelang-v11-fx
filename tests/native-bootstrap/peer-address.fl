@@ -1,6 +1,6 @@
 ;; HTTP 접속자 주소는 클라이언트가 보낸 헤더가 아닌 소켓에서 가져온다.
 (defn peer-address-test [$req]
-  (server_text (get $req "peer-address" "MISSING")))
+  (server_text (get $req "peer-address")))
 
 (server_get "/peer" "peer-address-test")
 (server_start (str-to-num (env-get "FX_PEER_TEST_PORT")))
