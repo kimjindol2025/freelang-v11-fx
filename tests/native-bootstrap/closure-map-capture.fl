@@ -1,0 +1,8 @@
+(defn captured-map [row key collation]
+  (first (map (fn [item]
+                {"sort-key" (if (= collation "x") (get row key) "z")})
+              [1])))
+
+(if (= (get (captured-map {"a" 1} "a" "x") "sort-key") 1)
+  (println "CLOSURE_MAP_CAPTURE=PASS")
+  (println "CLOSURE_MAP_CAPTURE=FAIL"))
