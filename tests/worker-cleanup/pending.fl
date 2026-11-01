@@ -1,0 +1,6 @@
+(defn check [a b label] (if (= a b) (println label) (throw (str "WORKER_ASSERT " label))))
+(define result (worker-timer-run "pending" (fn [] [(set-timeout (fn [] (worker-pending)) 3600000)])))
+(check (get result "cancelled") 1 "PENDING_PROMISE_CANCELLED=PASS")
+(check (get result "pending") 0 "PENDING_NOT_CALLED=PASS")
+(check (get result "cleanups") 1 "PENDING_ARENA_CLEANUP=PASS")
+(set-timeout (fn [] (println "MAIN_OWNER_TIMER=PASS")) 1)
