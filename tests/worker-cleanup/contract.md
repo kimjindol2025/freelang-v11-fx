@@ -19,3 +19,9 @@ pending/active 모드의 main 예약 유지 정답으로 거부한다.
 재현한다. 정답·문턱·suppressions 변경은 금지한다. LSAN은 ptrace 밖,
 빌드 감사는 strace로 기록한다. 새 실행 RUN-20261101-02에서 before는
 증거만 보존하고, 수정 후 같은 점검의 세 번째 실패면 즉시 중단한다.
+
+추가 정답: 명시적 arena 이전의 임시 문자열·closure도 thread 종료 때
+회수하되 `fl_arena_active`의 의미와 요청 reset 사이 startup 값 수명은
+유지한다. `unscoped.c/.expected`는 그 호환을 검증한다. 기존 serialization
+사례에서 관측한 `800 byte(s)/20 allocation(s)` 실패를 추가 수정의 기준으로
+보존하며 기존 시험을 고쳐 누수를 없애지 않는다.
