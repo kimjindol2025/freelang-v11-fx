@@ -16,7 +16,7 @@ sha256sum "$out/outside" | cut -d' ' -f1 >"$out/outside-before.sha256"
   --extern l07-arm --extern l07-bad-value --extern l07-finish \
   "$ROOT/tests/l07/self-test.fl" "$out/self-test.c" >>"$out/build.log" 2>&1
 wraps=()
-for symbol in fread fwrite ferror fflush fclose malloc fstat ftruncate fdopen; do wraps+=("-Wl,--wrap=$symbol"); done
+for symbol in fread fwrite ferror fflush fclose malloc fl_arena_alloc fstat ftruncate fdopen; do wraps+=("-Wl,--wrap=$symbol"); done
 gcc -O2 -w -D_GNU_SOURCE -I "$ROOT/runtime" -include "$ROOT/tests/l07/support.h" \
   -o "$out/self-test" "$out/self-test.c" "$ROOT/tests/l07/support.c" \
   "${L07_SRCS[@]}" "${L07_LIBS[@]}" "${wraps[@]}" >>"$out/build.log" 2>&1

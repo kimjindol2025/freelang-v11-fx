@@ -17,6 +17,7 @@ extern int __real_ferror(FILE*);
 extern int __real_fflush(FILE*);
 extern int __real_fclose(FILE*);
 extern void* __real_malloc(size_t);
+extern void* __real_fl_arena_alloc(size_t);
 extern int __real_fstat(int, struct stat*);
 extern int __real_ftruncate(int, off_t);
 extern FILE* __real_fdopen(int, const char*);
@@ -48,6 +49,11 @@ int __wrap_fclose(FILE* f) {
 void* __wrap_malloc(size_t n) {
     if (n == sizeof(FLString) + 4 && consume("allocation-fail")) { errno = ENOMEM; return NULL; }
     return __real_malloc(n);
+}
+/* The public read allocates through the arena, including cached CLI storage. */
+void* __wrap_fl_arena_alloc(size_t n) {
+    if (n == sizeof(FLString) + 4 && consume("allocation-fail")) { errno = ENOMEM; return NULL; }
+    return __real_fl_arena_alloc(n);
 }
 int __wrap_fstat(int fd, struct stat* st) {
     if (consume("stat-fail")) { errno = EIO; return -1; }
@@ -105,6 +111,7 @@ FLValue l07_fd_count(void) {
     closedir(d); return fl_int(n);
 }
 FLValue l07_arm(FLValue name) {
+    if (fault[0]) { printf("FAIL unconsumed-fault-%s\n", fault); failed++; }
     snprintf(fault, sizeof(fault), "%s", text(name)); read_error = NULL; return fl_nil();
 }
 FLValue l07_bad_value(FLValue kind) {
