@@ -175,7 +175,7 @@ FLValue fl_add(FLValue a, FLValue b) {
         const char* sa = fl_display(a, ba, sizeof(ba));
         const char* sb = fl_display(b, bb, sizeof(bb));
         size_t la = strlen(sa), lb = strlen(sb);
-        FLString* obj = malloc(sizeof(FLString) + la + lb + 1);
+        FLString* obj = fl_arena_alloc(sizeof(FLString) + la + lb + 1);
         obj->base.type = FL_STRING; obj->base.rc = 1;
         obj->len = (uint32_t)(la + lb);
         memcpy(obj->data, sa, la);
@@ -310,7 +310,7 @@ FLValue fl_str_n(int count, ...) {
         total += lens[i];
     }
     va_end(ap);
-    FLString* obj = malloc(sizeof(FLString) + total + 1);
+    FLString* obj = fl_arena_alloc(sizeof(FLString) + total + 1);
     obj->base.type = FL_STRING; obj->base.rc = 1;
     obj->len = (uint32_t)total;
     size_t off = 0;

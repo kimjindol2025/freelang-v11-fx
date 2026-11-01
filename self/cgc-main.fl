@@ -2319,6 +2319,7 @@
     $wdefs "\n"
     $fns
     "int main(int argc, char** argv) {\n"
+    "    fl_cli_runtime_begin();\n"
     "    fl_init_argv(argc, argv);\n"
     $stmts
     "    return 0;\n"

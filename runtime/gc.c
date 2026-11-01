@@ -77,13 +77,14 @@ typedef struct ArenaChunk {
     char   data[];    /* 유연 배열 */
 } ArenaChunk;
 
-typedef struct {
+typedef struct Arena {
     ArenaChunk* head;       /* 현재 청크 */
     ArenaChunk* first;      /* 첫 청크 (재사용용) */
     size_t      total_alloc; /* 디버그: 총 할당량 */
     size_t      total_free;  /* 디버그: 총 해제량 */
     struct ArenaCleanup* cleanups;
     void* borrow_mark;
+    struct Arena* previous;
 } Arena;
 typedef struct ArenaCleanup {void (*call)(void*);void*value;struct ArenaCleanup*next;} ArenaCleanup;
 
@@ -185,12 +186,35 @@ void*fl_arena_scope_enter(void){
     if(!current){fl_throw(fl_str_val("arena allocation failed"));return NULL;}
     current->first=current->head=arena_new_chunk(0);
     if(!current->head){free(current);fl_throw(fl_str_val("arena allocation failed"));return NULL;}
-    current->borrow_mark=fl_borrow_mark();g_arena=current;return previous;
+    current->borrow_mark=fl_borrow_mark();current->previous=previous;g_arena=current;return previous;
 }
 void fl_arena_scope_leave(void*previous){
     Arena*current=g_arena;arena_clean(current);
     if(current){ArenaChunk*chunk=current->first;while(chunk){ArenaChunk*next=chunk->next;free(chunk);chunk=next;}free(current);}
     g_arena=(Arena*)previous;
+}
+
+/* Register before timer initialization: its atexit drain must run first. */
+static __thread Arena* cli_arena;
+static void cli_cleanup(void){
+    if(!cli_arena)return;
+    Arena*previous=cli_arena->previous;
+    while(g_arena&&g_arena!=previous)fl_arena_scope_leave(g_arena->previous);
+    cli_arena=NULL;
+}
+void fl_cli_runtime_begin(void){
+    if(cli_arena)return;
+    Arena*current=calloc(1,sizeof(*current));
+    if(current)current->first=current->head=arena_new_chunk(0);
+    if(!current||!current->head){
+        free(current);fputs("FreeLang CLI initialization failed\n",stderr);exit(1);
+    }
+    current->previous=g_arena;current->borrow_mark=fl_borrow_mark();
+    if(atexit(cli_cleanup)){
+        free(current->first);free(current);
+        fputs("FreeLang CLI initialization failed\n",stderr);exit(1);
+    }
+    cli_arena=g_arena=current;
 }
 
 /* 누적 통계 (debug level 2+) */
