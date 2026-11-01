@@ -1,0 +1,4 @@
+(defn captured [row columns]
+  (map (fn [column] (get row column)) columns))
+
+(println (first (captured {"a" 1} ["a"])))
