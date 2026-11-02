@@ -1,0 +1,7 @@
+{"status":200,"body":"A�B\u0000C"}
+Uncaught error (line 2): HTTP_CLIENT_BOUNDARY INVALID_HEADER_REJECTED=PASS
+Stack trace:
+  at __fl_binding_2 (line 20)
+RAW_SERVER_WIRE_EXACT=FAIL
+http-client-raw_PROBE_EXIT=0
+http-client-boundaries_PROBE_EXIT=1

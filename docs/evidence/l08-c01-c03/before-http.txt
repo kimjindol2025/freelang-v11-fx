@@ -1,0 +1,14 @@
+GET_NAMED=200:named-new
+GET_SAVED=200:named-old
+POST_NAMED=200:named-new
+GET_UNDERSCORE=200:underscore
+GET_ALIAS=404:{"error":"Not Found","path":"/alias"}
+--- <가림>	2026-10-29 07:24:23.881233587 +0900
++++ <가림>	2026-10-29 07:24:33.124341795 +0900
+@@ -2,4 +2,4 @@
+ GET_SAVED=200:named-old
+ POST_NAMED=200:named-new
+ GET_UNDERSCORE=200:underscore
+-GET_ALIAS=200:defined
++GET_ALIAS=404:{"error":"Not Found","path":"/alias"}
+EXIT=1

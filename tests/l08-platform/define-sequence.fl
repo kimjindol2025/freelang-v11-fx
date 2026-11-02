@@ -1,0 +1,7 @@
+(define n 0)
+(define add (fn [] (do (define n (+ n 1)) (define n (+ n 2)) n)))
+(if (= (add) 3) (println "DEFINE_DO_SEQUENCE=PASS") (throw "define do mismatch"))
+(if (= n 3) (println "DEFINE_GLOBAL_REBIND=PASS") (throw "define global mismatch"))
+(define looped (fn [] (when (< n 10) (define n (+ n 1)) (looped))))
+(looped)
+(if (= n 10) (println "DEFINE_WHEN_RECURSION=PASS") (throw "define loop mismatch"))

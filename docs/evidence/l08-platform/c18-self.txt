@@ -1,0 +1,21 @@
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+environment_PROGRAM_EXIT=0
+exit-default_PROGRAM_EXIT=0
+exit-seven_PROGRAM_EXIT=7
+L08_C18_PASS=3 FAIL=0

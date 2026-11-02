@@ -1,0 +1,6 @@
+(load "../app/store.fl")
+(define rows (get (execute-ast {"type" "select" "table" "l08_parallel"}) "rows"))
+(define unique (count (arr_unique (map (fn [row] (get row "id")) rows))))
+(println (str "DB_CONCURRENT_REPLAY_ROWS=" (count rows)))
+(println (str "DB_CONCURRENT_REPLAY_UNIQUE_IDS=" unique))
+(if (and (= (count rows) 32) (= unique 32)) (println "DB_CONCURRENT_REPLAY=PASS") (throw "DB_CONCURRENT_REPLAY_MISMATCH"))

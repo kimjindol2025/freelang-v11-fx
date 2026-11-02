@@ -1,0 +1,129 @@
+NATIVE_SYMBOL_METADATA=PASS
+11
+22
+33
+44
+db:x
+http:x
+names EXIT=0
+PASS names
+1
+2
+2
+1
+9
+redefine EXIT=0
+PASS redefine
+12
+22
+3
+11
+2
+scope EXIT=0
+PASS scope
+1
+2
+7
+9
+5
+5
+17
+6
+values EXIT=0
+PASS values
+7
+9
+default EXIT=0
+PASS default
+7
+true
+false
+0
+true
+8
+false
+0
+8
+8
+8
+글
+missing
+9
+true
+true
+true
+false
+3
+1
+get EXIT=0
+PASS get
+STRICT_NIL
+9
+strict EXIT=0
+PASS strict
+1
+42
+load EXIT=0
+PASS load
+1
+cycle EXIT=0
+PASS cycle
+9
+[1,2,3]
+DEFAULT_THROW
+CALLBACK_THROW
+4
+99
+1
+order EXIT=0
+PASS order
+7
+8
+7
+local EXIT=0
+PASS local
+11
+true
+false
+true
+true
+13
+5
+1
+true
+true
+false
+true
+get-edge EXIT=0
+PASS get-edge
+E_TYPE_NIL
+TypeError
+(get nil "x") — cannot access key on nil. Use (get-or coll key default).
+값이 nil인지 (nil? x) 또는 (get-or x :key default) 로 먼저 확인하세요.
+strict-fields EXIT=0
+PASS strict-fields
+7
+4
+11
+UPDATE_THROW
+2
+9
+callbacks EXIT=0
+PASS callbacks
+NOT_FN
+not-fn EXIT=0
+PASS not-fn
+11
+22
+33
+44
+55
+aliases EXIT=0
+PASS aliases
+Uncaught error (line 2519): [load] 파일 없음: fixtures/does-not-exist.fl
+Stack trace:
+  at expand_loads (line 2501)
+  at cgc_run (line 2619)
+missing EXIT=1
+PASS missing
+L08_PASS=17 FAIL=0

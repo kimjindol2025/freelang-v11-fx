@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/../l07/build.sh"
+l06_app() {
+  local out="$1" source="$2" name="$3"
+  "$out/compiler" --extern l06_digest --extern l06_seen --extern l06_count \
+    --extern l06_hold --extern l06_meta --extern l06_pattern --extern l06_sse_probe \
+    "$source" "$out/$name.c"
+  gcc -O2 -w -rdynamic -D_GNU_SOURCE -I "$L07_ROOT/runtime" -I "$L07_ROOT/tests/l06" \
+    -include "$L07_ROOT/tests/l06/support.h" -Wl,--wrap=listen \
+    -Wl,--wrap=recv,--wrap=SSL_read,--wrap=fwrite,--wrap=fflush,--wrap=fclose \
+    -Wl,--wrap=fl_arena_alloc,--wrap=unlinkat,--wrap=getrandom,--wrap=openat \
+    -o "$out/$name" "$out/$name.c" "$L07_ROOT/tests/l06/support.c" \
+    "${L07_SRCS[@]}" "${L07_LIBS[@]}"
+}

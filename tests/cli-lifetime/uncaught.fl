@@ -1,0 +1,2 @@
+(println "BEFORE_ERROR=PASS")
+(throw "CLI_EXPECTED_ERROR")

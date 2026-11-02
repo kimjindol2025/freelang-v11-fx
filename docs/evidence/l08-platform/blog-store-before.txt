@@ -1,0 +1,5 @@
+scripts/verify-l08-blog-store-native.sh: line 14: 733068 Segmentation fault      ( cd "$out/root"; env -i PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC FL_FILE_BASE="$out/root" AFJ_DB_MODE=development AFJ_DB_BIND_HOST=127.0.0.1 AFJ_DB_WAL="$out/root/store.wal" timeout 30 "$out/$name" ) > "$out/$label.actual" 2> "$out/$label.stderr"
+timeout: the monitored command dumped core
+writer_NATIVE_EXIT=139
+BLOG_NATIVE_STORE_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

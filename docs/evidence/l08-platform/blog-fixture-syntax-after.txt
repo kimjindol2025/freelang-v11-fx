@@ -1,0 +1,16 @@
+content-render_TRANSLATE_EXIT=0
+content-render_C_SYNTAX_EXIT=0
+editor-input_TRANSLATE_EXIT=0
+editor-input_C_SYNTAX_EXIT=0
+image-validation_TRANSLATE_EXIT=0
+image-validation_C_SYNTAX_EXIT=0
+public-visibility_TRANSLATE_EXIT=0
+public-visibility_C_SYNTAX_EXIT=0
+redirect-update_TRANSLATE_EXIT=0
+redirect-update_C_SYNTAX_EXIT=0
+b1-review_TRANSLATE_EXIT=0
+b1-review_C_SYNTAX_EXIT=0
+b1-ai-core_TRANSLATE_EXIT=0
+b1-ai-core_C_SYNTAX_EXIT=0
+b2-scoped-slug_TRANSLATE_EXIT=0
+b2-scoped-slug_C_SYNTAX_EXIT=0

@@ -1,0 +1,9 @@
+Compiled <가림> -> <가림>
+Compiled <가림> -> <가림>
+<가림>: In function ‘__fl_anon_19’:
+<가림>:71:131: error: ‘push’ undeclared (first use in this function)
+   71 |     return (__extension__ ({ (__extension__ ({ (__extension__ ({  FLValue __fl_arg_20_0 = __fl_binding_7; FLValue __fl_arg_20_1 = push; FLValue __fl_arg_20_2 = __fl_binding_22; FLValue __fl_av_20[3] = {__fl_arg_20_0, __fl_arg_20_1, __fl_arg_20_2}; fl_swap_args(__fl_arg_20_0, __fl_arg_20_1, fl_vec_from(__fl_av_20 + 2, 1)); }));  }));  }));
+      |                                                                                                                                   ^~~~
+<가림>:71:131: note: each undeclared identifier is reported only once for each function it appears in
+REGRESSIONS_EXIT=1
+BOOTSTRAP=NOT_RUN

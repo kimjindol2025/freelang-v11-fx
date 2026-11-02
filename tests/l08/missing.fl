@@ -1,0 +1,2 @@
+(load "fixtures/does-not-exist.fl")
+(println "SHOULD_NOT_RUN")

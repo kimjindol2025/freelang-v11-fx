@@ -1,0 +1,12 @@
+(load "../app/store.fl")
+(ensure-table "l08_tail" [{"name" "id" "type" "TEXT" "nullable" false "primary" true} {"name" "title" "type" "TEXT" "nullable" false}] "id" [])
+(afj-tcp-commit-ast {"type" "insert" "table" "l08_tail" "row" {"id" "kept" "title" "원본 한🙂"}})
+(if (get (file-copy-result (env-get "AFJ_DB_WAL") "committed-prefix.wal") "ok") nil (throw "cannot snapshot committed prefix"))
+(define mode (env-get "L08_WAL_TAIL_MODE"))
+(if (= mode "complete-no-newline") nil
+ (do
+  (store-fault-arm mode)
+  (define wanted (if (= mode "commit-partial") "DB_COMMIT_UNCERTAIN_RESTART_REQUIRED" "DB_WRITE_ABORTED_RESTART_REQUIRED"))
+  (define rejected (try (do (afj-tcp-commit-ast {"type" "insert" "table" "l08_tail" "row" {"id" "interrupted" "title" "미완성"}}) false) (catch [error] (str-includes (error_message error) wanted))))
+  (if (and rejected (= (store-fault-count) 1) (= (store-fault-open-count) 0)) nil (throw "tail fault did not happen correctly"))))
+(println "WAL_TAIL_CREATE=PASS")

@@ -1,0 +1,8 @@
+;; Regression input: bytes 41 00 42 (A, NUL, B), independently created by Bash.
+(define input (get (cli-args) 0))
+(define output (get (cli-args) 1))
+(define appended (get (cli-args) 2))
+(define bytes (file-read input))
+(println (str "L07_REPRO_INPUT_BYTES=" (_fl_file_size input)))
+(file-write output bytes)
+(file-append appended bytes)

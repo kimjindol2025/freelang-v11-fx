@@ -1,0 +1,12 @@
+(load "../app/store.fl")
+(load "../app/images.fl")
+(load "../app/image-admin.fl")
+(load "../app/ai-api.fl")
+(define token (env-get "BLOG_TEST_SESSION_TOKEN"))
+(define key (env-get "BLOG_TEST_AI_DRAFT_KEY"))
+(if (and (string? token) (= (count token) 64) (string? key) (= (count key) 64)) nil (throw "synthetic session/key required"))
+(afj-tcp-commit-asts
+ [{"type" "insert" "table" "sessions" "row" {"token_hash" (auth_sha256 token) "expires_at" (+ (now_ms) 600000)}}
+  {"type" "insert" "table" "ai_keys" "row" {"id" "http-upload-proof" "blog_id" 1 "token_hash" (auth_sha256 key)
+    "scope" "draft" "daily_limit" 10 "used_day" 0 "used_count" 0 "revoked" false}}])
+(println "IMAGE_UPLOAD_SEED=PASS")

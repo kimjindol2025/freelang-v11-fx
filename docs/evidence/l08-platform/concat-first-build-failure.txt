@@ -1,0 +1,2 @@
+CONCAT_MEMORY_AFTER_EXIT=1
+<가림>:467:13: error: implicit declaration of function ‘fl_arena_active’; did you mean ‘fl_arena_stats’? [-Wimplicit-function-declaration]

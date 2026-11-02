@@ -34,7 +34,7 @@
 ;; ── state = {:src :idx :line :col :tokens}
 
 (defn make-state [$src]
-  {:src $src :idx 0 :line 1 :col 1 :tokens []})
+  {:src $src :idx 0 :line 1 :col 1 :tokens nil})
 
 (defn peek-at [$st $offset]
   (let [[$src (get $st :src)]
@@ -57,11 +57,25 @@
      :line (get $st :line) :col (+ (get $st :col) 1)
      :tokens (get $st :tokens)})))
 
+(defn token-chunk-add [$_forest $_chunk]
+  ;; Equal chunks merge like a binary carry, preserving immutable arrays.
+  (loop [$forest $_forest $chunk $_chunk]
+    (if (and (not (nil? $forest))
+             (= (count (get $forest :chunk)) (count $chunk)))
+      (recur (get $forest :rest) (concat (get $forest :chunk) $chunk))
+      {:chunk $chunk :rest $forest})))
+
+(defn token-chunks-finish [$forest]
+  (loop [$nodes $forest $result []]
+    (if (nil? $nodes) $result
+      (recur (get $nodes :rest)
+             (concat (get $nodes :chunk) $result)))))
+
 (defn emit [$st $kind $value $sl $sc]
   {:src (get $st :src) :idx (get $st :idx)
   :line (get $st :line) :col (get $st :col)
-  :tokens (append (get $st :tokens)
-                  {:kind $kind :type $kind :value $value :line $sl :col $sc})})
+  :tokens (token-chunk-add (get $st :tokens)
+                  [{:kind $kind :type $kind :value $value :line $sl :col $sc}])})
 
 ;; ── 스킵 (whitespace + ; line comment)
 
@@ -97,6 +111,12 @@
            (recur (advance $cur) (str $res_acc $c) $dot)]
           [(and (= $c ".") (not $dot))
            (recur (advance $cur) (str $res_acc $c) true)]
+          [(or (= $c "e") (= $c "E"))
+           (let [[$next (advance $cur)]
+                 [$sign (peek $next)]]
+             (if (or (= $sign "+") (= $sign "-"))
+               (read-number-exponent (advance $next) (str $res_acc $c $sign) $line $col)
+               (read-number-exponent $next (str $res_acc $c) $line $col)))]
           [true (emit $cur "Number" $res_acc $line $col)])))))
 
 (defn read-number-body [$st $acc $has-dot $line $col]
@@ -196,7 +216,7 @@
   (loop [$cur $_cur]
     (let [[$ws (skip-ws $cur)]]
       (if (at-end? $ws)
-        (get $ws :tokens)
+        (token-chunks-finish (get $ws :tokens))
         (recur (read-token $ws))))))
 
 (defn lex [$src]
@@ -564,8 +584,13 @@
         [(= $op "try")
          ;; try-catch-finally: (try body (catch param body) (finally body))
          (let [[$body (if (> (length $rest) 0) (get $rest 0) null)]
-               [$catch-clause (if (> (length $rest) 1) (get $rest 1) null)]
-               [$finally-clause (if (> (length $rest) 2) (get $rest 2) null)]]
+               [$second (get $rest 1)]
+               [$third (get $rest 2)]
+               [$second-op (if (null? $second) "" (get $second :op))]
+               [$third-op (if (null? $third) "" (get $third :op))]
+               [$catch-clause (if (= $second-op "catch") $second null)]
+               [$finally-clause (if (= $second-op "finally") $second
+                                 (if (= $third-op "finally") $third null))]]
            (r-pair (parse-consume-rparen $p2)
                    (make-try $body $catch-clause $finally-clause $line)))]
         [(= $op "loop")
@@ -790,7 +815,7 @@
             [$cn   (c-name $name)]
             [$line (get $n :line)]]
         (if (includes-item @known-defns-atom $cn)
-          (str "fl_fn_new(__fl_wrap_" $cn ", 0, NULL)")
+          (str "fl_fn_global(__fl_wrap_" $cn ", 0, NULL)")
           ;; 알려진 함수/변수/파라미터가 아니면 경고 출력 (컴파일 시점)
           (if (not (or (includes-item @known-fncall-targets-atom $cn)
                        (includes-item @outer-params-atom $cn)))
@@ -809,8 +834,8 @@
      (let [[$line (get $n :line)]
            [$expr-c (cgc (get $n :expr))]]
        (if (and $line (> $line 0))
-         (str "(__fl_throw_line=" (to-string $line) ", fl_throw(" $expr-c "), fl_nil())")
-         (str "(fl_throw(" $expr-c "), fl_nil())")))]
+         (str "(__fl_throw_line=" (to-string $line) ", fl_v11_throw(" $expr-c "), fl_nil())")
+         (str "(fl_v11_throw(" $expr-c "), fl_nil())")))]
     [true
      (do (println (str "[CGC-ERR] unsupported IR kind=" (get $n :kind) " line=" (get $n :line)))
          "fl_nil()")]))
@@ -819,7 +844,11 @@
 
 ;; 연산자 심볼 → first-class 함수 래퍼 (HOF 인자: (map + list), (reduce + list 0) 등)
 (defn cgc-op-wrapper [$sym]
+  (if (fl_v11_has $sym)
+    (str "fl_v11_fn(fl_str_val(\"" (c-esc $sym) "\"))")
   (cond
+    [(includes-item ["assoc" "dissoc" "conj" "push" "update" "get" "append" "concat"] $sym)
+     (str "fl_builtin_fn(fl_str_val(\"" (c-esc $sym) "\"))")]
     [(= $sym "+")  "fl_fn_new(__fl_op_add_w, 0, NULL)"]
     [(= $sym "-")  "fl_fn_new(__fl_op_sub_w, 0, NULL)"]
     [(= $sym "*")  "fl_fn_new(__fl_op_mul_w, 0, NULL)"]
@@ -832,7 +861,7 @@
     [(= $sym ">")  "fl_fn_new(__fl_op_gt_w, 0, NULL)"]
     [(= $sym "<=") "fl_fn_new(__fl_op_lte_w, 0, NULL)"]
     [(= $sym ">=") "fl_fn_new(__fl_op_gte_w, 0, NULL)"]
-    [true null]))
+    [true null])))
 
 ;; ── 문자열 보간 (${var} 및 #{var} 지원) ──────────────────────────
 (defn template-to-parts [$s $prefix $acc]
@@ -865,7 +894,7 @@
 (defn cgc-literal [$n]
   (let [[$t (get $n :type)] [$v (get $n :value)]]
   (cond
-    [(= $t "number")  (if (str-includes (str $v) ".") (str "fl_float(" $v ")") (str "fl_int(" $v ")"))]
+    [(= $t "number")  (fl_v11_literal $v)]
     [(= $t "string")  (str "fl_str_val(\"" (c-esc $v) "\")")]
     [(= $t "boolean") (if $v "fl_bool(true)" "fl_bool(false)")]
     [(= $t "nil")     "fl_nil()"]
@@ -878,7 +907,7 @@
                                   $opw
                                   (let [[$cn (c-name $v)]]
                                     (if (includes-item @known-defns-atom $cn)
-                                      (str "fl_fn_new(__fl_wrap_" $cn ", 0, NULL)")
+                                      (str "fl_fn_global(__fl_wrap_" $cn ", 0, NULL)")
                                       $cn))))])]
     [true
      (do (println (str "[CGC-ERR] unsupported literal type=" (get $n :type) " line=" (get $n :line)))
@@ -926,6 +955,7 @@
 
 (defn cgc-try [$n]
   (let [[$id @lambda-id-atom]
+        [$_reserve (swap! lambda-id-atom + 1)]
         [$body-node    (get $n :body)]
         [$catch-node   (get $n :catch)]
         [$finally-node (get $n :finally)]
@@ -934,30 +964,39 @@
         [$param-c (if (> (length $catch-args) 0)
                     (cgc-extract-name (get $catch-args 0))
                     "_fl_err")]
+        [$outer-count (length @outer-params-atom)]
         [$_ (swap! outer-params-atom append $param-c)]
         [$catch-body-c (if (> (length $catch-args) 1)
-                         (cgc (get $catch-args 1))
+                         (cgc-do (slice $catch-args 1 (length $catch-args)))
                          "fl_nil()")]
+        [$_restore (reset! outer-params-atom (slice @outer-params-atom 0 $outer-count))]
         [$finally-c (if (null? $finally-node) ""
                       (let [[$fargs (get $finally-node :args)]]
                         (str "    " (cgc-body $fargs 0 "") ";\n")))]]
-    (swap! lambda-id-atom + 1)
     (str "(__extension__ ({\n"
-         "    FLValue _fl_try_" $id ";\n"
-         "    if (fl_try_top < FL_TRY_MAX) {\n"
-         "        FLTryFrame* _fl_frame_" $id " = &fl_try_stack[fl_try_top++];\n"
-         "        if (setjmp(_fl_frame_" $id "->buf) == 0) {\n"
-         "            _fl_try_" $id " = " $body-c ";\n"
-         "            fl_try_top--;\n"
-         "        } else {\n"
-         "            fl_try_top--;\n"
-         "            FLValue " $param-c " __attribute__((unused)) = _fl_frame_" $id "->err;\n"
-         "            _fl_try_" $id " = " $catch-body-c ";\n"
-         "        }\n"
-         "    } else {\n"
+         "    volatile FLValue _fl_try_" $id " = fl_nil(), _fl_pending_" $id " = fl_nil();\n"
+         "    volatile int _fl_raised_" $id " = 0;\n"
+         "    if (fl_try_top >= FL_TRY_MAX) fl_throw(fl_str_val(\"try stack exhausted\"));\n"
+         "    int _fl_saved_" $id " = fl_try_top;\n"
+         "    FLTryFrame* _fl_frame_" $id " = &fl_try_stack[fl_try_top++];\n"
+         "    if (setjmp(_fl_frame_" $id "->buf) == 0) {\n"
          "        _fl_try_" $id " = " $body-c ";\n"
+         "    } else {\n"
+         "        FLValue _fl_raw_" $id " = _fl_frame_" $id "->err;\n"
+         "        fl_try_top = _fl_saved_" $id ";\n"
+         (if (null? $catch-node)
+           (str "        _fl_pending_" $id " = _fl_raw_" $id "; _fl_raised_" $id " = 1;\n")
+           (str "        fl_try_top++;\n"
+                "        if (setjmp(_fl_frame_" $id "->buf) == 0) {\n"
+                "            FLValue " $param-c " __attribute__((unused)) = fl_v11_catch(_fl_raw_" $id ");\n"
+                "            _fl_try_" $id " = " $catch-body-c ";\n"
+                "        } else {\n"
+                "            _fl_pending_" $id " = _fl_frame_" $id "->err; _fl_raised_" $id " = 1;\n"
+                "        }\n"))
          "    }\n"
+         "    fl_try_top = _fl_saved_" $id ";\n"
          $finally-c
+         "    if (_fl_raised_" $id ") fl_throw(_fl_pending_" $id ");\n"
          "    _fl_try_" $id ";\n"
          "}))")))
 
@@ -974,7 +1013,27 @@
            (cgc-args $args) "};"
            " fl_fn_call(" $fn-c ", " $argc ", __fl_ca_" $id "); }))"))))
 
+(defn cgc-context-call [$fn-c $args $name $line]
+  (let [[$id @lambda-id-atom] [$_ (swap! lambda-id-atom + 1)]]
+    (str "(__extension__ ({ " (cgc-eval-args $args $id 0 "")
+         " fl_v11_context_call(fl_str_val(\"" (c-esc $name) "\"), " $fn-c ", "
+         (if (= (length $args) 0) "fl_vec_new()"
+             (str "fl_vec_from(__fl_av_" $id ", " (length $args) ")"))
+         ", fl_int(" (if (null? $line) "0" (to-string $line)) ")); }))")))
+
 (defn cgc-sexpr [$n]
+  (let [[$op (get $n :op)] [$args (get $n :args)] [$context (get $n "call-op")]]
+    (if (not (null? $context))
+      (if (= (get $n "call-lookup") true)
+        (cgc-context-call (str "fl_named_fn(fl_str_val(\"" (c-esc $context) "\"))") $args $context (get $n :line))
+      (if (= $op "__apply__")
+        (cgc-context-call (cgc (get $args 0)) (slice $args 1 (length $args)) $context (get $n :line))
+        (cgc-context-call (cgc (make-variable (substring $op 1 (length $op)) (get $n :line))) $args $context (get $n :line))))
+      (if (and (string? $op) (fl_v11_has $op) (not (includes-item ["if" "and" "or"] $op)))
+        (cgc-context-call "fl_nil()" $args $op (get $n :line))
+        (cgc-sexpr-plain $n)))))
+
+(defn cgc-sexpr-plain [$n]
   (let [[$op (get $n :op)] [$args (get $n :args)]]
   (if (not (string? $op))
     (cgc-fncall (cgc $op) $args)
@@ -985,12 +1044,14 @@
     ;; $var 동적 호출 → fl_fn_call (FLValue 함수 객체 호출)
     (let [[$cn (c-name (substring $op 1 (length $op)))]]
       (cgc-fncall (if (includes-item @known-defns-atom $cn)
-                    (str "fl_fn_new(__fl_wrap_" $cn ", 0, NULL)")
+                    (str "fl_fn_global(__fl_wrap_" $cn ", 0, NULL)")
                     $cn)
                   $args))
     (cgc-dispatch $op $args))))))
 
 (defn cgc-dispatch [$op $args]
+  (if (and (fl_v11_has $op) (not (includes-item ["if" "and" "or"] $op)))
+    (cgc-v11-call $op $args)
   (cond
   [(= $op "if")     (cgc-if $args)]
   [(= $op "cond")   (cgc-cond $args)]
@@ -1037,6 +1098,7 @@
   [(= $op "deref")         (str "fl_deref(" (cgc (get $args 0)) ")")]
   [(= $op "reset!")        (str "fl_atom_reset(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "swap!")         (cgc-swap! $args)]
+  [(= $op "with-atom-lock") (cgc-with-atom-lock $args)]
   ;; num: c-reserved? 목록에 있어 fl_num으로 잘못 변환되는 버그 수정
   [(= $op "num")           (str "num(" (cgc (get $args 0)) ")")]
   ;; S26: stdlib 매핑
@@ -1050,7 +1112,8 @@
   ;; 컬렉션 기본
   [(= $op "length")      (str "length(" (cgc (get $args 0)) ")")]
   [(= $op "count")       (str "length(" (cgc (get $args 0)) ")")]
-  [(= $op "get")         (str "get(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "get")         (cgc-get $args)]
+  [(= $op "has-key?")    (str "fl_has_key(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "assoc")       (str "fl_map_set(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "contains?")  (str "fl_contains_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "has-key?")  (str "fl_map_has_key(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
@@ -1181,6 +1244,10 @@
   [(= $op "_fl_file_write")   (str "fl_file_write(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "file-read")        (str "fl_file_read(" (cgc (get $args 0)) ")")]
   [(= $op "file-write")       (str "fl_file_write(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "file-read-result") (str "fl_file_read_result(" (cgc (get $args 0)) ")")]
+  [(= $op "file-write-result")(str "fl_file_write_result(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "file-append-result")(str "fl_file_append_result(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "file-copy-result") (str "fl_file_copy_result(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "file-exists")      (str "file_exists(" (cgc (get $args 0)) ")")]
   [(= $op "file_exists")      (str "file_exists(" (cgc (get $args 0)) ")")]
   ;; N-11: 파일 ops — stub → 실제 구현
@@ -1252,6 +1319,12 @@
   [(= $op "sleep")   (str "fl_sleep_ms(" (cgc (get $args 0)) ")")]
   [(= $op "now-ms")  "fl_now_ms()"]
   ;; N-05: HTTP 서버
+  [(or (= $op "server_req_body") (= $op "server-req-body"))
+    (str "fxb_server_req_body(" (cgc (get $args 0)) ")")]
+  [(or (= $op "server_req_fields") (= $op "server-req-fields"))
+    (str "server_req_fields(" (cgc (get $args 0)) ")")]
+  [(or (= $op "server_req_files") (= $op "server-req-files"))
+    (str "server_req_files(" (cgc (get $args 0)) ")")]
   [(= $op "server-start")       (str "fl_http_start(" (cgc (get $args 0)) ")")]
   [(= $op "server-stop")        "fl_http_stop()"]
   [(= $op "server-html")        (str "fl_resp_html(" (cgc (get $args 0)) ")")]
@@ -1286,14 +1359,14 @@
          $body-c (if (= (length $body) 1)
                    (cgc (get $body 0))
                    (cgc-do $body))]
-     (str "(fl_truthy(" $cond-c ") ? " $body-c " : fl_nil())"))]
+     (str "(fl_v11_truthy(" $cond-c ") ? " $body-c " : fl_nil())"))]
   [(= $op "unless")
    (let [$cond-c (cgc (get $args 0))
          $body   (slice $args 1 (length $args))
          $body-c (if (= (length $body) 1)
                    (cgc (get $body 0))
                    (cgc-do $body))]
-     (str "(!fl_truthy(" $cond-c ") ? " $body-c " : fl_nil())"))]
+     (str "(!fl_v11_truthy(" $cond-c ") ? " $body-c " : fl_nil())"))]
   ;; for-each: 부작용 전용 반복, nil 반환
   [(= $op "for-each")
    (str "(fl_for_each(" (cgc (get $args 0)) ", " (cgc (get $args 1)) "), fl_nil())")]
@@ -1312,11 +1385,11 @@
   [(= $op "->>")  (cgc-thread-last $args)]
   ;; when: (when test body...) → if test (do body...) nil
   [(= $op "when")
-   (str "(fl_truthy(" (cgc (get $args 0)) ") ? ("
+   (str "(fl_v11_truthy(" (cgc (get $args 0)) ") ? ("
         (cgc-body $args 1 "") ") : fl_nil())")]
   ;; unless: (unless test body...) → if !test (do body...) nil
   [(= $op "unless")
-   (str "(fl_truthy(" (cgc (get $args 0)) ") ? fl_nil() : ("
+   (str "(fl_v11_truthy(" (cgc (get $args 0)) ") ? fl_nil() : ("
         (cgc-body $args 1 "") "))")]
   ;; case: (case val k1 v1 k2 v2 ... default) → if/else chain
   [(= $op "case")  (cgc-case $args)]
@@ -1342,30 +1415,23 @@
   [(= $op "clamp")        (str "clamp(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "json-pretty")  (str "json_pretty(" (cgc (get $args 0)) ")")]
   [(= $op "file-exists?") (str "file_exists_p(" (cgc (get $args 0)) ")")]
-  [true             (cgc-dispatch-fallback $op $args)]))
+  [true             (cgc-dispatch-fallback $op $args)])))
 
 (defn cgc-swap! [$args]
-  (let [[$atom-c  (cgc (get $args 0))]
-        [$fn-node (get $args 1)]
-        [$extra   (slice $args 2 (length $args))]]
-    ;; fn 람다(클로저)가 전달된 경우 → swap_bang(atom, closure) 직접 호출
-    (let [[$is-lambda (and (= (get $fn-node :kind) "sexpr") (= (get $fn-node :op) "fn"))]]
-      (if $is-lambda
-        (str "swap_bang(" $atom-c ", " (cgc $fn-node) ")")
-        (let [[$deref (str "fl_atom_deref(" $atom-c ")")]
-              [$op    (get $fn-node :value)]
-              [$ec    (cgc-args $extra)]]
-          (let [[$rhs (cond
-                        [(= $op "+")      (str "fl_add(" $deref ", " $ec ")")]
-                        [(= $op "-")      (str "fl_sub(" $deref ", " $ec ")")]
-                        [(= $op "*")      (str "fl_mul(" $deref ", " $ec ")")]
-                        [(= $op "push")   (str "fl_vec_push(" $deref ", " $ec ")")]
-                        [(= $op "append") (str "fl_vec_push(" $deref ", " $ec ")")]
-                        [true             (str (c-name $op) "(" $deref
-                                          (if (= (length $extra) 0) "" (str ", " $ec)) ")")]
-                      )]]
-            (str "fl_atom_reset(" $atom-c ", " $rhs ")")))))))
+  (let [[$id @lambda-id-atom]
+        [$_ (swap! lambda-id-atom + 1)]]
+    (str "(__extension__ ({ "
+         (cgc-eval-args $args $id 0 "")
+         " fl_swap_args(__fl_arg_" $id "_0, __fl_arg_" $id "_1, "
+         "fl_vec_from(__fl_av_" $id " + 2, " (- (length $args) 2) ")); }))")))
 
+(defn cgc-with-atom-lock [$args]
+  (if (not (= (length $args) 2))
+    (throw "with-atom-lock: expected 2 arguments")
+    (let [[$id @lambda-id-atom]
+          [$_ (swap! lambda-id-atom + 1)]]
+      (str "(__extension__ ({ " (cgc-eval-args $args $id 0 "")
+           " fl_with_atom_lock(__fl_arg_" $id "_0, __fl_arg_" $id "_1); }))"))))
 ;; ── 컴파일 타임 경고 헬퍼 ────────────────────────────────────────────
 ;; W2: (get ...) 를 산술/문자열 ops에 nil 체크 없이 넘기면 경고
 (defn cgc-is-get? [$n]
@@ -1445,7 +1511,13 @@
     [(and (= (get $node :kind) "block") (= (get $node :type) "Map"))
      (cgc-collect-map-values (get (get $node :fields) "items") 1 $acc)]
     [(= (get $node :kind) "block")
-     (cgc-collect-vars-loop (get-block-items $node) 0 $acc)]
+     (cgc-collect-vars-loop (get (get $node :fields) "items") 0 $acc)]
+    [(= (get $node :kind) "try")
+     (cgc-collect-vars (get $node :finally)
+       (cgc-collect-vars (get $node :catch)
+         (cgc-collect-vars (get $node :body) $acc)))]
+    [(= (get $node :kind) "throw")
+     (cgc-collect-vars (get $node :expr) $acc)]
     [(= (get $node :kind) "and")
      (cgc-collect-vars-loop (get $node :args) 0 $acc)]
     [(= (get $node :kind) "or")
@@ -1493,7 +1565,7 @@
         [$id-bump (swap! lambda-id-atom + 1)]
         [$param-items (get-block-items (get $args 0))]
         [$param-names (cgc-fn-param-names $param-items 0 [])]
-        [$body-node (get $args 1)]
+        [$body-node (make-sexpr "do" (slice $args 1 (length $args)) nil)]
         [$all-vars (cgc-collect-vars $body-node [])]
         [$outer @outer-params-atom]
         [$caps (cgc-fn-caps-filter $all-vars $param-names $outer 0 [])]
@@ -1547,11 +1619,37 @@
 
 ;; ── if ──
 
+(defn cgc-tail-args [$args $id $i $acc]
+  (if (>= $i (length $args))
+    (str $acc " FLValue __fl_av_" $id "[" (length $args) "] = {"
+         (cgc-eval-names $id (length $args) 0 "") "};")
+    (cgc-tail-args $args $id (+ $i 1)
+      (str $acc " FLValue __fl_arg_" $id "_" $i " = " (cgc (get $args $i)) ";"))))
+
+(defn cgc-if-branch [$node]
+  (if (and (= (get $node :kind) "sexpr") (= (get $node "call-user") true))
+    (let [[$op (get $node :op)] [$args (get $node :args)]
+          [$id @lambda-id-atom] [$_ (swap! lambda-id-atom + 1)]
+          [$fn-c (if (= $op "__apply__") (cgc (get $args 0))
+                     (cgc (make-variable (substring $op 1 (length $op)) (get $node :line))))]
+          [$actual (if (= $op "__apply__") (slice $args 1 (length $args)) $args)]
+          ;; The frozen seed emits C call arguments with unspecified order.
+          ;; Sequence compiler side effects before assembling the output string.
+          [$tail-c (if (= (length $actual) 0) "" (cgc-tail-args $actual $id 0 ""))]
+          [$ordinary-c (cgc $node)]]
+      (str "(fl_v11_tco_active() ? (__extension__ ({ "
+           $tail-c
+           " fl_v11_tail_call(" $fn-c ", "
+           (if (= (length $actual) 0) "fl_vec_new()"
+               (str "fl_vec_from(__fl_av_" $id ", " (length $actual) ")"))
+           "); })) : " $ordinary-c ")"))
+    (cgc $node)))
+
 (defn cgc-if [$args]
   (let [[$cond (cgc (get $args 0))]
-        [$then (cgc (get $args 1))]
-        [$else (if (>= (length $args) 3) (cgc (get $args 2)) "fl_nil()")]]
-  (str "(fl_truthy(" $cond ") ? " $then " : " $else ")")))
+        [$then (cgc-if-branch (get $args 1))]
+        [$else (if (>= (length $args) 3) (cgc-if-branch (get $args 2)) "fl_nil()")]]
+  (str "(fl_v11_truthy(" $cond ") ? " $then " : " $else ")")))
 
 ;; ── cond ──
 
@@ -1575,7 +1673,8 @@
     (cgc-cond-nested $args (- $i 1)
       (if $is-else
         (cgc $body)
-        (str "(fl_truthy(" (cgc $test) ") ? " (cgc $body) " : " $acc ")"))))))
+        (let [[$test-c (cgc $test)] [$body-c (cgc $body)]]
+          (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 (defn cgc-cond-flat [$args $i $acc]
   (if (< $i 0) $acc
@@ -1586,7 +1685,8 @@
     (cgc-cond-flat $args (- $i 2)
       (if $is-else
         (cgc $body)
-        (str "(fl_truthy(" (cgc $test) ") ? " (cgc $body) " : " $acc ")"))))))
+        (let [[$test-c (cgc $test)] [$body-c (cgc $body)]]
+          (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 ;; ── do ──
 
@@ -1618,7 +1718,7 @@
         [$attr (if (str-starts-with $n "_") " __attribute__((unused))" "")]]
     (swap! known-fncall-targets-atom append $n)
     (swap! outer-params-atom append $n)
-    (cgc-let-1d $it (+ $i 2) (str $acc "    FLValue " $n $attr " = " $v ";\n")))))
+    (cgc-let-1d $it (+ $i 2) (str $acc "    FLValue " $n $attr " = FL_VALUE(" $v ");\n")))))
 
 (defn cgc-let-2d [$it $i $acc]
   (if (>= $i (length $it)) $acc
@@ -1628,12 +1728,16 @@
         [$attr (if (str-starts-with $n "_") " __attribute__((unused))" "")]]
     (swap! known-fncall-targets-atom append $n)
     (swap! outer-params-atom append $n)
-    (cgc-let-2d $it (+ $i 1) (str $acc "    FLValue " $n $attr " = " $v ";\n")))))
+    (cgc-let-2d $it (+ $i 1) (str $acc "    FLValue " $n $attr " = FL_VALUE(" $v ");\n")))))
+
+(defn cgc-sequence-c [$node $code $last]
+  ;; A recur goto must not jump out past a value-mode scope.
+  (if (or $last (cgc-node-has-recur $node)) $code (str "FL_VALUE(" $code ")")))
 
 (defn cgc-body [$args $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc (get $args $i))]]
+        [$c (cgc-sequence-c (get $args $i) (cgc (get $args $i)) $last)]]
     (if $last (str $acc $c) (cgc-body $args (+ $i 1) (str $acc $c ";\n    "))))))
 
 ;; ── defn (최상위) ──
@@ -1642,7 +1746,7 @@
 (defn cgc-defn-stmts [$args $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc (get $args $i))]]
+        [$c (cgc-sequence-c (get $args $i) (cgc (get $args $i)) $last)]]
     (if $last
       (str $acc "    { FLValue __fl_ret__ = " $c "; fl_pop_frame(); return __fl_ret__; }\n")
       (cgc-defn-stmts $args (+ $i 1) (str $acc "    (void)(" $c ");\n"))))))
@@ -1691,11 +1795,15 @@
 
 (defn cgc-if-wr-goto [$args $vars $label]
   (let [[$cond (cgc (get $args 0))]
-        [$then (cgc-with-recur-goto (get $args 1) $vars $label)]
+        [$then (if (cgc-node-has-recur (get $args 1))
+                   (cgc-with-recur-goto (get $args 1) $vars $label)
+                   (cgc-if-branch (get $args 1)))]
         [$else (if (>= (length $args) 3)
-                  (cgc-with-recur-goto (get $args 2) $vars $label)
+                  (if (cgc-node-has-recur (get $args 2))
+                    (cgc-with-recur-goto (get $args 2) $vars $label)
+                    (cgc-if-branch (get $args 2)))
                   "fl_nil()")]]
-  (str "(fl_truthy(" $cond ") ? " $then " : " $else ")")))
+  (str "(fl_v11_truthy(" $cond ") ? " $then " : " $else ")")))
 
 (defn cgc-cond-wr-goto [$args $vars $label]
   (if (= (length $args) 0) "fl_nil()"
@@ -1715,8 +1823,8 @@
     (cgc-cond-nested-wr-goto $args $vars $label (- $i 1)
       (if $is-else
         (cgc-with-recur-goto $body $vars $label)
-        (str "(fl_truthy(" (cgc $test) ") ? "
-             (cgc-with-recur-goto $body $vars $label) " : " $acc ")"))))))
+        (let [[$test-c (cgc $test)] [$body-c (cgc-with-recur-goto $body $vars $label)]]
+          (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 ;; ── -> / ->> threading macro ──
 ;; raw-c 노드 {"kind" "raw-c" "code" "C코드"} : cgc가 code를 그대로 반환
@@ -1785,7 +1893,7 @@
   (let [[$key-c  (cgc (get $args $i))]
         [$res-c  (cgc (get $args (+ $i 1)))]]
     (cgc-case-rev $val-c $args (- $i 2)
-      (str "(fl_truthy(fl_eq(" $val-c ", " $key-c ")) ? " $res-c " : " $acc ")")))))
+      (str "(fl_v11_truthy(fl_eq(" $val-c ", " $key-c ")) ? " $res-c " : " $acc ")")))))
 
 ;; ── doseq 매크로 ──
 ;; (doseq [$var coll] body...) → C for loop, 부작용 전용, nil 반환
@@ -1819,7 +1927,7 @@
         [$var-c   (c-name (get (get $items 0) :name))]
         [$init-c  (cgc (get $items 1))]]
     (str "(__extension__ ({ FLValue " $var-c " = " $init-c ";"
-         " !fl_truthy(null_p(" $var-c ")) ? (" (cgc $then) ") : " $else-c "; }))")))
+         " !fl_v11_truthy(null_p(" $var-c ")) ? (" (cgc $then) ") : " $else-c "; }))")))
 
 ;; ── when-let ─────────────────────────────────────────────────────────────────
 ;; (when-let [$v expr] body...) → bind $v = expr, if not-nil: run body, else nil
@@ -1830,7 +1938,7 @@
         [$init-c  (cgc (get $items 1))]
         [$body-c  (cgc-body $args 1 "")]]
     (str "(__extension__ ({ FLValue " $var-c " = " $init-c ";"
-         " !fl_truthy(null_p(" $var-c ")) ? (" $body-c ") : fl_nil(); }))")))
+         " !fl_v11_truthy(null_p(" $var-c ")) ? (" $body-c ") : fl_nil(); }))")))
 
 ;; match 패턴이 와일드카드인지
 (defn match-wildcard? [$node]
@@ -1862,7 +1970,7 @@
   (let [[$items (get-block-items $pat-node)]
         [$n     (length $items)]
         ;; 길이 조건
-        [$len-cond (str "fl_truthy(fl_eq(length(" $val-c "), fl_int(" $n ")))")]
+        [$len-cond (str "fl_v11_truthy(fl_eq(length(" $val-c "), fl_int(" $n ")))")]
         ;; 각 원소 조건/바인딩 생성
         [$elem-results
           (map (fn [$i]
@@ -1870,12 +1978,12 @@
                   [$getter (str "get(" $val-c ", fl_int(" $i "))")]]
               (if (match-pat-nil? $elem)
                 ;; nil 체크
-                {"cond" (str "fl_truthy(null_p(" $getter "))") "bind" ""}
+                {"cond" (str "fl_v11_truthy(null_p(" $getter "))") "bind" ""}
                 (if (match-pat-var? $elem)
                   ;; 변수 바인딩: 조건 없음, 항상 매칭
                   {"cond" "" "bind" (str "FLValue " (c-name (get $elem :name)) " = " $getter ";")}
                   ;; 리터럴 동등성 체크
-                  {"cond" (str "fl_truthy(fl_eq(" $getter ", " (cgc $elem) "))") "bind" ""}))))
+                  {"cond" (str "fl_v11_truthy(fl_eq(" $getter ", " (cgc $elem) "))") "bind" ""}))))
             (range $n))]
         ;; 모든 조건 and 연결 (len-cond에 elem-conds를 fold)
         [$elem-conds (filter (fn [$s] (> (length $s) 0))
@@ -1905,7 +2013,7 @@
               (str "((" (get $vc "cond") ") ? (__extension__ ({ "
                    (get $vc "bind") " " (cgc $res) "; })) : " $acc ")"))
             ;; 리터럴 동등성
-            (str "(fl_truthy(fl_eq(" $val-c ", " (cgc $pat) ")) ? "
+            (str "(fl_v11_truthy(fl_eq(" $val-c ", " (cgc $pat) ")) ? "
                  (cgc $res) " : " $acc ")"))))))))
 
 (defn cgc-match [$args]
@@ -1934,7 +2042,7 @@
     (str "(__extension__ ({ FLValue _ds_c = " $coll-c ";"
          " FLValue _ds_len = length(_ds_c);"
          " FLValue _ds_i = fl_int(0);"
-         " for (; fl_truthy(fl_lt(_ds_i, _ds_len));"
+         " for (; fl_v11_truthy(fl_lt(_ds_i, _ds_len));"
          " _ds_i = fl_add(_ds_i, fl_int(1))) {"
          " FLValue " $var-c " = nth(_ds_c, _ds_i);"
          " " $body-c "; } fl_nil(); }))")))
@@ -1949,7 +2057,7 @@
         [$body-c  (cgc-body $args 2 "")]]
     (str "(__extension__ ({ FLValue __n_" $var-c " = " $n-c ";"
          " FLValue " $var-c " = fl_int(0);"
-         " for (; fl_truthy(fl_lt(" $var-c ", __n_" $var-c "));"
+         " for (; fl_v11_truthy(fl_lt(" $var-c ", __n_" $var-c "));"
          " " $var-c " = fl_add(" $var-c ", fl_int(1))) { " $body-c "; }"
          " fl_nil(); }))")))
 
@@ -1992,15 +2100,15 @@
     (cgc-cond-flat-wr-goto $args $vars $label (- $i 2)
       (if $is-else
         (cgc-with-recur-goto $body $vars $label)
-        (str "(fl_truthy(" (cgc $test) ") ? "
-             (cgc-with-recur-goto $body $vars $label) " : " $acc ")"))))))
+        (let [[$test-c (cgc $test)] [$body-c (cgc-with-recur-goto $body $vars $label)]]
+          (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 (defn cgc-do-wr-goto [$args $vars $label]
   (str "(__extension__ ({ " (cgc-stmts-wr-goto $args $vars $label 0 "") " }))"))
 (defn cgc-stmts-wr-goto [$args $vars $label $i $acc]
   (if (>= $i (length $args)) $acc
   (cgc-stmts-wr-goto $args $vars $label (+ $i 1)
-    (str $acc (cgc-with-recur-goto (get $args $i) $vars $label) "; "))))
+    (str $acc (cgc-sequence-c (get $args $i) (cgc-with-recur-goto (get $args $i) $vars $label) (= $i (- (length $args) 1))) "; "))))
 
 (defn cgc-let-wr-goto [$args $vars $label]
   (let [[$items (get-block-items (get $args 0))]
@@ -2013,15 +2121,15 @@
 (defn cgc-body-wr-goto [$args $vars $label $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc-with-recur-goto (get $args $i) $vars $label)]]
-    (if $last $c
+        [$c (cgc-sequence-c (get $args $i) (cgc-with-recur-goto (get $args $i) $vars $label) $last)]]
+    (if $last (str $acc $c)
     (cgc-body-wr-goto $args $vars $label (+ $i 1) (str $acc $c ";\n    "))))))
 
 ;; defn TCO body: 중간 식은 (void), 마지막만 return (recur는 goto)
 (defn cgc-defn-stmts-tco [$args $vars $label $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc-with-recur-goto (get $args $i) $vars $label)]]
+        [$c (cgc-sequence-c (get $args $i) (cgc-with-recur-goto (get $args $i) $vars $label) $last)]]
     (if $last
       (str $acc "    { FLValue __fl_ret__ = " $c "; fl_pop_frame(); return __fl_ret__; }\n")
       (cgc-defn-stmts-tco $args $vars $label (+ $i 1) (str $acc "    (void)(" $c ");\n"))))))
@@ -2081,7 +2189,7 @@
         [$val (cgc (get $args 1))]]
     (swap! known-fncall-targets-atom append $name)
     (swap! global-decls-atom append (str "static FLValue " $name ";"))
-    (str $name " = " $val ";")))
+    (str "(" $name " = " $val ")")))
 
 ;; ── 이진 연산 연쇄 (fl_add(fl_add(a,b),c)) ──
 
@@ -2097,26 +2205,21 @@
 
 ;; ── and / or ──
 
-(defn cgc-and [$args]
-  (if (= (length $args) 0) "fl_bool(true)"
-  (if (= (length $args) 1) (cgc (get $args 0))
-  (cgc-and-fold $args 1 (cgc (get $args 0))))))
-
-;; 단락평가(short-circuit): 첫 번째 인자가 falsy면 두 번째 평가 안 함
-(defn cgc-and-fold [$args $i $acc]
-  (if (>= $i (length $args)) $acc
-  (cgc-and-fold $args (+ $i 1)
-    (str "(fl_truthy(" $acc ") ? " (cgc (get $args $i)) " : fl_bool(false))"))))
-
-(defn cgc-or [$args]
-  (if (= (length $args) 0) "fl_bool(false)"
-  (if (= (length $args) 1) (cgc (get $args 0))
-  (cgc-or-fold $args 1 (cgc (get $args 0))))))
-
-(defn cgc-or-fold [$args $i $acc]
-  (if (>= $i (length $args)) $acc
-  (cgc-or-fold $args (+ $i 1)
-    (str "fl_or(" $acc ", " (cgc (get $args $i)) ")"))))
+(defn cgc-and [$args] (cgc-logical $args 0 false))
+(defn cgc-or [$args] (cgc-logical $args 0 true))
+(defn cgc-logical [$args $i $is-or]
+  (if (>= $i (length $args))
+    (if $is-or "fl_nil()" "fl_bool(true)")
+    (if (= $i (- (length $args) 1)) (cgc (get $args $i))
+      (let [[$id @lambda-id-atom]
+            [$_ (swap! lambda-id-atom + 1)]
+            [$value (cgc (get $args $i))]
+            [$rest (cgc-logical $args (+ $i 1) $is-or)]
+            [$name (str "__fl_logic_" $id)]]
+        (str "(__extension__ ({ FLValue " $name " = " $value "; "
+             (if $is-or
+               (str "fl_v11_or_false(" $name ") ? " $rest " : " $name)
+               (str "fl_v11_truthy(" $name ") ? " $rest " : " $name)) "; }))")))))
 
 ;; ── args list ──
 
@@ -2133,7 +2236,7 @@
 (defn cgc-stmts [$args $i $acc]
   (loop [$i $i $acc $acc]
     (if (>= $i (length $args)) $acc
-    (recur (+ $i 1) (str $acc (cgc (get $args $i)) "; ")))))
+    (recur (+ $i 1) (str $acc (cgc-sequence-c (get $args $i) (cgc (get $args $i)) (= $i (- (length $args) 1))) "; ")))))
 
 ;; ── 전체 프로그램 생성 ──
 
@@ -2154,7 +2257,10 @@
           (str $acc
                "FLValue " $name "(" $ps ");\n"
                "static FLValue __fl_wrap_" $name "(FLClosure*, int, FLValue*);\n"))
-        $acc))))))
+        (if (and (= (get $n :kind) "sexpr") (= (get $n :op) "define"))
+          (do (swap! known-fncall-targets-atom append
+                 (c-name (cgc-extract-name (get (get $n :args) 0)))) $acc)
+          $acc)))))))
 
 ;; S24: defn wrapper argv 호출 인자 생성 "argv[0], argv[1], ..."
 (defn cgc-wrapper-call-args [$_items $_i $_acc]
@@ -2211,8 +2317,9 @@
 (defn cgc-join-globals []
   (cgc-join-lambda-loop @global-decls-atom 0 ""))
 
-(defn generate-c [$nodes]
-  (let [[$fwd (cgc-forward-decls $nodes)]
+(defn generate-c [$raw-nodes]
+  (let [[$nodes (fl_compiler_bindings $raw-nodes)]
+        [$fwd (cgc-forward-decls $nodes)]
         [$parts (cgc-top-level $nodes 0 "" "")]
         [$fns (get $parts :fns)]
         [$stmts (get $parts :stmts)]
@@ -2231,6 +2338,7 @@
     $wdefs "\n"
     $fns
     "int main(int argc, char** argv) {\n"
+    "    fl_cli_runtime_begin();\n"
     "    fl_init_argv(argc, argv);\n"
     $stmts
     "    return 0;\n"
@@ -2243,7 +2351,7 @@
   (str "(__extension__ ({ " (cgc (get $args 0)) " = " (cgc (get $args 1)) "; fl_nil(); }))"))
 
 (defn cgc-while [$args]
-  (str "(__extension__ ({ while (fl_truthy(" (cgc (get $args 0)) ")) { " (cgc (get $args 1)) "; } fl_nil(); }))"))
+  (str "(__extension__ ({ while (fl_v11_truthy(" (cgc (get $args 0)) ")) { FL_VALUE(" (cgc (get $args 1)) "); } fl_nil(); }))"))
 
 ;; loop 바인딩 [v1 i1 v2 i2 ...] 에서 변수명 배열 추출
 (defn loop-extract-vars [$items $i $acc]
@@ -2270,7 +2378,7 @@
         [$decls (loop-make-decls $items 0 "")]
         [$_ (map (fn [$v] (swap! outer-params-atom append $v)) $vars)]
         [$body-c (cgc-with-recur $body $vars)]]
-    (str "(__extension__ ({\n"
+    (str "FL_VALUE(__extension__ ({\n"
          $decls
          "    int _fl_looping = 1; FLValue _fl_result = fl_nil();\n"
          "    while (_fl_looping) { _fl_looping = 0;\n"
@@ -2320,7 +2428,7 @@
   (let [[$cond (cgc (get $args 0))]
         [$then (cgc-with-recur (get $args 1) $vars)]
         [$else (if (>= (length $args) 3) (cgc-with-recur (get $args 2) $vars) "fl_nil()")]]
-  (str "(fl_truthy(" $cond ") ? " $then " : " $else ")")))
+  (str "(fl_v11_truthy(" $cond ") ? " $then " : " $else ")")))
 
 ;; cond 내부 recur-aware
 (defn cgc-cond-wr [$args $vars]
@@ -2341,7 +2449,8 @@
     (cgc-cond-nested-wr $args $vars (- $i 1)
       (if $is-else
         (cgc-with-recur $body $vars)
-        (str "(fl_truthy(" (cgc $test) ") ? " (cgc-with-recur $body $vars) " : " $acc ")"))))))
+        (let [[$test-c (cgc $test)] [$body-c (cgc-with-recur $body $vars)]]
+          (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 ;; do 내부 recur-aware
 (defn cgc-do-wr [$args $vars]
@@ -2349,7 +2458,7 @@
 (defn cgc-stmts-wr [$args $vars $i $acc]
   (if (>= $i (length $args)) $acc
   (cgc-stmts-wr $args $vars (+ $i 1)
-    (str $acc (cgc-with-recur (get $args $i) $vars) "; "))))
+    (str $acc (cgc-sequence-c (get $args $i) (cgc-with-recur (get $args $i) $vars) (= $i (- (length $args) 1))) "; "))))
 
 ;; let 내부 recur-aware (선언은 cgc-let-1d/2d 재활용, body만 wr)
 (defn cgc-let-wr [$args $vars]
@@ -2363,8 +2472,8 @@
 (defn cgc-body-wr [$args $vars $i $acc]
   (if (>= $i (length $args)) $acc
   (let [[$last (= $i (- (length $args) 1))]
-        [$c (cgc-with-recur (get $args $i) $vars)]]
-    (if $last $c (cgc-body-wr $args $vars (+ $i 1) (str $acc $c ";\n    "))))))
+        [$c (cgc-sequence-c (get $args $i) (cgc-with-recur (get $args $i) $vars) $last)]]
+    (if $last (str $acc $c) (cgc-body-wr $args $vars (+ $i 1) (str $acc $c ";\n    "))))))
 
 ;; ── S14: Array / Map 리터럴 lowering ──
 
@@ -2407,7 +2516,7 @@
           [$n-items (length $items)]
           [$kvs (cgc-map-items-c $items 0 "")]]
       (str "(__extension__ ({ FLValue __fl_kv[" $n-items "] = {" $kvs "};"
-           " fl_map_from_pairs(__fl_kv, " $n-pairs "); }))"))))
+           " fl_v11_map_from_pairs(__fl_kv, " $n-pairs "); }))"))))
 
 (defn cgc-map-block [$n]
   (let [[$fields (get $n :fields)]
@@ -2423,7 +2532,7 @@
             [$n-items (* $n-pairs 2)]
             [$kvs (cgc-map-entries-c $ents 0 "")]]
         (str "(__extension__ ({ FLValue __fl_kv[" $n-items "] = {" $kvs "};"
-             " fl_map_from_pairs(__fl_kv, " $n-pairs "); }))")))))))
+             " fl_v11_map_from_pairs(__fl_kv, " $n-pairs "); }))")))))))
 
 ;; ── IR Validator (S34-d) ────────────────────────────────────────────────────
 ;; shape 계약 gate: parse 직후, codegen 전에 실행
@@ -2527,14 +2636,13 @@
                           $rel-path
                           (str $base-dir $rel-path))]
                 [$src1 (file-read $try1)]
-                [$abs-path (if (null? $src1) $rel-path $try1)]]
+                [$abs-path (fl_compiler_realpath (if (null? $src1) $rel-path $try1))]]
             ;; 이미 로드한 파일이면 건너뜀 (순환/중복 방지)
             (if (includes-item @loaded-paths-atom $abs-path)
               (recur (+ $i 1) $acc)
               (let [[$src (if (null? $src1) (file-read $rel-path) $src1)]]
                 (if (null? $src)
-                  (do (println (str "[load] 파일 없음: " $rel-path))
-                      (recur (+ $i 1) $acc))
+                  (throw (str "[load] 파일 없음: " $rel-path))
                   (do
                     (swap! loaded-paths-atom (fn [$v] (push $v $abs-path)))
                     (let [[$sub-dir  (path-dir $abs-path)]
@@ -2558,7 +2666,7 @@
       [(= $k "literal")
        (let [[$t (get $node :type)] [$v (get $node :value)]]
          (cond
-           [(= $t "number") (str "{\"type\":\"number\",\"value\":" $v "}")]
+           [(= $t "number")  (fl_v11_literal $v)]
            [(= $t "string") (str "{\"type\":\"string\",\"value\":" (ast-json-str $v) "}")]
            [(= $t "symbol") (str "{\"type\":\"symbol\",\"value\":" (ast-json-str $v) "}")]
            [(= $t "bool")   (str "{\"type\":\"bool\",\"value\":" (if $v "true" "false") "}")]
@@ -2617,7 +2725,7 @@
       [true [(str $prefix $conn "?")]]))))
 
 (defn ast-emit [$input]
-  (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]
+  (let [[$_reset  (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
         [$src      (file-read $input)]
         [$base-dir (path-dir $input)]
         [$raw      (parse (lex $src))]
@@ -2633,9 +2741,13 @@
     (println (str "AST_JSON:" $json))
     (println (str "AST_TREE:\n" $tree))))
 
-(defn cgc-run [$argv]
+(defn cgc-run-positional [$argv]
   (let [[$input  (get $argv 0)]
-        [$output (get $argv 1)]]
+        [$output (get $argv 1)]
+        [$_option-check
+          (if (and (string? $input) (str-starts-with $input "--")
+                   (not (= $input "--ast")))
+            (throw "compiler: unknown option") nil)]]
   (if (null? $input)
     (println "usage: cgc-bin <input.fl> <output.c>\n       cgc-bin --ast <input.fl>")
     (if (= $input "--ast")
@@ -2644,7 +2756,7 @@
         (ast-emit $output))
       (if (null? $output)
         (println "usage: cgc-bin <input.fl> <output.c>")
-        (let [[$_reset  (swap! loaded-paths-atom (fn [$_] []))]
+        (let [[$_reset  (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
               [$src      (file-read $input)]
               [$base-dir (path-dir $input)]
               [$raw      (parse (lex $src))]
@@ -2653,5 +2765,71 @@
               [$c-code   (generate-c $nodes)]]
           (file-write $output $c-code)
           (println (str "Compiled " $input " -> " $output))))))))
+
+
+;; Arguments are evaluated exactly once, left to right, before the call.
+(defn cgc-eval-args [$args $id $i $acc]
+  (if (>= $i (length $args))
+    (str $acc " FLValue __fl_av_" $id "[" (length $args) "] = {"
+         (cgc-eval-names $id (length $args) 0 "") "};")
+    (cgc-eval-args $args $id (+ $i 1)
+      (str $acc " FLValue __fl_arg_" $id "_" $i " = FL_VALUE(" (cgc (get $args $i)) ");"))))
+(defn cgc-eval-names [$id $n $i $acc]
+  (if (>= $i $n) $acc
+    (cgc-eval-names $id $n (+ $i 1)
+      (str $acc (if (= $i 0) "" ", ") "__fl_arg_" $id "_" $i))))
+(defn cgc-get [$args]
+    (let [[$id @lambda-id-atom]
+          [$_ (swap! lambda-id-atom + 1)]]
+      (str "(__extension__ ({ " (if (= (length $args) 0) "" (cgc-eval-args $args $id 0 ""))
+           " fl_get_default("
+           (if (> (length $args) 0) (str "__fl_arg_" $id "_0") "fl_nil()") ", "
+           (if (> (length $args) 1) (str "__fl_arg_" $id "_1") "fl_str_val(\"undefined\")") ", "
+           (if (> (length $args) 2) (str "__fl_arg_" $id "_2") "fl_nil()") "); }))")))
+
+(defn cgc-v11-call [$op $args]
+  (let [[$id @lambda-id-atom]
+        [$_ (swap! lambda-id-atom + 1)]]
+    (if (= (length $args) 0)
+      (str "fl_v11_builtin(fl_str_val(\"" (c-esc $op) "\"), fl_vec_new())")
+      (str "(__extension__ ({ " (cgc-eval-args $args $id 0 "")
+           " fl_v11_builtin(fl_str_val(\"" (c-esc $op) "\"), fl_vec_from(__fl_av_" $id ", " (length $args) ")); }))"))))
+(defn read-number-exponent [$st $acc $line $col]
+  (loop [$cur $st $text $acc]
+    (if (or (at-end? $cur) (not (is-digit? (peek $cur))))
+      (emit $cur "Number" $text $line $col)
+      (recur (advance $cur) (str $text (peek $cur))))))
+
+(defn browser-emit [$argv]
+  (if (not (= (length $argv) 3))
+    (throw "compiler: --browser-js requires input.fl and output.js")
+    (let [[$input (get $argv 1)]
+          [$output (get $argv 2)]
+          [$_output-check
+            (if (or (str-ends-with $output ".js") (str-ends-with $output ".mjs")) nil
+              (throw "compiler: browser output must end in .js or .mjs"))]
+          [$_same-check
+            (if (and (not (nil? (fl_compiler_realpath $output)))
+                     (= (fl_compiler_realpath $input) (fl_compiler_realpath $output)))
+              (throw "compiler: input and output must differ") nil)]
+          [$read (fl_file_read_result $input)]
+          [$_read-check (if (get $read "ok") nil (throw "compiler: browser input read failed"))]
+          [$_reset (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
+          [$nodes (expand-loads (parse (lex (get $read "data"))) (path-dir $input))]
+          [$generated (fl_compiler_browser_generate $nodes (fn [$text] (parse (lex $text))))]
+          [$written (fl_file_write_result $output $generated)]]
+      (if (get $written "ok")
+        (println (str "Compiled browser " $input " -> " $output))
+        (throw "compiler: browser output write failed")))))
+
+(defn cgc-run [$argv]
+  (loop [$rest $argv]
+    (if (= (get $rest 0) "--extern")
+      (if (null? (get $rest 1))
+        (throw "compiler: missing --extern name")
+        (do (fl_compiler_add_extern (get $rest 1))
+            (recur (slice $rest 2 (length $rest)))))
+      (if (= (get $rest 0) "--browser-js") (browser-emit $rest)
+        (cgc-run-positional $rest)))))
 
 (cgc-run (cli-args))

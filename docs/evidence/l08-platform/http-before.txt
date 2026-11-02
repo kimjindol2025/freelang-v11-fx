@@ -1,0 +1,82 @@
+Compiled tests/l08-platform/http-platform.fl -> <가림>
+<가림>: In function ‘__fl_anon_11’:
+<가림>:66:260: error: too few arguments to function ‘server_req_query’
+   66 |     return (__extension__ ({ (__extension__ ({ server_json((__extension__ ({ FLValue __fl_kv[18] = {fl_str_val("id"), server_req_param(__fl_binding_18, fl_str_val("id")), fl_str_val("q"), server_req_query(__fl_binding_18, fl_str_val("q")), fl_str_val("all"), server_req_query(__fl_binding_18), fl_str_val("header"), server_req_header(__fl_binding_18, fl_str_val("X-Repeat")), fl_str_val("host"), server_req_header(__fl_binding_18, fl_str_val("HOST")), fl_str_val("cookie"), server_req_cookie(__fl_binding_18, fl_str_val("token")), fl_str_val("encoded"), server_req_cookie(__fl_binding_18, fl_str_val("encoded")), fl_str_val("method"), server_req_method(__fl_binding_18), fl_str_val("path"), server_req_path(__fl_binding_18)}; fl_v11_map_from_pairs(__fl_kv, 9); })));  }));  }));
+      |                                                                                                                                                                                                                                                                    ^~~~~~~~~~~~~~~~
+In file included from <가림>:1:
+runtime/runtime.h:394:9: note: declared here
+  394 | FLValue server_req_query(FLValue req, FLValue name);
+      |         ^~~~~~~~~~~~~~~~
+<가림>:66:475: error: implicit declaration of function ‘server_req_cookie’; did you mean ‘server_req_path’? [-Wimplicit-function-declaration]
+   66 |     return (__extension__ ({ (__extension__ ({ server_json((__extension__ ({ FLValue __fl_kv[18] = {fl_str_val("id"), server_req_param(__fl_binding_18, fl_str_val("id")), fl_str_val("q"), server_req_query(__fl_binding_18, fl_str_val("q")), fl_str_val("all"), server_req_query(__fl_binding_18), fl_str_val("header"), server_req_header(__fl_binding_18, fl_str_val("X-Repeat")), fl_str_val("host"), server_req_header(__fl_binding_18, fl_str_val("HOST")), fl_str_val("cookie"), server_req_cookie(__fl_binding_18, fl_str_val("token")), fl_str_val("encoded"), server_req_cookie(__fl_binding_18, fl_str_val("encoded")), fl_str_val("method"), server_req_method(__fl_binding_18), fl_str_val("path"), server_req_path(__fl_binding_18)}; fl_v11_map_from_pairs(__fl_kv, 9); })));  }));  }));
+      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           ^~~~~~~~~~~~~~~~~
+      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           server_req_path
+<가림>:66:532: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+   66 |     return (__extension__ ({ (__extension__ ({ server_json((__extension__ ({ FLValue __fl_kv[18] = {fl_str_val("id"), server_req_param(__fl_binding_18, fl_str_val("id")), fl_str_val("q"), server_req_query(__fl_binding_18, fl_str_val("q")), fl_str_val("all"), server_req_query(__fl_binding_18), fl_str_val("header"), server_req_header(__fl_binding_18, fl_str_val("X-Repeat")), fl_str_val("host"), server_req_header(__fl_binding_18, fl_str_val("HOST")), fl_str_val("cookie"), server_req_cookie(__fl_binding_18, fl_str_val("token")), fl_str_val("encoded"), server_req_cookie(__fl_binding_18, fl_str_val("encoded")), fl_str_val("method"), server_req_method(__fl_binding_18), fl_str_val("path"), server_req_path(__fl_binding_18)}; fl_v11_map_from_pairs(__fl_kv, 9); })));  }));  }));
+      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ^~~~~~~~~~
+<가림>:66:614: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+   66 |     return (__extension__ ({ (__extension__ ({ server_json((__extension__ ({ FLValue __fl_kv[18] = {fl_str_val("id"), server_req_param(__fl_binding_18, fl_str_val("id")), fl_str_val("q"), server_req_query(__fl_binding_18, fl_str_val("q")), fl_str_val("all"), server_req_query(__fl_binding_18), fl_str_val("header"), server_req_header(__fl_binding_18, fl_str_val("X-Repeat")), fl_str_val("host"), server_req_header(__fl_binding_18, fl_str_val("HOST")), fl_str_val("cookie"), server_req_cookie(__fl_binding_18, fl_str_val("token")), fl_str_val("encoded"), server_req_cookie(__fl_binding_18, fl_str_val("encoded")), fl_str_val("method"), server_req_method(__fl_binding_18), fl_str_val("path"), server_req_path(__fl_binding_18)}; fl_v11_map_from_pairs(__fl_kv, 9); })));  }));  }));
+      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ^~~~~~~~~~
+<가림>: In function ‘__fl_anon_17’:
+<가림>:84:48: error: too many arguments to function ‘server_html’
+   84 |     return (__extension__ ({ (__extension__ ({ server_html(fl_str_val("<b>HTML</b>"), fl_int(201));  }));  }));
+      |                                                ^~~~~~~~~~~
+runtime/runtime.h:388:9: note: declared here
+  388 | FLValue server_html(FLValue html);
+      |         ^~~~~~~~~~~
+<가림>: In function ‘__fl_anon_18’:
+<가림>:90:48: error: too many arguments to function ‘server_json’
+   90 |     return (__extension__ ({ (__extension__ ({ server_json(fl_int(201), (__extension__ ({ FLValue __fl_kv[2] = {fl_str_val("n"), fl_float(0.1)}; fl_v11_map_from_pairs(__fl_kv, 1); })));  }));  }));
+      |                                                ^~~~~~~~~~~
+runtime/runtime.h:390:9: note: declared here
+  390 | FLValue server_json(FLValue json_str);
+      |         ^~~~~~~~~~~
+<가림>: In function ‘__fl_anon_20’:
+<가림>:102:120: error: implicit declaration of function ‘server_req_json’; did you mean ‘server_req_path’? [-Wimplicit-function-declaration]
+  102 |     return (__extension__ ({ (__extension__ ({ server_json((__extension__ ({ FLValue __fl_kv[4] = {fl_str_val("json"), server_req_json(__fl_binding_24), fl_str_val("body"), (__extension__ ({  FLValue __fl_arg_21_0 = __fl_binding_24; FLValue __fl_arg_21_1 = fl_str_val("body"); FLValue __fl_av_21[2] = {__fl_arg_21_0, __fl_arg_21_1}; fl_get_default(__fl_arg_21_0, __fl_arg_21_1, fl_nil()); }))}; fl_v11_map_from_pairs(__fl_kv, 2); })));  }));  }));
+      |                                                                                                                        ^~~~~~~~~~~~~~~
+      |                                                                                                                        server_req_path
+<가림>:102:154: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+  102 |     return (__extension__ ({ (__extension__ ({ server_json((__extension__ ({ FLValue __fl_kv[4] = {fl_str_val("json"), server_req_json(__fl_binding_24), fl_str_val("body"), (__extension__ ({  FLValue __fl_arg_21_0 = __fl_binding_24; FLValue __fl_arg_21_1 = fl_str_val("body"); FLValue __fl_av_21[2] = {__fl_arg_21_0, __fl_arg_21_1}; fl_get_default(__fl_arg_21_0, __fl_arg_21_1, fl_nil()); }))}; fl_v11_map_from_pairs(__fl_kv, 2); })));  }));  }));
+      |                                                                                                                                                          ^~~~~~~~~~
+<가림>: In function ‘__fl_anon_23’:
+<가림>:114:48: error: implicit declaration of function ‘server_header’; did you mean ‘server_req_header’? [-Wimplicit-function-declaration]
+  114 |     return (__extension__ ({ (__extension__ ({ server_header(__fl_binding_6, fl_str_val("X-Label"), fl_str_val("added"));  }));  }));
+      |                                                ^~~~~~~~~~~~~
+      |                                                server_req_header
+<가림>:114:46: error: incompatible types when returning type ‘int’ but ‘FLValue’ was expected
+  114 |     return (__extension__ ({ (__extension__ ({ server_header(__fl_binding_6, fl_str_val("X-Label"), fl_str_val("added"));  }));  }));
+      |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<가림>: In function ‘__fl_anon_24’:
+<가림>:120:46: error: incompatible types when returning type ‘int’ but ‘FLValue’ was expected
+  120 |     return (__extension__ ({ (__extension__ ({ server_header(server_text(fl_str_val("NO_SPLIT")), fl_str_val("X-Unsafe"), fl_str_val("safe\r\nInjected: bad"));  }));  }));
+      |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<가림>: In function ‘__fl_anon_25’:
+<가림>:127:55: error: implicit declaration of function ‘server_set_cookie’; did you mean ‘fl_resp_set_cookie’? [-Wimplicit-function-declaration]
+  127 |     FLValue __fl_binding_29 __attribute__((unused)) = server_set_cookie(fl_str_val("one"), fl_str_val("a b"), (__extension__ ({ FLValue __fl_kv[6] = {fl_str_val("secure"), fl_bool(false), fl_str_val("same_site"), fl_str_val("Lax"), fl_str_val("max_age"), fl_int(0)}; fl_v11_map_from_pairs(__fl_kv, 3); })));
+      |                                                       ^~~~~~~~~~~~~~~~~
+      |                                                       fl_resp_set_cookie
+<가림>:127:55: error: invalid initializer
+<가림>:128:55: error: invalid initializer
+  128 |     FLValue __fl_binding_30 __attribute__((unused)) = server_set_cookie(fl_str_val("two"), fl_str_val("x=y"), fl_map_new());
+      |                                                       ^~~~~~~~~~~~~~~~~
+<가림>:129:19: error: implicit declaration of function ‘server_redirect_cookie’; did you mean ‘server_redirect’? [-Wimplicit-function-declaration]
+  129 |     server_header(server_redirect_cookie(fl_str_val("/after"), __fl_binding_29), fl_str_val("Set-Cookie"), (__extension__ ({ FLValue __fl_arr[2] = {__fl_binding_29, __fl_binding_30}; fl_vec_from(__fl_arr, 2); })));
+      |                   ^~~~~~~~~~~~~~~~~~~~~~
+      |                   server_redirect
+<가림>:126:65: error: incompatible types when returning type ‘int’ but ‘FLValue’ was expected
+  126 |     return (__extension__ ({ (__extension__ ({ ((__extension__ ({
+      |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+  127 |     FLValue __fl_binding_29 __attribute__((unused)) = server_set_cookie(fl_str_val("one"), fl_str_val("a b"), (__extension__ ({ FLValue __fl_kv[6] = {fl_str_val("secure"), fl_bool(false), fl_str_val("same_site"), fl_str_val("Lax"), fl_str_val("max_age"), fl_int(0)}; fl_v11_map_from_pairs(__fl_kv, 3); })));
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  128 |     FLValue __fl_binding_30 __attribute__((unused)) = server_set_cookie(fl_str_val("two"), fl_str_val("x=y"), fl_map_new());
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  129 |     server_header(server_redirect_cookie(fl_str_val("/after"), __fl_binding_29), fl_str_val("Set-Cookie"), (__extension__ ({ FLValue __fl_arr[2] = {__fl_binding_29, __fl_binding_30}; fl_vec_from(__fl_arr, 2); })));
+      |     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  130 | })));  }));  }));
+      | ~~~~~~~~~~~~~~~~                                                 
+<fl>: In function ‘main’:
+<fl>:9:5: error: implicit declaration of function ‘server_use’; did you mean ‘server_sse’? [-Wimplicit-function-declaration]
+<fl>:35:5: error: implicit declaration of function ‘server_static’; did you mean ‘server_status’? [-Wimplicit-function-declaration]
+<fl>:38:5: error: implicit declaration of function ‘server_body_limit’; did you mean ‘server_rate_limit’? [-Wimplicit-function-declaration]
+HTTP_C14_BEFORE_BUILD_EXIT=1

@@ -1,0 +1,1 @@
+(println (try (do (json-parse "{") false) (catch [e] (str_starts (error_message e) "json_parse: invalid JSON"))))

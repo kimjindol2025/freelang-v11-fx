@@ -1,0 +1,12 @@
+Compiled tests/l08-platform/http-client.fl -> <가림>
+<fl>: In function ‘main’:
+<fl>:11:93: error: implicit declaration of function ‘http_request’; did you mean ‘http_req’? [-Wimplicit-function-declaration]
+<fl>:11:93: error: invalid initializer
+<fl>:11:93: note: (near initialization for ‘__fl_ca_15’)
+<fl>:12:54: error: invalid initializer
+<fl>:20:55: error: invalid initializer
+<fl>:26:55: error: invalid initializer
+<fl>:35:55: error: implicit declaration of function ‘http_request_timeout’ [-Wimplicit-function-declaration]
+<fl>:35:55: error: invalid initializer
+<fl>:49:55: error: invalid initializer
+HTTP_CLIENT_BEFORE_BUILD_EXIT=1

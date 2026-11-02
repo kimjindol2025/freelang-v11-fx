@@ -1,0 +1,33 @@
+TEST_SOURCE_COMMIT=9d71b9ca29509270be6b94abcdf6070892929666
+RUNTIME_SOURCE_COMMIT=fa37289276bf9035e27c9497e94fa3a9387c1c8e
+COMMAND=strace -f -e execve native compiler then C build of auth-verify.fl with fixed previous runtime
+Compiled <가림> -> <가림>
+In file included from <가림>:1:
+<fl>: In function ‘main’:
+<fl>:13:109: error: implicit declaration of function ‘fl_verify_password’ [-Wimplicit-function-declaration]
+<가림>:230:75: note: in definition of macro ‘FL_VALUE’
+  230 |     fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+      |                                                                           ^~~~~~~~~~~
+<fl>:13:100: note: in expansion of macro ‘FL_VALUE’
+<가림>:230:74: error: invalid initializer
+  230 |     fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+      |                                                                          ^
+<fl>:13:48: note: in expansion of macro ‘FL_VALUE’
+<fl>:13:100: note: in expansion of macro ‘FL_VALUE’
+<가림>:230:74: note: (near initialization for ‘__fl_arg_29_0’)
+  230 |     fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+      |                                                                          ^
+<fl>:13:48: note: in expansion of macro ‘FL_VALUE’
+<fl>:13:100: note: in expansion of macro ‘FL_VALUE’
+<가림>:230:74: error: invalid initializer
+  230 |     fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+      |                                                                          ^
+<fl>:14:48: note: in expansion of macro ‘FL_VALUE’
+<fl>:14:100: note: in expansion of macro ‘FL_VALUE’
+<가림>:230:74: note: (near initialization for ‘__fl_arg_31_0’)
+  230 |     fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+      |                                                                          ^
+<fl>:14:48: note: in expansion of macro ‘FL_VALUE’
+<fl>:14:100: note: in expansion of macro ‘FL_VALUE’
+AUTH_VERIFY_BEFORE_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

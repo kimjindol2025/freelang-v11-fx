@@ -1,0 +1,1 @@
+(println (let [f 3] (try (f) (catch e "NOT_FN"))))

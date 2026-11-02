@@ -1,9 +1,32 @@
 #include "runtime.h"
+#include "internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <pthread.h>
+static pthread_mutex_t atom_locks[64];
+static pthread_once_t atom_locks_once=PTHREAD_ONCE_INIT;
+static int atom_lock_error;
+static int atom_mutex_init(pthread_mutex_t *mutex){
+    pthread_mutexattr_t attr;
+    int rc=pthread_mutexattr_init(&attr);
+    if(rc)return rc;
+    rc=pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE);
+    if(!rc)rc=pthread_mutex_init(mutex,&attr);
+    pthread_mutexattr_destroy(&attr);return rc;
+}
+static void init_atom_locks(void){
+    for(int i=0;i<64;i++)if((atom_lock_error=atom_mutex_init(&atom_locks[i])))return;
+}
+static pthread_mutex_t*atom_lock(FLValue atom){
+    /* Only atom_new creates immortal vectors; each keeps its own update lock. */
+    if(atom.obj->type==FL_MANAGED_ATOM||__atomic_load_n(&atom.obj->rc,__ATOMIC_RELAXED)==0xFF)return &((FLAtom*)atom.obj)->mutex;
+    pthread_once(&atom_locks_once,init_atom_locks);
+    if(atom_lock_error)fl_throw(fl_str_val("atom: lock initialization failed"));
+    return &atom_locks[((uintptr_t)atom.obj>>4)%64];
+}
 
 FLValue fl_floor(FLValue x) { return x.tag==FL_FLOAT ? fl_float(floor(x.f)) : x; }
 FLValue fl_ceil(FLValue x)  { return x.tag==FL_FLOAT ? fl_float(ceil(x.f))  : x; }
@@ -192,33 +215,92 @@ FLValue fl_get_argv(void) {
  * 해결: atom 벡터 + 보유값을 모두 heap_copy로 heap에 올림
  *       swap!할 때 이전 값 heap_release → 메모리 누수 방지
  */
+static void atom_arena_cleanup(void *object){fl_heap_release((FLValue){.tag=FL_VECTOR,.obj=object});}
 FLValue fl_atom_new(FLValue init) {
     /* atom 벡터를 malloc으로 직접 생성 (arena 우회) */
-    FLVector* av = (FLVector*)malloc(sizeof(FLVector));
-    if (!av) return fl_nil();
-    av->base.type = FL_VECTOR;
-    av->base.rc   = 0xFF;   /* 고정: atom 컨테이너는 절대 해제 안 함 */
+    FLAtom *shared=malloc(sizeof(*shared));
+    if(!shared)return fl_nil();
+    if(atom_mutex_init(&shared->mutex)){free(shared);return fl_nil();}
+    FLVector* av = &shared->vector;
+    int managed=fl_arena_active();
+    av->base.type = managed?FL_MANAGED_ATOM:FL_VECTOR;
+    av->base.rc   = managed?1:0xFF; /* Startup globals keep their process lifetime. */
     av->len  = 1;
     av->cap  = 1;
     av->data = (FLValue*)malloc(sizeof(FLValue));
-    if (!av->data) { free(av); return fl_nil(); }
+    if (!av->data) { pthread_mutex_destroy(&shared->mutex);free(shared);return fl_nil(); }
     av->data[0] = fl_heap_copy(init);  /* 초기값도 heap으로 */
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)av;
+    if(managed){
+        fl_gc_track_atom(shared);
+        if(fl_arena_on_reset(atom_arena_cleanup,shared)<0){fl_heap_release(r);fl_throw(fl_str_val("atom cleanup allocation failed"));return fl_nil();}
+    }
     return r;
 }
 
 FLValue fl_atom_deref(FLValue atom) {
-    if (atom.tag != FL_VECTOR) return fl_nil();
-    return ((FLVector*)atom.obj)->data[0];
+    if (atom.tag != FL_VECTOR || !atom.obj || !((FLVector*)atom.obj)->len) return fl_nil();
+    pthread_mutex_t*mutex=atom_lock(atom);pthread_mutex_lock(mutex);
+    FLValue value=((FLVector*)atom.obj)->data[0];fl_heap_retain(value);pthread_mutex_unlock(mutex);
+    return fl_borrow_take(value);
 }
 
 FLValue fl_atom_reset(FLValue atom, FLValue val) {
-    if (atom.tag != FL_VECTOR) return fl_nil();
+    if (atom.tag != FL_VECTOR || !atom.obj || !((FLVector*)atom.obj)->len) return fl_nil();
     FLVector* av = (FLVector*)atom.obj;
+    FLValue replacement=fl_heap_copy(val);
+    pthread_mutex_t*mutex=atom_lock(atom);pthread_mutex_lock(mutex);
+    fl_gc_lock();
     FLValue old = av->data[0];
-    av->data[0] = fl_heap_copy(val);   /* 새 값 heap 복사 */
+    av->data[0] = replacement;
+    fl_gc_unlock();
+    pthread_mutex_unlock(mutex);
     fl_heap_release(old);              /* 이전 값 RC-- */
-    return av->data[0];
+    return val; /* v11 reset! returns the supplied value. */
+}
+
+FLValue fl_with_atom_lock(FLValue atom,FLValue callback) {
+    if(atom.tag!=FL_VECTOR||!atom.obj||
+       (atom.obj->type!=FL_MANAGED_ATOM&&__atomic_load_n(&atom.obj->rc,__ATOMIC_RELAXED)!=0xFF))
+        fl_throw(fl_str_val("with-atom-lock: expected atom"));
+    if(callback.tag!=FL_FN)fl_throw(fl_str_val("with-atom-lock: expected callback"));
+    if(fl_try_top>=FL_TRY_MAX)fl_throw(fl_str_val("with-atom-lock: try stack overflow"));
+    fl_heap_retain(atom);
+    pthread_mutex_t *mutex=atom_lock(atom);
+    if(pthread_mutex_lock(mutex)){
+        fl_heap_release(atom);fl_throw(fl_str_val("with-atom-lock: lock failed"));return fl_nil();
+    }
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){
+        FLValue error=frame->err;fl_try_top--;
+        pthread_mutex_unlock(mutex);fl_heap_release(atom);fl_throw(error);return fl_nil();
+    }
+    FLValue result=fl_fn_call(callback,0,NULL);
+    fl_try_top--;pthread_mutex_unlock(mutex);fl_heap_release(atom);return result;
+}
+
+FLValue fl_swap_args(FLValue atom,FLValue fn,FLValue extra) {
+    if(atom.tag!=FL_VECTOR||!atom.obj||!((FLVector*)atom.obj)->len)return fl_nil();
+    if(extra.tag!=FL_VECTOR||!extra.obj)fl_throw(fl_str_val("swap!: invalid extra arguments"));
+    FLVector *v=(FLVector*)extra.obj;
+    if(v->len>=INT32_MAX)fl_throw(fl_str_val("swap!: too many arguments"));
+    if(fl_try_top>=FL_TRY_MAX)fl_throw(fl_str_val("swap!: try stack overflow"));
+    pthread_mutex_t *mutex=atom_lock(atom);
+    if(pthread_mutex_lock(mutex))fl_throw(fl_str_val("swap!: lock failed"));
+    FLValue *volatile pending=NULL;
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){
+        FLValue error=frame->err;fl_try_top--;
+        free((void*)pending);pthread_mutex_unlock(mutex);fl_throw(error);return fl_nil();
+    }
+    pending=malloc(sizeof(FLValue)*(v->len+1));
+    if(!pending)fl_throw(fl_str_val("swap!: allocation failed"));
+    pending[0]=fl_atom_deref(atom);
+    if(v->len)memcpy(pending+1,v->data,v->len*sizeof(FLValue));
+    FLValue *owned=pending;pending=NULL;
+    FLValue result=fl_call_owned_argv(fn,v->len+1,owned);
+    fl_atom_reset(atom,result);
+    fl_try_top--;pthread_mutex_unlock(mutex);return result;
 }
 
 FLValue fl_includes_item(FLValue vec, FLValue item) {

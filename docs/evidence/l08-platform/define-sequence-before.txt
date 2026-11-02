@@ -1,0 +1,2 @@
+DEFINE_SEQUENCE_BEFORE_BUILD_EXIT=1
+<가림>:28:626: error: expected ‘)’ before ‘;’ token

@@ -1,0 +1,24 @@
+Compiled server.fl -> <가림>
+<가림>: In function ‘faulted’:
+<가림>:13:11: error: unknown type name ‘FILE’
+   13 |  if(path){FILE *out=fopen(path,"a");if(!out)abort();if(fputs("FAULT=1\n",out)<0){fclose(out);abort();}if(fclose(out))abort();}
+      |           ^~~~
+<가림>:9:1: note: ‘FILE’ is defined in header ‘<stdio.h>’; this is probably fixable by adding ‘#include <stdio.h>’
+    8 | #include <stdatomic.h>
+  +++ |+#include <stdio.h>
+    9 | static _Atomic int mode,closes,faults;
+<가림>:13:21: error: implicit declaration of function ‘fopen’ [-Wimplicit-function-declaration]
+   13 |  if(path){FILE *out=fopen(path,"a");if(!out)abort();if(fputs("FAULT=1\n",out)<0){fclose(out);abort();}if(fclose(out))abort();}
+      |                     ^~~~~
+<가림>:13:21: note: ‘fopen’ is defined in header ‘<stdio.h>’; this is probably fixable by adding ‘#include <stdio.h>’
+<가림>:13:21: error: initialization of ‘int *’ from ‘int’ makes pointer from integer without a cast [-Wint-conversion]
+<가림>:13:56: error: implicit declaration of function ‘fputs’ [-Wimplicit-function-declaration]
+   13 |  if(path){FILE *out=fopen(path,"a");if(!out)abort();if(fputs("FAULT=1\n",out)<0){fclose(out);abort();}if(fclose(out))abort();}
+      |                                                        ^~~~~
+<가림>:13:56: note: include ‘<stdio.h>’ or provide a declaration of ‘fputs’
+<가림>:13:82: error: implicit declaration of function ‘fclose’; did you mean ‘close’? [-Wimplicit-function-declaration]
+   13 |  if(path){FILE *out=fopen(path,"a");if(!out)abort();if(fputs("FAULT=1\n",out)<0){fclose(out);abort();}if(fclose(out))abort();}
+      |                                                                                  ^~~~~~
+      |                                                                                  close
+IMAGE_UPLOAD_BEFORE_EXIT=1
+IMAGE_UPLOAD_HTTP_EXECUTED=NO_BUILD_FAILURE

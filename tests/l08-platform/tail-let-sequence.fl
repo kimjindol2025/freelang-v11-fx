@@ -1,0 +1,14 @@
+(define calls (atom 0))
+(defn side-effect [] (swap! calls + 1))
+(defn let-body [n]
+ (let [value n]
+  (if true (side-effect) nil)
+  (if (= value 0) "finished" (recur (- n 1)))))
+(let-body 2)
+(if (= (deref calls) 3) (println "RECUR_LET_SEQUENCE=PASS") (throw "RECUR_LET_SEQUENCE_FAILED"))
+(reset! calls 0)
+(loop [n 2]
+ (let [value n]
+  (if true (side-effect) nil)
+  (if (= value 0) "finished" (recur (- n 1)))))
+(if (= (deref calls) 3) (println "LOOP_LET_SEQUENCE=PASS") (throw "LOOP_LET_SEQUENCE_FAILED"))

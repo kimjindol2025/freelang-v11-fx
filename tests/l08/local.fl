@@ -1,0 +1,10 @@
+(defn outer [n]
+  (defn inner [x] (+ n x))
+  (inner 2))
+(println (outer 5))
+(defn recursive [n]
+  (defn walk [i] (if (= i 0) n (walk (- i 1))))
+  (walk 3))
+(println (recursive 8))
+(println (let [get (fn [x] (+ x 3))]
+  ((fn [x] (get x)) 4)))

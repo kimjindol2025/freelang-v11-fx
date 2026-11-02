@@ -1,0 +1,4 @@
+DIAGNOSTIC_ONLY_GENERATED_C_ADDED_VALUE_PRINT=1
+[{"ok": true, "type": "create-table", "table": "constrained_users"}, {"ok": true, "type": "insert", "count": 1}, "[execute-insert] [engine-validate-row] PRIMARY_KEY_VIOLATION", "[execute-insert] [engine-validate-row] NOT_NULL_VIOLATION: name", "[execute-insert] [engine-validate-row] UNIQUE_VIOLATION: email"]
+Uncaught error (line 1488): schema constraint engine failure
+CONSTRAINT_DIAGNOSTIC_EXIT=1

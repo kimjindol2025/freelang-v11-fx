@@ -1,0 +1,24 @@
+C18_BEFORE_EXIT=1
+Compiled <가림>/tests/l08-platform/environment.fl -> <가림>/c18-before/environment.c
+<가림>/c18-before/environment.c: In function ‘__fl_anon_37’:
+<가림>/c18-before/environment.c:27:48: error: implicit declaration of function ‘uuid_short’ [-Wimplicit-function-declaration]
+   27 |     return (__extension__ ({ (__extension__ ({ uuid_short();  }));  }));
+      |                                                ^~~~~~~~~~
+<가림>/c18-before/environment.c:27:46: error: incompatible types when returning type ‘int’ but ‘FLValue’ was expected
+   27 |     return (__extension__ ({ (__extension__ ({ uuid_short();  }));  }));
+      |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+<fl>: In function ‘main’:
+<fl>:4:89: error: implicit declaration of function ‘env_or’; did you mean ‘env_load’? [-Wimplicit-function-declaration]
+<fl>:4:139: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:5:144: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:6:153: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:8:431: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:10:91: error: implicit declaration of function ‘error_message’ [-Wimplicit-function-declaration]
+<fl>:10:128: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:11:116: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:12:122: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:13:222: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:14:226: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:15:120: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:16:327: error: incompatible types when initializing type ‘long int’ using type ‘FLValue’
+<fl>:27:26: error: incompatible types when assigning to type ‘FLValue’ from type ‘int’

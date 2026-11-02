@@ -1,0 +1,15 @@
+Compiled <가림> -> <가림>
+In file included from <가림>:1,
+                 from <command-line>:
+<fl>: In function ‘main’:
+<fl>:62:64: error: ‘file_sha256_result’ undeclared (first use in this function); did you mean ‘fl_file_sha256_result’?
+<가림>:229:75: note: in definition of macro ‘FL_VALUE’
+  229 |     fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+      |                                                                           ^~~~~~~~~~~
+<fl>:62:55: note: in expansion of macro ‘FL_VALUE’
+<fl>:62:64: note: each undeclared identifier is reported only once for each function it appears in
+<가림>:229:75: note: in definition of macro ‘FL_VALUE’
+  229 |     fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+      |                                                                           ^~~~~~~~~~~
+<fl>:62:55: note: in expansion of macro ‘FL_VALUE’
+FILE_HASH_AFTER_EXIT=1

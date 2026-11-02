@@ -1,0 +1,44 @@
+11
+22
+33
+44
+db:x
+http:x
+NATIVE_NAMES_names=PASS
+1
+2
+2
+1
+9
+NATIVE_NAMES_redefine=PASS
+12
+22
+3
+11
+2
+NATIVE_NAMES_scope=PASS
+11
+22
+33
+44
+55
+NATIVE_NAMES_aliases=PASS
+NATIVE_NAMES_COMPAT_SELECTED_PASS=4 FAIL=0
+🔍 FreeLang C Native Runtime 테스트
+
+✅ JIT add1(41)=42
+✅ JIT mul2(21)=42
+✅ JIT addxy(10,32)
+✅ JIT add1(0)=1
+✅ JIT pool_cap=64KB
+✅ JIT ready=true
+✅ GC atom 초기화
+✅ GC 정수 누산 100회
+✅ GC 벡터 atom 20회
+✅ GC JIT 풀 준비
+
+────────────────────────────
+결과: 10 PASS / 0 FAIL / 10 총
+🎉 모든 테스트 통과!
+NATIVE_NAMES_SELECTED_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

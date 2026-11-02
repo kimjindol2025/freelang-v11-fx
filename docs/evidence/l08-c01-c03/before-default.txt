@@ -1,0 +1,3 @@
+Uncaught error: (get nil "x") — nil에 key 접근 불가. nil 체크 먼저.
+nil
+EXIT=1

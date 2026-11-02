@@ -13,9 +13,11 @@
  */
 
 #include "runtime.h"
+#include "internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "native-symbols.h"
 
 /* ── Arena 헬퍼 매크로 ──────────────────────────────────────────────
    fl_arena_alloc: arena 활성 시 bump 할당, 비활성 시 malloc 폴백
@@ -208,19 +210,64 @@ FLValue fl_map_set(FLValue map, FLValue key, FLValue val) {
    클로저는 전역 핸들러로 등록될 수 있어 요청 수명보다 길게 생존.
    반드시 malloc 사용 (Arena 비사용).
 */
+static void closure_cleanup(void*pointer){FLValue value={.tag=FL_FN,.obj=pointer};fl_heap_release(value);}
 FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
                   uint32_t nenv, FLValue* env) {
     FLClosure* cl = malloc(sizeof(FLClosure) + sizeof(FLValue) * nenv);
+    if(!cl){fl_throw(fl_str_val("closure allocation failed"));return fl_nil();}
     cl->base.type = FL_FN; cl->base.rc = 1;
     cl->call = call; cl->nenv = nenv; cl->hot_count = 0;
+    cl->user_global=0;
     for (uint32_t i = 0; i < nenv; i++) cl->env[i] = env[i];
+    if(fl_arena_on_reset(closure_cleanup,cl)<0){free(cl);fl_throw(fl_str_val("closure cleanup allocation failed"));return fl_nil();}
     FLValue r; r.tag = FL_FN; r.obj = (FLObject*)cl; return r;
 }
 
+FLValue fl_fn_global(FLValue (*call)(FLClosure*,int,FLValue*),uint32_t nenv,FLValue*env){
+    FLValue fn=fl_fn_new(call,nenv,env);if(fn.tag==FL_FN)((FLClosure*)fn.obj)->user_global=1;return fn;
+}
+
+static int is_tail(FLValue value){return value.tag==FL_MAP&&value.obj&&value.obj->type==FL_NATIVE_TAIL;}
+static FLValue run_tail(FLValue request,uint32_t limit){
+    if(fl_try_top>=FL_TRY_MAX){fl_throw(fl_str_val("try stack exhausted"));return fl_nil();}
+    volatile FLValue held=fl_heap_copy(request),answer=fl_nil();
+    void*volatile previous=NULL;volatile int active=0;
+    int saved=fl_try_top;FLTryFrame*frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)==0){
+        previous=fl_arena_scope_enter();active=1;
+        for(uint32_t iteration=1;;iteration++){
+            if(iteration>=limit)fl_throw(fl_str_val("Maximum tail-call depth exceeded"));
+            FLValue target=fl_map_get(held,fl_str_val("fn")),args=fl_map_get(held,fl_str_val("args"));
+            if(target.tag!=FL_FN||!target.obj||args.tag!=FL_VECTOR)fl_throw(fl_str_val("invalid tail call"));
+            FLClosure*cl=(FLClosure*)target.obj;
+            FLCallScope scope;fl_v11_function_enter(&scope,cl->user_global);
+            void*mark=fl_borrow_mark();
+            FLValue result=cl->call(cl,(int)((FLVector*)args.obj)->len,((FLVector*)args.obj)->data);
+            result=fl_borrow_finish(mark,result);fl_v11_scope_leave(&scope);
+            FLValue next=fl_heap_copy(result);
+            fl_heap_release(held);held=next;
+            if(!is_tail(next))break;
+            fl_arena_end();fl_arena_begin();
+        }
+        fl_try_top=saved;fl_arena_scope_leave(previous);active=0;
+        answer=fl_arena_copy(held);fl_heap_release(held);
+        return answer;
+    }
+    answer=fl_heap_copy(frame->err);fl_try_top=saved;
+    if(active)fl_arena_scope_leave(previous);
+    fl_heap_release(held);
+    FLValue error=fl_arena_copy(answer);fl_heap_release(answer);
+    fl_throw(error);return fl_nil();
+}
+
 FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv) {
-    if (fn.tag != FL_FN) { fputs("error: not a fn\n", stderr); exit(1); }
+    if (fn.tag != FL_FN || !fn.obj) { fl_throw(fl_str_val("not a function")); return fl_nil(); }
     FLClosure* cl = (FLClosure*)fn.obj;
-    return cl->call(cl, argc, argv);
+    FLCallScope scope;fl_v11_function_enter(&scope,cl->user_global);
+    void*mark=fl_borrow_mark();FLValue result=cl->call(cl, argc, argv);
+    result=fl_borrow_finish(mark,result);
+    if(is_tail(result))result=run_tail(result,cl->user_global?2000000:1000000);
+    fl_v11_scope_leave(&scope);return result;
 }
 
 /* ── S8: 고차함수 ── */
@@ -421,10 +468,131 @@ FLValue append(FLValue v1, FLValue v2) {
     if (v2.tag != FL_VECTOR) return v1;
     FLVector* va = (FLVector*)v1.obj;
     FLVector* vb = (FLVector*)v2.obj;
-    FLValue r = fl_vec_new();
-    for (uint32_t i = 0; i < va->len; i++)
-        r = fl_vec_push(r, va->data[i]);
-    for (uint32_t i = 0; i < vb->len; i++)
-        r = fl_vec_push(r, vb->data[i]);
-    return r;
+    uint64_t count=(uint64_t)va->len+vb->len;
+    if(count>UINT32_MAX||count>SIZE_MAX/sizeof(FLValue)){
+        fl_throw(fl_str_val("append: result too large"));return fl_nil();
+    }
+    FLVector *out=A(sizeof(*out));
+    if(!out){fl_throw(fl_str_val("append: allocation failed"));return fl_nil();}
+    *out=(FLVector){.base={.type=FL_VECTOR,.rc=1},.len=(uint32_t)count,.cap=(uint32_t)count};
+    out->data=count?A((size_t)count*sizeof(FLValue)):NULL;
+    if(count&&!out->data){
+        if(!fl_arena_active())free(out);
+        fl_throw(fl_str_val("append: allocation failed"));return fl_nil();
+    }
+    if(va->len)memcpy(out->data,va->data,va->len*sizeof(FLValue));
+    if(vb->len)memcpy(out->data+va->len,vb->data,vb->len*sizeof(FLValue));
+    return (FLValue){.tag=FL_VECTOR,.obj=(FLObject*)out};
+}
+
+/* C03: distinguish an absent key from a stored nil. */
+FLValue fl_map_has(FLValue map, FLValue key) {
+    if (map.tag!=FL_MAP) return fl_bool(false);
+    FLMap *m=(FLMap*)map.obj;
+    for(uint32_t i=0;i<m->len;i++)
+        if(fl_truthy(fl_eq(m->entries[i].key,key))) return fl_bool(true);
+    return fl_bool(false);
+}
+static FLValue compat_key(FLValue key,int nil_empty) {
+    if(key.tag==FL_STRING) {
+        key=fl_v11_key(key);FLString *s=(FLString*)key.obj;
+        return s->len&&s->data[0]==':'?fl_str_val(s->data+1):key;
+    }
+    if(key.tag==FL_NIL)return fl_str_val(nil_empty?"":"null");
+    if(key.tag==FL_BOOL)return fl_str_val(key.b?"true":"false");
+    char b[64];
+    if(key.tag==FL_INT||key.tag==FL_FLOAT)return fl_v11_number(key);
+    else snprintf(b,sizeof(b),"[object Object]");
+    return fl_str_val(b);
+}
+FLValue fl_has_key(FLValue map,FLValue key) {
+    return fl_map_has(map,compat_key(key,1));
+}
+FLValue fl_get_default(FLValue obj, FLValue key, FLValue fallback) {
+    if(obj.tag==FL_NIL) {
+        const char *strict=getenv("FL_STRICT");
+        if(strict && !strcmp(strict,"1")) {
+            FLValue printed=compat_key(key,0);
+            if(key.tag==FL_STRING)printed=fl_str_n(3,fl_str_val("\""),key,fl_str_val("\""));
+            FLValue message=fl_str_n(3,fl_str_val("(get nil "),printed,
+                fl_str_val(") — cannot access key on nil. Use (get-or coll key default)."));
+            FLValue error=fl_map_new();
+            error=fl_map_set(error,fl_str_val("message"),message);
+            error=fl_map_set(error,fl_str_val("code"),fl_str_val("E_TYPE_NIL"));
+            error=fl_map_set(error,fl_str_val("type"),fl_str_val("TypeError"));
+            error=fl_map_set(error,fl_str_val("hint"),fl_str_val("값이 nil인지 (nil? x) 또는 (get-or x :key default) 로 먼저 확인하세요."));
+            error.obj->type=FL_NATIVE_ERROR;
+            fl_throw(error);
+        }
+        return fallback;
+    }
+    if(obj.tag==FL_MAP) {
+        FLValue normalized=compat_key(key,0);
+        if(fl_truthy(fl_map_has(obj,normalized))) return fl_map_get(obj,normalized);
+        return fl_truthy(fl_map_has(obj,key))?fl_map_get(obj,key):fallback;
+    }
+    int64_t index;
+    if(key.tag==FL_INT) index=key.i;
+    else if(key.tag==FL_FLOAT && key.f>=0 && key.f<INT64_MAX && key.f==(int64_t)key.f) index=(int64_t)key.f;
+    else return fallback;
+    if(index<0) return fallback;
+    if(obj.tag==FL_VECTOR) {
+        FLVector *v=(FLVector*)obj.obj;
+        if((uint64_t)index>=v->len || v->data[index].tag==FL_NIL) return fallback;
+        return v->data[index];
+    }
+    if(obj.tag==FL_STRING) return fl_v11_text_get(obj,key,fallback);
+    return fallback;
+}
+
+/* Exact source names are retained for string callbacks and redefinition. */
+#include <pthread.h>
+typedef struct NamedFn { char *name; FLValue fn; struct NamedFn *next; } NamedFn;
+static NamedFn *named_fns;
+static pthread_mutex_t named_fn_lock=PTHREAD_MUTEX_INITIALIZER;
+FLValue fl_register_named_fn(FLValue name,FLValue fn) {
+    if(name.tag!=FL_STRING) fl_throw(fl_str_val("invalid named function"));
+    const char *s=((FLString*)name.obj)->data;
+    pthread_mutex_lock(&named_fn_lock);
+    NamedFn *p=named_fns;
+    for(;p;p=p->next) if(!strcmp(p->name,s)) break;
+    if(!p) {
+        p=calloc(1,sizeof(*p));
+        if(p) p->name=strdup(s);
+        if(!p||!p->name) {free(p);pthread_mutex_unlock(&named_fn_lock);fl_throw(fl_str_val("named function allocation failed"));return fl_nil();}
+        p->next=named_fns;named_fns=p;
+    }
+    p->fn=fn;pthread_mutex_unlock(&named_fn_lock);return fn;
+}
+FLValue fl_named_fn(FLValue name) {
+    if(name.tag!=FL_STRING) return fl_nil();
+    pthread_mutex_lock(&named_fn_lock);FLValue fn=fl_nil();
+    for(NamedFn *p=named_fns;p;p=p->next) if(!strcmp(p->name,((FLString*)name.obj)->data)){fn=p->fn;break;}
+    if(fn.tag==FL_NIL) {
+        FLValue alias=fl_function_alias(name);
+        if(alias.tag==FL_STRING)for(NamedFn *p=named_fns;p;p=p->next)
+            if(p->fn.tag==FL_FN&&!strcmp(p->name,((FLString*)alias.obj)->data)){fn=p->fn;break;}
+    }
+    pthread_mutex_unlock(&named_fn_lock);return fn;
+}
+FLValue fl_function_alias(FLValue name) {
+    if(name.tag!=FL_STRING)return fl_nil();
+    FLString *s=(FLString*)name.obj;
+    int underscore=memchr(s->data,'_',s->len)!=NULL;
+    if(!underscore&&!memchr(s->data,'-',s->len))return fl_nil();
+    /* Match the complete source namespace before trying a spelling alias. */
+    for(size_t i=0;fl_native_names[i];i++)if(!strcmp(s->data,fl_native_names[i]))return fl_nil();
+    char *copy=malloc(s->len+1);
+    if(!copy)return fl_nil();
+    memcpy(copy,s->data,s->len+1);
+    for(uint32_t i=0;i<s->len;i++)if(copy[i]==(underscore?'_':'-'))copy[i]=underscore?'-':'_';
+    FLValue result=fl_str_val(copy);free(copy);return result;
+}
+FLValue fl_call_owned_argv(FLValue fn,int argc,FLValue *args) {
+    /* Preserve native catch state while releasing temporary argv on throw. */
+    if(fl_try_top>=FL_TRY_MAX){free(args);fl_throw(fl_str_val("swap!: try stack overflow"));return fl_nil();}
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){FLValue error=frame->err;fl_try_top--;free(args);fl_throw(error);return fl_nil();}
+    FLValue value=fl_fn_call(fn,argc,args);
+    fl_try_top--;free(args);return value;
 }

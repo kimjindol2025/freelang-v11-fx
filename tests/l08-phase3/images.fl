@@ -1,0 +1,14 @@
+(load "check.fl")
+(define root (get args 0))
+(doseq [ext ["png" "jpg" "gif"]]
+ (let [source (str root "/image." ext) target (str root "/copies/image." ext)
+       raw (get (file-read-result source) "data")]
+  (println (check (file_copy source target) true))
+  (println (check (= (sha256 raw) (sha256 (get (file-read-result target) "data"))) true))
+  (println (check (file_size source) (file_size target)))
+  (println (check (get (file-write-result (str root "/raw-" ext) raw) "ok") true))))
+(println (check (str_starts (file_read (str root "/image.png")) "�PNG") true))
+(println (check (str_starts (file_read (str root "/image.jpg")) "���") true))
+(println (check (str_starts (file_read (str root "/image.gif")) "GIF89a") true))
+;; Existing kebab-case and checked APIs remain byte-preserving.
+(println (check (sha256 (file-read (str root "/allbytes"))) (sha256 (get (file-read-result (str root "/allbytes")) "data"))))

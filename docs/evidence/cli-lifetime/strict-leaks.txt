@@ -1,0 +1,27 @@
+RETURNED_SNAPSHOT=PASS
+CURRENT_VALUE=PASS
+LOCAL_SNAPSHOT=PASS
+SNAPSHOT_ESCAPE=PASS
+RESET_RETURN=PASS
+EXCEPTION_UNWIND=PASS
+MANY_PINS=PASS
+atom-snapshot-atom-snapshot_LSAN_EXIT=0
+
+=================================================================
+==1845017==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 224 byte(s) in 4 object(s) allocated from:
+    #0 <가림> in calloc (<가림>) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+    #1 <가림> in fl_arena_begin <가림>:126
+    #2 <가림> in reader <가림>:19
+    #3 <가림> in asan_thread_start(void*) (<가림>) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+
+Indirect leak of 262240 byte(s) in 4 object(s) allocated from:
+    #0 <가림> in malloc (<가림>) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+    #1 <가림> in arena_new_chunk <가림>:110
+    #2 <가림> in fl_arena_begin <가림>:128
+    #3 <가림> in reader <가림>:19
+    #4 <가림> in asan_thread_start(void*) (<가림>) (BuildId: 8f07cce1e33de151467295443a2ff2ffffa681ac)
+
+SUMMARY: AddressSanitizer: 262464 byte(s) leaked in 8 allocation(s).
+atom-snapshot-atom-snapshot-memory_LSAN_EXIT=23

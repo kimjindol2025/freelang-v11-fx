@@ -1,0 +1,2 @@
+(swap! loads + 1)
+(defn loaded [] 42)

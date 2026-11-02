@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+for required_tool in gcc rg strace sha256sum awk sed cmp mktemp tr pgrep rm dirname env; do
+  command -v "$required_tool" >/dev/null 2>&1 || {
+    echo "REQUIRED_TOOL=FAIL:$required_tool" >&2
+    exit 1
+  }
+done
+
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT_DIR/runtime}"
 CGC_MAIN="${CGC_MAIN:-$ROOT_DIR/self/cgc-main.fl}"
@@ -78,10 +85,11 @@ build_c STAGE2_C_BUILD "$TMP_DIR/stage2.c" "$TMP_DIR/stage2-bin"
 run_native STAGE2_TO_STAGE3 "$TMP_DIR/stage2-bin" "$CGC_MAIN" "$TMP_DIR/stage3.c"
 echo STAGE2_EQ_STAGE3=$(cmp -s "$TMP_DIR/stage2.c" "$TMP_DIR/stage3.c" && echo PASS || echo FAIL)
 cmp -s "$TMP_DIR/stage2.c" "$TMP_DIR/stage3.c"
+echo CMP_2_3=PASS
 build_c STAGE3_C_BUILD "$TMP_DIR/stage3.c" "$TMP_DIR/stage3-bin"
 run_native STAGE3_TO_STAGE4 "$TMP_DIR/stage3-bin" "$CGC_MAIN" "$TMP_DIR/stage4.c"
-echo STAGE3_EQ_STAGE4=$(cmp -s "$TMP_DIR/stage3.c" "$TMP_DIR/stage4.c" && echo PASS || echo FAIL)
 cmp -s "$TMP_DIR/stage3.c" "$TMP_DIR/stage4.c"
+echo CMP_3_4=PASS
 
 run_native ARRAY_LOOP_GENERATE "$TMP_DIR/stage0-bin" "$ROOT_DIR/tests/native-bootstrap/array-loop.fl" "$TMP_DIR/array-loop.c"
 build_app_c ARRAY_LOOP_BUILD "$TMP_DIR/array-loop.c" "$TMP_DIR/array-loop-bin"
@@ -104,6 +112,7 @@ echo NPM_INVOCATIONS=0
 echo TS_JS_INVOCATIONS=0
 echo CGC_BIN_INVOCATIONS=0
 echo AFJ_FILE_ACCESSES=0
+bash "$ROOT_DIR/scripts/audit-l07-execve.sh" "$TMP_DIR"/*.execve.log
 
 for name in stage0 stage1 stage2 stage3 stage4; do
   if [[ "$name" == stage0 ]]; then file="$ROOT_DIR/bootstrap/stage0.c"; else file="$TMP_DIR/$name.c"; fi

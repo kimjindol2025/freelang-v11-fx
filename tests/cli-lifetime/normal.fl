@@ -1,0 +1,8 @@
+(define state (atom {"text" "초안😀"}))
+(define before (deref state))
+(reset! state {})
+(println (get before "text"))
+(println (try (throw "caught") (catch [e] "CAUGHT=PASS")))
+(let [captured (str "timer-" (get before "text"))]
+ (set-timeout (fn [] (println captured)) 1))
+(println "BODY=PASS")

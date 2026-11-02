@@ -1,0 +1,14 @@
+Compiled tests/l08-platform/json-serialize.fl -> <가림>
+<fl>: In function ‘main’:
+<fl>:1:47: error: implicit declaration of function ‘json_str’; did you mean ‘json_parse’? [-Wimplicit-function-declaration]
+<fl>:1:47: error: invalid initializer
+<fl>:2:47: error: invalid initializer
+<fl>:3:47: error: invalid initializer
+<fl>:5:47: error: invalid initializer
+<fl>:6:47: error: invalid initializer
+<fl>:7:47: error: invalid initializer
+<fl>:8:47: error: invalid initializer
+JSON_SERIALIZE_BEFORE_BUILD_EXIT=1
+JSON_INVALID_BEFORE_PROGRAM_EXIT=0
+false
+JSON_INVALID_BEFORE_CHECK_EXIT=1

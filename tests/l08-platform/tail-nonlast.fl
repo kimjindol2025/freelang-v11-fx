@@ -1,0 +1,8 @@
+(define calls (atom 0))
+(defn side-effect [] (swap! calls + 1))
+(defn do-middle [] (do (if true (side-effect) nil) "finished"))
+(defn body-middle [] (if true (side-effect) nil) "finished")
+(do-middle)
+(if (= (deref calls) 1) (println "DO_MIDDLE_BRANCH=PASS") (throw "DO_MIDDLE_BRANCH_FAILED"))
+(body-middle)
+(if (= (deref calls) 2) (println "BODY_MIDDLE_BRANCH=PASS") (throw "BODY_MIDDLE_BRANCH_FAILED"))

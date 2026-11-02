@@ -1,0 +1,11 @@
+(defn check [a b label] (if (= a b) (println label) (throw (str "WORKER_ASSERT " label))))
+(define result (worker-timer-run "active" (fn []
+ (let [text (str "capture-" "한😀")]
+  [(set-timeout (fn [] (do (worker-observe text) (worker-exit))) 1)
+   (set-timeout (fn [] (worker-pending)) 3600000)]))))
+(check (get result "active") 1 "ACTIVE_ONCE=PASS")
+(check (get result "captured") 1 "ACTIVE_CAPTURE=PASS")
+(check (get result "cancelled") 2 "ACTIVE_PROMISES_CANCELLED=PASS")
+(check (get result "pending") 0 "ACTIVE_QUEUE_NOT_CALLED=PASS")
+(check (get result "cleanups") 1 "ACTIVE_ARENA_CLEANUP=PASS")
+(set-timeout (fn [] (println "MAIN_OWNER_TIMER=PASS")) 1)

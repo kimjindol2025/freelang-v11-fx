@@ -368,9 +368,7 @@ FLValue vec_min(FLValue vec) {
 FLValue atom(FLValue v)             { return fl_atom_new(v); }
 FLValue deref(FLValue a)            { return fl_deref(a); }  /* atom + future 모두 처리 */
 FLValue swap_bang(FLValue a, FLValue fn) {
-    FLValue cur = fl_atom_deref(a);
-    FLValue next = fl_fn_call(fn, 1, &cur);
-    return fl_atom_reset(a, next);
+    return fl_swap_args(a,fn,fl_vec_new());
 }
 FLValue reset_bang(FLValue a, FLValue v) { return fl_atom_reset(a, v); }
 
@@ -548,8 +546,11 @@ FLValue fl_every_p(FLValue fn, FLValue vec) { return every(fn, vec); }
 /* contains? — 맵 키 존재 / 벡터 원소 포함 / 문자열 부분문자열 */
 FLValue fl_contains_p(FLValue coll, FLValue key) {
     if (coll.tag == FL_MAP) {
-        FLValue v = fl_map_get(coll, key);
-        return fl_bool(v.tag != FL_NIL);
+        if(key.tag==FL_NIL)key=fl_str_val("null");
+        FLValue normalized=key;
+        if(key.tag==FL_STRING && ((FLString*)key.obj)->data[0]==':')normalized=fl_str_val(((FLString*)key.obj)->data+1);
+        if(fl_truthy(fl_has_key(coll,key))||fl_truthy(fl_map_has(coll,key)))return fl_bool(true);
+        return fl_map_has(coll,fl_str_n(2,fl_str_val(":"),normalized));
     }
     if (coll.tag == FL_VECTOR) {
         FLVector* vp = (FLVector*)coll.obj;
@@ -675,24 +676,37 @@ FLValue fl_repeat(FLValue n_v, FLValue val) {
 }
 
 /* sort-by: keyfn으로 정렬 */
-static FLValue _sort_by_fn;
-static int _sort_by_cmp(const void* a, const void* b) {
-    FLValue ka = fl_fn_call(_sort_by_fn, 1, (FLValue*)a);
-    FLValue kb = fl_fn_call(_sort_by_fn, 1, (FLValue*)b);
-    if (ka.tag == FL_INT && kb.tag == FL_INT) return (ka.i < kb.i) ? -1 : (ka.i > kb.i) ? 1 : 0;
-    if (ka.tag == FL_STRING && kb.tag == FL_STRING)
-        return strcmp(((FLString*)ka.obj)->data, ((FLString*)kb.obj)->data);
-    double da = (ka.tag == FL_FLOAT) ? ka.f : (double)ka.i;
-    double db = (kb.tag == FL_FLOAT) ? kb.f : (double)kb.i;
-    return (da < db) ? -1 : (da > db) ? 1 : 0;
+typedef struct {FLValue fn,error;int failed;} FLSortContext;
+static int _sort_by_cmp(const void* a, const void* b,void *context) {
+    FLSortContext *sort=context;
+    if(sort->failed)return 0;
+    if(fl_try_top>=FL_TRY_MAX){sort->failed=1;sort->error=fl_str_val("sort-by: try stack overflow");return 0;}
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    /* Return through libc cleanup before propagating a callback exception. */
+    if(setjmp(frame->buf)!=0){sort->failed=1;sort->error=frame->err;fl_try_top--;return 0;}
+    FLValue ka = fl_fn_call(sort->fn, 1, (FLValue*)a);
+    FLValue kb = fl_fn_call(sort->fn, 1, (FLValue*)b);
+    int result;
+    if (ka.tag == FL_INT && kb.tag == FL_INT) result=(ka.i < kb.i) ? -1 : (ka.i > kb.i) ? 1 : 0;
+    else if (ka.tag == FL_STRING && kb.tag == FL_STRING)
+        result=strcmp(((FLString*)ka.obj)->data, ((FLString*)kb.obj)->data);
+    else {
+        double da = (ka.tag == FL_FLOAT) ? ka.f : (double)ka.i;
+        double db = (kb.tag == FL_FLOAT) ? kb.f : (double)kb.i;
+        result=(da < db) ? -1 : (da > db) ? 1 : 0;
+    }
+    fl_try_top--;return result;
 }
 FLValue fl_sort_by(FLValue fn, FLValue vec) {
     if (vec.tag != FL_VECTOR) return vec;
     FLVector* vp = (FLVector*)vec.obj;
+    if(!vp->len)return fl_vec_new();
     FLValue* copy = (FLValue*)malloc(vp->len * sizeof(FLValue));
+    if(!copy)fl_throw(fl_str_val("sort-by: allocation failed"));
     memcpy(copy, vp->data, vp->len * sizeof(FLValue));
-    _sort_by_fn = fn;
-    qsort(copy, vp->len, sizeof(FLValue), _sort_by_cmp);
+    FLSortContext context={fn,fl_nil(),0};
+    qsort_r(copy, vp->len, sizeof(FLValue), _sort_by_cmp,&context);
+    if(context.failed){free(copy);fl_throw(context.error);return fl_nil();}
     FLValue r = fl_vec_from(copy, vp->len);
     free(copy);
     return r;
@@ -1082,13 +1096,23 @@ typedef struct {
 
 static void* future_runner(void* arg) {
     FLFuture* f = (FLFuture*)arg;
+    void *previous=fl_arena_scope_enter();
     FLValue result = fl_fn_call(f->fn, 0, NULL);
+    FLValue owned=fl_heap_copy(result);
+    fl_heap_release(f->fn);f->fn=fl_nil();
+    fl_arena_scope_leave(previous);
     pthread_mutex_lock(&f->mu);
-    f->result = fl_heap_copy(result);
+    f->result = owned;
     f->done   = 1;
     pthread_cond_broadcast(&f->cv);
     pthread_mutex_unlock(&f->mu);
     return NULL;
+}
+static FLValue future_take_result(FLValue owned){
+    if(fl_try_top>=FL_TRY_MAX){fl_heap_release(owned);fl_throw(fl_str_val("future: try stack overflow"));return fl_nil();}
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){FLValue error=frame->err;fl_try_top--;fl_heap_release(owned);fl_throw(error);return fl_nil();}
+    FLValue result=fl_arena_copy(owned);fl_try_top--;fl_heap_release(owned);return result;
 }
 
 /* fl_future(fn) → opaque FLValue (FL_MAP으로 래핑) */
@@ -1132,6 +1156,7 @@ FLValue fl_deref(FLValue handle) {
         pthread_mutex_destroy(&f->mu);
         pthread_cond_destroy(&f->cv);
         free(f);
+        return future_take_result(result);
     } else {
         pthread_mutex_unlock(&f->mu);
     }
@@ -1163,6 +1188,7 @@ FLValue fl_deref_timeout(FLValue handle, FLValue ms_v) {
         pthread_mutex_destroy(&f->mu);
         pthread_cond_destroy(&f->cv);
         free(f);
+        return future_take_result(result);
     } else {
         pthread_mutex_unlock(&f->mu);
     }
@@ -1892,3 +1918,22 @@ FLValue fl_db_exec(FLValue db, FLValue sql, FLValue params)   { return fxb_sqlit
 
 FLValue str_indent(FLValue a0, FLValue a1) { return ufl_str_indent(a0, a1); }
 /* FL:USER_SECTION:END */
+
+static FLValue builtin_assoc(FLClosure*s,int n,FLValue*a){(void)s;if(n<3||n%2!=1)fl_throw(fl_str_val("assoc: expected map and key/value pairs"));FLValue r=a[0];for(int i=1;i<n;i+=2)r=fl_map_set(r,a[i],a[i+1]);return r;}
+static FLValue builtin_dissoc(FLClosure*s,int n,FLValue*a){(void)s;if(n<2)fl_throw(fl_str_val("dissoc: expected map and keys"));FLValue r=a[0];for(int i=1;i<n;i++)r=dissoc(r,a[i]);return r;}
+static FLValue builtin_conj(FLClosure*s,int n,FLValue*a){(void)s;if(n<1)fl_throw(fl_str_val("conj: expected collection"));FLValue r=a[0];for(int i=1;i<n;i++)r=fl_conj(r,a[i]);return r;}
+static FLValue builtin_update(FLClosure*s,int n,FLValue*a){(void)s;if(n<3)fl_throw(fl_str_val("update: expected map key function"));FLValue *args=malloc((n-2)*sizeof(*args));if(!args)fl_throw(fl_str_val("update: allocation failed"));args[0]=fl_map_get(a[0],a[1]);for(int i=3;i<n;i++)args[i-2]=a[i];FLValue value=fl_call_owned_argv(a[2],n-2,args);return fl_map_set(a[0],a[1],value);}
+static FLValue builtin_get(FLClosure*s,int n,FLValue*a){(void)s;return fl_get_default(n?a[0]:fl_nil(),n>1?a[1]:fl_str_val("undefined"),n>2?a[2]:fl_nil());}
+static FLValue builtin_append(FLClosure*s,int n,FLValue*a){(void)s;if(n<1)fl_throw(fl_str_val("append: expected vector"));FLValue r=a[0];for(int i=1;i<n;i++)r=(n==2&&a[i].tag==FL_VECTOR)?append(r,a[i]):fl_vec_push(r,a[i]);return r;}
+static FLValue builtin_concat(FLClosure*s,int n,FLValue*a){(void)s;if(n!=2)fl_throw(fl_str_val("concat: expected 2 arguments"));return fl_concat(a[0],a[1]);}
+FLValue fl_builtin_fn(FLValue name) {
+    const char *s=fl_cstr(name);
+    if(!strcmp(s,"append"))return fl_fn_new(builtin_append,0,NULL);
+    if(!strcmp(s,"concat"))return fl_fn_new(builtin_concat,0,NULL);
+    if(!strcmp(s,"assoc"))return fl_fn_new(builtin_assoc,0,NULL);
+    if(!strcmp(s,"dissoc"))return fl_fn_new(builtin_dissoc,0,NULL);
+    if(!strcmp(s,"conj")||!strcmp(s,"push"))return fl_fn_new(builtin_conj,0,NULL);
+    if(!strcmp(s,"update"))return fl_fn_new(builtin_update,0,NULL);
+    if(!strcmp(s,"get"))return fl_fn_new(builtin_get,0,NULL);
+    return fl_nil();
+}

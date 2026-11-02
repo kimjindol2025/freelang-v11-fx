@@ -9,3 +9,8 @@ Either non-string argument must throw "regex_match_i: string arguments required"
 No false result may hide these errors. The error message's engine detail is not
 fixed across platforms. Native string inputs and ERE syntax are covered; full
 JavaScript RegExp syntax/coercions are not claimed. Do not edit the JS runner.
+
+DB95-8 merge: the FreeLang spelling for this native C contract is now
+regex-match-i (and regex-match for the older pattern-first API). The v11
+underscore names retain the mainline text-first/coercion contract. Only the
+fixture call names moved; fixed values, error messages and thresholds remain.

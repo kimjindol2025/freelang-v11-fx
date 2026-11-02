@@ -1,0 +1,5 @@
+COMPILER_LEX_BEFORE_EXIT=1
+<가림>:708:5: error: implicit declaration of function ‘qsort_r’; did you mean ‘qsort’? [-Wimplicit-function-declaration]
+<가림>:1279:10: error: implicit declaration of function ‘strptime’; did you mean ‘strftime’? [-Wimplicit-function-declaration]
+<가림>:333:40: error: ‘O_TMPFILE’ undeclared (first use in this function)
+<가림>:340:46: error: ‘AT_EMPTY_PATH’ undeclared (first use in this function)

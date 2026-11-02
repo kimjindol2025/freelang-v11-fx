@@ -1,0 +1,129 @@
+{
+  "id": "52c8c5a9-62c9-4e95-8852-45e4be0ce757",
+  "ok": true,
+  "result": {
+    "terminal": {
+      "handle": "term_149b009a-38f5-483f-a28d-69d82ebaee44",
+      "status": "running",
+      "tail": [
+        "L07 native file I/O: test log review (not a new test run)",
+        "BEFORE_EXIT=1",
+        "L07_REPRO_INPUT_BYTES=3",
+        "L07_REPRO_WRITE_BYTES=1",
+        "L07_REPRO_APPEND_BYTES=2",
+        "L07_REPRO_WRITE_MATCH=FAIL",
+        "L07_REPRO_APPEND_MATCH=FAIL",
+        "AFTER_EXIT=0",
+        "L07_REPRO_INPUT_BYTES=3",
+        "L07_REPRO_WRITE_BYTES=3",
+        "L07_REPRO_APPEND_BYTES=4",
+        "L07_REPRO_WRITE_MATCH=PASS",
+        "L07_REPRO_APPEND_MATCH=PASS",
+        "L07_SELF_PASS=221",
+        "L07_SELF_FAIL=0",
+        "RUNTIME_PASS=53 RUNTIME_FAIL=0",
+        "STAGE2_EQ_STAGE3=PASS",
+        "ARRAY_LOOP=PASS",
+        "BOOTSTRAP_EXIT=0",
+        "STRACE: NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0",
+        "L07$"
+      ],
+      "truncated": false,
+      "limited": false,
+      "oldestCursor": "0",
+      "nextCursor": "22",
+      "latestCursor": "22",
+      "returnedLineCount": 21,
+      "tailRows": [
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 0
+        },
+        {
+          "wrapped": false,
+          "trailingSpaces": 1
+        }
+      ],
+      "source": "screen"
+    }
+  },
+  "_meta": {
+    "runtimeId": "101bdfc7-2ebf-416d-9b88-f93e36d465bd"
+  }
+}

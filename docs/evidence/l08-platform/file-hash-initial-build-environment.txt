@@ -1,0 +1,6 @@
+Compiled <가림> -> <가림>
+<가림>:16:10: fatal error: curl/curl.h: No such file or directory
+   16 | #include <curl/curl.h>
+      |          ^~~~~~~~~~~~~
+compilation terminated.
+FILE_HASH_BEFORE_EXIT=1

@@ -1,0 +1,11 @@
+DB_HTTP_SERVER_EXIT=0
+DB_HTTP_LOCKED_EXIT=1
+[http] 라우트 등록: GET /health → <closure>
+[http] 라우트 등록: GET /rows → <closure>
+[http] 라우트 등록: GET /stats → <closure>
+[http] 라우트 등록: POST /write → <closure>
+[http] 스레드 풀: 4 워커, 큐 1024, 타임아웃 30s
+[http] 서버 시작: http://0.0.0.0:0
+[http] graceful shutdown (최대 30s 대기)...
+[http] 종료 완료 (처리 중 연결: 0)
+HTTP_REQUESTS_SENT=0

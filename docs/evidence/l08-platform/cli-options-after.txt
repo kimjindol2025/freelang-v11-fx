@@ -1,0 +1,16 @@
+CLI_SAFE_SOURCE=3cfbe5161a2234a59253aaaec71aa0256b17d659
+Uncaught error (line 2730): [cgc-run] [cgc-run-positional] compiler: unknown option (at line 2790, col 0)
+CLI_OPTION=--definitely-invalid EXIT=1
+CLI_UNKNOWN_OPTION_PRESERVES_INPUT=PASS
+Uncaught error (line 2730): [cgc-run] [cgc-run-positional] compiler: unknown option (at line 2790, col 0)
+CLI_OPTION=--ast-typo EXIT=1
+CLI_UNKNOWN_OPTION_PRESERVES_INPUT=PASS
+Uncaught error (line 2730): [cgc-run] [cgc-run-positional] compiler: unknown option (at line 2790, col 0)
+CLI_OPTION=--help-typo EXIT=1
+CLI_UNKNOWN_OPTION_PRESERVES_INPUT=PASS
+CLI_AST_PRESERVES_INPUT=PASS
+CLI_OPTION_GROUP_PASS=4 FAIL=0
+CLI_OPTIONS_AFTER_EXIT=0
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0
+8b27883b8ec1f4988ffdceca368276708e4ae495812d340198493ce9d055153f  <가림>
+b15af399c2f1ed78ef6358ca9452e3e79430e84b7d958c0416256c862ff6d002  <가림>

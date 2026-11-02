@@ -1,0 +1,73 @@
+RSS_FULL
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel>
+<title>한글 &amp; &lt;블로그&gt; &quot;제목&quot; &apos;</title>
+<link>https://example.invalid/blog/?a=1&amp;b=2</link>
+<description>소개 &amp; 설명</description>
+<language>ko</language>
+<lastBuildDate>fixed &amp; build</lastBuildDate>
+<atom:link href="https://example.invalid/blog/?a=1&amp;b=2/feed.xml" rel="self" type="application/rss+xml"/>
+<item>
+<title>둘째 &amp; &lt;제목&gt;</title>
+<link>https://example.invalid/p/a?x=1&amp;y=2</link>
+<guid isPermaLink="true">https://example.invalid/p/a?x=1&amp;y=2</guid>
+<pubDate>Fri, 30 Oct 2026 00:00:00 GMT</pubDate>
+<author>작성자 &lt;A&gt;</author>
+<description>설명 &quot;인용&quot;</description>
+<content:encoded><![CDATA[<p>원문 & HTML</p>]]></content:encoded>
+</item>
+<item>
+<title>첫째</title>
+<link>https://example.invalid/p/b</link>
+<guid isPermaLink="true">https://example.invalid/p/b</guid>
+<pubDate>Invalid Date</pubDate>
+</item>
+<item>
+<title>분할</title>
+<link>https://example.invalid/p/c</link>
+<guid isPermaLink="true">https://example.invalid/p/c</guid>
+<pubDate>Thu, 01 Jan 1970 00:00:00 GMT</pubDate>
+<content:encoded><![CDATA[before]]]]><![CDATA[>after]]></content:encoded>
+</item>
+</channel>
+</rss>
+RSS_EMPTY
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel>
+<title></title>
+<link>https://example.invalid/</link>
+<description></description>
+<language>en</language>
+<lastBuildDate>fixed</lastBuildDate>
+<atom:link href="https://example.invalid/feed.xml" rel="self" type="application/rss+xml"/>
+</channel>
+</rss>
+SITEMAP_FULL
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url>
+<loc>https://example.invalid/blog/</loc>
+</url>
+<url>
+<loc>https://example.invalid/blog/p/한글?a=1&amp;b=2</loc>
+</url>
+<url>
+<loc>https://example.invalid/blog/p/quoted&quot;&apos;&lt;&gt;</loc>
+<lastmod>2026-10-30</lastmod>
+<changefreq>weekly</changefreq>
+<priority>0</priority>
+</url>
+<url>
+<loc>https://example.invalid/blog/p/b</loc>
+<priority>0.1</priority>
+</url>
+<url>
+<loc>https://example.invalid/blog/p/c</loc>
+</url>
+</urlset>
+SITEMAP_EMPTY
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</urlset>

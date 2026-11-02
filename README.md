@@ -4,10 +4,31 @@ FreeLang v11 조상 계열에서 분기한 **FX C 네이티브 언어 계열** +
 AFJ Language와 같은 언어가 아니며, 공통 S-expression 뿌리만 공유한다.
 (원칙: 기록이 증명이다)
 - **언어/빌드 입문**: `FX-FOR-CLAUDE.md` · **API 레퍼런스**: `CLAUDE.md` · **함정 명세**: `FX-TRAPS.airc`
-- **빌드**: `bash fl-build.sh <app>/server.fl <out>` (이 노드 aarch64: `.fl-build-root.sh`)
+- **기본 빌드**: 아래 native 빌드 절차 (`tests/l07/build.sh`)
+- **호환용(옛 경로)**: `fl-build.sh` · `.fl-build-root.sh` (AFJ·Python 의존 경로)
 - **문서**: `docs/{status,decisions,reports,architecture}/`
 
 🌐 **프로젝트 홈페이지**: [FreeLang v11 소개 및 Native Stage 0](https://kimjindol2025.github.io/freelang-v11-fx/)
+
+## 기본 native 빌드
+
+저장소 루트에서 실행한다. GCC와 runtime의 개발용 라이브러리
+(pthread, dl, sqlite3, OpenSSL, libcurl)가 필요하다.
+기존 C seed와 현재 `.fl` 컴파일러로 compiler를 만든 뒤 앱을 빌드한다.
+seed 파일은 교체하지 않는다.
+
+```bash
+source tests/l07/build.sh
+l07_build_compiler build/native
+l07_build_app build/native tests/native-bootstrap/array-loop.fl array-loop
+build/native/array-loop
+# 자신의 앱: l07_build_app build/native 상대경로/server.fl server
+```
+
+이 절차는 기존 검증기의 native 빌드 함수를 그대로 사용한다.
+`fl-build.sh`와 `.fl-build-root.sh`는 **호환용(옛 경로)**이며, 외부 AFJ
+compiler 선택과 Python 전처리가 포함될 수 있다. 현재 native 기능 검증에는
+위 절차를 사용한다. 이 안내 변경은 빌드 스크립트 동작을 변경하지 않는다.
 
 ## ✅ Native Stage 0 및 C 셀프호스팅 고정점 — 공식 검증 완료
 

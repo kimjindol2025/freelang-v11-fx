@@ -1,0 +1,9 @@
+(define ticks (atom 0))
+(define iterations (atom 0))
+(defn tick [] (swap! ticks + 1))
+(defn run-loop []
+  (while (< (deref iterations) 3)
+    (do (swap! iterations + 1) (if true (tick) nil))))
+(run-loop)
+(if (= (deref ticks) 3) (println "WHILE_BODY_VALUE_MODE=PASS") (throw "WHILE_BODY_VALUE_MODE_FAILED"))
+(if (= (deref iterations) 3) (println "WHILE_ITERATIONS=PASS") (throw "WHILE_ITERATIONS_FAILED"))

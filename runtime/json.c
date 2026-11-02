@@ -62,19 +62,19 @@ static FLValue json_parse_string(const char** pp) {
 
 static FLValue json_parse_array(const char** pp) {
     const char* p = *pp + 1; /* skip [ */
-    FLValue vec = fl_vec_new();
+    FLValue vec = fl_vec_builder_new();
     p = json_skip_ws(p);
-    if (*p == ']') { *pp = p+1; return vec; }
+    if (*p == ']') { *pp = p+1; return fl_vec_builder_freeze(vec); }
     while (*p) {
         p = json_skip_ws(p);
         FLValue v = json_parse_value(&p);
-        vec = fl_vec_push(vec, v);
+        fl_vec_builder_push(vec, v);
         p = json_skip_ws(p);
         if (*p == ',') p++;
         else break;
     }
     if (*p == ']') p++;
-    *pp = p; return vec;
+    *pp = p; return fl_vec_builder_freeze(vec);
 }
 
 static FLValue json_parse_object(const char** pp) {

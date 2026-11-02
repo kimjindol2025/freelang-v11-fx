@@ -1,0 +1,81 @@
+content-render_TRANSLATE_EXIT=0
+content-render_C_SYNTAX_EXIT=0
+editor-input_TRANSLATE_EXIT=0
+editor-input_C_SYNTAX_EXIT=0
+image-validation_TRANSLATE_EXIT=0
+image-validation_C_SYNTAX_EXIT=0
+public-visibility_TRANSLATE_EXIT=0
+public-visibility_C_SYNTAX_EXIT=0
+redirect-update_TRANSLATE_EXIT=0
+redirect-update_C_SYNTAX_EXIT=0
+b1-review_TRANSLATE_EXIT=0
+b1-review_C_SYNTAX_EXIT=1
+b1-ai-core_TRANSLATE_EXIT=0
+b1-ai-core_C_SYNTAX_EXIT=1
+b2-scoped-slug_TRANSLATE_EXIT=0
+b2-scoped-slug_C_SYNTAX_EXIT=0
+b1-review_SELECTED_DIAGNOSTICS
+<가림>:2397:1419: error: implicit declaration of function ‘admin_csrf’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7279:115: error: implicit declaration of function ‘signed_in_p’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7289:5: error: implicit declaration of function ‘page’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7279:530: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7333:601: error: implicit declaration of function ‘valid_admin_post_p’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7335:856: error: implicit declaration of function ‘not_found’ [-Wimplicit-function-declaration]
+<가림>:7335:868: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7343:868: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7353:868: error: type mismatch in conditional expression
+b1-ai-core_SELECTED_DIAGNOSTICS
+<가림>:2521:1419: error: implicit declaration of function ‘admin_csrf’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7558:115: error: implicit declaration of function ‘signed_in_p’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7568:5: error: implicit declaration of function ‘page’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7558:530: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7612:601: error: implicit declaration of function ‘valid_admin_post_p’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7614:856: error: implicit declaration of function ‘not_found’ [-Wimplicit-function-declaration]
+<가림>:7614:868: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7622:868: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7632:868: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7657:528: error: type mismatch in conditional expression
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7941:66: error: implicit declaration of function ‘discard_request_files’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7949:1683: error: implicit declaration of function ‘valid_upload_source_p’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7949:1958: error: implicit declaration of function ‘valid_image_file_p’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7956:66: error: implicit declaration of function ‘image_disk_path’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7957:235: error: implicit declaration of function ‘image_extension’; did you mean ‘__has_extension’? [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer
+<가림>:7959:1080: error: implicit declaration of function ‘image_signature_valid_p’ [-Wimplicit-function-declaration]
+runtime/runtime.h:226:74: error: invalid initializer

@@ -1,0 +1,10 @@
+;; An uncaught callback error must be observed once without replaying the callback.
+(define proof (atom ""))
+(define calls (atom 0))
+(define throwing (browser-after! 0 (fn []
+  (swap! calls (fn [old] (+ old 1)))
+  (throw "L01_TIMER_EXPECTED_EXCEPTION"))))
+(browser-after! 100 (fn []
+  (browser-set-text! (browser-by-id "proof")
+    (str "J_TIMER_EXCEPTION_ONCE=" (if (= (deref calls) 1) "PASS" "FAIL") "\n"
+         "J_TIMER_EXCEPTION_FIRED_CANCEL=" (if (= (browser-cancel! throwing) false) "PASS" "FAIL") "\n"))))

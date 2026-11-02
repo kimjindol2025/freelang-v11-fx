@@ -1,0 +1,124 @@
+afj-db95 executor PASS
+afj-db95 WHERE executor PASS
+afj-db95 index optimizer PASS
+afj-db95 index CRUD maintenance PASS
+afj-db95 WHERE update PASS
+afj-db95 JOIN/GROUP engine PASS
+afj-db95 DDL engine PASS
+PASS SQL SELECT * FROM users
+PASS SQL SELECT * FROM users; -- normalized terminator
+PASS SQL select * from users
+PASS SQL SELECT * FROM users WHERE name Kim
+PASS SQL SELECT * FROM users WHERE id=1
+PASS SQL SELECT * FROM users WHERE email IS NULL
+PASS SQL SELECT * FROM users WHERE email IS NOT NULL
+PASS SQL SELECT * FROM users LIMIT 1
+PASS SQL SELECT * FROM users ORDER BY id
+PASS SQL SELECT * FROM users GROUP BY team
+PASS SQL SELECT * FROM users JOIN teams ON users.team_id = teams.team_id
+PASS SQL CREATE TABLE users
+PASS SQL INSERT INTO users
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim Lee')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim -- Lee')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim, Lee'),(2,'Park')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim'),(2,'Lee')
+PASS SQL INSERT INTO users VALUES (1,TRUE),(2,FALSE)
+PASS SQL UPDATE users
+PASS SQL UPDATE users SET name='Lee' WHERE id=1
+PASS SQL DELETE FROM users
+PASS SQL DELETE FROM users WHERE id=1
+PASS SQL DROP TABLE users
+PASS SQL ALTER TABLE users ADD COLUMN email
+PASS SQL ROLLBACK;
+PASS SQL COMMIT;
+PASS SQL START TRANSACTION ISOLATION LEVEL READ COMMITTED
+PASS SQL START TRANSACTION ISOLATION LEVEL SERIALIZABLE
+PASS SQL SAVEPOINT before_update
+PASS SQL ROLLBACK TO SAVEPOINT before_update
+PASS SQL RELEASE SAVEPOINT before_update
+afj-db95 MariaDB aggregate/left-join parser PASS
+afj-db95 SQL parser seed PASS
+afj-db95 parser-to-engine INSERT/UPDATE/DELETE PASS
+afj-db95 multi-row INSERT engine PASS
+afj-db95 MariaDB aggregate/left-join engine PASS
+afj-db95 schema constraints engine PASS
+afj-db95 foreign-key/check engine PASS
+afj-db95 protocol PASS
+afj-db95 auth PASS
+DB_FSYNC_UNCERTAIN_REPORTED=false
+DB_FSYNC_READ_REJECTED=false
+DB_FSYNC_WRITE_REJECTED=false
+Uncaught error (line 13): DB_FSYNC_WRITE_MISMATCH
+DB_FSYNC_write_EXIT=1
+--- <가림>	2026-10-30 08:38:42.811521007 +0900
++++ <가림>	2026-10-30 08:40:31.339665114 +0900
+@@ -1,4 +1,3 @@
+-DB_FSYNC_UNCERTAIN_REPORTED=true
+-DB_FSYNC_READ_REJECTED=true
+-DB_FSYNC_WRITE_REJECTED=true
+-DB_FSYNC_WRITE=PASS
++DB_FSYNC_UNCERTAIN_REPORTED=false
++DB_FSYNC_READ_REJECTED=false
++DB_FSYNC_WRITE_REJECTED=false
+afj-db95 executor PASS
+afj-db95 WHERE executor PASS
+afj-db95 index optimizer PASS
+afj-db95 index CRUD maintenance PASS
+afj-db95 WHERE update PASS
+afj-db95 JOIN/GROUP engine PASS
+afj-db95 DDL engine PASS
+PASS SQL SELECT * FROM users
+PASS SQL SELECT * FROM users; -- normalized terminator
+PASS SQL select * from users
+PASS SQL SELECT * FROM users WHERE name Kim
+PASS SQL SELECT * FROM users WHERE id=1
+PASS SQL SELECT * FROM users WHERE email IS NULL
+PASS SQL SELECT * FROM users WHERE email IS NOT NULL
+PASS SQL SELECT * FROM users LIMIT 1
+PASS SQL SELECT * FROM users ORDER BY id
+PASS SQL SELECT * FROM users GROUP BY team
+PASS SQL SELECT * FROM users JOIN teams ON users.team_id = teams.team_id
+PASS SQL CREATE TABLE users
+PASS SQL INSERT INTO users
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim Lee')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim -- Lee')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim, Lee'),(2,'Park')
+PASS SQL INSERT INTO users (id,name) VALUES (1,'Kim'),(2,'Lee')
+PASS SQL INSERT INTO users VALUES (1,TRUE),(2,FALSE)
+PASS SQL UPDATE users
+PASS SQL UPDATE users SET name='Lee' WHERE id=1
+PASS SQL DELETE FROM users
+PASS SQL DELETE FROM users WHERE id=1
+PASS SQL DROP TABLE users
+PASS SQL ALTER TABLE users ADD COLUMN email
+PASS SQL ROLLBACK;
+PASS SQL COMMIT;
+PASS SQL START TRANSACTION ISOLATION LEVEL READ COMMITTED
+PASS SQL START TRANSACTION ISOLATION LEVEL SERIALIZABLE
+PASS SQL SAVEPOINT before_update
+PASS SQL ROLLBACK TO SAVEPOINT before_update
+PASS SQL RELEASE SAVEPOINT before_update
+afj-db95 MariaDB aggregate/left-join parser PASS
+afj-db95 SQL parser seed PASS
+afj-db95 parser-to-engine INSERT/UPDATE/DELETE PASS
+afj-db95 multi-row INSERT engine PASS
+afj-db95 MariaDB aggregate/left-join engine PASS
+afj-db95 schema constraints engine PASS
+afj-db95 foreign-key/check engine PASS
+afj-db95 protocol PASS
+afj-db95 auth PASS
+DB_FSYNC_REPLAY_ROWS=2
+Uncaught error (line 4): DB_FSYNC_REPLAY_MISMATCH
+DB_FSYNC_read_EXIT=1
+--- <가림>	2026-10-30 08:33:55.142676109 +0900
++++ <가림>	2026-10-30 08:40:31.531668879 +0900
+@@ -1,2 +1 @@
+-DB_FSYNC_REPLAY_ROWS=1
+-DB_FSYNC_REPLAY=PASS
++DB_FSYNC_REPLAY_ROWS=2
+DB_FSYNC_WAL_READ_ONLY=PASS
+DB_FSYNC_SELF_EXIT=1
+DB_UNCERTAIN_BEFORE_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

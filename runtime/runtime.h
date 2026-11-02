@@ -41,7 +41,13 @@ typedef enum {
     FL_STRING,
     FL_VECTOR,
     FL_MAP,
-    FL_FN
+    FL_FN,
+    FL_TEXT, /* Internal object brand; FLValue.tag remains FL_STRING. */
+    FL_NATIVE_ERROR, /* Internal map brand; FLValue.tag remains FL_MAP. */
+    FL_OWNED_FN, /* Heap-promoted closure with owned environment. */
+    FL_NATIVE_PROMISE, /* Internal managed map; opaque to user data. */
+    FL_NATIVE_TAIL, /* Internal trampoline request; FLValue.tag remains FL_MAP. */
+    FL_MANAGED_ATOM /* Internal shared-reference brand; FLValue.tag is FL_VECTOR. */
 } FLTag;
 
 typedef struct FLObject FLObject;
@@ -128,6 +134,13 @@ FLValue fl_print(FLValue v);
 /* ── 파일 I/O ── */
 FLValue fl_file_read(FLValue path);
 FLValue fl_file_write(FLValue path, FLValue content);
+/* Checked binary I/O: ok, bytes, error, errno, data. Legacy APIs keep their ABI. */
+#define FL_FILE_IO_MAX_BYTES (64u * 1024u * 1024u)
+FLValue fl_file_read_result(FLValue path);
+FLValue fl_file_sha256_result(FLValue path);
+FLValue fl_file_write_result(FLValue path, FLValue content);
+FLValue fl_file_append_result(FLValue path, FLValue content);
+FLValue fl_file_copy_result(FLValue source, FLValue destination);
 
 /* ── Vector ── */
 FLValue fl_vec_new(void);
@@ -147,6 +160,45 @@ FLValue fl_map_new(void);
 FLValue fl_map_from_pairs(FLValue* kv, uint32_t n); /* n = 쌍의 수 */
 FLValue fl_map_get(FLValue map, FLValue key);
 FLValue fl_map_has_key(FLValue map, FLValue key);
+FLValue fl_map_has(FLValue map, FLValue key);
+FLValue fl_has_key(FLValue map, FLValue key);
+FLValue fl_get_default(FLValue obj, FLValue key, FLValue fallback);
+FLValue fl_builtin_fn(FLValue name);
+FLValue fl_swap_args(FLValue atom, FLValue fn, FLValue extra);
+FLValue fl_call_owned_argv(FLValue fn, int argc, FLValue* args);
+FLValue fl_register_named_fn(FLValue name, FLValue fn);
+FLValue fl_named_fn(FLValue name);
+FLValue fl_function_alias(FLValue name);
+FLValue fl_v11_has(FLValue name);
+FLValue fl_v11_builtin(FLValue name, FLValue argv);
+FLValue fl_v11_file(FLValue name, FLValue argv);
+FLValue fl_v11_fd(FLValue name, FLValue argv);
+FLValue fl_v11_json_encode(FLValue value);
+FLValue fl_v11_json_try_parse(FLValue value);
+FLValue fl_v11_http(FLValue name, FLValue argv);
+FLValue fl_v11_to_number(FLValue value);
+FLValue fl_v11_header_value(FLValue value);
+FLValue fl_v11_utf8_string(FLValue value);
+FLValue fl_v11_latin1_decode(const char* bytes, size_t length);
+FLValue fl_v11_latin1_encode(FLValue value);
+FLValue fl_v11_io(FLValue name, FLValue argv);
+int     fl_io_poll(int wait_ms);
+int     fl_io_wait(int fd, int wait_ms);
+int     fl_io_active(void);
+void    fl_io_shutdown(void);
+FLValue fl_v11_http_client(FLValue name, FLValue argv);
+FLValue fl_v11_fn(FLValue name);
+FLValue fl_v11_number(FLValue value);
+FLValue fl_v11_key(FLValue value);
+FLValue fl_v11_literal(FLValue value);
+FLValue fl_v11_text_get(FLValue value, FLValue index, FLValue fallback);
+FLValue fl_v11_map_from_pairs(FLValue* kv, uint32_t n);
+bool fl_v11_truthy(FLValue value);
+bool fl_v11_or_false(FLValue value);
+FLValue fl_compiler_bindings(FLValue nodes);
+FLValue fl_compiler_add_extern(FLValue name);
+FLValue fl_compiler_realpath(FLValue path);
+FLValue fl_compiler_browser_generate(FLValue nodes, FLValue parse_source);
 FLValue fl_map_set(FLValue map, FLValue key, FLValue val);
 FLValue fl_map_len(FLValue map);
 
@@ -156,12 +208,30 @@ typedef struct FLClosure {
     FLValue (*call)(struct FLClosure* self, int argc, FLValue* argv);
     uint32_t nenv;
     uint32_t hot_count;  /* JIT 핫 카운터 (jit.c) */
+    uint32_t user_global;
     FLValue  env[];      /* flexible array — captured values */
 } FLClosure;
 
 FLValue fl_fn_new(FLValue (*call)(FLClosure*, int, FLValue*),
                   uint32_t nenv, FLValue* env);
 FLValue fl_fn_call(FLValue fn, int argc, FLValue* argv);
+FLValue fl_fn_global(FLValue (*call)(FLClosure*,int,FLValue*),uint32_t nenv,FLValue*env);
+typedef struct FLCallScope {
+    struct FLCallScope*previous;
+    FLValue name;
+    int line,try_depth,call_depth,saved_tco;
+    void*borrow_mark;
+} FLCallScope;
+void fl_v11_function_enter(FLCallScope*scope,int global);
+void fl_v11_value_enter(FLCallScope*scope);
+void fl_v11_scope_leave(FLCallScope*scope);
+int fl_v11_tco_active(void);
+FLValue fl_v11_tail_call(FLValue fn,FLValue args);
+#define FL_VALUE(...) (__extension__ ({ FLCallScope __fl_value_scope__; \
+    fl_v11_value_enter(&__fl_value_scope__); FLValue __fl_value_result__=(__VA_ARGS__); \
+    fl_v11_scope_leave(&__fl_value_scope__); __fl_value_result__; }))
+FLValue fl_v11_context_call(FLValue name, FLValue fn, FLValue args, FLValue line);
+FLValue fl_v11_context_error(FLValue error);
 
 /* ── S8: 고차함수 ── */
 FLValue fl_map_fn(FLValue fn, FLValue vec);
@@ -176,6 +246,11 @@ FLValue fl_html_escape(FLValue s);
 FLValue fl_heap_copy(FLValue v);
 void    fl_heap_retain(FLValue v);
 void    fl_heap_release(FLValue v);
+FLValue fl_arena_copy(FLValue value);
+void*   fl_borrow_mark(void);
+FLValue fl_borrow_take(FLValue value);
+void    fl_borrow_release_to(void* mark);
+FLValue fl_borrow_finish(void* mark, FLValue result);
 
 FLValue range2(FLValue start, FLValue end);  /* 직접 C 호출용 */
 
@@ -229,6 +304,8 @@ FLValue fl_map_vals(FLValue map);
 FLValue fl_map_entries(FLValue map);
 
 /* ── S22: argv ── */
+void    fl_cli_runtime_begin(void);
+int     fl_thread_lifetime_begin(void);
 void    fl_init_argv(int argc, char** argv);
 FLValue fl_get_argv(void);
 
@@ -282,9 +359,13 @@ FLValue str_index_of(FLValue s, FLValue sub);
 #define fl_str_ends_with   str_ends_with
 
 /* ── S26: atom (mutable cell) ── */
+/* Arena-owned identity; native C roots escaping that arena must heap_copy/release.
+ * Creation without an arena retains the existing process lifetime. */
 FLValue fl_atom_new(FLValue init);
 FLValue fl_atom_deref(FLValue atom);
 FLValue fl_atom_reset(FLValue atom, FLValue val);
+/* Callback runs once under the atom's recursive lock; its value is preserved. */
+FLValue fl_with_atom_lock(FLValue atom, FLValue callback);
 
 /* ── S26: stdlib bridge ── */
 FLValue fl_includes_item(FLValue vec, FLValue item);
@@ -363,6 +444,8 @@ FLValue server_redirect(FLValue url);
 FLValue server_req_param(FLValue req, FLValue name);
 FLValue server_req_query(FLValue req, FLValue name);
 FLValue fxb_server_req_body(FLValue req);
+FLValue server_req_fields(FLValue req);
+FLValue server_req_files(FLValue req);
 FLValue server_req_header(FLValue req, FLValue name);
 FLValue server_req_method(FLValue req);
 FLValue server_req_path(FLValue req);
@@ -519,8 +602,19 @@ FLValue mariadb_one_p(FLValue conn, FLValue sql, FLValue params);
 
 /* ── 메모리/GC (gc.c) ── */
 void    fl_arena_begin(void);
+int     fl_arena_active(void);
 void*   fl_arena_alloc(size_t size);
 void    fl_arena_end(void);
+int     fl_arena_on_reset(void (*cleanup)(void*), void* value);
+void*   fl_arena_scope_enter(void);
+void    fl_arena_scope_leave(void* previous);
+FLValue fl_v11_timer(FLValue name, FLValue argv);
+void    fl_schedule_tick(int wait_ms);
+int     fl_schedule_timeout_ms(int maximum);
+int     fl_schedule_wake_fd(void);
+void    fl_schedule_shutdown(void);
+void    fl_schedule_worker_cleanup(void);
+void    fl_schedule_promise_destroy(FLValue value);
 void    fl_arena_stats(void);
 void*   fl_perm_alloc(size_t size);
 void    fl_perm_cleanup(void);
@@ -546,6 +640,8 @@ extern __thread FLTryFrame fl_try_stack[FL_TRY_MAX];
 extern __thread int fl_try_top;
 void fl_throw(FLValue err);
 FLValue fl_make_error(const char* type, const char* msg);
+FLValue fl_v11_catch(FLValue raw);
+void fl_v11_throw(FLValue value);
 /* throw 시 FL 소스 라인 추적 (cgc-main이 설정, uncaught handler가 출력) */
 extern int __fl_throw_line;
 /* 콜스택 추적 */
@@ -567,17 +663,27 @@ FLValue fl_select_keys(FLValue m, FLValue ks);
 FLValue fl_update(FLValue m, FLValue key, FLValue fn);
 
 /* ── 연산자 first-class 래퍼 (HOF 인자로 사용 가능, e.g. (map + list)) ── */
-static inline FLValue __fl_op_add_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_add(a[0], a[1]); }
-static inline FLValue __fl_op_sub_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_sub(a[0], a[1]); }
-static inline FLValue __fl_op_mul_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_mul(a[0], a[1]); }
-static inline FLValue __fl_op_div_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_div(a[0], a[1]); }
-static inline FLValue __fl_op_mod_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_mod(a[0], a[1]); }
-static inline FLValue __fl_op_eq_w (FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_eq (a[0], a[1]); }
-static inline FLValue __fl_op_neq_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_neq(a[0], a[1]); }
-static inline FLValue __fl_op_lt_w (FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_lt (a[0], a[1]); }
-static inline FLValue __fl_op_gt_w (FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_gt (a[0], a[1]); }
-static inline FLValue __fl_op_lte_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_lte(a[0], a[1]); }
-static inline FLValue __fl_op_gte_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_gte(a[0], a[1]); }
+static inline FLValue __fl_op_add_w(FLClosure* s, int n, FLValue* a) {
+    (void)s; FLValue result=n?a[0]:fl_int(0);
+    for(int i=1;i<n;i++)result=fl_add(result,a[i]); return result;
+}
+static inline FLValue __fl_op_sub_w(FLClosure* s, int n, FLValue* a) {
+    (void)s; if(!n)return fl_int(0);
+    if(n==1)return fl_sub(fl_int(0),a[0]);
+    FLValue result=a[0];for(int i=1;i<n;i++)result=fl_sub(result,a[i]);return result;
+}
+static inline FLValue __fl_op_mul_w(FLClosure* s, int n, FLValue* a) {
+    (void)s; FLValue result=n?a[0]:fl_int(0);
+    for(int i=1;i<n;i++)result=fl_mul(result,a[i]);return result;
+}
+static inline FLValue __fl_op_div_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_div((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
+static inline FLValue __fl_op_mod_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_mod((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
+static inline FLValue __fl_op_eq_w (FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_eq ((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
+static inline FLValue __fl_op_neq_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_neq((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
+static inline FLValue __fl_op_lt_w (FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_lt ((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
+static inline FLValue __fl_op_gt_w (FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_gt ((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
+static inline FLValue __fl_op_lte_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_lte((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
+static inline FLValue __fl_op_gte_w(FLClosure* _s, int _ac, FLValue* a) { (void)_s;(void)_ac; return fl_gte((_ac > 0 ? a[0] : fl_nil()), (_ac > 1 ? a[1] : fl_nil())); }
 
 #endif /* FREELANG_RUNTIME_H */
 

@@ -1,0 +1,3 @@
+2245780 execve("<가림>/env", ["env", "-i", "PATH=<가림>", "<가림>/freelang-native-bootstrap.N"...], 0x7ffda08bd420 /* 113 vars */) = 0
+2245780 execve("<가림>/array-loop-bin", ["<가림>/freelang-native-bootstrap.N"...], 0x55ee6f89ac70 /* 1 var */) = 0
+2245780 +++ exited with 0 +++

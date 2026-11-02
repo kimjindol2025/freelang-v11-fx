@@ -1,0 +1,13 @@
+(defn check [a b] (if (= a b) true (throw (str "expected=" b " actual=" a))))
+(define path (str (get (cli-args) 0) "/concurrent.wal"))
+(define handle (fd_open path "w"))
+(define jobs (map (fn [id] (fn []
+ (fd-test-barrier)
+ (doseq [number (range 0 100)] (fd_write handle (str "한:" id ":" number "\n"))) true)) (range 0 8)))
+(println (check (run-parallel jobs) [true true true true true true true true]))
+(println (check (fd-test-thread-count) 8))
+(println (check (fd_fsync handle) true))
+(println (check (fd_close handle) true))
+(define lines (filter (fn [line] (not (= line ""))) (str_split (file_read path) "\n")))
+(println (check (length lines) 800))
+(println (check (length (arr_unique lines)) 800))

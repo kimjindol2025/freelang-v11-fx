@@ -1,0 +1,4 @@
+Uncaught error: [with-atom-lock] Function not found: with-atom-lock (at line 4, col 0)
+atom-lock_PROGRAM_EXIT=1
+ATOM_LOCK_BEFORE_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

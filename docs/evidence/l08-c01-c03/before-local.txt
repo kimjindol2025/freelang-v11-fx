@@ -1,0 +1,40 @@
+<가림>: In function ‘__fl_wrap_inner’:
+<가림>:37:12: error: implicit declaration of function ‘inner’ [-Wimplicit-function-declaration]
+   37 |     return inner(argv[0]);
+      |            ^~~~~
+<가림>:37:12: error: incompatible types when returning type ‘int’ but ‘FLValue’ was expected
+   37 |     return inner(argv[0]);
+      |            ^~~~~~~~~~~~~~
+<가림>: In function ‘__fl_wrap_walk’:
+<가림>:47:12: error: implicit declaration of function ‘walk’ [-Wimplicit-function-declaration]
+   47 |     return walk(argv[0]);
+      |            ^~~~
+<가림>:47:12: error: incompatible types when returning type ‘int’ but ‘FLValue’ was expected
+   47 |     return walk(argv[0]);
+      |            ^~~~~~~~~~~~~
+<가림>: At top level:
+<가림>:51:9: error: conflicting types for ‘inner’; have ‘FLValue(FLValue)’
+   51 | FLValue inner(FLValue __fl_binding_4) {
+      |         ^~~~~
+<가림>:37:12: note: previous implicit declaration of ‘inner’ with type ‘int()’
+   37 |     return inner(argv[0]);
+      |            ^~~~~
+<가림>: In function ‘inner’:
+<가림>:53:35: error: ‘__fl_binding_3’ undeclared (first use in this function); did you mean ‘__fl_binding_4’?
+   53 |     { FLValue __fl_ret__ = fl_add(__fl_binding_3, __fl_binding_4); fl_pop_frame(); return __fl_ret__; }
+      |                                   ^~~~~~~~~~~~~~
+      |                                   __fl_binding_4
+<가림>:53:35: note: each undeclared identifier is reported only once for each function it appears in
+<가림>: At top level:
+<가림>:56:9: error: conflicting types for ‘walk’; have ‘FLValue(FLValue)’
+   56 | FLValue walk(FLValue __fl_binding_7) {
+      |         ^~~~
+<가림>:47:12: note: previous implicit declaration of ‘walk’ with type ‘int()’
+   47 |     return walk(argv[0]);
+      |            ^~~~
+<가림>: In function ‘walk’:
+<가림>:58:75: error: ‘__fl_binding_6’ undeclared (first use in this function); did you mean ‘__fl_binding_7’?
+   58 |     { FLValue __fl_ret__ = (fl_truthy(fl_eq(__fl_binding_7, fl_int(0))) ? __fl_binding_6 : walk(fl_sub(__fl_binding_7, fl_int(1)))); fl_pop_frame(); return __fl_ret__; }
+      |                                                                           ^~~~~~~~~~~~~~
+      |                                                                           __fl_binding_7
+EXIT=1

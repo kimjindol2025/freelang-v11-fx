@@ -1,0 +1,14 @@
+(load "../app/store.fl")
+(load "../app/images.fl")
+(load "../app/image-admin.fl")
+(define token (env-get "BLOG_TEST_SESSION_TOKEN"))
+(if (and (string? token) (= (count token) 64)) nil (throw "synthetic session required"))
+(dir_create (str image-base "/blog-images"))
+(define path (image-disk-path "66666666666666666666666666666666" "image/png"))
+(if (file_copy (env-get "L08_UI_PNG_FIXTURE") path) nil (throw "fixture copy failed"))
+(afj-tcp-commit-asts
+ [{"type" "insert" "table" "sessions" "row" {"token_hash" (auth_sha256 token) "expires_at" (+ (now_ms) 600000)}}
+  {"type" "insert" "table" "images" "row" {"id" "66666666666666666666666666666666" "blog_id" 1
+    "path" "/images/66666666666666666666666666666666.png" "name" "ui-fixture.png" "mime" "image/png"
+    "size" (file_size path) "alt" "사진 시험" "uploaded_at" 1}}])
+(println "EDITOR_UI_SEED=PASS")

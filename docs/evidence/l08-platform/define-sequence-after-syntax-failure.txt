@@ -1,0 +1,2 @@
+Uncaught error: [add] [+] [E_TYPE_MISMATCH] +: 인자 1번에 nil 전달됨 — number 필요 (nil? 확인 후 기본값 사용) (at line 2, col 0)
+DEFINE_SEQUENCE_AFTER_EXIT=1

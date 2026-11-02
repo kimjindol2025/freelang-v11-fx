@@ -1,0 +1,29 @@
+[FL Warn] nil 전파: + 인자에 (get ...) — null? 체크 권장
+[FL Warn] nil 전파: + 인자에 (get ...) — null? 체크 권장
+[FL Warn] nil 전파: + 인자에 (get ...) — null? 체크 권장
+[FL Warn] nil 전파: + 인자에 (get ...) — null? 체크 권장
+[FL Warn] nil 전파: + 인자에 (get ...) — null? 체크 권장
+[FL Warn] nil 전파: + 인자에 (get ...) — null? 체크 권장
+[FL Warn] nil 전파: + 인자에 (get ...) — null? 체크 권장
+Compiled <가림> -> <가림>
+<fl>: In function ‘cgc_run_positional’:
+<fl>:2729:108: error: implicit declaration of function ‘str_starts’; did you mean ‘str_test’? [-Wimplicit-function-declaration]
+<fl>:2729:144: error: type mismatch in conditional expression
+<fl>: In function ‘browser_emit’:
+<fl>:2788:70: error: implicit declaration of function ‘str_ends’ [-Wimplicit-function-declaration]
+<fl>:2788:70: error: incompatible type for argument 1 of ‘fl_or’
+In file included from <가림>:1:
+<가림>:125:23: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_or(FLValue a, FLValue b);
+      |               ~~~~~~~~^
+<fl>:2788:107: error: incompatible type for argument 2 of ‘fl_or’
+<가림>:125:34: note: expected ‘FLValue’ but argument is of type ‘int’
+  125 | FLValue fl_or(FLValue a, FLValue b);
+      |                          ~~~~~~~~^
+<fl>:2790:20: error: implicit declaration of function ‘file_read_result’; did you mean ‘fl_file_read_result’? [-Wimplicit-function-declaration]
+<fl>:2790:20: error: invalid initializer
+<fl>:2790:20: note: (near initialization for ‘__fl_ret__’)
+<fl>:2795:23: error: implicit declaration of function ‘file_write_result’; did you mean ‘fl_file_write_result’? [-Wimplicit-function-declaration]
+<fl>:2795:23: error: invalid initializer
+<fl>:2795:23: note: (near initialization for ‘__fl_ret__’)
+L01_TARGET_COMPILER_BUILD_EXIT=1

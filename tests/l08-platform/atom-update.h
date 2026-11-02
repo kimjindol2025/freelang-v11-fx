@@ -1,0 +1,10 @@
+#include "runtime.h"
+FLValue atom_test_start(void);
+FLValue atom_test_workers(void);
+FLValue atom_test_tick(void);
+FLValue atom_test_ticks(void);
+FLValue atom_test_pause(void);
+FLValue atom_test_independent_pair(void);
+FLValue atom_test_wait_peer(void);
+FLValue atom_test_wait_owner(void);
+FLValue atom_test_signal_peer(void);

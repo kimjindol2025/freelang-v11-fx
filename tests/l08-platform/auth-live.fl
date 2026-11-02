@@ -1,0 +1,7 @@
+(defn check [a b] (if (= a b) true (throw (str "expected=" b " actual=" a))))
+(define key (file_read (str (get (cli-args) 0) "/csrf.key")))
+(define token (auth_csrf_token key))
+(check (auth_csrf_verify token key) true)
+(define delta (- (/ (now_ms) 1000) (str_to_num (get (str_split token ".") 0))))
+(check (and (>= delta 0) (< delta 5)) true)
+(println "AUTH_LIVE_CLOCK_PASS")

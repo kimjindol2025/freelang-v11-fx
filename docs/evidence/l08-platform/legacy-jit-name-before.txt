@@ -1,0 +1,326 @@
+PASS sha256-known-answer
+PASS empty:read-ok
+PASS empty:read-length
+PASS empty:legacy-read-hash
+PASS empty:write-ok
+PASS empty:write-length
+PASS empty:write-bytes
+PASS empty:legacy-write-nil
+PASS empty:legacy-write-bytes
+PASS empty:append-ok
+PASS empty:append-length
+PASS empty:append-bytes
+PASS empty:copy-ok
+PASS empty:copy-length
+PASS empty:copy-bytes
+PASS text:read-ok
+PASS text:read-length
+PASS text:legacy-read-hash
+PASS text:write-ok
+PASS text:write-length
+PASS text:write-bytes
+PASS text:legacy-write-nil
+PASS text:legacy-write-bytes
+PASS text:append-ok
+PASS text:append-length
+PASS text:append-bytes
+PASS text:copy-ok
+PASS text:copy-length
+PASS text:copy-bytes
+PASS nul-first:read-ok
+PASS nul-first:read-length
+PASS nul-first:legacy-read-hash
+PASS nul-first:write-ok
+PASS nul-first:write-length
+PASS nul-first:write-bytes
+PASS nul-first:legacy-write-nil
+PASS nul-first:legacy-write-bytes
+PASS nul-first:append-ok
+PASS nul-first:append-length
+PASS nul-first:append-bytes
+PASS nul-first:copy-ok
+PASS nul-first:copy-length
+PASS nul-first:copy-bytes
+PASS nul-middle:read-ok
+PASS nul-middle:read-length
+PASS nul-middle:legacy-read-hash
+PASS nul-middle:write-ok
+PASS nul-middle:write-length
+PASS nul-middle:write-bytes
+PASS nul-middle:legacy-write-nil
+PASS nul-middle:legacy-write-bytes
+PASS nul-middle:append-ok
+PASS nul-middle:append-length
+PASS nul-middle:append-bytes
+PASS nul-middle:copy-ok
+PASS nul-middle:copy-length
+PASS nul-middle:copy-bytes
+PASS nul-last:read-ok
+PASS nul-last:read-length
+PASS nul-last:legacy-read-hash
+PASS nul-last:write-ok
+PASS nul-last:write-length
+PASS nul-last:write-bytes
+PASS nul-last:legacy-write-nil
+PASS nul-last:legacy-write-bytes
+PASS nul-last:append-ok
+PASS nul-last:append-length
+PASS nul-last:append-bytes
+PASS nul-last:copy-ok
+PASS nul-last:copy-length
+PASS nul-last:copy-bytes
+PASS all-bytes:read-ok
+PASS all-bytes:read-length
+PASS all-bytes:legacy-read-hash
+PASS all-bytes:write-ok
+PASS all-bytes:write-length
+PASS all-bytes:write-bytes
+PASS all-bytes:legacy-write-nil
+PASS all-bytes:legacy-write-bytes
+PASS all-bytes:append-ok
+PASS all-bytes:append-length
+PASS all-bytes:append-bytes
+PASS all-bytes:copy-ok
+PASS all-bytes:copy-length
+PASS all-bytes:copy-bytes
+PASS non-utf8:read-ok
+PASS non-utf8:read-length
+PASS non-utf8:legacy-read-hash
+PASS non-utf8:write-ok
+PASS non-utf8:write-length
+PASS non-utf8:write-bytes
+PASS non-utf8:legacy-write-nil
+PASS non-utf8:legacy-write-bytes
+PASS non-utf8:append-ok
+PASS non-utf8:append-length
+PASS non-utf8:append-bytes
+PASS non-utf8:copy-ok
+PASS non-utf8:copy-length
+PASS non-utf8:copy-bytes
+PASS boundary-8191:read-ok
+PASS boundary-8191:read-length
+PASS boundary-8191:legacy-read-hash
+PASS boundary-8191:write-ok
+PASS boundary-8191:write-length
+PASS boundary-8191:write-bytes
+PASS boundary-8191:legacy-write-nil
+PASS boundary-8191:legacy-write-bytes
+PASS boundary-8191:append-ok
+PASS boundary-8191:append-length
+PASS boundary-8191:append-bytes
+PASS boundary-8191:copy-ok
+PASS boundary-8191:copy-length
+PASS boundary-8191:copy-bytes
+PASS boundary-8192:read-ok
+PASS boundary-8192:read-length
+PASS boundary-8192:legacy-read-hash
+PASS boundary-8192:write-ok
+PASS boundary-8192:write-length
+PASS boundary-8192:write-bytes
+PASS boundary-8192:legacy-write-nil
+PASS boundary-8192:legacy-write-bytes
+PASS boundary-8192:append-ok
+PASS boundary-8192:append-length
+PASS boundary-8192:append-bytes
+PASS boundary-8192:copy-ok
+PASS boundary-8192:copy-length
+PASS boundary-8192:copy-bytes
+PASS boundary-8193:read-ok
+PASS boundary-8193:read-length
+PASS boundary-8193:legacy-read-hash
+PASS boundary-8193:write-ok
+PASS boundary-8193:write-length
+PASS boundary-8193:write-bytes
+PASS boundary-8193:legacy-write-nil
+PASS boundary-8193:legacy-write-bytes
+PASS boundary-8193:append-ok
+PASS boundary-8193:append-length
+PASS boundary-8193:append-bytes
+PASS boundary-8193:copy-ok
+PASS boundary-8193:copy-length
+PASS boundary-8193:copy-bytes
+PASS multi-block:read-ok
+PASS multi-block:read-length
+PASS multi-block:legacy-read-hash
+PASS multi-block:write-ok
+PASS multi-block:write-length
+PASS multi-block:write-bytes
+PASS multi-block:legacy-write-nil
+PASS multi-block:legacy-write-bytes
+PASS multi-block:append-ok
+PASS multi-block:append-length
+PASS multi-block:append-bytes
+PASS multi-block:copy-ok
+PASS multi-block:copy-length
+PASS multi-block:copy-bytes
+PASS read-write-underscore-alias
+PASS read-underscore-binary-hash
+PASS append-underscore-return
+PASS append-underscore-bytes
+PASS copy-underscore-return
+PASS copy-underscore-bytes
+PASS append-kebab-return
+PASS append-kebab-bytes
+PASS legacy-nonstring-display
+PASS sandbox-absolute-inside
+PASS sandbox-relative-dot
+PASS empty-path
+PASS wrong-path-type
+PASS wrong-data-type
+PASS nul-path-before-truncate
+PASS long-path
+PASS missing-input
+PASS missing-parent
+PASS readonly-output
+PASS directory-output
+PASS directory-input
+PASS fifo-does-not-block
+PASS parent-traversal
+PASS absolute-traversal
+PASS absolute-outside-root
+PASS symlink-leaf-rejected
+PASS symlink-parent-rejected
+PASS copy-same-path-preserves-input
+PASS copy-same-inode-preserves-input
+PASS rejections-preserve-sentinel
+PASS copy-rejections-preserve-source
+PASS legacy-read-failure-nil
+PASS legacy-append-failure-false
+PASS legacy-copy-failure-false
+PASS read-size-limit
+PASS copy-size-limit-before-truncate
+PASS write-size-limit-before-truncate
+PASS append-total-size-limit
+PASS size-errors-preserve-sentinel
+PASS read-exact-limit
+PASS read-exact-limit-bytes
+PASS write-exact-limit
+PASS write-exact-limit-bytes
+PASS short-read-retries
+PASS short-read-bytes
+PASS short-write-retries
+PASS short-write-bytes
+PASS read-failure
+PASS write-failure
+PASS flush-failure
+PASS write-close-failure
+PASS read-close-failure
+PASS read-allocation-failure
+PASS stat-failure
+PASS read-stream-failure
+PASS write-stream-failure
+PASS truncate-failure
+PASS truncate-error-preserves-file
+PASS copy-read-failure
+PASS copy-write-failure
+PASS copy-close-failure
+PASS append-write-failure
+PASS append-close-failure
+PASS legacy-append-io-failure
+PASS legacy-copy-io-failure
+PASS failure-paths-close-descriptors
+L07_SELF_PASS=221
+L07_SELF_FAIL=0
+L07_INPUT_AND_OUTSIDE_HASHES=UNCHANGED
+PASS fl_nil tag
+PASS fl_int
+PASS fl_float
+PASS fl_bool
+PASS fl_str_val tag
+PASS fl_str_val data
+PASS truthy bool true
+PASS truthy bool false
+PASS truthy nil
+PASS truthy int 0
+PASS truthy int 1
+PASS fl_add int
+PASS fl_sub
+PASS fl_mul
+PASS fl_div
+PASS fl_mod
+PASS fl_eq true
+PASS fl_eq false
+PASS fl_lt true
+PASS fl_lt false
+PASS fl_lte eq
+PASS fl_gt
+PASS fl_gte eq
+PASS fl_neq
+PASS fl_not true
+PASS fl_not false
+PASS fl_str_n concat
+PASS fl_add string
+PASS fl_file_write returns nil
+PASS fl_file_read tag
+PASS fl_file_read data
+PASS fl_vec_new tag
+PASS fl_vec_new len
+PASS fl_vec_from len
+PASS fl_vec_get 0
+PASS fl_vec_get 2
+PASS fl_vec_push original unchanged
+PASS fl_vec_push new len
+PASS fl_vec_push new elem
+PASS fl_vec_set original unchanged
+PASS fl_vec_set new val
+PASS fl_vec_get OOB returns nil
+PASS fl_map_new tag
+PASS fl_map_new len
+PASS fl_map_from_pairs len
+PASS fl_map_get a
+PASS fl_map_get b
+PASS fl_map_get missing
+PASS fl_map_set original unchanged
+PASS fl_map_set new len
+PASS fl_map_set new val
+PASS fl_map_set upsert len unchanged
+PASS fl_map_set upsert val
+fl_println: 42
+(above should be 42)
+
+All tests PASS
+L07_RUNTIME_REGRESSION=PASS
+🔍 FreeLang C Native Runtime 테스트
+
+❌ JIT add1(41)=42 (exit=1)
+   Uncaught error: [jit-test-add1] Function not found: jit-test-add1 (at line 4, col 0)
+❌ JIT mul2(21)=42 (exit=1)
+   Uncaught error: [jit-test-add1] Function not found: jit-test-add1 (at line 4, col 0)
+❌ JIT addxy(10,32) (exit=1)
+   Uncaught error: [jit-test-add1] Function not found: jit-test-add1 (at line 4, col 0)
+❌ JIT add1(0)=1 (exit=1)
+   Uncaught error: [jit-test-add1] Function not found: jit-test-add1 (at line 4, col 0)
+❌ JIT pool_cap=64KB (exit=1)
+   Uncaught error: [jit-test-add1] Function not found: jit-test-add1 (at line 4, col 0)
+❌ JIT ready=true (exit=1)
+   Uncaught error: [jit-test-add1] Function not found: jit-test-add1 (at line 4, col 0)
+❌ GC atom 초기화 (exit=1)
+   ✅ T5: 중첩 맵 atom reset! (42)
+   ✅ T6: 벡터 atom 20회 push (len=20)
+   ✅ T7: reset! 후 이전 키 제거
+   ✅ T8: 다중 atom 독립성 (101+202+303=606)
+   ✅ T9: 200회 문자열 교체 (v199)
+❌ GC 정수 누산 100회 (exit=1)
+   ✅ T5: 중첩 맵 atom reset! (42)
+   ✅ T6: 벡터 atom 20회 push (len=20)
+   ✅ T7: reset! 후 이전 키 제거
+   ✅ T8: 다중 atom 독립성 (101+202+303=606)
+   ✅ T9: 200회 문자열 교체 (v199)
+❌ GC 벡터 atom 20회 (exit=1)
+   ✅ T5: 중첩 맵 atom reset! (42)
+   ✅ T6: 벡터 atom 20회 push (len=20)
+   ✅ T7: reset! 후 이전 키 제거
+   ✅ T8: 다중 atom 독립성 (101+202+303=606)
+   ✅ T9: 200회 문자열 교체 (v199)
+❌ GC JIT 풀 준비 (exit=1)
+   ✅ T5: 중첩 맵 atom reset! (42)
+   ✅ T6: 벡터 atom 20회 push (len=20)
+   ✅ T7: reset! 후 이전 키 제거
+   ✅ T8: 다중 atom 독립성 (101+202+303=606)
+   ✅ T9: 200회 문자열 교체 (v199)
+
+────────────────────────────
+결과: 0 PASS / 10 FAIL / 10 총
+❌ 10개 실패
+DEFINE_LEGACY_REGRESSION_EXIT=1
+NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0

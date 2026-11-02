@@ -1,0 +1,17 @@
+(load "compiler-library.fl")
+(define tokens (lex (str-repeat "(println 1)\n" 100)))
+(compiler-lex-meter-start)
+(define nodes (parse tokens))
+(define live (compiler-lex-meter-live))
+(define peak (compiler-lex-meter-peak))
+(println (str "COMPILER_PARSE_LIVE_BYTES=" live))
+(println (str "COMPILER_PARSE_PEAK_BYTES=" peak))
+(if (= (count nodes) 100) (println "COMPILER_PARSE_COUNT=PASS") (throw "parser count mismatch"))
+(doseq [i (range 0 100)]
+ (let [node (get nodes i) args (get node "args") value (first args)]
+  (if (and (= (get node "kind") "sexpr") (= (get node "op") "println") (= (get node "line") (+ i 1))
+           (= (count args) 1) (= (get value "kind") "literal") (= (get value "type") "number")
+           (= (get value "value") "1") (= (get value "line") (+ i 1))) nil (throw "parser AST mismatch"))))
+(println "COMPILER_PARSE_EVERY_NODE=PASS")
+(if (and (<= live 67108864) (<= peak 83886080))
+  (println "COMPILER_PARSE_BOUNDED_HEAP=PASS") (throw "compiler parser heap budget exceeded"))

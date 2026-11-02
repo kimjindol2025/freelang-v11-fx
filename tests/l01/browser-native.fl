@@ -1,0 +1,2 @@
+(load "browser-semantics.fl")
+(print (browser-semantics))

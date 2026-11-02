@@ -1,0 +1,3 @@
+CHROME_timers_EXIT=0
+CHROME_timer-exception_EXIT=0
+REGRESSION_CHAIN_EXIT=1

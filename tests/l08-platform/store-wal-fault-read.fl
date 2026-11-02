@@ -1,0 +1,7 @@
+(load "../app/store.fl")
+(define mode (env-get "L08_WAL_FAULT_MODE"))
+(define expected (if (or (= mode "commit-sync") (= mode "commit-close")) 1 0))
+(define rows (get (execute-ast {"type" "select" "table" "l08_fault"}) "rows"))
+(println (str "WAL_FAULT_REPLAY_ROWS=" (count rows)))
+(if (and (= (count rows) expected) (if (= expected 1) (= (get (first rows) "id") "first") true))
+ (println "WAL_FAULT_REPLAY=PASS") (throw "WAL_FAULT_REPLAY_MISMATCH"))

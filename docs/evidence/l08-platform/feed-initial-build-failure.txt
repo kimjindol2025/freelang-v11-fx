@@ -1,0 +1,21 @@
+In file included from <가림>:733,
+                 from <가림>:415:
+<가림>: In function ‘vf_escape’:
+<가림>:10:94: error: passing argument 1 of ‘t_unit’ from incompatible pointer type [-Wincompatible-pointer-types]
+   10 |    case '"':t_ascii(out,"&quot;");break;case '\'':t_ascii(out,"&apos;");break;default:t_unit(out,s.p[i]);
+      |                                                                                              ^~~
+      |                                                                                              |
+      |                                                                                              TBuffer *
+<가림>:26:28: note: expected ‘TUnits *’ but argument is of type ‘TBuffer *’
+   26 | static void t_unit(TUnits *u,uint16_t c){
+      |                    ~~~~~~~~^
+<가림>: In function ‘vf_cdata’:
+<가림>:40:15: error: passing argument 1 of ‘t_unit’ from incompatible pointer type [-Wincompatible-pointer-types]
+   40 |   else t_unit(out,text.p[i]);
+      |               ^~~
+      |               |
+      |               TBuffer *
+<가림>:26:28: note: expected ‘TUnits *’ but argument is of type ‘TBuffer *’
+   26 | static void t_unit(TUnits *u,uint16_t c){
+      |                    ~~~~~~~~^
+FEED_SELF_EXIT=1
