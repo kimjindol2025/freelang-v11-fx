@@ -1,0 +1,2 @@
+(regex_match_i nil ".*")
+(throw "REGEX_MATCH_I_INPUT_TYPE_WAS_SILENT")

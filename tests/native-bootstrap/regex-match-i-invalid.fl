@@ -1,0 +1,2 @@
+(regex_match_i "text" "[")
+(throw "REGEX_MATCH_I_INVALID_WAS_SILENT")

@@ -1,0 +1,2 @@
+(regex_match_i "text" 42)
+(throw "REGEX_MATCH_I_PATTERN_TYPE_WAS_SILENT")
