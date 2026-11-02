@@ -126,6 +126,25 @@ bootstrap 원문은 bootstrap.txt, 정적 감사는 bootstrap-static-audit.txt.
 bootstrap 밖의 기존 trace 관문 감사 원문은 NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0.
 bootstrap을 포함한 전체 동적 실행 횟수를 0이라고 주장하지 않는다.
 
+## 푸시 검증
+
+구현·전체 증거 제출 커밋의 원격 ref를 실제 조회하여 확인했다.
+branch: feat/blog-platform-completion. 원격 경로·주소: <가림>.
+
+```text
+FX_FORGEJO_HEAD=4ce998667f679447542d23acacce35db45027990
+FX_GITHUB_HEAD=4ce998667f679447542d23acacce35db45027990
+FX_WORKTREE=CLEAN
+PUSH_ORDER=FORGEJO_THEN_GITHUB
+```
+
+원문: push-verification.txt. 위 해시는 완료 판정 문서 추가 직전의 실측 제출 커밋이다.
+이 완료 판정만 추가한 후속 문서 커밋도 동일 순서로 푸시하고 최종 원격 ref를 다시 확인한다.
+후속 문서 커밋 자체의 HEAD는 자기 참조를 피하여 최종 채팅에 원문으로 보고한다.
+blog1은 변경하지 않았으며 HEAD e1980fc8e24d07ecb52a08653ea688683212ad3a,
+두 원격 ref 일치·작업 트리 CLEAN을 확인했다.
+원격 설정을 검증했고 force-push 없이 fast-forward로 제출했다. 각 커밋 전 민감정보 diff 검사 PASS.
+
 ## 판정
 
 1. 수정 전 측정 선커밋: PASS.
@@ -133,6 +152,6 @@ bootstrap을 포함한 전체 동적 실행 횟수를 0이라고 주장하지 �
 3. 기존 builder 재사용·같은 측정 개선·10만 배열 누수 0: PASS.
 4. README native 안내·옛 경로 표시: PASS. 문서 명령도 빌드·실행 확인.
 5. 기존 JSON·전체 회귀·E09·native bootstrap: PASS.
-6. Forgejo→GitHub 푸시·원격 HEAD 일치·최종 CLEAN: 아직 미완료.
+6. Forgejo→GitHub 푸시·원격 HEAD 일치·CLEAN: PASS.
 
-J1_SUMMARY=5/6
+J1_SUMMARY=6/6
