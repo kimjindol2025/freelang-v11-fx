@@ -398,6 +398,7 @@ FLValue fl_bit_shl(FLValue a, FLValue b);
 FLValue fl_bit_shr(FLValue a, FLValue b);
 
 /* ── _fl_process_* ── */
+FLValue process_exit(FLValue code);
 FLValue _fl_process_getcwd(void);
 FLValue _fl_process_chdir(FLValue path);
 FLValue _fl_process_pid(void);

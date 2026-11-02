@@ -8,6 +8,11 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+/* Legacy generated C shares the language handler's validation and cleanup. */
+FLValue process_exit(FLValue code) {
+    return fl_v11_builtin(fl_str_val("process-exit"), fl_vec_from(&code, 1));
+}
+
 FLValue _fl_process_getcwd(void) {
     char buf[4096];
     if (!getcwd(buf, sizeof(buf))) return fl_nil();
