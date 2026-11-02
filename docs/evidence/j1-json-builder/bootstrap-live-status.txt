@@ -1,0 +1,8 @@
+Name:	stage2-bin
+Pid:	360917
+PPid:	359032
+TracerPid:	0
+Name:	stage3-bin
+Pid:	367366
+PPid:	359032
+TracerPid:	0

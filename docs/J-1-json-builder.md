@@ -62,10 +62,77 @@ AFJ·Python 의존 경로는 호환용(옛 경로)으로 표시.
 fl-build.sh, build.sh 동작 수정 없음. HTTP·타이머·생성 내장 데이터 수정 없음.
 검증기 통합 없음. seed 교체 없음.
 
-## 남은 확인
+10만 항목 정상 배열도 각 API별 ASan·UBSan·LSan 실행을 추가했다.
+J1_LARGE_LEAKS=2/2, 양쪽 stderr 0 bytes. 성능 측정과 별도의 sanitizer 실행이므로
+해당 시간·RSS는 위 성능 표와 비교하지 않는다. 원문: large-leaks.txt.
+추가 시험도 ps 확인 후 같은 flock 차례를 기다려 실행했다.
 
-기존 JSON 시험, 전체 회귀, E09 HTTP, E10 취소, strace 없는 native bootstrap 실행 중.
-bootstrap 실행 감사는 승인된 정적 감사로 분리하며 동적 실행 횟수를 0으로 주장하지 않는다.
-Forgejo→GitHub 푸시·원격 HEAD 일치·최종 CLEAN 확인은 아직 미완료.
+## 기존 관문·전체 회귀
 
-J1_SUMMARY=4/6
+검증한 구현 HEAD: 39b9bbcfef60911b43a20638b8f8dd7c24d953f7
+수정 후 첫 실행 결과: BUILD_EXIT=0, README_APP_BUILD_EXIT=0, README_APP_EXIT=0,
+JSON_EXIT=0, E09_HTTP_EXIT=0, E10_CANCEL_EXIT=0, FULL_EXIT=0, J1_CHAIN=PASS.
+수정 후 실패한 관문 0. 기대값·임계값·검증기 변경 없음.
+
+| 관문 | 원문 결과 |
+|---|---|
+| 기존 JSON | L08_JSON_PASS=13 FAIL=0, 전체 회귀 안에서도 재통과 |
+| 실제 Chrome E09 HTTP | L01_BROWSER_HTTP_PASS=20 FAIL=0 |
+| 실제 Chrome E10 취소 | L01_BROWSER_CANCEL_PASS=20 FAIL=0 |
+| 취소 callback·메모리 | E10_CANCELLED_CALLBACKS=0, E10_CANCEL_RETAINED_CAPTURES=0 |
+| CLI | CLI_LIFETIME=4/4 |
+| Chrome 타이머 | L01_BROWSER_TIMER_PASS=20 FAIL=0 |
+| L07 | L07_SELF_PASS=221, L07_SELF_FAIL=0, L07_RUNTIME_REGRESSION=PASS |
+| 기존 누수 | REMAINING_LEAK_CASES=12/12 |
+| 추가 누수 | SMALL_LEAKS_PASS=2 TOTAL=2 MODE=after |
+| worker | WORKER_CLEANUP=3/3, LEAK_REPORTS=0 |
+| 전체 native | L08_PLATFORM_CURRENT_GATES=PASS |
+| 전체 묶음 | E07_COMPLETION=PASS, E08_COMPLETION=PASS |
+
+전체 회귀 실패 0. sanitizer stderr 검색의 예상 밖 진단 파일 0.
+예상된 예외·거부 시험의 nonzero 종료는 원래 정답과 비교하여 통과 판정.
+기존 누수 12건도 고정 정답·LSan을 유지했고, 정상 HTTP 진단 stderr는 누수로 세지 않는다.
+Chrome 화면 원문·PNG를 보존했으며 화면에서 각 20건 PASS를 확인했다.
+원문: full-regression.txt, chain-result.txt, e07-result.txt, e08-result.txt,
+existing-json.txt, e09-http-screen.txt, e10-cancel-screen.txt, verification.txt.
+민감 경로·주소는 <가림>. 원본 로그와 ps는 비공개 보존하고 raw-sha256.txt에 해시 기록.
+원문의 CR은 공개본에서 문자 그대로의 `\r`로 표시하며 숫자·해시는 유지한다.
+
+## native bootstrap
+
+```text
+STAGE2_SHA=d98af73ee3b1aa9439864ab10ef044ca21242c86bf4269b0beb094e5ad149039
+STAGE3_SHA=d98af73ee3b1aa9439864ab10ef044ca21242c86bf4269b0beb094e5ad149039
+STAGE4_SHA=d98af73ee3b1aa9439864ab10ef044ca21242c86bf4269b0beb094e5ad149039
+CMP_2_3=PASS
+CMP_3_4=PASS
+STAGE0_SHA=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
+STAGE0_EQ_CANONICAL=DIFFERENT
+RESIDUAL_PROCESSES=0
+CLEAN_CHECKOUT=PASS
+BOOTSTRAP_STRACE=0
+BOOTSTRAP_STATIC_FORBIDDEN_PROCESS_TOKENS=0
+BOOTSTRAP_STATIC_AUDIT=PASS
+BOOTSTRAP_DYNAMIC_EXEC_COUNTS=UNOBSERVED
+```
+
+고정점은 E10과 동일. compiler .fl 소스는 변경하지 않았으며 생성 C 해시도 동일하다.
+기존 seed는 수정하지 않았다. canonical DIFFERENT 결과도 그대로 유지했다.
+승인된 정적 감사 모드를 그대로 사용했고 기존 검증기 동작은 수정하지 않았다.
+정적 감사 범위는 seed·생성 compiler C 소스의 금지 process 토큰 검사이며,
+runtime·링크 전체의 동적 실행 감사로 해석하지 않는다.
+실행 중인 stage2-bin·stage3-bin의 실제 상태에서도 TracerPid: 0을 별도 보존했다.
+bootstrap 원문은 bootstrap.txt, 정적 감사는 bootstrap-static-audit.txt.
+bootstrap 밖의 기존 trace 관문 감사 원문은 NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0.
+bootstrap을 포함한 전체 동적 실행 횟수를 0이라고 주장하지 않는다.
+
+## 판정
+
+1. 수정 전 측정 선커밋: PASS.
+2. 실패 경로 정답 선커밋·누수 0: PASS.
+3. 기존 builder 재사용·같은 측정 개선·10만 배열 누수 0: PASS.
+4. README native 안내·옛 경로 표시: PASS. 문서 명령도 빌드·실행 확인.
+5. 기존 JSON·전체 회귀·E09·native bootstrap: PASS.
+6. Forgejo→GitHub 푸시·원격 HEAD 일치·최종 CLEAN: 아직 미완료.
+
+J1_SUMMARY=5/6
