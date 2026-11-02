@@ -1,4 +1,4 @@
-(define code (to_number (env_get "DB95_PROCESS_EXIT_CODE")))
+(define code (str-to-num (env_get "DB95_PROCESS_EXIT_CODE")))
 (print (str "FL_BEFORE_EXIT=" code))
 (process_exit code)
 (println "PROCESS_EXIT_RETURNED=FAIL")
