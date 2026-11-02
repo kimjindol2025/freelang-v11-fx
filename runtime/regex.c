@@ -36,6 +36,36 @@ FLValue regex_match(FLValue pat_v, FLValue str_v) {
     return fl_bool(matched);
 }
 
+/* AFJ/db95 spelling uses text first; preserve the older pattern-first API. */
+FLValue regex_match_i(FLValue str_v, FLValue pat_v) {
+    const char* str = fl_cstr(str_v);
+    const char* pat = fl_cstr(pat_v);
+    if (!str || !pat) {
+        fl_throw(fl_str_val("regex_match_i: string arguments required"));
+        return fl_nil();
+    }
+    regex_t re;
+    int rc = regcomp(&re, pat, REG_EXTENDED | REG_NOSUB | REG_ICASE);
+    if (rc != 0) {
+        char detail[160], message[224];
+        regerror(rc, &re, detail, sizeof(detail));
+        snprintf(message, sizeof(message), "regex_match_i: invalid pattern: %s", detail);
+        fl_throw(fl_str_val(message));
+        return fl_nil();
+    }
+    rc = regexec(&re, str, 0, NULL, 0);
+    if (rc != 0 && rc != REG_NOMATCH) {
+        char detail[160], message[224];
+        regerror(rc, &re, detail, sizeof(detail));
+        regfree(&re);
+        snprintf(message, sizeof(message), "regex_match_i: match failed: %s", detail);
+        fl_throw(fl_str_val(message));
+        return fl_nil();
+    }
+    regfree(&re);
+    return fl_bool(rc == 0);
+}
+
 /* ── regex_find pattern str → 첫 매치 문자열 or nil ── */
 FLValue regex_find(FLValue pat_v, FLValue str_v) {
     const char* pat = fl_cstr(pat_v);

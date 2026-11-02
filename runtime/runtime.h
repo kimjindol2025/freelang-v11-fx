@@ -671,6 +671,7 @@ FLValue json_pretty(FLValue v);
 
 /* ── 정규식 (regex.c) ── */
 FLValue regex_match(FLValue pattern, FLValue str);
+FLValue regex_match_i(FLValue str, FLValue pattern);
 FLValue regex_find(FLValue pattern, FLValue str);
 FLValue regex_find_all(FLValue pattern, FLValue str);
 FLValue regex_groups(FLValue pattern, FLValue str);
