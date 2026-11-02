@@ -1,8 +1,8 @@
 (define doc {"present" 7 "unset" nil})
 
-(if (and (has-key? doc "present")
-         (not (has-key? doc "absent"))
-         (has-key? doc "unset")
-         (not (has-key? {} "anything")))
+(if (and (map-has-key? doc "present")
+         (not (map-has-key? doc "absent"))
+         (map-has-key? doc "unset")
+         (not (map-has-key? {} "anything")))
   (println "HAS_KEY_VALUES=PASS")
   (throw "HAS_KEY_VALUES=FAIL"))
