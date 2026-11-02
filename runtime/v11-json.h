@@ -53,22 +53,23 @@ static FLValue vj_value(VJson*p,unsigned depth){
     if(c=='"')return vj_string(p);
     if(c=='['||c=='{'){
         int object=c=='{',closing=object?'}':']';p->at++;vj_ws(p);
-        FLValue result=object?fl_map_new():fl_vec_new();
-        if(vj_peek(p)==closing){p->at++;return result;}
+        FLValue result=object?fl_map_new():fl_vec_builder_new();
+        if(vj_peek(p)==closing){p->at++;return object?result:fl_vec_builder_freeze(result);}
         while(!p->error){
             FLValue key=fl_nil();
             if(object){
-                if(vj_peek(p)!='"')return vj_bad(p,"quoted object key expected");
+                if(vj_peek(p)!='"'){vj_bad(p,"quoted object key expected");break;}
                 key=vj_string(p);if(p->error)break;vj_ws(p);
-                if(vj_peek(p)!=':')return vj_bad(p,"colon expected");p->at++;
+                if(vj_peek(p)!=':'){vj_bad(p,"colon expected");break;}p->at++;
             }
             FLValue value=vj_value(p,depth+1);if(p->error)break;
-            result=object?fl_map_set(result,key,value):fl_vec_push(result,value);
+            if(object)result=fl_map_set(result,key,value);else fl_vec_builder_push(result,value);
             vj_ws(p);c=vj_peek(p);
-            if(c==closing){p->at++;return result;}
-            if(c!=',')return vj_bad(p,"comma or closing delimiter expected");
+            if(c==closing){p->at++;return object?result:fl_vec_builder_freeze(result);}
+            if(c!=','){vj_bad(p,"comma or closing delimiter expected");break;}
             p->at++;vj_ws(p);
         }
+        if(!object){FLVector*builder=(FLVector*)result.obj;free(builder->data);free(builder);}
         return fl_nil();
     }
     if(vj_word(p,"null"))return fl_nil();
