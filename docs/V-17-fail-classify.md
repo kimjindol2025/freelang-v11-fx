@@ -135,11 +135,13 @@ The preserved evidence supports **5 broad observed failure families**: cumulativ
 
 ## Score
 
+The report commit `b41301c6a7d0f94831d32b47c1d83a8b95c42d69` was pushed to Forgejo (`origin`) and then GitHub (`github`). Immediately after both pushes, `git ls-remote` returned `b41301c6a7d0f94831d32b47c1d83a8b95c42d69` for `refs/heads/fix/raw-tcp-review` on both remotes.
+
 | Criterion | Result |
 |---|---|
 | 1/4: 71 rows with raw original first-error evidence | PARTIAL — all 71 result/time/source-size rows are present, but first error lines and exact phases are unavailable for many cases because V-16 logs were cleaned. |
 | 2/4: numeric relation between input size and timeouts | PASS — timeout and non-timeout distributions are compared above. |
 | 3/4: group all 28 non-timeout failures by same error wording | PARTIAL — 20 have a supported group; 8 original messages are unavailable. |
-| 4/4: judgment, report commit, Forgejo then GitHub, matching heads | PASS — final commit and both matching refs will be recorded after the ordered pushes. |
+| 4/4: judgment, report commit, Forgejo then GitHub, matching heads | PASS — commit `b41301c6a7d0f94831d32b47c1d83a8b95c42d69` was pushed in order and both refs matched afterward. |
 
 V17_SUMMARY=2/4
