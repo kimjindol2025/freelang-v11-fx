@@ -12,8 +12,13 @@ cleanup() {
 trap cleanup EXIT
 
 "$compiler" "$root/tests/native-bootstrap/raw-peer.fl" "$work/raw.c"
-sources=("$root"/runtime/{core,collection,io,math,error,process,json,aliases,user-fns,gc,http,raw_tcp,websocket,sqlite,mariadb,debug,http_client,regex,smtp,sse}.c)
-gcc -O2 -w -Werror=implicit-function-declaration -I "$root/runtime" -o "$work/raw" "$work/raw.c" "${sources[@]}" -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl
+cat >"$work/http-v11-stub.c" <<'STUB'
+#include "runtime.h"
+FLValue fl_v11_http(FLValue name, FLValue argv) { (void)name; (void)argv; return fl_nil(); }
+FLValue fl_v11_http_client(FLValue name, FLValue argv) { (void)name; (void)argv; return fl_nil(); }
+STUB
+sources=("$root"/runtime/{core,collection,io,math,error,process,json,aliases,user-fns,gc,http-stub,http_client-stub,raw_tcp,websocket,sqlite,mariadb,debug,regex,smtp,sse}.c)
+gcc -O2 -w -Werror=implicit-function-declaration -I "$root/runtime" -o "$work/raw" "$work/raw.c" "${sources[@]}" "$work/http-v11-stub.c" -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto
 
 run_one() {
   local port="$1" answer=''

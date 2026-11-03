@@ -98,6 +98,7 @@ typedef struct {
 FLValue fl_int(int64_t v);
 FLValue fl_float(double v);
 FLValue fl_str_val(const char* s);
+FLValue fl_str_val_n(const char* s, size_t len);
 FLValue fl_bool(bool v);
 FLValue fl_nil(void);
 

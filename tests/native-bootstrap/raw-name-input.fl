@@ -7,6 +7,7 @@
 (define started (fl-tcp-server-raw port handler-name "127.0.0.1"))
 (println (str "RAW_NAME_RESULT=" started))
 (if (= started "ok")
-  (dotimes i 30 (fl-tcp-yield 100))
+  (loop [i 0]
+    (if (< i 30) (do (fl-tcp-yield 100) (recur (+ i 1))) nil))
   nil)
 (fl-tcp-server-stop)

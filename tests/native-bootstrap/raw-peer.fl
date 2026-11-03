@@ -10,4 +10,5 @@
       nil))
   "127.0.0.1")
 
-(dotimes i 100 (fl-tcp-yield 100))
+(loop [i 0]
+  (if (< i 100) (do (fl-tcp-yield 100) (recur (+ i 1))) nil))

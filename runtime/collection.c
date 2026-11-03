@@ -415,7 +415,7 @@ FLValue get(FLValue obj, FLValue key) {
 FLValue length(FLValue obj) {
     if (obj.tag == FL_VECTOR) return fl_vec_len(obj);
     if (obj.tag == FL_MAP)    return fl_map_len(obj);
-    if (obj.tag == FL_STRING) return fl_int((int64_t)strlen(((FLString*)obj.obj)->data));
+    if (obj.tag == FL_STRING) return fl_int((int64_t)((FLString*)obj.obj)->len);
     return fl_int(0);
 }
 

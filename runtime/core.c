@@ -28,16 +28,20 @@ FLValue fl_float(double v) {
  * Arena 객체는 arena_end 후 재사용되므로 dangling 참조 주의.
  * → 요청 핸들러 외부(전역 define)는 malloc이 더 안전.
  */
-FLValue fl_str_val(const char* s) {
-    size_t len = strlen(s);
+FLValue fl_str_val_n(const char* s, size_t len) {
     size_t total = sizeof(FLString) + len + 1;
     FLString* obj = (FLString*)fl_arena_alloc(total);
     if (!obj) obj = malloc(total);   /* arena 없을 때 폴백 */
     obj->base.type = FL_STRING;
     obj->base.rc = 1;
     obj->len = (uint32_t)len;
-    memcpy(obj->data, s, len + 1);
+    if (len) memcpy(obj->data, s, len);
+    obj->data[len] = '\0';
     FLValue r; r.tag = FL_STRING; r.obj = (FLObject*)obj; return r;
+}
+
+FLValue fl_str_val(const char* s) {
+    return fl_str_val_n(s, strlen(s));
 }
 
 FLValue fl_bool(bool v) {

@@ -55,3 +55,5 @@
 - 배열형 loop 회귀: PASS
 - 라벨형 loop: 현재 FX AST 구조 범위 밖
 - `cgc-bin` 교체: 없음
+
+2026-11-03 V-8 / `b8fdb29b94eec109db245172237c2d5a55e4c001`: native Stage2/3/4 SHA-256은 `6a0d4e384a18834d4f0cb03c10460aade5bf05f999f5db981dd5dc275d313e7d`로 모두 일치했고 `CMP_2_3=0`, `CMP_3_4=0`이다. 직전 로그의 2026-09-27 기준 이후 `self/cgc-main.fl` 변경이 축적됐으며 이 기준 커밋에도 normalized `map-has-key-p` native dispatch 변경이 있다. 이번 raw_tcp/runtime 변경은 `self/cgc-main.fl`을 수정하지 않았다. Bootstrap에는 HTTP 호출이 없고 시스템 curl 개발 헤더가 없어 HTTP만 test stub으로 링크했다.

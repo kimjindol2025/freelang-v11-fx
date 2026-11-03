@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <netdb.h>
 #include <poll.h>
 #include <stdio.h>
@@ -45,14 +46,14 @@ static RawClient* raw_find(FLValue value) {
     return NULL;
 }
 
-static void raw_emit(const char* event, RawClient* client, const char* payload) {
+static void raw_emit(const char* event, RawClient* client, const char* payload, size_t payload_len) {
     char name[32];
     raw_name(client->id, name);
     FLValue handler = raw_handler;
     fl_heap_retain(handler);
     fl_arena_begin();
     FLValue args[5] = {
-        fl_str_val(event), fl_str_val(name), fl_str_val(payload),
+        fl_str_val(event), fl_str_val(name), fl_str_val_n(payload, payload_len),
         fl_str_val(client->address), fl_int(client->port)
     };
     fl_fn_call(handler, 5, args);
@@ -64,7 +65,7 @@ static void raw_close(RawClient* client) {
     if (client->fd < 0) return;
     int fd = client->fd;
     client->fd = -1;
-    raw_emit("close", client, "");
+    raw_emit("close", client, "", 0);
     close(fd);
 }
 
@@ -90,7 +91,8 @@ FLValue fl_tcp_server_raw(FLValue port, FLValue handler, FLValue host) {
         long parsed = strtol(source, &end, 10);
         if (source != end && !*end) port_number = parsed;
     }
-    if (raw_server >= 0 || port_number < 1 || port_number > 65535 ||
+    if (host.tag != FL_STRING || !host.obj || ((FLString*)host.obj)->len == 0 ||
+        raw_server >= 0 || port_number < 1 || port_number > 65535 ||
         handler.tag != FL_FN) return fl_str_val("error");
     char service[16];
     snprintf(service, sizeof(service), "%lld", port_number);
@@ -124,7 +126,8 @@ FLValue fl_tcp_write(FLValue connection, FLValue data) {
     FLString* text = (FLString*)data.obj;
     size_t sent = 0;
     while (sent < text->len) {
-        ssize_t n = send(client->fd, text->data + sent, text->len - sent, MSG_NOSIGNAL);
+        ssize_t n = send(client->fd, text->data + sent, text->len - sent,
+                         MSG_NOSIGNAL | MSG_DONTWAIT);
         if (n < 0 && errno == EINTR) continue;
         if (n <= 0) return fl_str_val("error");
         sent += (size_t)n;
@@ -145,8 +148,16 @@ FLValue fl_tcp_peer_port(FLValue connection) {
 }
 
 FLValue fl_tcp_yield(FLValue timeout) {
-    int milliseconds = timeout.tag == FL_INT && timeout.i > 0 ?
-        (timeout.i > 60000 ? 60000 : (int)timeout.i) : 0;
+    double requested = timeout.tag == FL_INT ? (double)timeout.i :
+        (timeout.tag == FL_FLOAT ? timeout.f : 0.0);
+    int milliseconds = 0;
+    if (isfinite(requested) && requested > 0.0) {
+        if (requested >= 60000.0) milliseconds = 60000;
+        else {
+            milliseconds = (int)requested;
+            if ((double)milliseconds < requested) milliseconds++;
+        }
+    }
     if (raw_server < 0) {
         poll(NULL, 0, milliseconds);
         return fl_int(0);
@@ -188,9 +199,7 @@ FLValue fl_tcp_yield(FLValue timeout) {
                 continue;
             }
             client->port = atoi(service);
-            struct timeval deadline = {.tv_sec = 2};
-            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &deadline, sizeof(deadline));
-            raw_emit("connect", client, "");
+            raw_emit("connect", client, "", 0);
             dispatched++;
         } else {
             RawClient* client = slots[i];
@@ -198,8 +207,8 @@ FLValue fl_tcp_yield(FLValue timeout) {
             char data[4097];
             ssize_t n = recv(client->fd, data, sizeof(data) - 1, 0);
             if (n > 0) {
-                data[n] = 0; /* shortcut: text payloads only; add byte buffers for binary protocols. */
-                raw_emit("data", client, data);
+                data[n] = 0;
+                raw_emit("data", client, data, (size_t)n);
                 dispatched++;
             } else if (n == 0 || (errno != EINTR && errno != EAGAIN)) {
                 raw_close(client);
