@@ -12,11 +12,14 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 #define RAW_CLIENTS 64
+#define RAW_SEND_IDLE_TIMEOUT_MS 30000
 typedef struct {
     int fd;
+    int writing;
     unsigned long id;
     char address[NI_MAXHOST];
     int port;
@@ -51,13 +54,13 @@ static void raw_emit(const char* event, RawClient* client, const char* payload, 
     raw_name(client->id, name);
     FLValue handler = raw_handler;
     fl_heap_retain(handler);
-    fl_arena_begin();
+    void* previous = fl_arena_scope_enter();
     FLValue args[5] = {
         fl_str_val(event), fl_str_val(name), fl_str_val_n(payload, payload_len),
         fl_str_val(client->address), fl_int(client->port)
     };
     fl_fn_call(handler, 5, args);
-    fl_arena_end();
+    fl_arena_scope_leave(previous);
     fl_heap_release(handler);
 }
 
@@ -120,19 +123,43 @@ FLValue fl_tcp_server_raw(FLValue port, FLValue handler, FLValue host) {
     return fl_str_val("ok");
 }
 
+static long long raw_now_ms(void) {
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return 0;
+    return (long long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+static int raw_yield_once(int milliseconds, RawClient* writing);
+
 FLValue fl_tcp_write(FLValue connection, FLValue data) {
     RawClient* client = raw_find(connection);
-    if (!client || data.tag != FL_STRING) return fl_str_val("error");
+    if (!client || data.tag != FL_STRING || client->writing) return fl_str_val("error");
     FLString* text = (FLString*)data.obj;
     size_t sent = 0;
+    long long last_progress = raw_now_ms();
+    client->writing = 1;
     while (sent < text->len) {
         ssize_t n = send(client->fd, text->data + sent, text->len - sent,
                          MSG_NOSIGNAL | MSG_DONTWAIT);
+        if (n > 0) {
+            sent += (size_t)n;
+            last_progress = raw_now_ms();
+            continue;
+        }
         if (n < 0 && errno == EINTR) continue;
-        if (n <= 0) return fl_str_val("error");
-        sent += (size_t)n;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            long long remaining = RAW_SEND_IDLE_TIMEOUT_MS - (raw_now_ms() - last_progress);
+            if (remaining <= 0) break;
+            raw_yield_once((int)remaining, client);
+            if (client->fd < 0) break;
+            continue;
+        }
+        break;
     }
-    return fl_str_val("ok");
+    client->writing = 0;
+    if (sent == text->len) return fl_str_val("ok");
+    raw_close(client);
+    return fl_str_val("error");
 }
 
 FLValue fl_tcp_drop(FLValue connection) {
@@ -147,34 +174,23 @@ FLValue fl_tcp_peer_port(FLValue connection) {
     return client ? fl_int(client->port) : fl_nil();
 }
 
-FLValue fl_tcp_yield(FLValue timeout) {
-    double requested = timeout.tag == FL_INT ? (double)timeout.i :
-        (timeout.tag == FL_FLOAT ? timeout.f : 0.0);
-    int milliseconds = 0;
-    if (isfinite(requested) && requested > 0.0) {
-        if (requested >= 60000.0) milliseconds = 60000;
-        else {
-            milliseconds = (int)requested;
-            if ((double)milliseconds < requested) milliseconds++;
-        }
-    }
+static int raw_yield_once(int milliseconds, RawClient* writing) {
     if (raw_server < 0) {
         poll(NULL, 0, milliseconds);
-        return fl_int(0);
+        return 0;
     }
     struct pollfd fds[RAW_CLIENTS + 1];
     RawClient* slots[RAW_CLIENTS + 1];
     int count = 0;
-    if (raw_server >= 0) {
-        fds[count] = (struct pollfd){.fd = raw_server, .events = POLLIN};
-        slots[count++] = NULL;
-    }
+    fds[count] = (struct pollfd){.fd = raw_server, .events = POLLIN};
+    slots[count++] = NULL;
     for (int i = 0; i < RAW_CLIENTS; i++) if (raw_clients[i].fd >= 0) {
-        fds[count] = (struct pollfd){.fd = raw_clients[i].fd, .events = POLLIN};
+        short events = &raw_clients[i] == writing ? POLLOUT : POLLIN;
+        fds[count] = (struct pollfd){.fd = raw_clients[i].fd, .events = events};
         slots[count++] = &raw_clients[i];
     }
     int ready = poll(fds, (nfds_t)count, milliseconds);
-    if (ready <= 0) return fl_int(0);
+    if (ready <= 0) return 0;
     int dispatched = 0;
     for (int i = 0; i < count; i++) {
         if (!fds[i].revents) continue;
@@ -189,6 +205,7 @@ FLValue fl_tcp_yield(FLValue timeout) {
             if (slot < 0) { close(fd); continue; }
             RawClient* client = &raw_clients[slot];
             client->fd = fd;
+            client->writing = 0;
             client->id = raw_next_id++;
             char service[NI_MAXSERV];
             if (getnameinfo((struct sockaddr*)&peer, length, client->address,
@@ -203,7 +220,7 @@ FLValue fl_tcp_yield(FLValue timeout) {
             dispatched++;
         } else {
             RawClient* client = slots[i];
-            if (client->fd < 0) continue;
+            if (client->fd < 0 || client == writing) continue;
             char data[4097];
             ssize_t n = recv(client->fd, data, sizeof(data) - 1, 0);
             if (n > 0) {
@@ -216,5 +233,19 @@ FLValue fl_tcp_yield(FLValue timeout) {
             }
         }
     }
-    return fl_int(dispatched);
+    return dispatched;
+}
+
+FLValue fl_tcp_yield(FLValue timeout) {
+    double requested = timeout.tag == FL_INT ? (double)timeout.i :
+        (timeout.tag == FL_FLOAT ? timeout.f : 0.0);
+    int milliseconds = 0;
+    if (isfinite(requested) && requested > 0.0) {
+        if (requested >= 60000.0) milliseconds = 60000;
+        else {
+            milliseconds = (int)requested;
+            if ((double)milliseconds < requested) milliseconds++;
+        }
+    }
+    return fl_int(raw_yield_once(milliseconds, NULL));
 }

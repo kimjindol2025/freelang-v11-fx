@@ -107,15 +107,15 @@ else cat "$work/large-response.log"; check LARGE_RESPONSE FAIL; fi
 port=$((40000 + RANDOM % 20000))
 if start_server slow "$port" "$work/slow.log"; then
   start_ns=$(date +%s%N)
-  FX_RAW_TEST_PORT="$port" timeout 6 bash -c 'exec 3<>/dev/tcp/127.0.0.1/$FX_RAW_TEST_PORT; sleep 4' &
+  FX_RAW_TEST_PORT="$port" timeout 40 bash -c 'exec 3<>/dev/tcp/127.0.0.1/$FX_RAW_TEST_PORT; sleep 31' &
   client_pid=$!
-  for _ in {1..80}; do
+  for _ in {1..1400}; do
     grep -q '^RAW_SLOW_WRITE_RESULT=' "$work/slow.log" && break
     sleep 0.025
   done
   elapsed_ms=$(( ($(date +%s%N) - start_ns) / 1000000 ))
   result="$(sed -n 's/^RAW_SLOW_WRITE_RESULT=//p' "$work/slow.log" | head -n 1)"
-  if [[ -n "$result" ]] && (( elapsed_ms < 2000 )); then check SLOW_CLIENT PASS; else check SLOW_CLIENT FAIL; fi
+  if [[ "$result" == error ]] && (( elapsed_ms >= 29000 && elapsed_ms < 40000 )); then check SLOW_CLIENT PASS; else check SLOW_CLIENT FAIL; fi
   kill "$client_pid" 2>/dev/null || true
   wait "$client_pid" 2>/dev/null || true
   client_pid=''
