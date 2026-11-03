@@ -99,10 +99,18 @@ for name in stage0 stage1 stage2 stage3; do
   echo "${name^^}_SHA=$(sha256sum "$file" | awk '{print $1}')"
 done
 
-residual="$(pgrep -af 'stage[0-3]-bin|array-loop-bin' | rg -v 'pgrep|rg ' || true)"
+residual="$(
+  {
+    pgrep -x stage0-bin || true
+    pgrep -x stage1-bin || true
+    pgrep -x stage2-bin || true
+    pgrep -x stage3-bin || true
+    pgrep -x array-loop-bin || true
+  } | sort -u
+)"
 if [[ -n "$residual" ]]; then
   echo RESIDUAL_PROCESSES=FAIL
-  while read -r pid _; do
+  while read -r pid; do
     [[ "$pid" =~ ^[0-9]+$ ]] && ps -p "$pid" -o pid=,ppid=,stat=,comm=
   done <<< "$residual"
   exit 1
