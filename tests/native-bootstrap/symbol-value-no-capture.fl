@@ -1,0 +1,5 @@
+(defn cgc-symbol-target [] 73)
+(defn make-cgc-symbol-closure [] (fn [] cgc-symbol-target))
+(define cgc-symbol-value (make-cgc-symbol-closure))
+(define cgc-symbol-call (cgc-symbol-value))
+(println (cgc-symbol-call))

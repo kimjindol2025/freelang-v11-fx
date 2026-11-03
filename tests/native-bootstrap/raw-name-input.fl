@@ -1,0 +1,12 @@
+(define port (str-to-num (env-get "FX_RAW_TEST_PORT")))
+(define handler-name (env-get "FX_RAW_HANDLER_NAME"))
+
+(defn raw-name-probe [event conn payload address]
+  (println "RAW_NAME_CALLBACK=CALLED"))
+
+(define started (fl-tcp-server-raw port handler-name "127.0.0.1"))
+(println (str "RAW_NAME_RESULT=" started))
+(if (= started "ok")
+  (dotimes i 30 (fl-tcp-yield 100))
+  nil)
+(fl-tcp-server-stop)

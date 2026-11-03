@@ -1,0 +1,24 @@
+(define mode (env-get "FX_RAW_PROBE_MODE"))
+(define port (str-to-num (env-get "FX_RAW_TEST_PORT")))
+(define big-response (if (= mode "slow") (str-repeat "x" 16777216) ""))
+
+(defn raw-boundary-handler [event conn payload address peer-port]
+  (if (= event "connect")
+    (if (= mode "slow")
+      (println (str "RAW_SLOW_WRITE_RESULT=" (fl-tcp-write conn big-response)))
+      nil)
+    (if (= event "data")
+      (println (str "RAW_DATA_LEN=" (length payload)))
+      nil)))
+
+(if (= mode "float-yield")
+  (dotimes i 10 (fl-tcp-yield 250.5))
+  (if (= mode "empty-host")
+    (println (str "RAW_EMPTY_HOST_RESULT="
+                  (fl-tcp-server-raw port raw-boundary-handler "")))
+    (let [started (fl-tcp-server-raw port raw-boundary-handler "127.0.0.1")]
+      (println (str "RAW_SERVER_RESULT=" started))
+      (if (= started "ok")
+        (dotimes i 50 (fl-tcp-yield 100))
+        nil)
+      (fl-tcp-server-stop))))

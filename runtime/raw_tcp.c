@@ -2,7 +2,6 @@
 #define _GNU_SOURCE
 #include "runtime.h"
 #include <arpa/inet.h>
-#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -24,8 +23,6 @@ typedef struct {
 
 static int raw_server = -1;
 static FLValue raw_handler;
-typedef FLValue (*RawHandler4)(FLValue, FLValue, FLValue, FLValue);
-static RawHandler4 raw_named_handler;
 static RawClient raw_clients[RAW_CLIENTS];
 static unsigned long raw_next_id = 1;
 
@@ -58,11 +55,7 @@ static void raw_emit(const char* event, RawClient* client, const char* payload) 
         fl_str_val(event), fl_str_val(name), fl_str_val(payload),
         fl_str_val(client->address), fl_int(client->port)
     };
-    if (handler.tag == FL_FN) {
-        fl_fn_call(handler, 5, args);
-    } else {
-        raw_named_handler(args[0], args[1], args[2], args[3]);
-    }
+    fl_fn_call(handler, 5, args);
     fl_arena_end();
     fl_heap_release(handler);
 }
@@ -83,7 +76,6 @@ FLValue fl_tcp_server_stop(void) {
     close(server);
     if (raw_handler.tag >= FL_STRING) fl_heap_release(raw_handler);
     raw_handler = fl_nil();
-    raw_named_handler = NULL;
     return fl_str_val("ok");
 }
 
@@ -99,17 +91,7 @@ FLValue fl_tcp_server_raw(FLValue port, FLValue handler, FLValue host) {
         if (source != end && !*end) port_number = parsed;
     }
     if (raw_server >= 0 || port_number < 1 || port_number > 65535 ||
-        (handler.tag != FL_FN && handler.tag != FL_STRING)) return fl_str_val("error");
-    if (handler.tag == FL_STRING) {
-        char symbol[256];
-        const char* source = raw_text(handler);
-        size_t i = 0;
-        for (; source[i] && i < sizeof(symbol) - 1; i++)
-            symbol[i] = source[i] == '-' ? '_' : source[i];
-        symbol[i] = 0;
-        raw_named_handler = (RawHandler4)dlsym(RTLD_DEFAULT, symbol);
-        if (!raw_named_handler) return fl_str_val("error");
-    }
+        handler.tag != FL_FN) return fl_str_val("error");
     char service[16];
     snprintf(service, sizeof(service), "%lld", port_number);
     struct addrinfo hints = {.ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM};
