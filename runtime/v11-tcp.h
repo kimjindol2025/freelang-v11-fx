@@ -4,6 +4,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <poll.h>
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
@@ -20,10 +22,11 @@ static VTServer vt_servers[VT_SERVERS];static VTClient vt_clients[VT_CLIENTS];
 static VTClose vt_closes[VT_CLOSES];static unsigned vt_close_head,vt_close_count,vt_live;
 static VTError vt_errors[VT_ERRORS];static unsigned vt_error_count;
 static uint64_t vt_generation,vt_id;static size_t vt_output;
+static int vt_outbound[VT_CLIENTS];
 static pthread_mutex_t vt_mutex=PTHREAD_MUTEX_INITIALIZER;
 static pthread_once_t vt_once=PTHREAD_ONCE_INIT;
 static int64_t vt_now(void){struct timespec value;if(clock_gettime(CLOCK_MONOTONIC,&value))return -1;return(int64_t)value.tv_sec*1000+value.tv_nsec/1000000;}
-static void vt_init(void){signal(SIGPIPE,SIG_IGN);}
+static void vt_init(void){signal(SIGPIPE,SIG_IGN);for(int i=0;i<VT_CLIENTS;i++)vt_outbound[i]=-1;}
 static void vt_signal(void){(void)fl_schedule_wake_fd();if(timer_pipe[1]>=0){char byte=1;(void)write(timer_pipe[1],&byte,1);}}
 static void vt_error_locked(const char*source,const char*message){
  unsigned index=vt_error_count<VT_ERRORS?vt_error_count++:VT_ERRORS-1;
@@ -51,7 +54,8 @@ static void vt_stop_locked(int slot,int notify){
  close(s->fd);fl_heap_release(s->handler);if(s->ctx)SSL_CTX_free(s->ctx);memset(s,0,sizeof(*s));
 }
 void fl_io_shutdown(void){
- pthread_mutex_lock(&vt_mutex);for(int i=0;i<VT_SERVERS;i++)if(vt_servers[i].used)vt_stop_locked(i,0);
+ pthread_once(&vt_once,vt_init);pthread_mutex_lock(&vt_mutex);for(int i=0;i<VT_SERVERS;i++)if(vt_servers[i].used)vt_stop_locked(i,0);
+ for(int i=0;i<VT_CLIENTS;i++)if(vt_outbound[i]>=0){close(vt_outbound[i]);vt_outbound[i]=-1;}
  while(vt_close_count){VTClose*event=&vt_closes[vt_close_head];fl_heap_release(event->handler);memset(event,0,sizeof(*event));vt_close_head=(vt_close_head+1)%VT_CLOSES;vt_close_count--;}
  pthread_mutex_unlock(&vt_mutex);
 }
@@ -181,8 +185,33 @@ static int vt_poll(int wait_ms,int external,int*external_events){
 }
 int fl_io_poll(int wait_ms){return vt_poll(wait_ms,-1,NULL);}
 int fl_io_wait(int fd,int wait_ms){int events=0;(void)vt_poll(wait_ms,fd,&events);return events;}
+static int vt_outbound_owned(int fd){for(int i=0;i<VT_CLIENTS;i++)if(vt_outbound[i]==fd)return 1;return 0;}
+static FLValue vt_outbound_free_port(void){int fd=socket(AF_INET,SOCK_STREAM|SOCK_CLOEXEC,0);if(fd<0)return fl_nil();struct sockaddr_in address={0};address.sin_family=AF_INET;address.sin_addr.s_addr=htonl(INADDR_LOOPBACK);address.sin_port=0;if(bind(fd,(struct sockaddr*)&address,sizeof address)<0){close(fd);return fl_nil();}socklen_t size=sizeof address;if(getsockname(fd,(struct sockaddr*)&address,&size)<0){close(fd);return fl_nil();}int port=ntohs(address.sin_port);close(fd);return fl_int(port);}
+static int64_t vt_outbound_number(FLValue value,int64_t fallback){FLValue number=fl_v11_to_number(value);if(number.tag==FL_FLOAT)return(int64_t)number.f;if(number.tag==FL_INT)return number.i;return fallback;}
+static FLValue vt_outbound_open(FLVector*args){
+ if(args->len<2||args->data[0].tag!=FL_STRING||!args->data[0].obj)return fl_nil();
+ FLString*host_value=(FLString*)args->data[0].obj;const char*host=host_value->data;int64_t port=vt_outbound_number(args->data[1],-1);int64_t timeout=args->len>2?vt_outbound_number(args->data[2],3000):3000;
+ if(!host_value->len||memchr(host,0,host_value->len)||port<1||port>65535||timeout<1||timeout>600000)return fl_nil();
+ char service[16];snprintf(service,sizeof service,"%u",(unsigned)port);struct addrinfo hints={0},*list=NULL;hints.ai_family=AF_UNSPEC;hints.ai_socktype=SOCK_STREAM;if(getaddrinfo(host,service,&hints,&list)!=0)return fl_nil();
+ int connected=-1;for(struct addrinfo*ai=list;ai;ai=ai->ai_next){int fd=socket(ai->ai_family,ai->ai_socktype|SOCK_CLOEXEC,ai->ai_protocol);if(fd<0)continue;int flags=fcntl(fd,F_GETFL,0);if(flags<0||fcntl(fd,F_SETFL,flags|O_NONBLOCK)<0){close(fd);continue;}int result=connect(fd,ai->ai_addr,ai->ai_addrlen);if(result<0&&errno==EINPROGRESS){struct pollfd p={.fd=fd,.events=POLLOUT};do{result=poll(&p,1,(int)timeout);}while(result<0&&errno==EINTR);if(result>0){int error=0;socklen_t size=sizeof error;if(getsockopt(fd,SOL_SOCKET,SO_ERROR,&error,&size)<0||error)result=-1;else result=0;}else result=-1;}if(result==0){(void)fcntl(fd,F_SETFL,flags);struct timeval tv={.tv_sec=(time_t)(timeout/1000),.tv_usec=(suseconds_t)((timeout%1000)*1000)};(void)setsockopt(fd,SOL_SOCKET,SO_RCVTIMEO,&tv,sizeof tv);(void)setsockopt(fd,SOL_SOCKET,SO_SNDTIMEO,&tv,sizeof tv);connected=fd;break;}close(fd);}freeaddrinfo(list);if(connected<0)return fl_nil();
+ pthread_once(&vt_once,vt_init);pthread_mutex_lock(&vt_mutex);int slot=-1;for(int i=0;i<VT_CLIENTS;i++)if(vt_outbound[i]<0){slot=i;break;}if(slot>=0)vt_outbound[slot]=connected;pthread_mutex_unlock(&vt_mutex);if(slot<0){close(connected);return fl_nil();}return fl_int(connected);
+}
+static FLValue vt_outbound_write(FLVector*args){
+ if(args->len<2||args->data[0].tag!=FL_INT||args->data[1].tag!=FL_STRING||!args->data[1].obj)return fl_str_val("error");int fd=(int)args->data[0].i;pthread_once(&vt_once,vt_init);pthread_mutex_lock(&vt_mutex);int owned=vt_outbound_owned(fd);pthread_mutex_unlock(&vt_mutex);if(!owned)return fl_str_val("not-found");FLString*data=(FLString*)args->data[1].obj;size_t sent=0;while(sent<data->len){ssize_t n=send(fd,data->data+sent,data->len-sent,MSG_NOSIGNAL);if(n<0&&errno==EINTR)continue;if(n<=0)return fl_str_val("error");sent+=(size_t)n;}return fl_str_val("ok");
+}
+static FLValue vt_outbound_read_line(FLVector*args){
+ if(args->len<1||args->data[0].tag!=FL_INT)return fl_nil();int fd=(int)args->data[0].i;int64_t timeout=args->len>1?vt_outbound_number(args->data[1],3000):3000;if(timeout<1||timeout>600000)return fl_nil();pthread_once(&vt_once,vt_init);pthread_mutex_lock(&vt_mutex);int owned=vt_outbound_owned(fd);pthread_mutex_unlock(&vt_mutex);if(!owned)return fl_nil();int64_t deadline=vt_now()+timeout;size_t used=0,capacity=256;char*line=malloc(capacity);if(!line)return fl_nil();for(;;){int64_t left=deadline-vt_now();if(left<=0){free(line);return fl_nil();}struct pollfd p={.fd=fd,.events=POLLIN};int ready;do{ready=poll(&p,1,left>2147483647?2147483647:(int)left);}while(ready<0&&errno==EINTR);if(ready<=0){free(line);return fl_nil();}char ch;ssize_t n=recv(fd,&ch,1,0);if(n<0&&errno==EINTR)continue;if(n<=0){free(line);return fl_nil();}if(ch=='\n')break;if(used>=1024*1024){free(line);return fl_nil();}if(used+1>=capacity){capacity*=2;char*next=realloc(line,capacity);if(!next){free(line);return fl_nil();}line=next;}line[used++]=ch;}line[used]='\0';FLValue result=fl_str_val(line);free(line);return result;
+}
+static FLValue vt_outbound_close(FLVector*args){
+ if(args->len<1||args->data[0].tag!=FL_INT)return fl_bool(false);int fd=(int)args->data[0].i;pthread_once(&vt_once,vt_init);pthread_mutex_lock(&vt_mutex);int slot=-1;for(int i=0;i<VT_CLIENTS;i++)if(vt_outbound[i]==fd){slot=i;break;}if(slot>=0)vt_outbound[slot]=-1;pthread_mutex_unlock(&vt_mutex);if(slot<0)return fl_bool(false);return fl_bool(close(fd)==0);
+}
 FLValue fl_v11_io(FLValue name,FLValue argv){
  const char*op=vt_bytes(name);FLVector*args=(FLVector*)argv.obj;size_t n=args->len;FLValue a=n?args->data[0]:fl_nil(),b=n>1?args->data[1]:fl_nil();
+ if(!strcmp(op,"tcp-client-free-port"))return vt_outbound_free_port();
+ if(!strcmp(op,"tcp-client-open"))return vt_outbound_open(args);
+ if(!strcmp(op,"tcp-client-write"))return vt_outbound_write(args);
+ if(!strcmp(op,"tcp-client-read-line"))return vt_outbound_read_line(args);
+ if(!strcmp(op,"tcp-client-close"))return vt_outbound_close(args);
  if(!strcmp(op,"fl-error-queue-size")){pthread_mutex_lock(&vt_mutex);unsigned count=vt_error_count;pthread_mutex_unlock(&vt_mutex);return fl_int(count);}
  if(!strcmp(op,"fl-error-drain")){
   VTError errors[VT_ERRORS];pthread_mutex_lock(&vt_mutex);unsigned count=vt_error_count;memcpy(errors,vt_errors,count*sizeof(*errors));vt_error_count=0;pthread_mutex_unlock(&vt_mutex);
