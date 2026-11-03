@@ -2,6 +2,9 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+if [[ "${FREELANG_VERIFY_ALL_CHILD:-0}" != 1 ]]; then
+  exec bash "$ROOT_DIR/scripts/verify-all.sh" --bootstrap "$@"
+fi
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT_DIR/runtime}"
 CGC_MAIN="${CGC_MAIN:-$ROOT_DIR/self/cgc-main.fl}"
 NATIVE_PATH="/usr/bin:/bin"

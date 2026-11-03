@@ -11,6 +11,9 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+if [[ "${FREELANG_VERIFY_ALL_CHILD:-0}" != 1 ]]; then
+  exec bash "$ROOT_DIR/scripts/verify-all.sh" --fixpoint "$@"
+fi
 CGC_MAIN="${CGC_MAIN:-${1:-$ROOT_DIR/self/cgc-main.fl}}"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT_DIR/runtime}"
 TIMEOUT_SECONDS="${FIXPOINT_TIMEOUT_SECONDS:-180}"
