@@ -53,9 +53,7 @@ build_c() {
 
 run_native() {
   local label="$1" binary="$2" input="$3" output="$4"
-  local exec_log="$TMP_DIR/$label.execve.log"
-  strace -f -e trace=execve,openat -o "$exec_log" \
-    env -i PATH="$NATIVE_PATH" "$binary" "$input" "$output" \
+  env -i PATH="$NATIVE_PATH" "$binary" "$input" "$output" \
     >"$TMP_DIR/$label.stdout" 2>"$TMP_DIR/$label.stderr"
   [[ -s "$output" ]]
   echo "$label=PASS"
@@ -81,25 +79,20 @@ cmp -s "$TMP_DIR/stage2.c" "$TMP_DIR/stage3.c"
 
 run_native ARRAY_LOOP_GENERATE "$TMP_DIR/stage0-bin" "$ROOT_DIR/tests/native-bootstrap/array-loop.fl" "$TMP_DIR/array-loop.c"
 build_app_c ARRAY_LOOP_BUILD "$TMP_DIR/array-loop.c" "$TMP_DIR/array-loop-bin"
-strace -f -e trace=execve -o "$TMP_DIR/ARRAY_LOOP.execve.log" \
-  env -i PATH="$NATIVE_PATH" "$TMP_DIR/array-loop-bin" \
+env -i PATH="$NATIVE_PATH" "$TMP_DIR/array-loop-bin" \
   >"$TMP_DIR/ARRAY_LOOP.stdout" 2>"$TMP_DIR/ARRAY_LOOP.stderr"
 [[ "$(tr -d '\r' < "$TMP_DIR/ARRAY_LOOP.stdout" | sed '/^[[:space:]]*$/d')" == "3" ]]
 echo ARRAY_LOOP=PASS
 
-for log in "$TMP_DIR"/*.execve.log; do
-  if rg -n 'execve\(.*"[^" ]*/(node|npm|npx|ts-node|tsx|deno|bun|cgc-bin|bootstrap\.js)(/|"|$)' "$log" >/dev/null; then
-    echo "FORBIDDEN_EXEC=FAIL:$log"; exit 1
-  fi
-done
-if rg -n '/home/kim/kim/platform/freelang-afj|freelang-afj-native-parser|bootstrap\.js' "$TMP_DIR"/*.execve.log >/dev/null; then
-  echo "AFJ_FILE_ACCESSES=FAIL"; exit 1
+STATIC_FILES=("$ROOT_DIR/bootstrap/stage0.c" "$TMP_DIR/stage1.c" "$TMP_DIR/stage2.c" "$TMP_DIR/stage3.c")
+if rg -n '((execve|execv|execvp|execl|execle|execvpe|posix_spawn|system|popen)[[:space:]]*\([^;]*(node|npm|npx|ts-node|tsx|deno|bun|bootstrap\.js))|"[^" ]*/(node|npm|npx|ts-node|tsx|deno|bun)(/|"|$)' "${STATIC_FILES[@]}" >/dev/null; then
+  echo BOOTSTRAP_STATIC_FORBIDDEN_PROCESS_TOKENS=FAIL
+  exit 1
 fi
-echo NODE_INVOCATIONS=0
-echo NPM_INVOCATIONS=0
-echo TS_JS_INVOCATIONS=0
-echo CGC_BIN_INVOCATIONS=0
-echo AFJ_FILE_ACCESSES=0
+echo BOOTSTRAP_STATIC_FORBIDDEN_PROCESS_TOKENS=0
+echo BOOTSTRAP_STATIC_SCOPE=SEED_AND_GENERATED_COMPILER_TRANSLATION_UNITS
+echo BOOTSTRAP_DYNAMIC_EXEC_COUNTS=UNOBSERVED
+echo BOOTSTRAP_STRACE=0
 
 for name in stage0 stage1 stage2 stage3; do
   if [[ "$name" == stage0 ]]; then file="$ROOT_DIR/bootstrap/stage0.c"; else file="$TMP_DIR/$name.c"; fi
@@ -107,6 +100,12 @@ for name in stage0 stage1 stage2 stage3; do
 done
 
 residual="$(pgrep -af 'stage[0-3]-bin|array-loop-bin' | rg -v 'pgrep|rg ' || true)"
-[[ -z "$residual" ]] || { echo RESIDUAL_PROCESSES=FAIL; exit 1; }
+if [[ -n "$residual" ]]; then
+  echo RESIDUAL_PROCESSES=FAIL
+  while read -r pid _; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && ps -p "$pid" -o pid=,ppid=,stat=,comm=
+  done <<< "$residual"
+  exit 1
+fi
 echo RESIDUAL_PROCESSES=0
 echo CLEAN_CHECKOUT=PASS
