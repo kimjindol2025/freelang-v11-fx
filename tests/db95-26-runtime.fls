@@ -1,0 +1,4 @@
+(if (= (buf-from-binary (buf-to-binary "AP+AQUI=")) "AP+AQUI=") (println "BINARY_NORMAL_PASS") (throw "binary normal"))
+(if (= (buf-from-binary (buf-to-binary "")) "") (println "BINARY_EMPTY_PASS") (throw "binary empty"))
+(if (= (file_mtime (env-get "DB95_MTIME_FIXTURE")) 1700000000000) (println "MTIME_NORMAL_PASS") (throw "mtime normal"))
+(if (= (file_mtime (str (env-get "DB95_MTIME_FIXTURE") ".missing")) 0) (println "MTIME_MISSING_PASS") (throw "mtime missing"))

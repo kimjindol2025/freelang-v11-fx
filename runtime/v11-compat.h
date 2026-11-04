@@ -827,6 +827,17 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
     if(IS("identity"))return ARG(0);
+    if(IS("file_mtime"))return _fl_file_modified(fl_v11_utf8_string(ARG(0)));
+    if(IS("buf-to-binary")){
+        TBuffer bytes=v11_buf_decode(ARG(0),op);
+        FLValue value=fl_v11_latin1_decode(bytes.p?bytes.p:"",bytes.n);
+        free(bytes.p);return value;
+    }
+    if(IS("buf-from-binary")){
+        FLValue bytes=fl_v11_latin1_encode(ARG(0));
+        FLString*raw=(FLString*)bytes.obj;
+        return v11_buf_encode(raw->data,raw->len);
+    }
     if(IS("buf-str")){
         if(n!=1||ARG(0).tag!=FL_STRING){
             fl_throw(fl_make_error("TypeError","buf-str: exactly one string argument required"));
