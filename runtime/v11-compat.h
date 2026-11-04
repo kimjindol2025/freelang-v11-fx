@@ -1067,21 +1067,42 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         if(n!=2){v11_buf_error("TypeError",op,"exactly two numeric arguments required");return fl_nil();}
         return fl_mod(ARG(0),ARG(1));
     }
-    if(IS("bit-and"))return fl_bit_and(ARG(0),ARG(1));
-    if(IS("bit-or"))return fl_bit_or(ARG(0),ARG(1));
-    if(IS("bit-shl"))return fl_bit_shl(ARG(0),ARG(1));
-    if(IS("bit-shr"))return fl_bit_shr(ARG(0),ARG(1));
-    if(IS("bit-xor"))return fl_bit_xor(ARG(0),ARG(1));
+    if(IS("bit-and")||IS("bit-or")||IS("bit-shl")||IS("bit-shr")||IS("bit-xor")){
+        if(n!=2||!t_numeric(ARG(0))||!t_numeric(ARG(1))){v11_buf_error("TypeError",op,"two integer arguments required");return fl_nil();}
+        double x=t_double(ARG(0)),y=t_double(ARG(1));
+        if(!isfinite(x)||!isfinite(y)||trunc(x)!=x||trunc(y)!=y||
+           x< -9223372036854775808.0||x>=9223372036854775808.0||
+           y< -9223372036854775808.0||y>=9223372036854775808.0){
+            v11_buf_error("RangeError",op,"finite 64-bit integer arguments required");return fl_nil();
+        }
+        FLValue lhs=fl_int((int64_t)x),rhs=fl_int((int64_t)y);
+        if(IS("bit-and"))return fl_bit_and(lhs,rhs);
+        if(IS("bit-or"))return fl_bit_or(lhs,rhs);
+        if(IS("bit-shl"))return fl_bit_shl(lhs,rhs);
+        if(IS("bit-shr"))return fl_bit_shr(lhs,rhs);
+        return fl_bit_xor(lhs,rhs);
+    }
     if(IS("bit-not")){
-        if(n!=1||ARG(0).tag!=FL_INT){v11_buf_error("TypeError",op,"one integer argument required");return fl_nil();}
+        if(n!=1||!t_numeric(ARG(0))||!isfinite(t_double(ARG(0)))||
+           trunc(t_double(ARG(0)))!=t_double(ARG(0))||
+           t_double(ARG(0))< -9223372036854775808.0||t_double(ARG(0))>=9223372036854775808.0){
+            v11_buf_error("TypeError",op,"one finite integer argument required");return fl_nil();
+        }
         FLValue mask=fl_int(4294967295LL);
-        return fl_bit_xor(fl_bit_and(ARG(0),mask),mask);
+        FLValue value=fl_int((int64_t)t_double(ARG(0)));
+        return fl_bit_xor(fl_bit_and(value,mask),mask);
     }
     if(IS("bit-rotate-left")){
-        if(n!=2||ARG(0).tag!=FL_INT||ARG(1).tag!=FL_INT){v11_buf_error("TypeError",op,"two integer arguments required");return fl_nil();}
+        if(n!=2||!t_numeric(ARG(0))||!t_numeric(ARG(1))||
+           !isfinite(t_double(ARG(0)))||!isfinite(t_double(ARG(1)))||
+           trunc(t_double(ARG(0)))!=t_double(ARG(0))||trunc(t_double(ARG(1)))!=t_double(ARG(1))||
+           t_double(ARG(0))< -9223372036854775808.0||t_double(ARG(0))>=9223372036854775808.0||
+           t_double(ARG(1))< -9223372036854775808.0||t_double(ARG(1))>=9223372036854775808.0){
+            v11_buf_error("TypeError",op,"two finite integer arguments required");return fl_nil();
+        }
         FLValue mask=fl_int(4294967295LL);
-        FLValue value=fl_bit_and(ARG(0),mask);
-        FLValue shift=fl_bit_and(ARG(1),fl_int(31));
+        FLValue value=fl_bit_and(fl_int((int64_t)t_double(ARG(0))),mask);
+        FLValue shift=fl_bit_and(fl_int((int64_t)t_double(ARG(1))),fl_int(31));
         int64_t amount=shift.i;
         if(amount==0)return value;
         FLValue left=fl_bit_and(fl_bit_shl(value,shift),mask);
