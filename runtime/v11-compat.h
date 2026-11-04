@@ -747,23 +747,75 @@ FLValue fl_v11_utf8_string(FLValue value){
 FLValue fl_v11_latin1_decode(const char*data,size_t length){TBuffer bytes={0};for(size_t i=0;i<length;i++)t_cp(&bytes,(unsigned char)data[i]);return t_finish(&bytes);}
 FLValue fl_v11_latin1_encode(FLValue value){TUnits units=t_units(t_js_string(value));TBuffer bytes={0};for(size_t i=0;i<units.n;i++){char byte=(char)(units.p[i]&255);t_put(&bytes,&byte,1);}free(units.p);return t_finish(&bytes);}
 
-static FLValue v11_buf_str(FLValue value){
-    TUnits units=t_units(t_js_string(value));
-    TBuffer raw={0},encoded={0};
-    t_encode(&raw,units.p,units.n,1);
-    free(units.p);
+static void v11_buf_error(const char*type,const char*op,const char*detail){
+    char message[192];
+    snprintf(message,sizeof(message),"%s: %s",op,detail);
+    fl_throw(fl_make_error(type,message));
+}
+
+static int v11_buf_index(FLValue value,size_t*out,const char*op){
+    if(value.tag==FL_INT&&value.i>=0){*out=(size_t)value.i;return 1;}
+    if(value.tag==FL_FLOAT&&isfinite(value.f)&&trunc(value.f)==value.f&&
+       value.f>=0&&value.f<0x1p63){*out=(size_t)value.f;return 1;}
+    v11_buf_error("TypeError",op,"non-negative integer required");
+    return 0;
+}
+
+static int v11_base64_value(unsigned char c){
+    if(c>='A'&&c<='Z')return c-'A';
+    if(c>='a'&&c<='z')return c-'a'+26;
+    if(c>='0'&&c<='9')return c-'0'+52;
+    if(c=='+')return 62;
+    if(c=='/')return 63;
+    return -1;
+}
+
+static TBuffer v11_buf_decode(FLValue value,const char*op){
+    TBuffer out={0};
+    if(value.tag!=FL_STRING){v11_buf_error("TypeError",op,"base64 string required");return out;}
+    FLString*s=(FLString*)value.obj;
+    if(s->len%4){v11_buf_error("TypeError",op,"invalid base64 length");return out;}
+    for(size_t i=0;i<s->len;i+=4){
+        int a=v11_base64_value((unsigned char)s->data[i]);
+        int b=v11_base64_value((unsigned char)s->data[i+1]);
+        int c=s->data[i+2]=='='?-2:v11_base64_value((unsigned char)s->data[i+2]);
+        int d=s->data[i+3]=='='?-2:v11_base64_value((unsigned char)s->data[i+3]);
+        int last=i+4==s->len;
+        if(a<0||b<0||c==-1||d==-1||(!last&&(c==-2||d==-2))||
+           (c==-2&&(d!=-2||(b&15)!=0))||(d==-2&&c>=0&&(c&3)!=0)){
+            free(out.p);v11_buf_error("TypeError",op,"invalid base64 data");return (TBuffer){0};
+        }
+        unsigned char bytes[3]={(unsigned char)((a<<2)|(b>>4)),
+            (unsigned char)((b<<4)|(c<0?0:c>>2)),
+            (unsigned char)(((c<0?0:c)<<6)|(d<0?0:d))};
+        t_put(&out,(const char*)bytes,c==-2?1:d==-2?2:3);
+    }
+    return out;
+}
+
+static FLValue v11_buf_encode(const char*data,size_t length){
     static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    for(size_t i=0;i<raw.n;i+=3){
-        unsigned a=(unsigned char)raw.p[i];
-        unsigned b=i+1<raw.n?(unsigned char)raw.p[i+1]:0;
-        unsigned c=i+2<raw.n?(unsigned char)raw.p[i+2]:0;
+    TBuffer encoded={0};
+    for(size_t i=0;i<length;i+=3){
+        unsigned a=(unsigned char)data[i];
+        unsigned b=i+1<length?(unsigned char)data[i+1]:0;
+        unsigned c=i+2<length?(unsigned char)data[i+2]:0;
         char block[4]={alphabet[a>>2],alphabet[((a&3)<<4)|(b>>4)],
-            i+1<raw.n?alphabet[((b&15)<<2)|(c>>6)]:'=',
-            i+2<raw.n?alphabet[c&63]:'='};
+            i+1<length?alphabet[((b&15)<<2)|(c>>6)]:'=',
+            i+2<length?alphabet[c&63]:'='};
         t_put(&encoded,block,sizeof(block));
     }
-    free(raw.p);
     return t_finish(&encoded);
+}
+
+static FLValue v11_buf_str(FLValue value){
+    TUnits units=t_units(t_js_string(value));
+    TBuffer raw={0};
+    t_encode(&raw,units.p,units.n,1);
+    free(units.p);
+    FLValue result=v11_buf_encode(raw.p?raw.p:"",raw.n);
+    free(raw.p);
+    return result;
 }
 
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
@@ -781,6 +833,59 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
             return fl_nil();
         }
         return v11_buf_str(ARG(0));
+    }
+    if(IS("buf-len")){
+        if(n!=1){v11_buf_error("TypeError",op,"exactly one argument required");return fl_nil();}
+        TBuffer bytes=v11_buf_decode(ARG(0),op);
+        size_t length=bytes.n;free(bytes.p);
+        return fl_int((int64_t)length);
+    }
+    if(IS("buf-u8")){
+        if(n!=1||!t_numeric(ARG(0))||!isfinite(t_double(ARG(0)))||
+           trunc(t_double(ARG(0)))!=t_double(ARG(0))||t_double(ARG(0))<0||t_double(ARG(0))>255){
+            v11_buf_error("RangeError",op,"integer byte in range 0..255 required");return fl_nil();
+        }
+        char byte=(char)(unsigned char)t_double(ARG(0));
+        return v11_buf_encode(&byte,1);
+    }
+    if(IS("buf-concat")){
+        if(n!=1||ARG(0).tag!=FL_VECTOR){v11_buf_error("TypeError",op,"one vector of base64 buffers required");return fl_nil();}
+        FLVector*parts=(FLVector*)ARG(0).obj;
+        TBuffer joined={0};
+        for(uint32_t i=0;i<parts->len;i++){
+            TBuffer part=v11_buf_decode(parts->data[i],op);
+            t_put(&joined,part.p?part.p:"",part.n);
+            free(part.p);
+        }
+        FLValue result=v11_buf_encode(joined.p?joined.p:"",joined.n);
+        free(joined.p);
+        return result;
+    }
+    if(IS("buf-read-u8")||IS("buf-slice")||IS("buf-read-str")){
+        int slicing=IS("buf-slice"),reading=IS("buf-read-str");
+        if(n!=(slicing||reading?3:2)){
+            v11_buf_error("TypeError",op,"incorrect argument count");return fl_nil();
+        }
+        TBuffer bytes=v11_buf_decode(ARG(0),op);
+        size_t offset=0,length=0;
+        if(!v11_buf_index(ARG(1),&offset,op)){free(bytes.p);return fl_nil();}
+        if(slicing||reading){
+            if(!v11_buf_index(ARG(2),&length,op)){free(bytes.p);return fl_nil();}
+            if(offset>bytes.n||length>bytes.n-offset){
+                free(bytes.p);v11_buf_error("RangeError",op,"byte range out of bounds");return fl_nil();
+            }
+            if(slicing){
+                FLValue result=v11_buf_encode(bytes.p?bytes.p+offset:"",length);
+                free(bytes.p);return result;
+            }
+            FLValue raw=t_bytes(bytes.p?bytes.p+offset:"",length,0);
+            free(bytes.p);return t_text(raw);
+        }
+        if(offset>=bytes.n){
+            free(bytes.p);v11_buf_error("RangeError",op,"byte offset out of bounds");return fl_nil();
+        }
+        FLValue result=fl_int((unsigned char)bytes.p[offset]);
+        free(bytes.p);return result;
     }
     if(IS("sleep-ms")){
         if(n!=1){

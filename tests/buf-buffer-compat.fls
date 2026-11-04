@@ -1,0 +1,39 @@
+(defn check [actual expected message]
+  (if (= actual expected) true (throw message)))
+
+(define bytes "YQBi")
+(check (buf-len bytes) 3 "buf-len normal failed")
+(check (buf-len "") 0 "buf-len empty boundary failed")
+(println "BUF_LEN_NORMAL_EDGE_PASS")
+
+(check (buf-u8 255) "/w==" "buf-u8 normal failed")
+(check (buf-u8 0) "AA==" "buf-u8 zero boundary failed")
+(check (try (do (buf-u8 256) false)
+            (catch [error] (str-includes (error-message error) "0..255")))
+       true "buf-u8 accepted an out-of-range byte")
+(println "BUF_U8_NORMAL_EDGE_PASS")
+
+(check (buf-concat [(buf-str "a") (buf-u8 0) (buf-str "b")])
+       bytes "buf-concat normal failed")
+(check (buf-concat []) "" "buf-concat empty boundary failed")
+(println "BUF_CONCAT_NORMAL_EDGE_PASS")
+
+(check (buf-read-u8 bytes 1) 0 "buf-read-u8 normal failed")
+(check (try (do (buf-read-u8 bytes 3) false)
+            (catch [error] (str-includes (error-message error) "out of bounds")))
+       true "buf-read-u8 accepted an out-of-range offset")
+(println "BUF_READ_U8_NORMAL_EDGE_PASS")
+
+(check (buf-slice bytes 1 1) "AA==" "buf-slice normal failed")
+(check (buf-slice bytes 3 0) "" "buf-slice empty boundary failed")
+(check (try (do (buf-slice bytes 3 1) false)
+            (catch [error] (str-includes (error-message error) "out of bounds")))
+       true "buf-slice accepted an out-of-range span")
+(println "BUF_SLICE_NORMAL_EDGE_PASS")
+
+(check (buf-read-str (buf-str "café") 0 5) "café" "buf-read-str normal failed")
+(check (buf-str (buf-read-str bytes 1 1)) "AA==" "buf-read-str NUL boundary failed")
+(check (try (do (buf-read-str bytes 3 1) false)
+            (catch [error] (str-includes (error-message error) "out of bounds")))
+       true "buf-read-str accepted an out-of-range span")
+(println "BUF_READ_STR_NORMAL_EDGE_PASS")
