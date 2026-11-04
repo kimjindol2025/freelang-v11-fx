@@ -1,0 +1,13 @@
+(define started (now-ms))
+(define result (sleep_ms 15))
+(define elapsed (- (now-ms) started))
+(if (and (nil? result) (>= elapsed 10))
+  (println "SLEEP_MS_NORMAL_PASS")
+  (throw "sleep_ms did not wait and return nil"))
+
+(if (and (nil? (sleep_ms 0))
+         (nil? (sleep_ms -1))
+         (try (do (sleep_ms "bad") false)
+              (catch [error] (str-includes (error-message error) "number required"))))
+  (println "SLEEP_MS_EDGE_PASS")
+  (throw "sleep_ms boundary contract failed"))

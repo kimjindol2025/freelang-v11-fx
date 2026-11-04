@@ -576,11 +576,29 @@ FLValue fl_apply(FLValue fn, FLValue args) {
 
 /* sleep */
 FLValue fl_sleep_ms(FLValue ms_v) {
-    int64_t ms = (ms_v.tag == FL_INT) ? ms_v.i
-               : (ms_v.tag == FL_FLOAT) ? (int64_t)ms_v.f : 0;
-    if (ms > 0) {
-        struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
-        nanosleep(&ts, NULL);
+    int64_t ms;
+    if(ms_v.tag==FL_INT)ms=ms_v.i;
+    else if(ms_v.tag==FL_FLOAT){
+        double value=ms_v.f;
+        if(!isfinite(value)||value< -0x1p63||value>=0x1p63){
+            fl_throw(fl_make_error("RangeError", "sleep_ms: milliseconds out of range"));
+            return fl_nil();
+        }
+        ms=(int64_t)value;
+    }
+    else{
+        fl_throw(fl_make_error("TypeError", "sleep_ms: number required"));
+        return fl_nil();
+    }
+    if(ms>0){
+        struct timespec request={ms/1000,(ms%1000)*1000000L},remaining;
+        while(nanosleep(&request,&remaining)<0){
+            if(errno!=EINTR){
+                fl_throw(fl_make_error("Error", "sleep_ms: nanosleep failed"));
+                return fl_nil();
+            }
+            request=remaining;
+        }
     }
     return fl_nil();
 }

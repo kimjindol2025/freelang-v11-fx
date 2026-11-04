@@ -747,6 +747,25 @@ FLValue fl_v11_utf8_string(FLValue value){
 FLValue fl_v11_latin1_decode(const char*data,size_t length){TBuffer bytes={0};for(size_t i=0;i<length;i++)t_cp(&bytes,(unsigned char)data[i]);return t_finish(&bytes);}
 FLValue fl_v11_latin1_encode(FLValue value){TUnits units=t_units(t_js_string(value));TBuffer bytes={0};for(size_t i=0;i<units.n;i++){char byte=(char)(units.p[i]&255);t_put(&bytes,&byte,1);}free(units.p);return t_finish(&bytes);}
 
+static FLValue v11_buf_str(FLValue value){
+    TUnits units=t_units(t_js_string(value));
+    TBuffer raw={0},encoded={0};
+    t_encode(&raw,units.p,units.n,1);
+    free(units.p);
+    static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for(size_t i=0;i<raw.n;i+=3){
+        unsigned a=(unsigned char)raw.p[i];
+        unsigned b=i+1<raw.n?(unsigned char)raw.p[i+1]:0;
+        unsigned c=i+2<raw.n?(unsigned char)raw.p[i+2]:0;
+        char block[4]={alphabet[a>>2],alphabet[((a&3)<<4)|(b>>4)],
+            i+1<raw.n?alphabet[((b&15)<<2)|(c>>6)]:'=',
+            i+2<raw.n?alphabet[c&63]:'='};
+        t_put(&encoded,block,sizeof(block));
+    }
+    free(raw.p);
+    return t_finish(&encoded);
+}
+
 FLValue fl_v11_builtin(FLValue name,FLValue argv){
     char op[80];
     t_op_name(name,op);
@@ -756,6 +775,20 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
     if(IS("identity"))return ARG(0);
+    if(IS("buf-str")){
+        if(n!=1||ARG(0).tag!=FL_STRING){
+            fl_throw(fl_make_error("TypeError","buf-str: exactly one string argument required"));
+            return fl_nil();
+        }
+        return v11_buf_str(ARG(0));
+    }
+    if(IS("sleep-ms")){
+        if(n!=1){
+            fl_throw(fl_make_error("TypeError","sleep_ms: exactly one numeric argument required"));
+            return fl_nil();
+        }
+        return fl_sleep_ms(ARG(0));
+    }
     if(IS("file-sha256-result")||IS("file_sha256_result")){
         if(n!=1){fl_throw(fl_make_error("TypeError","file-sha256-result: exactly one argument required"));return fl_nil();}
         return fl_file_sha256_result(ARG(0));

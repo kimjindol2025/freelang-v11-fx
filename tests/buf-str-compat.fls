@@ -1,0 +1,14 @@
+(defn check [actual expected message]
+  (if (= actual expected) true (throw message)))
+
+(check (buf-str "abc") "YWJj" "buf-str ASCII conversion failed")
+(println "BUF_STR_NORMAL_PASS")
+
+(check (buf-str "") "" "buf-str empty boundary failed")
+(check (buf-str (json-parse "\"a\\u0000b\"")) "YQBi" "buf-str embedded NUL boundary failed")
+(check (buf-str "café") "Y2Fmw6k=" "buf-str UTF-8 boundary failed")
+(check (try (do (buf-str 1) false)
+            (catch [error] (str-includes (error-message error) "string argument required")))
+       true
+       "buf-str invalid type was accepted")
+(println "BUF_STR_EDGE_PASS")
