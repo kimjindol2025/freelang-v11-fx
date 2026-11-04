@@ -1,0 +1,14 @@
+(defn check [actual expected message]
+  (if (= actual expected) true (throw message)))
+
+(check (bit_not 305419896) 3989547399 "bit-not normal failed")
+(check (bit_not 2147483648) 2147483647 "bit-not high-bit boundary failed")
+(check (bit_not -1) 0 "bit-not negative boundary failed")
+(println "BIT_NOT_ADAPTER_PASS")
+
+(check (bit-rotate-left 1 4) 16 "rotate-left normal failed")
+(check (bit-rotate-left 2147483649 0) 2147483649 "rotate-left zero boundary failed")
+(check (bit-rotate-left 1 31) 2147483648 "rotate-left 31 boundary failed")
+(check (bit-rotate-left 1 32) 1 "rotate-left 32 boundary failed")
+(check (bit-rotate-left -2147483648 1) 1 "rotate-left high-bit boundary failed")
+(println "BIT_ROTATE_LEFT_ADAPTER_PASS")

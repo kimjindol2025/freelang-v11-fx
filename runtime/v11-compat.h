@@ -1072,6 +1072,22 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     if(IS("bit-shl"))return fl_bit_shl(ARG(0),ARG(1));
     if(IS("bit-shr"))return fl_bit_shr(ARG(0),ARG(1));
     if(IS("bit-xor"))return fl_bit_xor(ARG(0),ARG(1));
+    if(IS("bit-not")){
+        if(n!=1||ARG(0).tag!=FL_INT){v11_buf_error("TypeError",op,"one integer argument required");return fl_nil();}
+        FLValue mask=fl_int(4294967295LL);
+        return fl_bit_xor(fl_bit_and(ARG(0),mask),mask);
+    }
+    if(IS("bit-rotate-left")){
+        if(n!=2||ARG(0).tag!=FL_INT||ARG(1).tag!=FL_INT){v11_buf_error("TypeError",op,"two integer arguments required");return fl_nil();}
+        FLValue mask=fl_int(4294967295LL);
+        FLValue value=fl_bit_and(ARG(0),mask);
+        FLValue shift=fl_bit_and(ARG(1),fl_int(31));
+        int64_t amount=shift.i;
+        if(amount==0)return value;
+        FLValue left=fl_bit_and(fl_bit_shl(value,shift),mask);
+        FLValue right=fl_bit_shr(value,fl_int(32-amount));
+        return fl_bit_or(left,right);
+    }
     if(IS("str-upper")||IS("str-to-upper")||IS("str-lower")||IS("str-to-lower"))return t_case(ARG(0),IS("str-upper")||IS("str-to-upper"));
     if(IS("str-trim")){
         FLValue v=ARG(0);
