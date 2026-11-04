@@ -1,0 +1,7 @@
+(define running (atom true))
+(define observed (atom 0))
+(while @running
+  (reset! running false)
+  (reset! observed 1))
+(println (str "WHILE_SECOND_BODY=" @observed))
+(if (= @observed 1) (println "WHILE_BODY_PASS") (throw "while dropped second body"))

@@ -2370,7 +2370,7 @@
   (str "(__extension__ ({ " (cgc (get $args 0)) " = " (cgc (get $args 1)) "; fl_nil(); }))"))
 
 (defn cgc-while [$args]
-  (str "(__extension__ ({ while (fl_v11_truthy(" (cgc (get $args 0)) ")) { FL_VALUE(" (cgc (get $args 1)) "); } fl_nil(); }))"))
+  (str "(__extension__ ({ while (fl_v11_truthy(" (cgc (get $args 0)) ")) { FL_VALUE(" (cgc-do (slice $args 1 (length $args))) "); } fl_nil(); }))"))
 
 ;; loop 바인딩 [v1 i1 v2 i2 ...] 에서 변수명 배열 추출
 (defn loop-extract-vars [$items $i $acc]

@@ -55,3 +55,12 @@
 - 배열형 loop 회귀: PASS
 - 라벨형 loop: 현재 FX AST 구조 범위 밖
 - `cgc-bin` 교체: 없음
+
+## DB95-26 보충 2 — while 전체 본문 생성
+
+- self/cgc-main.fl의 cgc-while 한 줄만 교체(+1/-1): 첫 본문 cgc 대신 전체 본문의 cgc-do를 사용한다.
+- 기존 생성 C: 7b119bfd435ee5979edf48b1ec75c0c50c3803b527fcae907e484460807509d2.
+- Stage2·3·4 생성 C: e4fb1a898828cd873989008e248cdcadeb5dc7ce72ac4b68d5f3ea1b28c6f487 (cmp 동일).
+- 기존 실행 파일 1d86c0b1140f98710927ba847458b811122d6bd7f9ead4fee79bde918e901769에서 시작했다. Stage0 및 시드 교체 없이 별도 임시 디렉터리에서 빌드했다.
+- 생성 C diff는 자동 생성 식별자 번호 이동을 포함한다. arg/av/anon/env/logic/loop/catch/try 및 __env 번호를 정규화한 비교에서 cgc-while에 해당하는 한 hunk만 남는다. 원본 diff와 정규화 diff는 <가림>/DB95-26에 보존했다.
+- tests/db95-26-while.fl: 수정 전 WHILE_SECOND_BODY=0, exit 1; 수정 후 WHILE_SECOND_BODY=1, WHILE_BODY_PASS, exit 0.
