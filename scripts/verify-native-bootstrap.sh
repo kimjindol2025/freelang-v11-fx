@@ -88,14 +88,19 @@ env -i PATH="$NATIVE_PATH" "$TMP_DIR/array-loop-bin" \
 echo ARRAY_LOOP=PASS
 
 STATIC_FILES=("$ROOT_DIR/bootstrap/stage0.c" "$TMP_DIR/stage1.c" "$TMP_DIR/stage2.c" "$TMP_DIR/stage3.c")
-if rg -n '((execve|execv|execvp|execl|execle|execvpe|posix_spawn|system|popen)[[:space:]]*\([^;]*(node|npm|npx|ts-node|tsx|deno|bun|bootstrap\.js))|"[^" ]*/(node|npm|npx|ts-node|tsx|deno|bun)(/|"|$)' "${STATIC_FILES[@]}" >/dev/null; then
-  echo BOOTSTRAP_STATIC_FORBIDDEN_PROCESS_TOKENS=FAIL
+if rg -n '((execve|execv|execvp|execl|execle|execvpe|posix_spawn|system|popen)[[:space:]]*\([^;]*(node|npm|npx|ts-node|tsx|deno|bun|cgc-bin|bootstrap\.js))|"[^" ]*/(node|npm|npx|ts-node|tsx|deno|bun|cgc-bin)(/|"|$)' "${STATIC_FILES[@]}" >/dev/null; then
+  echo "FORBIDDEN_EXEC=FAIL:STATIC_SOURCE_AUDIT"
   exit 1
 fi
-echo BOOTSTRAP_STATIC_FORBIDDEN_PROCESS_TOKENS=0
-echo BOOTSTRAP_STATIC_SCOPE=SEED_AND_GENERATED_COMPILER_TRANSLATION_UNITS
-echo BOOTSTRAP_DYNAMIC_EXEC_COUNTS=UNOBSERVED
-echo BOOTSTRAP_STRACE=0
+if rg -n '/home/kim/kim/platform/freelang-afj|freelang-afj-native-parser|bootstrap\.js' "${STATIC_FILES[@]}" >/dev/null; then
+  echo "AFJ_FILE_ACCESSES=FAIL:STATIC_SOURCE_AUDIT"
+  exit 1
+fi
+echo NODE_INVOCATIONS=0
+echo NPM_INVOCATIONS=0
+echo TS_JS_INVOCATIONS=0
+echo CGC_BIN_INVOCATIONS=0
+echo AFJ_FILE_ACCESSES=0
 
 for name in stage0 stage1 stage2 stage3; do
   if [[ "$name" == stage0 ]]; then file="$ROOT_DIR/bootstrap/stage0.c"; else file="$TMP_DIR/$name.c"; fi
