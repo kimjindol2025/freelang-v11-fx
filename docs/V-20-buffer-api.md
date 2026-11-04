@@ -105,8 +105,37 @@ HTTP를 쓰지 않는 단위 시험용으로 시도한 stub 구성도 aliases의
 
 C 구문 검사 원문 명령과 결과: `gcc -fsyntax-only -Werror=implicit-function-declaration -Iruntime runtime/core.c` 종료 코드 `0`.
 
-`WIP, curl 링크 대기` 커밋 및 Forgejo push 결과는 다음 기록에 덧붙인다. curl을 포함하는 파일이나 stub은 단독 C 시험에 사용하지 않는다.
+WIP 커밋 `385f033ad535e7fd7210f41657f201d3059241cd` (`WIP: preserve V-20 buffer runtime work pending curl link`)를 만들고 Forgejo `origin`의 `fix/v20-buffer`로 push했다. `git ls-remote` 원문 ref는 다음과 같고 로컬 HEAD와 일치한다.
 
-보충 1 기준표 현재 상태: WIP/Forgejo 확인 대기, curl 없는 직접 C 시험 대기.
+```text
+385f033ad535e7fd7210f41657f201d3059241cd	refs/heads/fix/v20-buffer
+```
 
-V20_SUMMARY=2/5, 보충 1: 0/2
+## 보충 1 단독 C 시험 결과
+
+임시 C harness가 `runtime/core.c`를 포함해 내부 buffer dispatch를 직접 호출하도록 구성했다. curl 헤더를 포함하는 파일, HTTP stub, 가짜 라이브러리는 사용하지 않았다. NUL 왕복·slice 범위 오류·빈 버퍼 세 검사를 준비했으나 링크가 실패해 실행 출력은 없다. 보충 지시에 따라 링크를 재시도하지 않았다.
+
+링크 오류 첫 줄 원문(경로는 가림):
+
+```text
+<가림>: in function `thread_cleanup':
+undefined reference to `fl_schedule_worker_cleanup'
+```
+
+같은 링크 결과의 추가 미해결 심볼:
+
+```text
+undefined reference to `fl_schedule_promise_destroy'
+undefined reference to `fl_schedule_shutdown'
+```
+
+따라서 `BUFFER_NUL_ROUNDTRIP`, `BUFFER_SLICE_RANGE_ERROR`, `BUFFER_EMPTY`의 실행 결과는 모두 미확인이다. 이번 단독 시험에서 통과한 buffer 함수 수는 `0/9`다.
+
+| 보충 1 기준 | 결과 |
+|---|---|
+| 1/2 WIP 커밋, Forgejo push, 원격 HEAD 일치 | 완료 — `385f033ad535e7fd7210f41657f201d3059241cd` |
+| 2/2 curl 없는 단독 C 시험 3개 통과 | 미완료 — 링크 실패, 재시도하지 않음 |
+
+언어 성과(보충 1): 단독 시험 통과 `0/9`.
+
+V20_SUMMARY=2/5, 보충 1: 1/2
