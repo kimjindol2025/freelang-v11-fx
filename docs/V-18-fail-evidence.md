@@ -151,7 +151,7 @@ timeout이 아닌 실패 28건은 로드 모듈 줄 합계 총 `3738`, 평균 `1
 
 ## 푸시 검증
 
-보고서 파일만 `fix/raw-tcp-review` 가지에 추가했다. 민감정보 diff 검사에서 자격정보 URL·토큰·비밀값은 발견되지 않았고, 보고서 내 경로는 `<가림>`으로 처리했다. Forgejo를 먼저, GitHub를 다음으로 정상 fast-forward push하고 두 원격의 `refs/heads/fix/raw-tcp-review`가 같은 새 HEAD인지 확인한다.
+보고서 파일만 `fix/raw-tcp-review` 가지에 추가했다. 민감정보 diff 검사에서 자격정보 URL·토큰·비밀값은 발견되지 않았고, 보고서 내 경로는 `<가림>`으로 처리했다. Forgejo를 먼저, GitHub를 다음으로 정상 fast-forward push한 뒤 두 원격의 refs가 아래 커밋과 일치함을 확인했다.
 
 | 항목 | 결과 |
 |---|---|
@@ -159,6 +159,8 @@ timeout이 아닌 실패 28건은 로드 모듈 줄 합계 총 `3738`, 평균 `1
 | 컴파일러/Stage2 해시 | 시작·종료 모두 지정값 일치 |
 | timeout / 기타 실패 / 통과 | 39 / 28 / 4 |
 | V-17 미분류 | 8건 모두 재분류 |
-| 문서 커밋 및 Forgejo→GitHub | push와 원격 HEAD 검증 진행 예정 |
+| 문서 커밋 및 Forgejo→GitHub | 완료, 두 원격 모두 `1bec8ed4bd118b1f71c50202dd9bed7c67088ab8` |
 
+보고서 커밋: `1bec8ed4bd118b1f71c50202dd9bed7c67088ab8`
+V18_SUMMARY=4/4
 V18_SUMMARY=4/4
