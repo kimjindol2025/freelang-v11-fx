@@ -1067,6 +1067,11 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         if(n!=2){v11_buf_error("TypeError",op,"exactly two numeric arguments required");return fl_nil();}
         return fl_mod(ARG(0),ARG(1));
     }
+    if(IS("bit-and"))return fl_bit_and(ARG(0),ARG(1));
+    if(IS("bit-or"))return fl_bit_or(ARG(0),ARG(1));
+    if(IS("bit-shl"))return fl_bit_shl(ARG(0),ARG(1));
+    if(IS("bit-shr"))return fl_bit_shr(ARG(0),ARG(1));
+    if(IS("bit-xor"))return fl_bit_xor(ARG(0),ARG(1));
     if(IS("str-upper")||IS("str-to-upper")||IS("str-lower")||IS("str-to-lower"))return t_case(ARG(0),IS("str-upper")||IS("str-to-upper"));
     if(IS("str-trim")){
         FLValue v=ARG(0);

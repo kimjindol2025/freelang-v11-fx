@@ -1,0 +1,22 @@
+(defn check [actual expected message]
+  (if (= actual expected) true (throw message)))
+
+(check (bit-and 6 3) 2 "bit-and normal failed")
+(check (bit-and 4294967296 4294967295) 0 "bit-and 32-bit edge failed")
+(println "BIT_AND_NORMAL_EDGE_PASS")
+
+(check (bit-or 6 3) 7 "bit-or normal failed")
+(check (bit-or -8 3) -5 "bit-or negative boundary failed")
+(println "BIT_OR_NORMAL_EDGE_PASS")
+
+(check (bit-xor 6 3) 5 "bit-xor normal failed")
+(check (bit-xor -1 4294967295) -4294967296 "bit-xor negative boundary failed")
+(println "BIT_XOR_NORMAL_EDGE_PASS")
+
+(check (bit-shl 3 2) 12 "bit-shl normal failed")
+(check (bit-shl 2147483648 1) 4294967296 "bit-shl 32-bit overflow boundary failed")
+(println "BIT_SHL_NORMAL_EDGE_PASS")
+
+(check (bit-shr 12 2) 3 "bit-shr normal failed")
+(check (bit-shr -8 1) -4 "bit-shr negative boundary failed")
+(println "BIT_SHR_NORMAL_EDGE_PASS")
