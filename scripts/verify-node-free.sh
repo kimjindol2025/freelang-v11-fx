@@ -16,6 +16,12 @@ FIND_BIN="$(command -v find || true)"
 LN_BIN="$(command -v ln || true)"
 STRACE_BIN="$(command -v strace || true)"
 BASH_BIN="/bin/bash"
+COUNT_MODE="${1:-}"
+
+if [[ -n "$COUNT_MODE" && "$COUNT_MODE" != "--exclude-docs" ]]; then
+    printf 'usage: %s [--exclude-docs]\n' "${BASH_SOURCE[0]}" >&2
+    exit 2
+fi
 
 mkdir -p "$TASK_TMP" "$TMPDIR" "$SAFE_PATH" "$(dirname "$OUT")"
 : > "$ROWS"
@@ -38,6 +44,25 @@ add_row() {
     printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "${5:-1}" >> "$ROWS"
     if [[ "${5:-1}" == 1 ]]; then
         NODE_FREE=$((NODE_FREE + 1))
+    fi
+}
+
+classify_row() {
+    local where="$1" what="$2"
+    local file="${where%:*}" source_line trimmed
+    source_line="${what#*: }"
+    trimmed="${source_line#"${source_line%%[![:space:]]*}"}"
+
+    if [[ "$file" == Makefile || "$file" == */Makefile || "$file" == *package.json ]]; then
+        printf 'build'
+    elif [[ "$file" == *.md || "$file" == *.txt || "$trimmed" == \#* || "$trimmed" == //* || "$trimmed" == /\** || "$trimmed" == \** ]]; then
+        printf 'docs'
+    elif [[ "$file" == *.sh && ( "$source_line" == *'node "'* || "$source_line" == *'npm '* || "$source_line" == *'npx '* ) ]]; then
+        printf 'execution'
+    elif [[ "$file" == *.js || ( "$file" == *.sh && ( "$source_line" == *'run_case '*'.js"'* || "$source_line" == *'*.js)'* ) ) ]]; then
+        printf 'input'
+    else
+        printf 'other'
     fi
 }
 
@@ -164,6 +189,25 @@ else
     add_row "strace" "strace 또는 단위 시험 러너 없음; 추적 미수행" "추적" "strace 설치 경로를 제공해 재검증" 0
 fi
 
+CLASS_EXECUTION=0
+CLASS_INPUT=0
+CLASS_BUILD=0
+CLASS_DOCS=0
+CLASS_OTHER=0
+while IFS=$'\t' read -r where what kind suggestion counted; do
+    [[ "$counted" == 1 ]] || continue
+    row_class="$(classify_row "$where" "$what")"
+    case "$row_class" in
+        execution) CLASS_EXECUTION=$((CLASS_EXECUTION + 1)) ;;
+        input) CLASS_INPUT=$((CLASS_INPUT + 1)) ;;
+        build) CLASS_BUILD=$((CLASS_BUILD + 1)) ;;
+        docs) CLASS_DOCS=$((CLASS_DOCS + 1)) ;;
+        *) CLASS_OTHER=$((CLASS_OTHER + 1)) ;;
+    esac
+done < "$ROWS"
+NODE_CLASS_SUM=$((CLASS_EXECUTION + CLASS_INPUT + CLASS_BUILD + CLASS_DOCS + CLASS_OTHER))
+NODE_REAL=$((CLASS_EXECUTION + CLASS_BUILD))
+
 # Keep the generated table stable even if rg returns filesystem entries in a different order.
 LC_ALL=C sort -u "$ROWS" -o "$ROWS"
 
@@ -184,3 +228,12 @@ printf 'NODE_FREE=%s\n' "$NODE_FREE"
 printf 'KNOWN_GATE_FOUND=%s\n' "$KNOWN_GATE_FOUND"
 printf 'KNOWN_JS_CASES=%s\n' "$KNOWN_JS_CASES"
 printf 'PATH_UNIT_RC=%s\n' "$unit_rc"
+if [[ "$COUNT_MODE" == "--exclude-docs" ]]; then
+    printf 'CLASS_EXECUTION=%s\n' "$CLASS_EXECUTION"
+    printf 'CLASS_INPUT=%s\n' "$CLASS_INPUT"
+    printf 'CLASS_BUILD=%s\n' "$CLASS_BUILD"
+    printf 'CLASS_DOCS=%s\n' "$CLASS_DOCS"
+    printf 'CLASS_OTHER=%s\n' "$CLASS_OTHER"
+    printf 'CLASS_SUM=%s\n' "$NODE_CLASS_SUM"
+    printf 'NODE_REAL=%s\n' "$NODE_REAL"
+fi
