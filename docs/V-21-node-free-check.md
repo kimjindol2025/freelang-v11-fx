@@ -17,4 +17,8 @@
 
 언어 성과: 검사한 범위에서 문자열 의존 후보는 `293`개이며, PATH 제한 실행과 추적에서 새로 실행된 node·npm·npx·python 프로세스는 `0`개다.
 
+## 원격 결과
+
+Forgejo `chore/v21-node-free`에는 커밋 `26e6ba5a8a2a92bc6e465d567adfc5f5ec4061c8`가 올라갔고, 당시 원격 HEAD가 로컬 HEAD와 일치했다. GitHub 읽기 전용 `ls-remote` 확인은 성공했지만 push는 `fatal: could not read Username for 'https://github.com': No such device or address`로 실패했다. 따라서 GitHub에는 이 변경이 올라가지 않았으며, Forgejo 기준의 완료만 확인했다.
+
 V21_SUMMARY=4/4, NODE_FREE=293
