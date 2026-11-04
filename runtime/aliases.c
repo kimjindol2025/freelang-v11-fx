@@ -688,9 +688,9 @@ FLValue fl_obj_omit(FLValue m, FLValue ks) {
 /* repeat: n번 값 반복 → 벡터 */
 FLValue fl_repeat(FLValue n_v, FLValue val) {
     int64_t n = (n_v.tag == FL_INT) ? n_v.i : 0;
-    FLValue result = fl_vec_new();
-    for (int64_t i = 0; i < n; i++) result = fl_vec_push(result, val);
-    return result;
+    FLValue result = fl_vec_builder_new();
+    for (int64_t i = 0; i < n; i++) fl_vec_builder_push(result, val);
+    return fl_vec_builder_freeze(result);
 }
 
 /* sort-by: keyfn으로 정렬 */
