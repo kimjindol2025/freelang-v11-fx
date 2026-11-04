@@ -1,0 +1,9 @@
+(defn check [actual expected message]
+  (if (= actual expected) true (throw message)))
+
+(check (rem 17 5) 2 "rem normal remainder failed")
+(println "REM_NORMAL_PASS")
+(check (rem -17 5) -2 "rem negative dividend sign failed")
+(check (rem -17 -5) -2 "rem negative divisor sign failed")
+(check (rem -17 5) (% -17 5) "rem and percent behavior differ")
+(println "REM_NEGATIVE_PASS")

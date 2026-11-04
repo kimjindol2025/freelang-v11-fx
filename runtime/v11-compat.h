@@ -1022,7 +1022,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
             return t_text(raw);
         }
         if(b.n)fwrite(b.p,1,b.n,stdout);
-        if(IS("println"))fputc('\n',stdout);
+        if(IS("println")){fputc('\n',stdout);fflush(stdout);}
         free(b.p);
         return fl_nil();
     }
@@ -1062,6 +1062,10 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
             r=fl_float(IS("+")?x+y:IS("-")?x-y:IS("*")?x*y:IS("/")?x/y:fmod(x,y));
         }
         return r;
+    }
+    if(IS("rem")){
+        if(n!=2){v11_buf_error("TypeError",op,"exactly two numeric arguments required");return fl_nil();}
+        return fl_mod(ARG(0),ARG(1));
     }
     if(IS("str-upper")||IS("str-to-upper")||IS("str-lower")||IS("str-to-lower"))return t_case(ARG(0),IS("str-upper")||IS("str-to-upper"));
     if(IS("str-trim")){
