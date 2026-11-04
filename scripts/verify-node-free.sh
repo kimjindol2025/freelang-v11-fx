@@ -49,18 +49,29 @@ add_row() {
 
 classify_row() {
     local where="$1" what="$2"
-    local file="${where%:*}" source_line trimmed
+    local file="${where%:*}" source_line trimmed term lower_file
     source_line="${what#*: }"
     trimmed="${source_line#"${source_line%%[![:space:]]*}"}"
+    term="${what#literal \'}"
+    term="${term%%\'*}"
+    lower_file="/${file,,}/"
 
     if [[ "$file" == Makefile || "$file" == */Makefile || "$file" == *package.json ]]; then
         printf 'build'
     elif [[ "$file" == *.md || "$file" == *.txt || "$trimmed" == \#* || "$trimmed" == //* || "$trimmed" == /\** || "$trimmed" == \** ]]; then
         printf 'docs'
+    elif [[ "$lower_file" == */archive/* || "$lower_file" == */archived/* || "$lower_file" == */legacy/* || "$lower_file" == */backup/* || "$lower_file" == */old/* || "$lower_file" == */deprecated/* || "$lower_file" == */history/* ]]; then
+        printf 'archive'
+    elif [[ "$lower_file" == */generated/* || "$lower_file" == */build/* || "$lower_file" == */dist/* || "$lower_file" == */artifacts/* || "$lower_file" == */vendor/* || "$lower_file" == */coverage/* ]]; then
+        printf 'generated'
     elif [[ "$file" == *.sh && ( "$source_line" == *'node "'* || "$source_line" == *'npm '* || "$source_line" == *'npx '* ) ]]; then
         printf 'execution'
     elif [[ "$file" == *.js || ( "$file" == *.sh && ( "$source_line" == *'run_case '*'.js"'* || "$source_line" == *'*.js)'* ) ) ]]; then
         printf 'input'
+    elif [[ "$term" == .js || "$term" == .ts ]]; then
+        printf 'extension-text'
+    elif [[ "$term" == 'node ' || "$term" == npm || "$term" == npx ]]; then
+        printf 'identifier-string'
     else
         printf 'other'
     fi
@@ -193,6 +204,10 @@ CLASS_EXECUTION=0
 CLASS_INPUT=0
 CLASS_BUILD=0
 CLASS_DOCS=0
+CLASS_ARCHIVE=0
+CLASS_GENERATED=0
+CLASS_EXTENSION_TEXT=0
+CLASS_IDENTIFIER_STRING=0
 CLASS_OTHER=0
 while IFS=$'\t' read -r where what kind suggestion counted; do
     [[ "$counted" == 1 ]] || continue
@@ -202,10 +217,14 @@ while IFS=$'\t' read -r where what kind suggestion counted; do
         input) CLASS_INPUT=$((CLASS_INPUT + 1)) ;;
         build) CLASS_BUILD=$((CLASS_BUILD + 1)) ;;
         docs) CLASS_DOCS=$((CLASS_DOCS + 1)) ;;
+        archive) CLASS_ARCHIVE=$((CLASS_ARCHIVE + 1)) ;;
+        generated) CLASS_GENERATED=$((CLASS_GENERATED + 1)) ;;
+        extension-text) CLASS_EXTENSION_TEXT=$((CLASS_EXTENSION_TEXT + 1)) ;;
+        identifier-string) CLASS_IDENTIFIER_STRING=$((CLASS_IDENTIFIER_STRING + 1)) ;;
         *) CLASS_OTHER=$((CLASS_OTHER + 1)) ;;
     esac
 done < "$ROWS"
-NODE_CLASS_SUM=$((CLASS_EXECUTION + CLASS_INPUT + CLASS_BUILD + CLASS_DOCS + CLASS_OTHER))
+NODE_CLASS_SUM=$((CLASS_EXECUTION + CLASS_INPUT + CLASS_BUILD + CLASS_DOCS + CLASS_ARCHIVE + CLASS_GENERATED + CLASS_EXTENSION_TEXT + CLASS_IDENTIFIER_STRING + CLASS_OTHER))
 NODE_REAL=$((CLASS_EXECUTION + CLASS_BUILD))
 
 # Keep the generated table stable even if rg returns filesystem entries in a different order.
@@ -233,6 +252,10 @@ if [[ "$COUNT_MODE" == "--exclude-docs" ]]; then
     printf 'CLASS_INPUT=%s\n' "$CLASS_INPUT"
     printf 'CLASS_BUILD=%s\n' "$CLASS_BUILD"
     printf 'CLASS_DOCS=%s\n' "$CLASS_DOCS"
+    printf 'CLASS_ARCHIVE=%s\n' "$CLASS_ARCHIVE"
+    printf 'CLASS_GENERATED=%s\n' "$CLASS_GENERATED"
+    printf 'CLASS_EXTENSION_TEXT=%s\n' "$CLASS_EXTENSION_TEXT"
+    printf 'CLASS_IDENTIFIER_STRING=%s\n' "$CLASS_IDENTIFIER_STRING"
     printf 'CLASS_OTHER=%s\n' "$CLASS_OTHER"
     printf 'CLASS_SUM=%s\n' "$NODE_CLASS_SUM"
     printf 'NODE_REAL=%s\n' "$NODE_REAL"
