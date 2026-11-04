@@ -31,29 +31,46 @@
       (= $c "=") (= $c "+") (= $c "*") (= $c "%")
       (= $c "&") (= $c "|") (= $c "^") (= $c "~"))))
 
-;; ── state = {:src :idx :line :col :tokens}
+;; ── state = {:src (UTF-16 chars by line) :src-len :idx :line :col :tokens}
+
+(defn lexer-lines-to-chars [$_lines]
+  (loop [$i 0 $chars []]
+    (if (>= $i (length $_lines)) $chars
+      (recur (+ $i 1)
+             (append $chars {:chars (str-split (get $_lines $i) "")})))))
 
 (defn make-state [$src]
-  {:src $src :idx 0 :line 1 :col 1 :tokens nil})
+  ;; Convert each line once; repeated lexer indexing stays vector-based.
+  {:src (lexer-lines-to-chars (str-lines $src))
+   :src-len (length $src) :idx 0 :line 1 :col 1 :tokens nil})
 
 (defn peek-at [$st $offset]
-  (let [[$src (get $st :src)]
-      [$i (+ (get $st :idx) $offset)]]
-  (if (>= $i (length $src)) null (char-at $src $i))))
+  (let [[$lines (get $st :src)]
+      [$line (get $st :line)]
+      [$chars (get (get $lines (- $line 1)) :chars)]
+      [$i (+ (- (get $st :col) 1) $offset)]
+      [$len (length $chars)]
+      [$line-count (length $lines)]]
+    (cond
+      [(< $i $len) (get $chars $i)]
+      [(= $i $len) (if (< $line $line-count) "\n" null)]
+      [(and (= $offset 1) (= $i (+ $len 1)) (< $line $line-count))
+       (get (get (get $lines $line) :chars) 0)]
+      [true null])))
 
 (defn peek [$st]
   (peek-at $st 0))
 
 (defn at-end? [$st]
-  (>= (get $st :idx) (length (get $st :src))))
+  (>= (get $st :idx) (get $st :src-len)))
 
 (defn advance [$st]
   (let [[$c (peek $st)]]
   (if (= $c "\n")
-    {:src (get $st :src) :idx (+ (get $st :idx) 1)
+    {:src (get $st :src) :src-len (get $st :src-len) :idx (+ (get $st :idx) 1)
      :line (+ (get $st :line) 1) :col 1
      :tokens (get $st :tokens)}
-    {:src (get $st :src) :idx (+ (get $st :idx) 1)
+    {:src (get $st :src) :src-len (get $st :src-len) :idx (+ (get $st :idx) 1)
      :line (get $st :line) :col (+ (get $st :col) 1)
      :tokens (get $st :tokens)})))
 
@@ -72,7 +89,7 @@
              (concat (get $nodes :chunk) $result)))))
 
 (defn emit [$st $kind $value $sl $sc]
-  {:src (get $st :src) :idx (get $st :idx)
+  {:src (get $st :src) :src-len (get $st :src-len) :idx (get $st :idx)
   :line (get $st :line) :col (get $st :col)
   :tokens (token-chunk-add (get $st :tokens)
                   [{:kind $kind :type $kind :value $value :line $sl :col $sc}])})
