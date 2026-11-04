@@ -36,4 +36,9 @@ V-21 표의 검색 범위와 원본 293행을 그대로 유지하고 분류 규�
 
 기본 모드에서 `NODE_FREE=293`을 유지했고 결과표 SHA-256은 `fc9d69416b0e1ba535a177efec595a78c364a59550000f985fed35a6f2582a3a`였다. `--exclude-docs` 분류 출력은 `CLASS_EXECUTION=78`, `CLASS_INPUT=4`, `CLASS_BUILD=0`, `CLASS_DOCS=27`, `CLASS_ARCHIVE=0`, `CLASS_GENERATED=0`, `CLASS_EXTENSION_TEXT=74`, `CLASS_IDENTIFIER_STRING=110`, `CLASS_OTHER=0`, `CLASS_SUM=293`, `NODE_REAL=78`이었다. 기본 실행은 `NODE_FREE=293`, `KNOWN_GATE_FOUND=1`, `KNOWN_JS_CASES=14`, `PATH_UNIT_RC=0`을 출력했다.
 
-V23_SUMMARY=2/3, NODE_REAL=78, OTHER=0
+
+## 원격 동기화
+
+인증이 복구된 뒤 현재 커밋을 GitHub에 푸시했고, Forgejo와 GitHub의 가지 HEAD가 같음을 확인했다. 이 보고서 갱신 커밋도 Forgejo 다음 GitHub 순서로 푸시해 양쪽 HEAD 일치를 다시 확인한다.
+
+V23_SUMMARY=3/3, NODE_REAL=78, OTHER=0
