@@ -220,6 +220,124 @@ static FLValue t_key(FLValue);
 static FLValue t_parse(FLValue,int);
 static FLValue t_js_string(FLValue);
 static void t_render(TBuffer*,FLValue,int,int);
+
+/* AFJ's public buffer value is base64 text. Decoding uses a byte array with
+ * an explicit length so NUL never becomes a terminator. */
+typedef struct { size_t len; unsigned char *data; } VBuffer;
+static FLValue vb_error(const char *message){fl_throw(fl_str_val(message));return fl_nil();}
+static int vb_decode(FLValue value,VBuffer *out){
+    if(value.tag!=FL_STRING)return 0;
+    FLString*s=(FLString*)value.obj;
+    if(s->len%4)return 0;
+    size_t cap=((size_t)s->len/4)*3,used=0;
+    unsigned char *data=malloc(cap?cap:1);if(!data)return -1;
+    for(size_t i=0;i<s->len;i+=4){
+        unsigned v[4];
+        for(size_t j=0;j<4;j++){
+            unsigned char c=(unsigned char)s->data[i+j];
+            if(c>='A'&&c<='Z')v[j]=c-'A';else if(c>='a'&&c<='z')v[j]=c-'a'+26;
+            else if(c>='0'&&c<='9')v[j]=c-'0'+52;else if(c=='+')v[j]=62;
+            else if(c=='/')v[j]=63;else if(c=='='&&i+4==s->len&&j>=2)v[j]=0;
+            else {free(data);return 0;}
+        }
+        if((s->data[i+2]=='='&&s->data[i+3]!='=')||
+           (i+4<s->len&&(s->data[i+2]=='='||s->data[i+3]=='='))){free(data);return 0;}
+        data[used++]=(unsigned char)((v[0]<<2)|(v[1]>>4));
+        if(s->data[i+2]!='=')data[used++]=(unsigned char)((v[1]<<4)|(v[2]>>2));
+        if(s->data[i+3]!='=')data[used++]=(unsigned char)((v[2]<<6)|v[3]);
+    }
+    out->len=used;out->data=data;return 1;
+}
+static FLValue vb_encode(const unsigned char *data,size_t length){
+    static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    if(length>((size_t)UINT32_MAX/4)*3)return vb_error("buffer too large");
+    size_t n=((length+2)/3)*4;char*out=malloc(n+1);if(!out)return vb_error("buffer allocation failed");
+    size_t at=0;for(size_t i=0;i<length;i+=3){
+        unsigned a=data[i],b=i+1<length?data[i+1]:0,c=i+2<length?data[i+2]:0;
+        out[at++]=alphabet[a>>2];out[at++]=alphabet[((a&3)<<4)|(b>>4)];
+        out[at++]=i+1<length?alphabet[((b&15)<<2)|(c>>6)]:'=';
+        out[at++]=i+2<length?alphabet[c&63]:'=';
+    }
+    out[at]=0;FLValue result=fl_str_val_n(out,n);free(out);return result;
+}
+static int vb_index(FLValue value,int64_t *out){
+    if(value.tag==FL_INT){*out=value.i;return 1;}
+    if(value.tag==FL_FLOAT&&isfinite(value.f)&&trunc(value.f)==value.f&&
+       value.f>=-0x1p63&&value.f<0x1p63){*out=(int64_t)value.f;return 1;}
+    return 0;
+}
+static int vb_valid_utf8(const unsigned char *p,size_t n){
+    for(size_t i=0;i<n;){
+        unsigned c=p[i];size_t k=0;
+        if(c<0x80){i++;continue;}
+        if(c>=0xc2&&c<=0xdf)k=2;
+        else if(c>=0xe0&&c<=0xef)k=3;
+        else if(c>=0xf0&&c<=0xf4)k=4;
+        else return 0;
+        if(i+k>n)return 0;
+        for(size_t j=1;j<k;j++)if((p[i+j]&0xc0)!=0x80)return 0;
+        if((c==0xe0&&p[i+1]<0xa0)||(c==0xed&&p[i+1]>=0xa0)||
+           (c==0xf0&&p[i+1]<0x90)||(c==0xf4&&p[i+1]>=0x90))return 0;
+        i+=k;
+    }
+    return 1;
+}
+static FLValue vb_dispatch(const char *op,FLValue *a,size_t n){
+    if(!strcmp(op,"buf-to-binary")){
+        VBuffer b={0};if(n!=1)return vb_error("buf-to-binary: one argument required");
+        int rc=vb_decode(a[0],&b);if(rc<0)return vb_error("buf-to-binary: allocation failed");
+        if(!rc)return vb_error("buf-to-binary: invalid base64 data");
+        FLValue result=fl_str_val_n((char*)b.data,b.len);free(b.data);return result;
+    }
+    if(!strcmp(op,"buf-from-binary")){
+        if(n!=1||a[0].tag!=FL_STRING)return vb_error("buf-from-binary: binary string required");
+        FLString*s=(FLString*)a[0].obj;return vb_encode((unsigned char*)s->data,s->len);
+    }
+    if(!strcmp(op,"buf-str")){
+        if(n!=1||a[0].tag!=FL_STRING)return vb_error("buf-str: string required");
+        FLString*s=(FLString*)a[0].obj;return vb_encode((unsigned char*)s->data,s->len);
+    }
+    if(!strcmp(op,"buf-u8")){
+        int64_t value=0;if(n!=1||!vb_index(a[0],&value)||value<0||value>255)return vb_error("buf-u8: byte must be between 0 and 255");
+        unsigned char byte=(unsigned char)value;return vb_encode(&byte,1);
+    }
+    if(!strcmp(op,"buf-len")){
+        VBuffer b={0};if(n!=1)return vb_error("buf-len: one argument required");
+        int rc=vb_decode(a[0],&b);if(rc<0)return vb_error("buf-len: allocation failed");
+        if(!rc)return vb_error("buf-len: invalid buffer");int64_t length=(int64_t)b.len;free(b.data);return fl_int(length);
+    }
+    if(!strcmp(op,"buf-concat")){
+        if(n!=1||a[0].tag!=FL_VECTOR)return vb_error("buf-concat: vector required");
+        FLVector*parts=(FLVector*)a[0].obj;size_t total=0;VBuffer*decoded=calloc(parts->len?parts->len:1,sizeof(*decoded));
+        if(!decoded)return vb_error("buf-concat: allocation failed");
+        for(uint32_t i=0;i<parts->len;i++){int rc=vb_decode(parts->data[i],&decoded[i]);if(rc<=0){for(uint32_t j=0;j<i;j++)free(decoded[j].data);free(decoded);return vb_error("buf-concat: invalid buffer");}if(decoded[i].len>SIZE_MAX-total){for(uint32_t j=0;j<=i;j++)free(decoded[j].data);free(decoded);return vb_error("buf-concat: size overflow");}total+=decoded[i].len;}
+        unsigned char*bytes=malloc(total?total:1);if(!bytes){for(uint32_t i=0;i<parts->len;i++)free(decoded[i].data);free(decoded);return vb_error("buf-concat: allocation failed");}
+        size_t at=0;for(uint32_t i=0;i<parts->len;i++){memcpy(bytes+at,decoded[i].data,decoded[i].len);at+=decoded[i].len;free(decoded[i].data);}free(decoded);
+        FLValue result=vb_encode(bytes,total);free(bytes);return result;
+    }
+    if(!strcmp(op,"buf-slice")){
+        int64_t start=0,count=0;VBuffer b={0};
+        if(n!=3||!vb_index(a[1],&start)||!vb_index(a[2],&count))return vb_error("buf-slice: buffer and integer offset/length required");
+        int rc=vb_decode(a[0],&b);if(rc<0)return vb_error("buf-slice: allocation failed");if(!rc)return vb_error("buf-slice: invalid buffer");
+        if(start<0||count<0||(uint64_t)start>b.len||(uint64_t)count>b.len-(size_t)start){free(b.data);return vb_error("buf-slice: range out of bounds");}
+        FLValue result=vb_encode(b.data+(size_t)start,(size_t)count);free(b.data);return result;
+    }
+    if(!strcmp(op,"buf-read-u8")){
+        int64_t index=0;VBuffer b={0};if(n!=2||!vb_index(a[1],&index))return vb_error("buf-read-u8: integer offset required");
+        int rc=vb_decode(a[0],&b);if(rc<0)return vb_error("buf-read-u8: allocation failed");if(!rc)return vb_error("buf-read-u8: invalid buffer");
+        if(index<0||(uint64_t)index>=b.len){free(b.data);return vb_error("buf-read-u8: offset out of bounds");}
+        FLValue result=fl_int(b.data[index]);free(b.data);return result;
+    }
+    if(!strcmp(op,"buf-read-str")){
+        int64_t start=0,count=0;VBuffer b={0};
+        if(n!=3||!vb_index(a[1],&start)||!vb_index(a[2],&count))return vb_error("buf-read-str: integer offset/length required");
+        int rc=vb_decode(a[0],&b);if(rc<0)return vb_error("buf-read-str: allocation failed");if(!rc)return vb_error("buf-read-str: invalid buffer");
+        if(start<0||count<0||(uint64_t)start>b.len||(uint64_t)count>b.len-(size_t)start){free(b.data);return vb_error("buf-read-str: range out of bounds");}
+        if(!vb_valid_utf8(b.data+(size_t)start,(size_t)count)){free(b.data);return vb_error("buf-read-str: invalid UTF-8");}
+        FLValue result=fl_str_val_n((char*)b.data+(size_t)start,(size_t)count);free(b.data);return result;
+    }
+    return fl_nil();
+}
 static uint32_t t_array_index(FLValue key){
     if(key.tag!=FL_STRING)return UINT32_MAX;
     FLString*s=(FLString*)key.obj;
@@ -755,6 +873,9 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     FLValue*a=av->data;
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
+    if(!strncmp(op,"buf-",4))return vb_dispatch(op,a,n);
+    if(IS("file_mtime"))return n==1?_fl_file_modified(ARG(0)):vb_error("file_mtime: one argument required");
+    if(IS("sleep_ms"))return n==1?fl_sleep_ms(ARG(0)):vb_error("sleep_ms: one argument required");
     if(IS("identity"))return ARG(0);
     if(IS("file-sha256-result")||IS("file_sha256_result")){
         if(n!=1){fl_throw(fl_make_error("TypeError","file-sha256-result: exactly one argument required"));return fl_nil();}
