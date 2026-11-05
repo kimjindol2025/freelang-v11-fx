@@ -8,8 +8,6 @@ AFJ native-release-gate `.js` 분기 탐지: 1; AFJ `.js` run_case 수: 14.
 |---|---|---|---|
 | `AFJ_DB95/tests/auth-state-recovery.fls:2` | literal '.js': (define state-path "/tmp/afj-db95-auth-state-test.jsonl") | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/bootstrap-path.sh:6` | literal '.js':     candidate="$FREELANG_AFJ_ROOT/bootstrap.js" | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
-| `AFJ_DB95/tests/fault-injection-restart.sh:24` | literal 'node ': node "$bootstrap" run "$repo_root/tests/fault-injection-restart.fls" >"$log_file" 2>&1 & | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
-| `AFJ_DB95/tests/fault-injection-restart.sh:50` | literal 'node ': if timeout 20s node "$bootstrap" run "$repo_root/tests/fault-injection-restart.fls" \ | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/mariadb-afj-differential-runner.sh:15` | literal '.ts': maria_result="/tmp/afj-db95-differential-mariadb.tsv" | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/mariadb-afj-differential-runner.sh:52` | literal 'node ': node "$bootstrap" run "$project/tests/tcp-daemon.fls" >"$afj_log" 2>&1 & | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/mariadb-afj-differential-runner.sh:59` | literal 'node ': timeout 30s node "$bootstrap" run "$client" >"$afj_result" 2>&1 | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
@@ -27,7 +25,6 @@ AFJ native-release-gate `.js` 분기 탐지: 1; AFJ `.js` run_case 수: 14.
 | `AFJ_DB95/tests/production-native-tls.js:79` | literal '.js':   const authState = path.join(directory, "auth-state.jsonl"); | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/production-tls-boundary.sh:14` | literal '.js':   AFJ_DB_AUDIT_LOG="$runtime_dir/production-tls-boundary.audit.jsonl" \ | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/production-tls-boundary.sh:15` | literal '.js':   AFJ_DB_AUTH_STATE="$runtime_dir/production-tls-boundary.state.jsonl" \ | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
-| `AFJ_DB95/tests/production-tls-boundary.sh:17` | literal 'node ':   node "$bootstrap" run "$repo_root/src/tcp-server.fls" >"$log_file" 2>&1; then | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/release-gate.sh:100` | literal 'node ': run_case "lock timeout" env AFJ_DB_LOCK_WAIT_TIMEOUT_MS=1000 node "$bootstrap" run "$repo_root/tests/tcp-lock-timeout.fls" | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/release-gate.sh:101` | literal 'node ': run_case "prepared JSON adapter" node "$bootstrap" run "$repo_root/tests/tcp-prepared.fls" | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
 | `AFJ_DB95/tests/release-gate.sh:102` | literal 'node ': run_case "request limits" node "$bootstrap" run "$repo_root/tests/request-limits.fls" | 글자 | 해당 호출을 native FreeLang/C 경로로 대체 검토 |
@@ -303,4 +300,4 @@ AFJ native-release-gate `.js` 분기 탐지: 1; AFJ `.js` run_case 수: 14.
 | `tests/run-tests.sh` | node/npm/npx 차단 PATH에서 rc=0 | 실행 | 실패가 있으면 로그 원인 확인 |
 | `tests/run-tests.sh` | node/npm/npx/python execve 없음 (rc=0) | 추적 | 해당 없음 |
 
-NODE_FREE=293
+NODE_FREE=290
