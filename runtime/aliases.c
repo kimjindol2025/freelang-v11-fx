@@ -688,6 +688,13 @@ FLValue fl_obj_omit(FLValue m, FLValue ks) {
 /* repeat: n번 값 반복 → 벡터 */
 FLValue fl_repeat(FLValue n_v, FLValue val) {
     int64_t n = (n_v.tag == FL_INT) ? n_v.i : 0;
+    /* Native v11 arithmetic produces floats even for integral counts. */
+    if (n_v.tag == FL_FLOAT) {
+        if (!isfinite(n_v.f) || trunc(n_v.f) != n_v.f ||
+            n_v.f < -0x1p63 || n_v.f >= 0x1p63)
+            fl_throw(fl_str_val("repeat: finite int64 integer count required"));
+        n = (int64_t)n_v.f;
+    }
     FLValue result = fl_vec_builder_new();
     for (int64_t i = 0; i < n; i++) fl_vec_builder_push(result, val);
     return fl_vec_builder_freeze(result);

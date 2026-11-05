@@ -1,0 +1,22 @@
+;; Arithmetic counts must retain their value across the native numeric boundary.
+(define padding (str_join (repeat (+ 1048576 1) "x") ""))
+(if (= (count padding) 1048577) nil (throw "arithmetic padding length"))
+(if (= (str-slice padding 0 1) "x") nil (throw "padding first"))
+(if (= (str-slice padding 1048576 1048577) "x") nil (throw "padding last"))
+;; Decimal literals may be lowered to FL_INT; arithmetic forces FL_FLOAT.
+(if (= (repeat (+ 1 2) 7) [7 7 7]) nil (throw "float count"))
+(if (= (count (repeat (+ 0 0) 7)) 0) nil (throw "float zero"))
+(if (= (count (repeat (- 0 1) 7)) 0) nil (throw "float negative"))
+(defn rejects-count [n]
+  (let [message (try (do (repeat n "x") "accepted")
+                    (catch [error] (error_message error)))]
+    (if (= message "repeat: finite int64 integer count required")
+      true
+      (throw "invalid repeat count was not rejected"))))
+(rejects-count 1.5)
+(rejects-count 9223372036854775808.0)
+(rejects-count -18446744073709551616.0)
+(rejects-count (/ 1 0))
+(rejects-count (/ 0 0))
+(println "REPEAT_ARITHMETIC_PADDING_PASS length=1048577")
+(println "REPEAT_FLOAT_BOUNDARIES_PASS")
