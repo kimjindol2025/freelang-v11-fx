@@ -2,6 +2,8 @@
 
 2026-11-12 시작, 2026-11-13 정리. 사용자가 언어 API 구현을 승인했다. 제품의 영속 초안 저장 활성화와 D04 보관 정책은 보류한다. **개발용 native 컴파일러에서 Chrome 20/20을 확인했지만 정식 소스 빌드·전체 회귀·bootstrap은 미완료이므로 WIP다.**
 
+최신 상태: 승인된 8 GiB 재개까지 종료 `139`로 끝나 세 번째 실패 중단 규칙을 발동했다. 아래 초기 미실행 설명은 재개 전 기록이며, 마지막 절에 승인 후 실행과 중단 결과를 구분했다.
+
 ## 출발점과 선행 커밋
 
 - FX 기준: `02176817d44f4d998a3f0b8ac04cec4373e04a7f`.
@@ -95,3 +97,36 @@ seed C SHA-256은 원문 `f7425bf086d99d11231ba79296e194fcc36b454379e46d44131baf
 기존 러너·정답은 유지했다. bootstrap의 env -i 두 곳에 TMPDIR 전달을 추가하는 제안만 비공개 작업 영역에 준비했으며 실제 러너에는 적용하지 않았다. 정식 검수 재개에는 빌드 메모리 예산과 기존 전체 러너가 사용하는 awk/C CDP 검수 도구에 대한 범위 확인이 필요하다. 원격·주소·경로·키는 공개 보고에서 가렸다.
 
 공개 증거는 `docs/evidence/b8-storage/`의 화면·20개 원문·부분 회귀·보조 native 결과·제한 빌드 resource 기록이다. source 빌드/전체 회귀/bootstrap을 닫기 전까지 WIP를 유지하고 제품 영속 저장은 켜지 않는다.
+
+## 2026-11-13 승인된 8 GiB 재개와 중단
+
+사용자가 8 GiB 상한의 추가 확인 한 번과 검수용 awk/C CDP 도구·환경 수정 예외를 승인했다. HEAD와 CLEAN, ps·메모리 상태를 확인했고 새 산출물은 같은 작업 임시 영역에 만들었다. `verify-e10-bootstrap.sh`의 env -i 두 곳에 TMPDIR 전달만 추가했다. seed·정답·판정·시간제한은 변경하지 않았다.
+
+정식 bootstrap을 단일 공통 flock 아래 `ulimit -v 8388608`, `ulimit -c 0`으로 한 번 실행했다. strace는 사용하지 않았다. 시작 시 MemAvailable 원문은 `176739024 kB`였다.
+
+```text
+BOOTSTRAP_8G_EXIT=139
+BOOTSTRAP_TRACER_PID=0
+STAGE0_GENERATED_SOURCE_CONTAMINATION=0
+STAGE0_SHA=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
+STAGE0_EQ_CANONICAL=DIFFERENT
+STAGE0_C_BUILD=PASS
+STAGE0_TO_STAGE1=PASS
+STAGE0_NATIVE_EXEC=PASS
+STAGE1_C_BUILD=PASS
+NATIVE_SOURCE_POST_FIX_FAILURES=3
+STOP_RULE=TRIGGERED
+```
+
+stage1→stage2 생성에서 SIGSEGV·종료 `139`가 발생했다. 최대 RSS는 `7988188 kbytes`, 경과 시간은 `0:46.39`다. OS 수집기의 Storage는 `none`이었다. 원인을 확정하기 전에 이를 단순 OOM으로 판정하지 않는다.
+
+```text
+STAGE1_SHA=b4cdbc346b43708d9f218301e2c84ea49934edd3d688c1b0f5814c9680314448
+STAGE2_SHA=UNOBSERVED
+STAGE3_SHA=UNOBSERVED
+STAGE4_SHA=UNOBSERVED
+```
+
+stage1은 관측한 중간 생성물이며 새 고정점이 아니다. stage2=3=4 비교·배열 실행·정적 감사에는 도달하지 못했다. 앞 단계의 부분 통과로 같은 소스 생성/정식 관문의 미통과 누계를 초기화하지 않았다. 세 번째 실패 중단 규칙을 발동했고 이후 코드 수정·재시험·전체 회귀·CDP 실행을 진행하지 않았다. 로그 보존·보고·제출만 수행한다.
+
+승인 전의 개발용 Chrome 20/20과 부분 회귀는 해당 과거 실행 범위로 유지한다. 이번 결과로 정식 빌드나 bootstrap 통과를 선언하지 않는다. 예외 승인은 남아 있지만 추가 실행은 별도 사용자 지시 전까지 중단한다. 원문과 가림 처리된 stderr/resource는 `docs/evidence/b8-storage/retry8/`에 보존했다.

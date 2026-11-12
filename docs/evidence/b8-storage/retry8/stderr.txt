@@ -1,0 +1,1 @@
+<가림>: line 75: 2058576 Segmentation fault      (core dumped) env -i PATH="$NATIVE_PATH" TMPDIR="${TMPDIR:?}" "$binary" "$input" "$output" > "$TMP_DIR/$label.stdout" 2> "$TMP_DIR/$label.stderr"

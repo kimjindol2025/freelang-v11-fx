@@ -74,7 +74,7 @@ build_c() {
 
 run_native() {
   local label="$1" binary="$2" input="$3" output="$4"
-  env -i PATH="$NATIVE_PATH" "$binary" "$input" "$output" \
+  env -i PATH="$NATIVE_PATH" TMPDIR="${TMPDIR:?}" "$binary" "$input" "$output" \
     >"$TMP_DIR/$label.stdout" 2>"$TMP_DIR/$label.stderr"
   [[ -s "$output" ]]
   echo "$label=PASS"
@@ -105,7 +105,7 @@ echo CMP_3_4=PASS
 
 run_native ARRAY_LOOP_GENERATE "$TMP_DIR/stage0-bin" "$ROOT_DIR/tests/native-bootstrap/array-loop.fl" "$TMP_DIR/array-loop.c"
 build_app_c ARRAY_LOOP_BUILD "$TMP_DIR/array-loop.c" "$TMP_DIR/array-loop-bin"
-env -i PATH="$NATIVE_PATH" "$TMP_DIR/array-loop-bin" \
+env -i PATH="$NATIVE_PATH" TMPDIR="${TMPDIR:?}" "$TMP_DIR/array-loop-bin" \
   >"$TMP_DIR/ARRAY_LOOP.stdout" 2>"$TMP_DIR/ARRAY_LOOP.stderr"
 [[ "$(tr -d '\r' < "$TMP_DIR/ARRAY_LOOP.stdout" | sed '/^[[:space:]]*$/d')" == "3" ]]
 echo ARRAY_LOOP=PASS
