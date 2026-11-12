@@ -99,7 +99,7 @@ static FLValue rb_read(FLBinding *env, FLValue name) {
 }
 static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t start) {
     FLBinding *save=*env;
-    FLValue binds=fl_vec_new(),body=fl_vec_new();FLVector *v=(FLVector*)args.obj;
+    FLValue binds=fl_vec_builder_new(),body=fl_vec_builder_new();FLVector *v=(FLVector*)args.obj;
     for(uint32_t i=start;i<v->len;i++) {
         FLValue n=v->data[i],op=rb_get(n,"op");
         if(rb_is(op,"defn")||rb_is(op,"define")) {
@@ -108,9 +108,9 @@ static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t s
             if(rb_lookup(*env,name).tag!=FL_NIL)continue;
             FLValue target=rb_bind(r,env,name);(*env)->cell=1;
             (*env)->function_alias=rb_is(op,"defn");
-            binds=fl_vec_push(binds,rb_var(target));
+            fl_vec_builder_push(binds,rb_var(target));
             FLValue nil=rb_set(rb_set(fl_map_new(),"kind",fl_str_val("literal")),"type",fl_str_val("nil"));
-            binds=fl_vec_push(binds,rb_call("atom",rb_vec(1,&nil)));
+            fl_vec_builder_push(binds,rb_call("atom",rb_vec(1,&nil)));
         }
     }
     for(uint32_t i=start;i<v->len;i++) {
@@ -119,17 +119,18 @@ static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t s
             FLValue a=rb_get(n,"args"),value;
             FLValue name=rb_name(fl_vec_get(a,fl_int(0)));
             if(rb_is(op,"defn")) {
-                FLVector *av=(FLVector*)a.obj;FLValue fargs=fl_vec_new();
-                for(uint32_t j=1;j<av->len;j++)fargs=fl_vec_push(fargs,av->data[j]);
-                value=rb_node(r,env,rb_call("fn",fargs));
+                FLVector *av=(FLVector*)a.obj;FLValue fargs=fl_vec_builder_new();
+                for(uint32_t j=1;j<av->len;j++)fl_vec_builder_push(fargs,av->data[j]);
+                value=rb_node(r,env,rb_call("fn",fl_vec_builder_freeze(fargs)));
             } else value=rb_node(r,env,fl_vec_get(a,fl_int(1)));
             FLBinding *binding=*env;
             while(binding&&!fl_truthy(fl_eq(binding->source,name)))binding=binding->next;
             FLValue pair[2]={rb_var(binding->target),value};
-            body=fl_vec_push(body,rb_call(binding->cell?"reset!":"set!",rb_vec(2,pair)));
-        } else body=fl_vec_push(body,rb_node(r,env,n));
+            fl_vec_builder_push(body,rb_call(binding->cell?"reset!":"set!",rb_vec(2,pair)));
+        } else fl_vec_builder_push(body,rb_node(r,env,n));
     }
-    FLValue result=rb_call("do",body);
+    FLValue result=rb_call("do",fl_vec_builder_freeze(body));
+    binds=fl_vec_builder_freeze(binds);
     if(((FLVector*)binds.obj)->len) {
         FLValue block=rb_set(rb_set(fl_map_new(),"kind",fl_str_val("block")),"type",fl_str_val("Array"));
         FLValue pair[2]={rb_with_items(block,binds),result};result=rb_call("let",rb_vec(2,pair));
@@ -138,19 +139,21 @@ static FLValue rb_sequence(FLResolver *r,FLBinding **env,FLValue args,uint32_t s
 }
 static FLValue rb_list(FLResolver *r,FLBinding **env,FLValue list) {
     if (list.tag!=FL_VECTOR) return list;
-    FLValue out=fl_vec_new(); FLVector *v=(FLVector*)list.obj;
-    for (uint32_t i=0;i<v->len;i++) out=fl_vec_push(out,rb_node(r,env,v->data[i]));
-    return out;
+    FLValue out=fl_vec_builder_new(); FLVector *v=(FLVector*)list.obj;
+    for (uint32_t i=0;i<v->len;i++) fl_vec_builder_push(out,rb_node(r,env,v->data[i]));
+    return fl_vec_builder_freeze(out);
 }
 static FLValue rb_params(FLResolver *r,FLBinding **env,FLValue block) {
-    FLValue out=fl_vec_new(); FLVector *v=(FLVector*)rb_items(block).obj;
+    FLVector *v=(FLVector*)rb_items(block).obj;
     if (!v) return block;
-    for (uint32_t i=0;i<v->len;i++) out=fl_vec_push(out,rb_var(rb_bind(r,env,rb_name(v->data[i]))));
-    return rb_with_items(block,out);
+    FLValue out=fl_vec_builder_new();
+    for (uint32_t i=0;i<v->len;i++) fl_vec_builder_push(out,rb_var(rb_bind(r,env,rb_name(v->data[i]))));
+    return rb_with_items(block,fl_vec_builder_freeze(out));
 }
 static FLValue rb_bindings(FLResolver *r,FLBinding **env,FLValue block) {
-    FLValue out=fl_vec_new(),items=rb_items(block);
+    FLValue items=rb_items(block);
     if (items.tag!=FL_VECTOR) return block;
+    FLValue out=fl_vec_builder_new();
     FLVector *v=(FLVector*)items.obj;
     int nested=v->len && rb_is(rb_get(v->data[0],"kind"),"block");
     for (uint32_t i=0;i<v->len;i+=nested?1:2) {
@@ -159,10 +162,10 @@ static FLValue rb_bindings(FLResolver *r,FLBinding **env,FLValue block) {
         FLValue init=rb_node(r,env,fl_vec_get(pair,fl_int(j+1)));
         FLValue name=rb_bind(r,env,rb_name(fl_vec_get(pair,fl_int(j))));
         FLValue a[2]={rb_var(name),init};
-        if (nested) out=fl_vec_push(out,rb_with_items(v->data[i],rb_vec(2,a)));
-        else {out=fl_vec_push(out,a[0]);out=fl_vec_push(out,a[1]);}
+        if (nested) fl_vec_builder_push(out,rb_with_items(v->data[i],rb_vec(2,a)));
+        else {fl_vec_builder_push(out,a[0]);fl_vec_builder_push(out,a[1]);}
     }
-    return rb_with_items(block,out);
+    return rb_with_items(block,fl_vec_builder_freeze(out));
 }
 static FLValue rb_node(FLResolver *r,FLBinding **env,FLValue n) {
     if (n.tag!=FL_MAP) return n;
@@ -177,25 +180,28 @@ static FLValue rb_node(FLResolver *r,FLBinding **env,FLValue n) {
         FLBinding *save=*env;
         if (rb_is(op,"fn")||rb_is(op,"defn")) {
             int offset=rb_is(op,"defn")?1:0;
-            if(offset) out=fl_vec_push(out,fl_vec_get(args,fl_int(0)));
-            out=fl_vec_push(out,rb_params(r,env,fl_vec_get(args,fl_int(offset))));
-            out=fl_vec_push(out,rb_sequence(r,env,args,offset+1));
-            rb_pop(env,save); return rb_set(n,"args",out);
+            out=fl_vec_builder_new();
+            if(offset) fl_vec_builder_push(out,fl_vec_get(args,fl_int(0)));
+            fl_vec_builder_push(out,rb_params(r,env,fl_vec_get(args,fl_int(offset))));
+            fl_vec_builder_push(out,rb_sequence(r,env,args,offset+1));
+            rb_pop(env,save); return rb_set(n,"args",fl_vec_builder_freeze(out));
         }
         if(rb_is(op,"do")) return rb_sequence(r,env,args,0);
         if(rb_is(op,"let")||rb_is(op,"loop")||rb_is(op,"doseq")||rb_is(op,"if-let")||rb_is(op,"when-let")) {
-            out=fl_vec_push(out,rb_bindings(r,env,fl_vec_get(args,fl_int(0))));
+            out=fl_vec_builder_new();
+            fl_vec_builder_push(out,rb_bindings(r,env,fl_vec_get(args,fl_int(0))));
             FLVector *v=(FLVector*)args.obj;
-            for(uint32_t i=1;i<v->len;i++) out=fl_vec_push(out,rb_node(r,env,v->data[i]));
-            rb_pop(env,save); return rb_set(n,"args",out);
+            for(uint32_t i=1;i<v->len;i++) fl_vec_builder_push(out,rb_node(r,env,v->data[i]));
+            rb_pop(env,save); return rb_set(n,"args",fl_vec_builder_freeze(out));
         }
         if(rb_is(op,"catch")) {
             FLValue source=fl_vec_get(args,fl_int(0));
             if(rb_is(rb_get(source,"kind"),"block")) source=fl_vec_get(rb_items(source),fl_int(0));
             FLValue param=rb_bind(r,env,rb_name(source));
-            out=fl_vec_push(out,rb_var(param)); FLVector *v=(FLVector*)args.obj;
-            for(uint32_t i=1;i<v->len;i++) out=fl_vec_push(out,rb_node(r,env,v->data[i]));
-            rb_pop(env,save); return rb_set(n,"args",out);
+            out=fl_vec_builder_new();
+            fl_vec_builder_push(out,rb_var(param)); FLVector *v=(FLVector*)args.obj;
+            for(uint32_t i=1;i<v->len;i++) fl_vec_builder_push(out,rb_node(r,env,v->data[i]));
+            rb_pop(env,save); return rb_set(n,"args",fl_vec_builder_freeze(out));
         }
         if(rb_is(op,"define")) {
             FLValue original=rb_name(fl_vec_get(args,fl_int(0)));
@@ -215,9 +221,10 @@ static FLValue rb_node(FLResolver *r,FLBinding **env,FLValue n) {
             }
             if(rb_is(rb_get(read,"kind"),"variable")) op=fl_str_n(2,fl_str_val("$"),rb_get(read,"name"));
             else {
-                FLValue all=fl_vec_push(fl_vec_new(),read);FLVector *v=(FLVector*)out.obj;
-                for(uint32_t i=0;i<v->len;i++)all=fl_vec_push(all,v->data[i]);
-                op=fl_str_val("__apply__");out=all;
+                FLValue all=fl_vec_builder_new();FLVector *v=(FLVector*)out.obj;
+                fl_vec_builder_push(all,read);
+                for(uint32_t i=0;i<v->len;i++)fl_vec_builder_push(all,v->data[i]);
+                op=fl_str_val("__apply__");out=fl_vec_builder_freeze(all);
             }
         }else if(key.tag==FL_STRING&&!rb_native_name(op)){
             n=rb_set(rb_set(n,"call-op",key),"call-lookup",fl_bool(true));
@@ -245,27 +252,27 @@ FLValue fl_compiler_bindings(FLValue nodes) {
                 if(fl_truthy(fl_eq(b->source,name))){b->function_alias=1;break;}
         }
     }
-    FLBinding *env=r.globals; FLValue out=fl_vec_new();
+    FLBinding *env=r.globals; FLValue out=fl_vec_builder_new();
     for(uint32_t i=0;i<v->len;i++) {
         FLValue n=v->data[i];
         if(rb_is(rb_get(n,"op"),"defn")) {
             FLValue args=rb_get(n,"args"),name=rb_name(fl_vec_get(args,fl_int(0)));
-            FLValue implementation=rb_fresh(&r),a=fl_vec_new(); FLVector *av=(FLVector*)args.obj;
-            a=fl_vec_push(a,rb_var(implementation));
-            for(uint32_t j=1;j<av->len;j++) a=fl_vec_push(a,av->data[j]);
-            out=fl_vec_push(out,rb_node(&r,&env,rb_set(n,"args",a)));
+            FLValue implementation=rb_fresh(&r),a=fl_vec_builder_new(); FLVector *av=(FLVector*)args.obj;
+            fl_vec_builder_push(a,rb_var(implementation));
+            for(uint32_t j=1;j<av->len;j++) fl_vec_builder_push(a,av->data[j]);
+            fl_vec_builder_push(out,rb_node(&r,&env,rb_set(n,"args",fl_vec_builder_freeze(a))));
             FLValue binding=rb_lookup(r.globals,name),d[2]={rb_var(binding),rb_var(implementation)};
-            out=fl_vec_push(out,rb_call("define",rb_vec(2,d)));
-            out=fl_vec_push(out,rb_registration(name,binding));
+            fl_vec_builder_push(out,rb_call("define",rb_vec(2,d)));
+            fl_vec_builder_push(out,rb_registration(name,binding));
         } else {
-            out=fl_vec_push(out,rb_node(&r,&env,n));
+            fl_vec_builder_push(out,rb_node(&r,&env,n));
             if(rb_is(rb_get(n,"op"),"define")) {
                 FLValue name=rb_name(fl_vec_get(rb_get(n,"args"),fl_int(0)));
-                out=fl_vec_push(out,rb_registration(name,rb_lookup(r.globals,name)));
+                fl_vec_builder_push(out,rb_registration(name,rb_lookup(r.globals,name)));
             }
         }
     }
-    rb_pop(&env,NULL); return out;
+    rb_pop(&env,NULL); return fl_vec_builder_freeze(out);
 }
 FLValue fl_compiler_realpath(FLValue path) {
     if(path.tag!=FL_STRING) return fl_nil();

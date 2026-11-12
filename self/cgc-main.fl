@@ -31,15 +31,15 @@
       (= $c "=") (= $c "+") (= $c "*") (= $c "%")
       (= $c "&") (= $c "|") (= $c "^") (= $c "~"))))
 
-;; ── state = {:src :idx :line :col :tokens}
+;; ── state = {:src :idx :line :col :tokens}; src is owned UTF-16 characters.
 
 (defn make-state [$src]
-  {:src $src :idx 0 :line 1 :col 1 :tokens nil})
+  {:src (deref (atom (str-split $src ""))) :idx 0 :line 1 :col 1 :tokens nil})
 
 (defn peek-at [$st $offset]
   (let [[$src (get $st :src)]
       [$i (+ (get $st :idx) $offset)]]
-  (if (>= $i (length $src)) null (char-at $src $i))))
+  (if (>= $i (length $src)) null (get $src $i))))
 
 (defn peek [$st]
   (peek-at $st 0))
@@ -429,12 +429,6 @@
 (defn p-advance [$p]
   {:tokens (get $p :tokens) :idx (+ (get $p :idx) 1) :ast (get $p :ast)})
 
-(defn p-with-ast [$p $ast]
-  {:tokens (get $p :tokens) :idx (get $p :idx) :ast $ast})
-
-(defn p-append-ast [$p $node]
-  (p-with-ast $p (append (get $p :ast) $node)))
-
 ;; 2-tuple 반환용 map {:p p' :node n}
 (defn r-pair [$p $node]
   {:p $p :node $node})
@@ -621,15 +615,18 @@
 
 ;; args 수집 (재귀): RParen 만나면 중단
 (defn parse-args [$p $acc]
-  (let [[$t (p-peek $p)]]
-  (cond
-    [(null? $t)                              (r-pair $p $acc)]
-    [(= (get $t :kind) "RParen")             (r-pair $p $acc)]
-    [(= (get $t :kind) "RBracket")           (r-pair $p $acc)]
-    [(= (get $t :kind) "RBrace")             (r-pair $p $acc)]
-    [true
-     (let [[$one (parse-expr $p)]]
-       (parse-args (get $one :p) (append $acc (get $one :node))))])))
+  (loop [$cur $p
+         $nodes (loop [$i 0 $b (vec-builder)]
+                  (if (>= $i (length $acc)) $b
+                    (recur (+ $i 1) (append $b (get $acc $i)))))]
+    (let [[$t (p-peek $cur)]]
+      (if (or (null? $t)
+              (= (get $t :kind) "RParen")
+              (= (get $t :kind) "RBracket")
+              (= (get $t :kind) "RBrace"))
+        (r-pair $cur (freeze-builder $nodes))
+        (let [[$one (parse-expr $cur)]]
+          (recur (get $one :p) (append $nodes (get $one :node))))))))
 
 ;; ── 34 parse-bracket — [a b c] 또는 [FUNC ...] 블록
 
@@ -712,11 +709,14 @@
 ;; ── 40/44 공개 API: parse(tokens) → ast list
 
 (defn parse-all [$p]
-  (if (p-end? $p)
-  (get $p :ast)
-  (let [[$one (parse-expr $p)]
-        [$p2 (p-append-ast (get $one :p) (get $one :node))]]
-    (parse-all $p2))))
+  (let [[$initial (get $p :ast)]]
+    (loop [$cur $p
+           $nodes (loop [$i 0 $b (vec-builder)]
+                    (if (>= $i (length $initial)) $b
+                      (recur (+ $i 1) (append $b (get $initial $i)))))]
+      (if (p-end? $cur) (freeze-builder $nodes)
+        (let [[$one (parse-expr $cur)]]
+          (recur (get $one :p) (append $nodes (get $one :node))))))))
 
 (defn parse [$tokens]
   (parse-all (p-make $tokens)))
@@ -2238,24 +2238,26 @@
       (str $acc (if (= (length $acc) 0) "" ", ") "argv[" $i "]")))))
 
 (defn cgc-top-level [$_nodes $_i $_stmts $_fns]
-  (loop [$i $_i $stmts $_stmts $fns $_fns]
+  (loop [$i $_i $stmts (append (vec-builder) $_stmts)
+         $fns (append (vec-builder) $_fns)]
     (if (>= $i (length $_nodes))
       ;; P1-8: hoisted fns를 top-level fns 앞에 추가
       (let [[$hoisted @cgc-hoisted-fns-atom]
+            [$fns-text (str-join "" (freeze-builder $fns))]
             [$all-fns (if (> (length $hoisted) 0)
-                        (str $hoisted "\n\n" $fns)
-                        $fns)]]
-        {:stmts $stmts :fns $all-fns})
+                        (str $hoisted "\n\n" $fns-text)
+                        $fns-text)]]
+        {:stmts (str-join "" (freeze-builder $stmts)) :fns $all-fns})
     (let [[$n (get $_nodes $i)]
           [$k (get $n :kind)]
           [$is-defn (and (= $k "sexpr") (= (get $n :op) "defn"))]
           [$is-block-func (and (= $k "block") (= (get $n :type) "FUNC"))]]
       (if (or $is-defn $is-block-func)
-        (recur (+ $i 1) $stmts (str $fns (cgc $n) "\n\n"))
+        (recur (+ $i 1) $stmts (append $fns (str (cgc $n) "\n\n")))
         ;; top-level stmt: #line 디렉티브로 FL 소스 줄 번호 보존
         (let [[$line (get $n :line)]
               [$ld (if (null? $line) "" (str "    #line " $line " \"<fl>\"\n"))]]
-          (recur (+ $i 1) (str $stmts $ld "    " (cgc $n) ";\n") $fns)))))))
+          (recur (+ $i 1) (append $stmts (str $ld "    " (cgc $n) ";\n")) $fns)))))))
 
 
 ;; S19: lambda forward decl 목록 생성
@@ -2582,9 +2584,12 @@
 
 ;; 노드 목록에 서브목록 모두 추가
 (defn append-all [$acc $items]
-  (loop [$i 0 $a $acc]
-    (if (>= $i (length $items)) $a
-      (recur (+ $i 1) (push $a (get $items $i))))))
+  (loop [$i 0
+         $a (loop [$j 0 $b (vec-builder)]
+              (if (>= $j (length $acc)) $b
+                (recur (+ $j 1) (append $b (get $acc $j)))))]
+    (if (>= $i (length $items)) (freeze-builder $a)
+      (recur (+ $i 1) (append $a (get $items $i))))))
 
 ;; 이미 로드된 파일 경로 추적 (순환/중복 load 방지)
 (define loaded-paths-atom (atom []))
@@ -2592,9 +2597,9 @@
 ;; (load "file.fl") 를 컴파일 타임에 인라인 — 재귀적으로 처리
 ;; visited set(loaded-paths-atom) 으로 순환/중복 load 안전하게 처리
 (defn expand-loads [$nodes $base-dir]
-  (loop [$i 0 $acc []]
+  (loop [$i 0 $acc (vec-builder)]
     (if (>= $i (length $nodes))
-      $acc
+      (freeze-builder $acc)
       (let [[$node (get $nodes $i)]]
         (if (and (= (get $node :kind) "sexpr") (= (get $node :op) "load"))
           (let [[$path-node (get (get $node :args) 0)]
@@ -2616,7 +2621,10 @@
                     (let [[$sub-dir  (path-dir $abs-path)]
                           [$sub-raw  (parse (lex $src))]
                           [$expanded (expand-loads $sub-raw $sub-dir)]]
-                      (recur (+ $i 1) (append-all $acc $expanded))))))))
+                      (recur (+ $i 1)
+                        (loop [$j 0 $b $acc]
+                          (if (>= $j (length $expanded)) $b
+                            (recur (+ $j 1) (append $b (get $expanded $j))))))))))))
           (recur (+ $i 1) (push $acc $node)))))))
 
 ;; ── AST JSON 직렬화 ──────────────────────────────────────────────

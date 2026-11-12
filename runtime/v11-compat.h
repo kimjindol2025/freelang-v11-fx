@@ -1001,21 +1001,22 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         if(IS("str-replace")&&ARG(0).tag!=FL_STRING)return fl_str_val("");
         FLValue s=t_js_string(ARG(0)),delim=IS("str-lines")?fl_str_val("\n"):IS("str-replace")&&ARG(1).tag==FL_NIL?fl_str_val(""):t_js_string(ARG(1));
         TUnits u=t_units(s),d=t_units(delim);
-        FLValue parts=fl_vec_new();
+        FLValue parts=fl_vec_builder_new();
         size_t pos=0;
         if(!d.n){
-            for(size_t i=0;i<u.n;i++)parts=fl_vec_push(parts,t_from_units(u.p+i,1));
+            for(size_t i=0;i<u.n;i++)fl_vec_builder_push(parts,t_from_units(u.p+i,1));
         }
         else{
             int64_t at;
             while((at=t_find_units(u,d,pos))>=0){
-                parts=fl_vec_push(parts,t_from_units(u.p+pos,at-pos));
+                fl_vec_builder_push(parts,t_from_units(u.p+pos,at-pos));
                 pos=at+d.n;
             }
-            parts=fl_vec_push(parts,t_from_units(u.p+pos,u.n-pos));
+            fl_vec_builder_push(parts,t_from_units(u.p+pos,u.n-pos));
         }
         free(u.p);
         free(d.p);
+        parts=fl_vec_builder_freeze(parts);
         if(IS("str-lines"))return parts;
         if(IS("str-replace")||IS("str-replace-in")){
             FLValue j[2]={
