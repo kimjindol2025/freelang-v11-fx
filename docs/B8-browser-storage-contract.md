@@ -1,8 +1,8 @@
-# B-8: 브라우저 영속 초안의 언어 API 구현 제안
+# B-8: 브라우저 저장소 언어 API 계약
 
-이 문서는 후속 언어 작업의 제안과 고정 시험 준비다. 컴파일러 수정 승인이나 제품 보관 정책의 선택을 의미하지 않는다. 현재 블로그는 언어에서 지원하는 타이머·HTTP·이벤트를 사용하지만 고정 compiler의 공개 browser builtin 표와 browser core에 저장소 API는 없다.
+사용자가 브라우저 저장소 API 구현을 승인했다. 아래 20개 정답은 언어 저장소에서 구현보다 먼저 `c20dc641b0fb067e343cba9647cd9c801bbf27b8`로 고정했다. 개발용 native 컴파일러에서 생성한 결과는 실제 Chrome 20/20이지만, 정식 소스 빌드·전체 회귀·bootstrap은 미완료다. 제품 보관 정책의 선택이나 영속 저장 활성화를 의미하지 않는다. 실행 범위와 실패 원문은 `B8-browser-storage-progress.md`에 구분한다.
 
-## 제안 계약
+## 승인된 API 계약
 
 | .fl 함수 | 정상 값 | 인자 오류 |
 |---|---|---|
@@ -16,11 +16,11 @@
 
 ## 준비한 20개 정답
 
-`tests/b8-storage-proposal.fl`과 `.expected`에 없음/쓰기 반환/재조회/빈 값/Unicode/덮어쓰기/삭제 반환/삭제 후 조회/재삭제/다른 키 보존 10개, 잘못된 키·값·인자 수 8개, 접근 거부·quota 실패와 기존 값 보존 2개를 고정했다. 아직 runtime 통과 수가 아니다.
+`tests/l01/browser-storage.fl`과 `tests/l01/browser-storage.expected`에 없음/쓰기 반환/재조회/빈 값/Unicode/덮어쓰기/삭제 반환/삭제 후 조회/재삭제/다른 키 보존 10개, 잘못된 키·값·인자 수 8개, 접근 거부·quota 실패와 기존 값 보존 2개를 고정했다. 대응 페이지는 `tests/l01/browser-storage.html`이다. 기존 정답은 변경하지 않았다.
 
 대응 HTML은 새 합성 Chrome 프로필에서만 사용한다. 정상 읽기/쓰기는 실제 localStorage를 사용하고, 두 전용 시험 키에서만 표준 DOMException을 발생시킨다. 실제 메모리나 디스크를 가득 채우지 않는다. 제품 빌드에는 넣지 않는다.
 
-준비 커밋은 `4d9a08fdbc18b32fd5d83e0bea90df4cc3d42005`다. 수정하지 않은 고정 compiler로 .fl을 컴파일한 실제 결과는 아래와 같다. 생성 출력이 없어 Chrome의 20개 runtime 사례는 모두 미실행이다. 실패 재현을 통과 수에 포함하지 않는다.
+최초 블로그 준비 커밋은 `4d9a08fdbc18b32fd5d83e0bea90df4cc3d42005`다. 당시 수정하지 않은 고정 compiler의 실제 결과는 아래와 같았다. 당시에는 생성 출력이 없어 Chrome의 20개 runtime 사례를 실행하지 못했다. 이 과거 실패를 현재 통과 수에 포함하지 않는다.
 
 ```text
 STORAGE_PROPOSAL_COMPILE_EXIT=1
@@ -29,13 +29,13 @@ STORAGE_GENERATED_OUTPUT_PRESENT=NO
 STORAGE_RUNTIME_CASES_EXECUTED=0
 ```
 
-이 진단은 compiler가 출력한 원문이다. compiler/core/seed는 수정하지 않았으며 같은 실패를 반복 실행하지 않았다. compiler 실행에는 1 GiB 가상 메모리 상한을 뒀고 최대 RSS는 `482212 kbytes`였다. 원문은 `<가림>`에 보존했다.
+이 진단은 블로그 준비 단계의 compiler 출력 원문이며 당시 compiler/core/seed는 수정하지 않았다. 당시 실행의 1 GiB 가상 메모리 상한과 최대 RSS `482212 kbytes`도 과거 값이다. 승인 후 언어 구현·재시험과 구분한다. 원문은 `<가림>`에 보존했다.
 
-## 구현 승인 시의 변경 범위
+## 승인된 변경 범위와 남은 관문
 
-언어 저장소의 공개 browser builtin 연결, .fl browser core, 필요한 최소 host primitive와 그 생성 내장 데이터의 동기화가 대상이다. 고정 seed·기존 정답·문턱값·시간제한은 유지한다. 먼저 언어 저장소의 실제 HEAD·CLEAN과 동시 작업을 확인한 뒤 정답을 그 저장소에도 선행 커밋한다. 현 블로그의 시험 준비를 그 언어 저장소의 선행 커밋으로 대신하지 않는다.
+공개 browser builtin 연결, .fl browser core의 인자 검사/오류 처리, 최소 host primitive와 생성 내장 데이터 동기화를 구현했다. 고정 seed·기존 정답·문턱값·시간제한은 유지했다. 다른 검수와 분리한 새 작업 트리의 실제 HEAD·CLEAN을 확인한 뒤 언어 저장소에도 정답을 선행 커밋했다.
 
-승인 이후에도 실제 Chrome 20개, 기존 언어 의미/DOM/이벤트/타이머/HTTP/취소, native 회귀와 strace 없는 bootstrap의 stage2=3=4를 별도로 확인해야 한다. 고정점이 바뀌면 기존 값과 새 값을 원문으로 비교하고 이유를 기록한다. 이번 작업에서 compiler·core·seed를 수정하지 않는다.
+native 전체 회귀와 strace 없는 정식 bootstrap의 stage2=3=4는 여전히 별도로 확인해야 한다. 고정점이 바뀌면 기존 값과 새 값을 원문으로 비교하고 이유를 기록한다. 이번에는 browser core와 프린터/내장 데이터만 바꿨으며 seed와 native compiler .fl 원본은 바꾸지 않았다. 개발용 컴파일러의 부분 검증을 정식 bootstrap 통과로 대체하지 않는다.
 
 ## 제품 정책과 남은 별도 시험
 
@@ -43,4 +43,4 @@ D04의 보관 기간·개수·계정별 용량·로그아웃/공용 기기 처�
 
 ## 언어 작업 시작
 
-사용자가 브라우저 저장소 API 구현을 승인했다. 언어 출발 HEAD는 `02176817d44f4d998a3f0b8ac04cec4373e04a7f`, 작업 트리는 CLEAN이다. 독립 가지 `feat/browser-storage-b8`에서 위 정답 20개를 먼저 커밋한다. 제품 영속 저장 활성화와 D04 수치 선택은 보류한다.
+언어 출발 HEAD는 `02176817d44f4d998a3f0b8ac04cec4373e04a7f`, 작업 트리는 CLEAN이었다. 독립 가지 `feat/browser-storage-b8`에서 위 정답 20개를 먼저 커밋했다. 제품 영속 저장 활성화와 D04 수치 선택은 보류한다.

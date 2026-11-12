@@ -351,6 +351,39 @@
   (if (jcore-element-args? args 1) (do (j-host-dom-focus! (j-host-at args 0)) nil)
     (throw "browser-focus!: one element required")))
 
+;; Storage errors are observable without disclosing keys, values or host messages.
+(defn jcore-storage-key [args size arity-error]
+  (if (j-host-eq (j-host-len args) size)
+    (let [key (j-host-at args 0)]
+      (if (j-host-and (j-host-eq (j-host-type key) "string")
+                     (j-host-lt 0 (j-host-len key))) key
+        (throw "browser-storage: non-empty string key required")))
+    (throw arity-error)))
+(defn jcore-storage-error [error]
+  (let [name (try
+               (if (j-host-nullish? error) nil (j-host-at error "name"))
+               (catch ignored nil))]
+    (throw (if (j-host-eq name "SecurityError") "browser-storage: access denied"
+      (if (j-host-eq name "QuotaExceededError") "browser-storage: quota exceeded"
+        "browser-storage: operation failed")))))
+(defn jcore-storage-read [args]
+  (let [key (jcore-storage-key args 1 "browser-storage-read: one key required")]
+    (try
+      (let [value (j-host-storage-read (j-host-storage) key)]
+        (if (j-host-nullish? value) nil value))
+      (catch error (jcore-storage-error error)))))
+(defn jcore-storage-write [args]
+  (let [key (jcore-storage-key args 2 "browser-storage-write!: key and value required")
+        value (j-host-at args 1)]
+    (if (j-host-eq (j-host-type value) "string")
+      (try (do (j-host-storage-write! (j-host-storage) key value) nil)
+        (catch error (jcore-storage-error error)))
+      (throw "browser-storage: string value required"))))
+(defn jcore-storage-remove [args]
+  (let [key (jcore-storage-key args 1 "browser-storage-remove!: one key required")]
+    (try (do (j-host-storage-remove! (j-host-storage) key) nil)
+      (catch error (jcore-storage-error error)))))
+
 ;; HTTP owns completion until the entire response body has arrived.
 (defn jcore-json-parse [args]
   (if (j-host-and (j-host-eq (j-host-len args) 1)
