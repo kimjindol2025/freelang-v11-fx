@@ -1,0 +1,18 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>브라우저 저장소 언어 API 제안 시험</title>
+<pre id="proof">NOT_EXECUTED</pre><pre id="observer"></pre><img src="/wait-proof" hidden alt="">
+<script>
+if(location.hostname!=='127.0.0.1')throw new Error('LOOPBACK_REQUIRED');
+const originalGet=Storage.prototype.getItem,originalSet=Storage.prototype.setItem;
+originalSet.call(localStorage,'b8-storage-quota','old');
+Storage.prototype.getItem=function(key){
+ if(key==='b8-storage-denied')throw new DOMException('synthetic storage denial','SecurityError');
+ return originalGet.call(this,key);
+};
+Storage.prototype.setItem=function(key,value){
+ if(key==='b8-storage-quota')throw new DOMException('synthetic quota exhaustion','QuotaExceededError');
+ return originalSet.call(this,key,value);
+};
+const finish=()=>{if(document.querySelector('#proof').textContent.includes('=PASS'))fetch('/finished');};
+new MutationObserver(finish).observe(document.querySelector('#proof'),{childList:true,subtree:true,characterData:true});
+window.addEventListener('error',event=>{document.querySelector('#observer').textContent='UNCAUGHT_LANGUAGE_ERROR='+event.message;fetch('/finished');});
+</script><script src="/program.js" defer></script></html>
