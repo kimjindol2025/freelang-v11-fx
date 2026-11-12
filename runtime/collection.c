@@ -24,10 +24,17 @@
 */
 #define A(size) fl_arena_alloc(size)
 
+/* The allocator may already be exhausted: do not allocate an FL error value. */
+static _Noreturn void vector_allocation_failed(void) {
+    fputs("FreeLang: vector allocation failed\n", stderr);
+    exit(EXIT_FAILURE);
+}
+
 /* ── Vector ── */
 
 FLValue fl_vec_new(void) {
     FLVector* v = A(sizeof(FLVector));
+    if (!v) vector_allocation_failed();
     v->base.type = FL_VECTOR; v->base.rc = 1;
     v->len = 0; v->cap = 0; v->data = NULL;
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
@@ -35,9 +42,11 @@ FLValue fl_vec_new(void) {
 
 FLValue fl_vec_from(FLValue* items, uint32_t n) {
     FLVector* v = A(sizeof(FLVector));
+    if (!v) vector_allocation_failed();
     v->base.type = FL_VECTOR; v->base.rc = 1;
     v->len = n; v->cap = n;
     v->data = n ? A(sizeof(FLValue) * n) : NULL;
+    if (n && !v->data) vector_allocation_failed();
     if (n) memcpy(v->data, items, sizeof(FLValue) * n);
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
 }
@@ -67,10 +76,12 @@ FLValue fl_vec_len(FLValue vec) {
  */
 FLValue fl_vec_builder_new(void) {
     FLVector* v = (FLVector*)malloc(sizeof(FLVector));
+    if (!v) vector_allocation_failed();
     v->base.type = FL_VECTOR;
     v->base.rc   = 0xFE;   /* mutable builder 표시 */
     v->len = 0; v->cap = 16;
     v->data = (FLValue*)malloc(sizeof(FLValue) * 16);
+    if (!v->data) { free(v); vector_allocation_failed(); }
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
 }
 
@@ -79,8 +90,12 @@ void fl_vec_builder_push(FLValue b, FLValue val) {
     FLVector* v = (FLVector*)b.obj;
     if (v->base.rc != 0xFE) return;
     if (v->len >= v->cap) {
-        v->cap = v->cap ? v->cap * 2 : 16;
-        v->data = (FLValue*)realloc(v->data, sizeof(FLValue) * v->cap);
+        if (v->cap > UINT32_MAX / 2) vector_allocation_failed();
+        uint32_t cap = v->cap ? v->cap * 2 : 16;
+        FLValue* data = (FLValue*)realloc(v->data, sizeof(FLValue) * cap);
+        if (!data) vector_allocation_failed();
+        v->data = data;
+        v->cap = cap;
     }
     v->data[v->len++] = val;
 }
@@ -108,10 +123,13 @@ FLValue fl_vec_push(FLValue vec, FLValue val) {
 
     /* 불변 copy-semantics */
     uint32_t n = src ? src->len : 0;
+    if (n == UINT32_MAX) vector_allocation_failed();
     FLVector* v = A(sizeof(FLVector));
+    if (!v) vector_allocation_failed();
     v->base.type = FL_VECTOR; v->base.rc = 1;
     v->len = n + 1; v->cap = n + 1;
     v->data = A(sizeof(FLValue) * (n + 1));
+    if (!v->data) vector_allocation_failed();
     if (n && src->data) memcpy(v->data, src->data, sizeof(FLValue) * n);
     v->data[n] = val;
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
