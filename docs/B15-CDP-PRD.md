@@ -95,3 +95,22 @@ program.fl=6cc37a2ab6ac4eb659984a9873fafc9432df0678af64adbbc2f58c9c1aa65c53
 fixture.html=7fdce210fad2ed3df84330200ca8ff7c01134097e7f974839a48689a787d901b
 expected=e47384b017e082c27e7a824bb430a400e15ef8abc7fc3b6f52643cd8f88b1af9
 ```
+
+## 선택 영역·IME 구현과 실제 결과
+
+self/browser-core.fl에 선택 영역 알고리즘·인자 검사·UTF-16 위치 변환을 구현했고 runtime/browser-target.h에는 필요한 native DOM 메서드 연결만 추가했다. 입력/textarea와 중첩 DOM·역방향·빈 대상·대상 밖 선택을 지원한다. 변경 뒤 read-back으로 적용 여부를 확인해 native 선택이 적용되지 않으면 오류를 낸다. .fl 원본과 기존 도구로 갱신한 C 내장 데이터를 모두 유지했고 BROWSER_CORE_EMBEDDING=PASS였다.
+
+첫 검증 명령은 원래 시험 호스트에 등록되지 않은 경로로 요청해 404를 받아 정답을 실행하지 못했다. 경로를 원래 호스트의 루트로 바로잡았고, 완료한 compiler/host 빌드·JS 동일 재생성은 재실행하지 않았다. 동일한 고정 입력·정답으로 SELECTION_IME_PASS=20 FAIL=0, GENERATED_REPRODUCTION=PASS, BROWSER_OBSERVER=EMPTY를 얻었다. 기존 정답이나 제한시간을 바꾸지 않았다.
+
+별도의 언어 저장소 프로그램은 같은 origin·같은 프로필에서 Chrome 프로세스를 완전히 닫았다 다시 열어 쓰기/다음 실행 읽기/삭제를 3/3 확인했다. 제품 초안의 영속 저장 활성화나 D04 정책 적용은 아니다. 합성 키와 값은 <가림>이며 검사 뒤 해당 시험 값은 지웠다.
+
+```text
+BROWSER_CORE_FL_SHA=6faa13f622e06e11feff12732b2c54cfe01ab9075f77540868b598819a021e6c
+SELECTION_GENERATED_JS_SHA=e8fde9617be9f31f06c09dd287002b66e68341f0664be1422b63a6aaa7d58499
+SELECTION_NATIVE_COMPILER_ELF_SHA=61fc1cb14928c959dab03663fd7c293ea98700dafbe4dfcefe19670912a7f753
+STORAGE_REOPEN_WRITE=PASS
+STORAGE_REOPEN_READ=PASS
+STORAGE_REOPEN_REMOVE=PASS
+```
+
+API 구현은 FreeLang이며 새 서버 JS나 수작업 JS 런타임 파일은 없다. 검증 HTML에는 합성 CompositionEvent 발생기와 오류 관측용 inline 코드가 있고, 검증 판단은 .fl 프로그램이 수행했다. 기존 블로그 시각 편집기의 내장 JS는 원래 B8 시험에서 무수정 실행했다고 구분한다. 이후 이 브라우저 라이브러리 확장에 영향받는 원래 Chrome/API/제품 검수를 다시 실행한다.
