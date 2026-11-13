@@ -114,10 +114,6 @@ FLValue str_ends_with(FLValue s, FLValue suffix) {
 }
 
 FLValue str_split(FLValue s, FLValue sep) {
-    if (sep.tag == FL_STRING && ((FLString*)sep.obj)->len == 0) {
-        FLValue args[2] = { s, sep };
-        return fl_v11_builtin(fl_str_val("str-split"), fl_vec_from(args, 2));
-    }
     /* alias — split already exists in runtime.h (cgc-bridge.c) */
     return split(s, sep);
 }
@@ -407,8 +403,6 @@ FLValue list_new0(void)                    { return fl_vec_new(); }
 FLValue fl_vec_first(FLValue vec) { return first(vec); }
 /* fl_vec_last: collection.c에 이미 구현됨 */
 FLValue fl_vec_rest(FLValue vec)  { return rest(vec);  }
-FLValue vec_builder(void) { return fl_vec_builder_new(); }
-FLValue freeze_builder(FLValue b) { return fl_vec_builder_freeze(b); }
 
 /* fl_concat — 벡터/문자열 연결 */
 FLValue fl_concat(FLValue a, FLValue b) {

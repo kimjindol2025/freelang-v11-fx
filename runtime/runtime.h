@@ -154,9 +154,6 @@ FLValue fl_vec_len(FLValue vec);
 FLValue fl_vec_builder_new(void);
 void    fl_vec_builder_push(FLValue b, FLValue val);
 FLValue fl_vec_builder_freeze(FLValue b);
-/* C spellings emitted by the fixed bootstrap compiler. */
-FLValue vec_builder(void);
-FLValue freeze_builder(FLValue b);
 
 /* ── Map ── */
 FLValue fl_map_new(void);

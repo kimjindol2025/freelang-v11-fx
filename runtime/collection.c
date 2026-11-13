@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
 #include "native-symbols.h"
 
 /* ── Arena 헬퍼 매크로 ──────────────────────────────────────────────
@@ -30,17 +29,6 @@ static _Noreturn void vector_allocation_failed(void) {
     fputs("FreeLang: vector allocation failed\n", stderr);
     exit(EXIT_FAILURE);
 }
-
-/* Arena-owned immutable prefixes share only an append-only buffer. Bit 31
- * remains the owned-heap marker; bit 30 survives ordinary RC retains without
- * making an arena header eligible for heap free. Heap/snapshot copies still
- * copy logical elements and receive their normal ownership flags. */
-#define FL_APPEND_PREFIX UINT32_C(0x40000000)
-typedef struct FLAppendStorage {
-    uint32_t cap;
-    uint32_t used;
-    FLValue data[];
-} FLAppendStorage;
 
 /* ── Vector ── */
 
@@ -126,44 +114,23 @@ FLValue fl_vec_builder_freeze(FLValue b) {
  * 빌더(rc==0xFE) 입력이면 O(1) amortized 경로로 mutate. */
 FLValue fl_vec_push(FLValue vec, FLValue val) {
     FLVector* src = (vec.tag == FL_VECTOR) ? (FLVector*)vec.obj : NULL;
-    uint32_t rc = src ? __atomic_load_n(&src->base.rc, __ATOMIC_RELAXED) : 0;
 
     /* 빌더 fast-path: O(1) amortized */
-    if (src && rc == 0xFE) {
+    if (src && src->base.rc == 0xFE) {
         fl_vec_builder_push(vec, val);
         return vec;
     }
 
-    /* Always create a new immutable header. Extending the latest prefix only
-     * writes beyond every previous logical length. Branching from an older
-     * prefix or growing capacity copies into a new arena buffer. */
+    /* 불변 copy-semantics */
     uint32_t n = src ? src->len : 0;
     if (n == UINT32_MAX) vector_allocation_failed();
     FLVector* v = A(sizeof(FLVector));
     if (!v) vector_allocation_failed();
-    FLAppendStorage* storage = NULL;
-    if (src && (rc & UINT32_C(0xc0000000)) == FL_APPEND_PREFIX && n < src->cap) {
-        FLAppendStorage* shared = (FLAppendStorage*)((char*)src->data - offsetof(FLAppendStorage, data));
-        uint32_t expected = n;
-        if (__atomic_compare_exchange_n(&shared->used, &expected, n + 1, false,
-                                        __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) storage = shared;
-    }
-    if (!storage) {
-        uint32_t cap = 2;
-        while (cap < n + 1) {
-            if (cap > UINT32_MAX / 2) { cap = n + 1; break; }
-            cap *= 2;
-        }
-        if (cap > (SIZE_MAX - sizeof(*storage)) / sizeof(FLValue)) vector_allocation_failed();
-        storage = A(sizeof(*storage) + sizeof(FLValue) * cap);
-        if (!storage) vector_allocation_failed();
-        storage->cap = cap;
-        storage->used = n + 1;
-        if (n && src->data) memcpy(storage->data, src->data, sizeof(FLValue) * n);
-    }
-    v->base.type = FL_VECTOR; v->base.rc = FL_APPEND_PREFIX | 1;
-    v->len = n + 1; v->cap = storage->cap;
-    v->data = storage->data;
+    v->base.type = FL_VECTOR; v->base.rc = 1;
+    v->len = n + 1; v->cap = n + 1;
+    v->data = A(sizeof(FLValue) * (n + 1));
+    if (!v->data) vector_allocation_failed();
+    if (n && src->data) memcpy(v->data, src->data, sizeof(FLValue) * n);
     v->data[n] = val;
     FLValue r; r.tag = FL_VECTOR; r.obj = (FLObject*)v; return r;
 }
