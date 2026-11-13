@@ -53,3 +53,25 @@ DB95-26의 반복 전체 복사 수정과 같은 누적 패턴으로 대조했�
 ## 구현 전 범위
 
 기존 지역 vec-builder에 조각을 쌓고 마지막에 str-join 한 번으로 합치는 방식으로 위 누적 경로를 바꾼다. 함수 인자·prefix·선언 순서·개행·인자 평가 순서를 유지한다. B13의 core.c FL_TEXT 처리와 문자열 reader는 변경하지 않는 방향으로 확인한다. 수정 후 같은 세 입력의 출력 C byte 비교, 실제 원본 main.fl 생성, UTF-16·전체 회귀·고정점·8192바이트·제품 인수를 별도로 확인한다.
+
+## 구현과 첫 확인
+
+cgc-forward-loop·cgc-join-lambda-loop·cgc-eval-args 및 같은 선언 누적 방식인 cgc-lambda-fwd-loop를 기존 지역 vec-builder/append/freeze-builder/str-join으로 바꿨다. 임시 문자열의 이전 prefix를 반복 재전달하지 않는다. 이전 시작 prefix·호출 순서·인자 평가 순서·선언 등록·개행을 유지했다. 새 이어붙이기 함수나 parser를 만들지 않았다. core.c와 v11-compat.h 및 문자열 reader는 그대로다.
+
+기존 정식 compiler로 수정 self 소스를 생성·링크한 후보의 첫 측정은 다음과 같다. 기존 입력 세 개와 수정 전 출력 C도 그대로 보존했다.
+
+| 입력 | 수정 전 초 | 수정 전 RSS(KiB) | 수정 후 초 | 수정 후 RSS(KiB) | 출력 C |
+| --- | --- | --- | --- | --- | --- |
+| 1/4, 112998bytes | 6.58 | 545192 | 6.54 | 536332 | byte 동일 |
+| 1/2, 244409bytes | 19.83 | 1149312 | 19.93 | 1116184 | byte 동일 |
+| 전체 펼친 사본, 450607bytes | 48.35 | 2074844 | 47.91 | 1968220 | byte 동일 |
+
+실제 원본 load 경로의 main.fl도 이 후보로 C 생성에 성공했다.
+
+```text
+ELAPSED=48.26 MAX_RSS_KB=1966048 TIME_EXIT=0
+MAIN_C_BYTES=3299307
+MEMORY_PEAK_BYTES=2026999808
+```
+
+위 값은 아직 seed부터 다시 만든 최종 compiler의 측정과 구분한다. 정식 bootstrap·UTF-16·전체 회귀·제품 실제 인수는 다음 단계에서 확인한다. 한도를 올리거나 기대값을 바꾸지 않았다.

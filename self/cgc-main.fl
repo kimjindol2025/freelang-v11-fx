@@ -2212,8 +2212,8 @@
   (cgc-forward-loop $nodes 0 ""))
 
 (defn cgc-forward-loop [$_nodes $_i $_acc]
-  (loop [$i $_i $acc $_acc]
-    (if (>= $i (length $_nodes)) $acc
+  (loop [$i $_i $parts (append (vec-builder) $_acc)]
+    (if (>= $i (length $_nodes)) (str-join "" (freeze-builder $parts))
     (let [[$n (get $_nodes $i)]]
     (recur (+ $i 1)
       (if (and (= (get $n :kind) "sexpr") (= (get $n :op) "defn"))
@@ -2222,13 +2222,13 @@
               [$ps (cgc-params $param-items)]]
           (swap! known-defns-atom append $name)
           (swap! defn-arity-atom assoc $name (length $param-items))
-          (str $acc
-               "FLValue " $name "(" $ps ");\n"
-               "static FLValue __fl_wrap_" $name "(FLClosure*, int, FLValue*);\n"))
+          (append $parts
+            (str "FLValue " $name "(" $ps ");\n"
+                 "static FLValue __fl_wrap_" $name "(FLClosure*, int, FLValue*);\n")))
         (if (and (= (get $n :kind) "sexpr") (= (get $n :op) "define"))
           (do (swap! known-fncall-targets-atom append
-                 (c-name (cgc-extract-name (get (get $n :args) 0)))) $acc)
-          $acc)))))))
+                 (c-name (cgc-extract-name (get (get $n :args) 0)))) $parts)
+          $parts)))))))
 
 ;; S24: defn wrapper argv 호출 인자 생성 "argv[0], argv[1], ..."
 (defn cgc-wrapper-call-args [$_items $_i $_acc]
@@ -2262,19 +2262,19 @@
 
 ;; S19: lambda forward decl 목록 생성
 (defn cgc-lambda-fwd-loop [$_defs $_i $_acc]
-  (loop [$i $_i $acc $_acc]
-    (if (>= $i (length $_defs)) $acc
+  (loop [$i $_i $parts (append (vec-builder) $_acc)]
+    (if (>= $i (length $_defs)) (str-join "" (freeze-builder $parts))
     (recur (+ $i 1)
-      (str $acc "static FLValue __fl_anon_" $i "(FLClosure*, int, FLValue*);\n")))))
+      (append $parts (str "static FLValue __fl_anon_" $i "(FLClosure*, int, FLValue*);\n"))))))
 
 (defn cgc-lambda-fwds []
   (cgc-lambda-fwd-loop @lambda-defs-atom 0 ""))
 
 ;; S19: lambda 정의 목록 이어붙이기
 (defn cgc-join-lambda-loop [$_defs $_i $_acc]
-  (loop [$i $_i $acc $_acc]
-    (if (>= $i (length $_defs)) $acc
-    (recur (+ $i 1) (str $acc (get $_defs $i) "\n\n")))))
+  (loop [$i $_i $parts (append (vec-builder) $_acc)]
+    (if (>= $i (length $_defs)) (str-join "" (freeze-builder $parts))
+    (recur (+ $i 1) (append (append $parts (get $_defs $i)) "\n\n")))))
 
 (defn cgc-join-lambdas []
   (cgc-join-lambda-loop @lambda-defs-atom 0 ""))
@@ -2745,11 +2745,14 @@
 
 ;; Arguments are evaluated exactly once, left to right, before the call.
 (defn cgc-eval-args [$args $id $i $acc]
-  (if (>= $i (length $args))
-    (str $acc " FLValue __fl_av_" $id "[" (length $args) "] = {"
-         (cgc-eval-names $id (length $args) 0 "") "};")
-    (cgc-eval-args $args $id (+ $i 1)
-      (str $acc " FLValue __fl_arg_" $id "_" $i " = FL_VALUE(" (cgc (get $args $i)) ");"))))
+  (loop [$j $i $parts (append (vec-builder) $acc)]
+    (if (>= $j (length $args))
+      (str (str-join "" (freeze-builder $parts))
+           " FLValue __fl_av_" $id "[" (length $args) "] = {"
+           (cgc-eval-names $id (length $args) 0 "") "};")
+      (recur (+ $j 1)
+        (append $parts
+          (str " FLValue __fl_arg_" $id "_" $j " = FL_VALUE(" (cgc (get $args $j)) ");"))))))
 (defn cgc-eval-names [$id $n $i $acc]
   (if (>= $i $n) $acc
     (cgc-eval-names $id $n (+ $i 1)
