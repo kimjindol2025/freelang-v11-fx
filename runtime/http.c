@@ -858,7 +858,9 @@ FLValue server_start(FLValue port_val) {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
+    const char* bind_loopback = getenv("FL_HTTP_LOOPBACK_ONLY");
+    int loopback_only = bind_loopback && strcmp(bind_loopback, "1") == 0;
+    addr.sin_addr.s_addr = loopback_only ? htonl(INADDR_LOOPBACK) : INADDR_ANY;
     addr.sin_port        = htons((uint16_t)port);
 
     if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -868,7 +870,7 @@ FLValue server_start(FLValue port_val) {
     }
 
     listen(server_fd, 512);   /* backlog 증가 */
-    fprintf(stderr, "[http] 서버 시작: http://0.0.0.0:%d\n", port);
+    fprintf(stderr, "[http] 서버 시작: http://%s:%d\n", loopback_only ? "127.0.0.1" : "0.0.0.0", port);
     fl_debug_banner("fl-app", port);
 
     /* ── accept 루프 ── */
@@ -1192,7 +1194,9 @@ FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
+    const char* bind_loopback = getenv("FL_HTTP_LOOPBACK_ONLY");
+    int loopback_only = bind_loopback && strcmp(bind_loopback, "1") == 0;
+    addr.sin_addr.s_addr = loopback_only ? htonl(INADDR_LOOPBACK) : INADDR_ANY;
     addr.sin_port        = htons((uint16_t)port);
 
     if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -1201,7 +1205,7 @@ FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
     }
     g_server_fd = server_fd;
     listen(server_fd, 128);
-    fprintf(stderr, "[tls] HTTPS 서버 시작: https://0.0.0.0:%d\n", port);
+    fprintf(stderr, "[tls] HTTPS 서버 시작: https://%s:%d\n", loopback_only ? "127.0.0.1" : "0.0.0.0", port);
 
     /* accept 루프 */
     while (!g_pool.shutdown) {

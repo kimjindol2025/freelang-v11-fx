@@ -302,14 +302,24 @@ FLValue fl_str_n(int count, ...) {
     char bufs[count][64];
     const char* parts[count];
     size_t lens[count];
+    FLValue values[count];
+    bool branded_text = false;
     size_t total = 0;
     for (int i = 0; i < count; i++) {
         FLValue v = va_arg(ap, FLValue);
+        values[i] = v;
+        if (v.tag == FL_STRING && v.obj && v.obj->type == FL_TEXT)
+            branded_text = true;
         parts[i] = fl_display(v, bufs[i], 64);
         lens[i] = strlen(parts[i]);
         total += lens[i];
     }
     va_end(ap);
+    /* The fixed C seed emits this legacy entry point. Cached UTF-16 units
+     * must keep their brand until adjacent surrogates have been combined by
+     * the existing v11 text implementation. Plain legacy bytes stay below. */
+    if (branded_text)
+        return fl_v11_builtin(fl_str_val("str"), fl_vec_from(values, (uint32_t)count));
     FLString* obj = fl_arena_alloc(sizeof(FLString) + total + 1);
     obj->base.type = FL_STRING; obj->base.rc = 1;
     obj->len = (uint32_t)total;
