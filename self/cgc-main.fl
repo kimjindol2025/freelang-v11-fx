@@ -33,33 +33,41 @@
 
 ;; ── state = {:src :idx :line :col :tokens}; src is owned UTF-16 characters.
 
+;; These immutable keys are reused for every source character. Constructing
+;; identical key strings inside each state read only adds arena temporaries.
+(define lex-key-src "src")
+(define lex-key-idx "idx")
+(define lex-key-line "line")
+(define lex-key-col "col")
+(define lex-key-tokens "tokens")
+
 (defn make-state [$src]
   {:src (deref (atom (str-split $src ""))) :idx 0 :line 1 :col 1 :tokens nil})
 
 (defn peek-at [$st $offset]
-  (let [[$src (get $st :src)]
-      [$i (+ (get $st :idx) $offset)]]
+  (let [[$src (get $st lex-key-src)]
+      [$i (+ (get $st lex-key-idx) $offset)]]
   (if (>= $i (length $src)) null (get $src $i))))
 
 (defn peek [$st]
   (peek-at $st 0))
 
 (defn at-end? [$st]
-  (>= (get $st :idx) (length (get $st :src))))
+  (>= (get $st lex-key-idx) (length (get $st lex-key-src))))
 
 (defn advance [$st]
   (let [[$c (peek $st)]]
   (if (= $c "\n")
-    {:src (get $st :src) :idx (+ (get $st :idx) 1)
-     :line (+ (get $st :line) 1) :col 1
-     :tokens (get $st :tokens)}
-    {:src (get $st :src) :idx (+ (get $st :idx) 1)
-     :line (get $st :line) :col (+ (get $st :col) 1)
-     :tokens (get $st :tokens)})))
+    {:src (get $st lex-key-src) :idx (+ (get $st lex-key-idx) 1)
+     :line (+ (get $st lex-key-line) 1) :col 1
+     :tokens (get $st lex-key-tokens)}
+    {:src (get $st lex-key-src) :idx (+ (get $st lex-key-idx) 1)
+     :line (get $st lex-key-line) :col (+ (get $st lex-key-col) 1)
+     :tokens (get $st lex-key-tokens)})))
 
 (defn emit [$st $kind $value $sl $sc]
-  {:src (get $st :src) :idx (get $st :idx)
-  :line (get $st :line) :col (get $st :col)
+  {:src (get $st lex-key-src) :idx (get $st lex-key-idx)
+  :line (get $st lex-key-line) :col (get $st lex-key-col)
   :tokens {:kind $kind :type $kind :value $value :line $sl :col $sc}})
 
 ;; ── 스킵 (whitespace + ; line comment)
@@ -118,17 +126,17 @@
   [(= $c "\"") "\""] [(= $c "\\") "\\"] [true $c]))
 
 (defn read-string-iter [$_cur $_res_acc $line $col]
-  (loop [$cur $_cur $res_acc $_res_acc]
-    (if (at-end? $cur) (emit $cur "String" $res_acc $line $col)
+  (loop [$cur $_cur $parts (append (vec-builder) $_res_acc)]
+    (if (at-end? $cur) (emit $cur "String" (str-join "" (freeze-builder $parts)) $line $col)
       (let [[$c (peek $cur)]]
         (cond
           [(= $c "\"")
-           (emit (advance $cur) "String" $res_acc $line $col)]
+           (emit (advance $cur) "String" (str-join "" (freeze-builder $parts)) $line $col)]
           [(= $c "\\")
            (let [[$st2 (advance $cur)] [$c2 (peek $st2)]]
-             (recur (advance $st2) (str $res_acc (translate-esc $c2))))]
+             (recur (advance $st2) (append $parts (str (translate-esc $c2)))))]
           [true
-           (recur (advance $cur) (str $res_acc $c))])))))
+           (recur (advance $cur) (append $parts $c))])))))
 
 (defn read-string-body [$st $acc $line $col]
   (read-string-iter $st $acc $line $col))
@@ -2747,9 +2755,10 @@
 (defn cgc-eval-args [$args $id $i $acc]
   (loop [$j $i $parts (append (vec-builder) $acc)]
     (if (>= $j (length $args))
-      (str (str-join "" (freeze-builder $parts))
-           " FLValue __fl_av_" $id "[" (length $args) "] = {"
-           (cgc-eval-names $id (length $args) 0 "") "};")
+      (str-join "" (freeze-builder
+        (append $parts
+          (str " FLValue __fl_av_" $id "[" (length $args) "] = {"
+               (cgc-eval-names $id (length $args) 0 "") "};"))))
       (recur (+ $j 1)
         (append $parts
           (str " FLValue __fl_arg_" $id "_" $j " = FL_VALUE(" (cgc (get $args $j)) ");"))))))

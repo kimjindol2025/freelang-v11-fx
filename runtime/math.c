@@ -102,6 +102,15 @@ FLValue split(FLValue s, FLValue sep) {
 FLValue join(FLValue vec, FLValue sep) {
     if (vec.tag!=FL_VECTOR) return fl_str_val("");
     FLVector *v=(FLVector*)vec.obj;
+    /* The fixed seed calls this legacy entry point. Adjacent UTF-16 units
+     * must retain FL_TEXT until the existing text join combines them. */
+    bool text=sep.tag==FL_STRING&&sep.obj&&sep.obj->type==FL_TEXT;
+    for(uint32_t i=0;i<v->len&&!text;i++)
+        text=v->data[i].tag==FL_STRING&&v->data[i].obj&&v->data[i].obj->type==FL_TEXT;
+    if(text){
+        FLValue args[2]={vec,sep};
+        return fl_v11_builtin(fl_str_val("str-join"),fl_vec_from(args,2));
+    }
     const char *d=sep.tag==FL_STRING?((FLString*)sep.obj)->data:"";
     size_t dlen=strlen(d), total=0;
     for (uint32_t i=0;i<v->len;i++) {

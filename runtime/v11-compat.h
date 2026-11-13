@@ -644,8 +644,18 @@ static FLValue t_clone(FLValue v){
 }
 
 FLValue fl_v11_map_from_pairs(FLValue *kv,uint32_t n){
-    FLValue r=fl_map_new();
-    for(uint32_t i=0;i<n;i++)r=fl_map_set(r,t_key(kv[i*2]),kv[i*2+1]);
+    /* Only this new map is mutable here. Keep the first normalized key's
+     * position and the last value without allocating every immutable prefix. */
+    FLValue r=fl_map_from_pairs(kv,n);
+    FLMap*m=(FLMap*)r.obj;
+    m->len=0;
+    for(uint32_t i=0;i<n;i++){
+        FLValue key=t_key(kv[i*2]);
+        uint32_t at=0;
+        while(at<m->len&&!fl_truthy(fl_eq(m->entries[at].key,key)))at++;
+        if(at==m->len){m->entries[at].key=key;m->len++;}
+        m->entries[at].val=kv[i*2+1];
+    }
     return r;
 }
 
