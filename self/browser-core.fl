@@ -473,14 +473,16 @@
         (if (j-host-or (j-host-nullish? selection) (j-host-eq (j-host-at selection "rangeCount") 0)) nil
           (if (j-host-and (j-host-dom-contains element (j-host-at selection "anchorNode"))
                          (j-host-dom-contains element (j-host-at selection "focusNode")))
-            (let [range (j-host-selection-range selection 0)
-                  start (jcore-selection-prefix element (j-host-at range "startContainer") (j-host-at range "startOffset"))
-                  end (jcore-selection-prefix element (j-host-at range "endContainer") (j-host-at range "endOffset"))]
+            (let [range (j-host-selection-range selection 0)]
+              (if (j-host-and (j-host-dom-contains element (j-host-at range "startContainer"))
+                             (j-host-dom-contains element (j-host-at range "endContainer")))
+              (let [start (jcore-selection-prefix element (j-host-at range "startContainer") (j-host-at range "startOffset"))
+                    end (jcore-selection-prefix element (j-host-at range "endContainer") (j-host-at range "endOffset"))]
               {"start" start "end" end "text" (j-host-range-text range)
                "direction" (if (j-host-eq start end) "none"
                  (if (j-host-eq start (jcore-selection-prefix element
                        (j-host-at selection "anchorNode") (j-host-at selection "anchorOffset")))
-                   "forward" "backward"))}) nil))))))
+                   "forward" "backward"))}) nil)) nil))))))
 (defn jcore-selection-point [element offset]
   (let [walker (j-host-text-walker element)]
     (loop [remaining offset]
