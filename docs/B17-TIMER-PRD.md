@@ -122,4 +122,43 @@ blog1 WIP는 app/admin.fl, app/main.fl, app/review.fl, app/pages.fl, app/menus.f
 
 언어 성과: 절대 시각 예약의 언어 단위 동작과 목록 오염0·큰 맵 생성 개선을 확인했다. 실제 서버의 무방문 발행과 제품 수준 안전성·속도 전체는 아직 검증되지 않았다.
 
+실제 기준 커밋 대비 전체 변경 경로는 다음과 같다.
+
+FX:
+
+```text
+docs/B17-TIMER-PRD.md
+docs/B17-scheduling-contract.md
+runtime/core.c
+runtime/v11-compat.h
+runtime/v11-ops.h
+runtime/v11-time.h
+runtime/v11-timer.h
+tests/b17-map-index.c
+tests/b17-runtime-safety.c
+tests/b17-schedule-at.expected
+tests/b17-schedule-at.fl
+tests/b17-schedule-cancel.c
+tests/b17-time-local.expected
+tests/b17-time-local.fl
+tests/b17-time.expected
+tests/b17-time.fl
+```
+
+blog1:
+
+```text
+.gitattributes
+app/admin.fl
+app/main.fl
+app/menus.fl
+app/pages.fl
+app/post-admin.fl
+app/review.fl
+app/scheduler.fl
+tests/b17-browser-server.fl
+tests/b17-browser.html
+tests/b17-records.fl
+```
+
 B17=보류, PRD_PASS=1/24(직전 확정값), B17_ADDITIONAL_PASS=0
