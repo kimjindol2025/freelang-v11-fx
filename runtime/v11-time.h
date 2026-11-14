@@ -115,13 +115,13 @@ static FLValue vt_parse(FLValue input){
     return fl_nil();
 }
 
-static FLValue vt_format(FLValue stamp,FLValue format){
+static FLValue vt_format(FLValue stamp,FLValue format,int utc){
     double n=t_double(t_parse(stamp,0));
     int valid=isfinite(n)&&fabs(n)<=8640000000000000.0;
     n=trunc(n);
     time_t seconds=valid?(time_t)floor(n/1000):0;
     struct tm date={0};
-    if(valid&&!localtime_r(&seconds,&date))valid=0;
+    if(valid&&!(utc?gmtime_r(&seconds,&date):localtime_r(&seconds,&date)))valid=0;
     const char *tokens[]={
         "YYYY","MM","DD","HH","mm","ss","SSS"
     };
@@ -156,7 +156,8 @@ static FLValue v11_time(const char *op,FLValue argv){
     FLVector*a=(FLVector*)argv.obj;
     FLValue x=a->len?a->data[0]:fl_nil(),y=a->len>1?a->data[1]:fl_nil();
     if(!strcmp(op,"date-parse"))return vt_parse(x);
-    if(!strcmp(op,"format-date"))return vt_format(x,y);
+    if(!strcmp(op,"format-date"))return vt_format(x,y,0);
+    if(!strcmp(op,"format-date-utc"))return vt_format(x,y,1);
     struct timespec now;
     if(clock_gettime(CLOCK_REALTIME,&now))fl_throw(fl_str_val("now_ms: clock failure"));
     return fl_int((int64_t)now.tv_sec*1000+now.tv_nsec/1000000);

@@ -8,7 +8,7 @@
 #include <errno.h>
 typedef struct {FLMap map;pthread_mutex_t mutex;int state;FLValue result;} VTimerPromise;
 typedef struct {unsigned refs;int closed;FLValue cancelled;} VTimerOwner;
-typedef struct VTimerJob {int64_t due;FLValue callback,promise;VTimerOwner*owner;struct VTimerJob*next,*active_previous;} VTimerJob;
+typedef struct VTimerJob {int64_t due,at;int absolute;FLValue callback,promise;VTimerOwner*owner;struct VTimerJob*next,*active_previous;} VTimerJob;
 static pthread_mutex_t timer_mutex=PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t timer_dispatch;
 static pthread_once_t timer_once=PTHREAD_ONCE_INIT;
@@ -21,6 +21,8 @@ static __thread VTimerJob*timer_active_job;
 static __thread unsigned timer_dispatch_depth;
 static int timer_pipe[2]={-1,-1};
 static int64_t timer_now(void){struct timespec time;if(clock_gettime(CLOCK_MONOTONIC,&time))fl_throw(fl_str_val("timer clock failed"));return(int64_t)time.tv_sec*1000+time.tv_nsec/1000000;}
+/* Wall-clock jobs recheck at most one second later, including clock changes. */
+static int64_t timer_at_delay(int64_t at){int64_t remaining=at-fl_now_ms().i;return remaining<1?1:remaining>1000?1000:remaining;}
 void fl_schedule_promise_destroy(FLValue value){VTimerPromise*p=(VTimerPromise*)value.obj;fl_heap_release(p->result);pthread_mutex_destroy(&p->mutex);free(p);}
 static void timer_handle_cleanup(void*value){FLValue handle={.tag=FL_MAP,.obj=value};fl_heap_release(handle);}
 static void timer_finish(FLValue handle,int state,FLValue result){VTimerPromise*p=(VTimerPromise*)handle.obj;pthread_mutex_lock(&p->mutex);p->result=result;p->state=state;pthread_mutex_unlock(&p->mutex);}
@@ -90,6 +92,18 @@ void fl_schedule_tick(int wait_ms){
   pthread_mutex_lock(&timer_mutex);VTimerJob*job=timer_jobs;
   if(timer_stopping||!job||job->due>cutoff){pthread_mutex_unlock(&timer_mutex);break;}
   timer_jobs=job->next;timer_count--;pthread_mutex_unlock(&timer_mutex);
+  if(job->absolute&&fl_now_ms().i<job->at){
+   job->due=timer_now()+timer_at_delay(job->at);
+   pthread_mutex_lock(&timer_mutex);
+   int cancelled=timer_stopping||job->owner->closed;
+   if(!cancelled){
+    VTimerJob**slot=&timer_jobs;while(*slot&&(*slot)->due<=job->due)slot=&(*slot)->next;
+    job->next=*slot;*slot=job;timer_count++;
+   }
+   pthread_mutex_unlock(&timer_mutex);
+   if(cancelled){timer_finish(job->promise,2,fl_heap_copy(job->owner->cancelled));timer_job_free(job);}
+   continue;
+  }
   job->active_previous=timer_active_job;timer_active_job=job;
   VTimerOwner*previous_owner=timer_dispatch_owner;timer_dispatch_owner=job->owner;
   void*volatile previous=NULL;volatile int entered=0;FLValue result=fl_nil();int failed=0;
@@ -122,18 +136,28 @@ FLValue fl_v11_timer(FLValue name,FLValue argv){
   if(!fl_io_active()){fl_schedule_tick(wait);return fl_int(0);}
   fl_schedule_tick(0);int events=fl_io_poll(fl_schedule_timeout_ms(wait));fl_schedule_tick(0);return fl_int(events);
  }
- if(args->len<2){fl_throw(fl_make_error("Error","set-timeout requires callback and delay"));return fl_nil();}
+ int absolute=!strcmp(op,"schedule-at");
+ int64_t at=0;
+ if(absolute){
+  if(args->len!=2){fl_throw(fl_make_error("TypeError","schedule_at: requires timestamp and callback"));return fl_nil();}
+  double stamp=first.tag==FL_INT?(double)first.i:first.tag==FL_FLOAT?first.f:NAN;
+  if(!isfinite(stamp)||trunc(stamp)!=stamp||fabs(stamp)>9007199254740991.0){fl_throw(fl_make_error("TypeError","schedule_at: finite integer epoch milliseconds required"));return fl_nil();}
+  if(args->data[1].tag!=FL_FN){fl_throw(fl_make_error("TypeError","schedule_at: callback must be a function"));return fl_nil();}
+  at=(int64_t)stamp;
+ }else if(args->len<2){fl_throw(fl_make_error("Error","set-timeout requires callback and delay"));return fl_nil();}
  pthread_once(&timer_once,timer_init);
  VTimerOwner*owner=timer_owner_get();
- FLValue delay=fl_v11_to_number(args->data[1]);double milliseconds=delay.f;
- if(!isfinite(milliseconds)||milliseconds<1||milliseconds>INT_MAX)milliseconds=1;
+ double milliseconds;
+ if(absolute)milliseconds=timer_at_delay(at);
+ else{FLValue delay=fl_v11_to_number(args->data[1]);milliseconds=delay.f;
+  if(!isfinite(milliseconds)||milliseconds<1||milliseconds>INT_MAX)milliseconds=1;}
  VTimerJob*job=calloc(1,sizeof(*job));VTimerPromise*p=calloc(1,sizeof(*p));
  if(!job||!p){free(job);free(p);fl_throw(fl_str_val("timer allocation failed"));return fl_nil();}
  p->map.base.type=FL_NATIVE_PROMISE;p->map.base.rc=1;p->result=fl_nil();pthread_mutex_init(&p->mutex,NULL);
  FLValue handle={.tag=FL_MAP,.obj=(FLObject*)p};
  int tracked=fl_arena_on_reset(timer_handle_cleanup,p);
  if(tracked<0){fl_heap_release(handle);free(job);fl_throw(fl_str_val("timer cleanup allocation failed"));return fl_nil();}
- job->callback=fl_heap_copy(first);job->promise=handle;job->due=timer_now()+(int64_t)milliseconds;
+ job->callback=fl_heap_copy(absolute?args->data[1]:first);job->promise=handle;job->due=timer_now()+(int64_t)milliseconds;job->absolute=absolute;job->at=at;
  pthread_mutex_lock(&timer_mutex);
  if(timer_stopping||owner->closed||timer_count>=4096){pthread_mutex_unlock(&timer_mutex);fl_heap_release(job->callback);free(job);if(!tracked)fl_heap_release(handle);fl_throw(fl_str_val("timer unavailable or pending limit exceeded"));return fl_nil();}
  job->owner=owner;owner->refs++;

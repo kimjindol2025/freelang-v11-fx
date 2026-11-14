@@ -648,6 +648,56 @@ FLValue fl_v11_map_from_pairs(FLValue *kv,uint32_t n){
      * position and the last value without allocating every immutable prefix. */
     FLValue r=fl_map_from_pairs(kv,n);
     FLMap*m=(FLMap*)r.obj;
+    /* Tiny literals have bounded comparisons and need no temporary index. */
+    if(n>8){
+        size_t bytes=0;
+        for(uint32_t i=0;i<n;i++){
+            FLValue key=t_key(m->entries[i].key);
+            m->entries[i].key=key;
+            size_t len=((FLString*)key.obj)->len;
+            if(bytes>SIZE_MAX-65||len>(SIZE_MAX-bytes-65)/2)fl_throw(fl_str_val("map key too large"));
+            bytes+=len*2+65;
+        }
+        char*encoded=fl_arena_alloc(bytes);
+        if(!encoded)fl_throw(fl_str_val("map allocation failed"));
+        /* Reuse libc's reentrant table and the existing libcrypto SHA-256.
+         * Its digest prefix distributes long common prefixes in libc's hash.
+         * The complete hex key retains exact equality even if digests collide. */
+        struct hsearch_data index={0};
+        if(!hcreate_r((size_t)n*2,&index))fl_throw(fl_str_val("map index allocation failed"));
+        static const char hex[]="0123456789abcdef";
+        m->len=0;
+        for(uint32_t i=0;i<n;i++){
+            FLValue key=m->entries[i].key,value=m->entries[i].val;
+            FLString*text=(FLString*)key.obj;
+            char*start=encoded;
+            unsigned char digest[SHA256_DIGEST_LENGTH];
+            if(!SHA256((const unsigned char*)text->data,text->len,digest)){
+                hdestroy_r(&index);fl_throw(fl_str_val("map key hash failed"));
+            }
+            for(size_t j=0;j<sizeof digest;j++){
+                *encoded++=hex[digest[j]>>4];*encoded++=hex[digest[j]&15];
+            }
+            for(uint32_t j=0;j<text->len;j++){
+                unsigned char c=(unsigned char)text->data[j];
+                *encoded++=hex[c>>4];*encoded++=hex[c&15];
+            }
+            *encoded++=0;
+            ENTRY query={.key=start,.data=NULL},*found=NULL;
+            if(!hsearch_r(query,FIND,&found,&index)){
+                FLMapEntry*entry=&m->entries[m->len];
+                query.data=entry;
+                if(!hsearch_r(query,ENTER,&found,&index)){
+                    hdestroy_r(&index);
+                    fl_throw(fl_str_val("map index insertion failed"));
+                }
+                entry->key=key;m->len++;
+            }
+            ((FLMapEntry*)found->data)->val=value;
+        }
+        hdestroy_r(&index);
+        return r;
+    }
     m->len=0;
     for(uint32_t i=0;i<n;i++){
         FLValue key=t_key(kv[i*2]);
@@ -805,7 +855,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     if(!strncmp(op,"auth-",5))return va_auth(op,argv);
     if(!strncmp(op,"server-",7))return fl_v11_http(fl_str_val(op),argv);
     if(IS("http-get")||IS("http-request")||IS("http-request-timeout")||IS("http-with-timeout"))return fl_v11_http_client(fl_str_val(op),argv);
-    if(IS("set-timeout")||IS("await-result")||IS("fl-yield"))return fl_v11_timer(fl_str_val(op),argv);
+    if(IS("set-timeout")||IS("schedule-at")||IS("await-result")||IS("fl-yield"))return fl_v11_timer(fl_str_val(op),argv);
     if(!strncmp(op,"tcp-",4)||IS("fl-error-drain")||IS("fl-error-queue-size"))return fl_v11_io(fl_str_val(op),argv);
     if(IS("rss-feed")||IS("sitemap-xml"))return vf_feed(op,argv);
     if(!strncmp(op,"fd-",3)){
@@ -843,7 +893,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         for(size_t i=0;i<sizeof(bytes);i++)snprintf(hex+i*2,3,"%02x",bytes[i]);
         return fl_str_val(hex);
     }
-    if(IS("date-parse")||IS("format-date")||IS("now-ms"))return v11_time(op,argv);
+    if(IS("date-parse")||IS("format-date")||IS("format-date-utc")||IS("now-ms"))return v11_time(op,argv);
     if(!strncmp(op,"regex_",6))return v11_regex(op,argv);
     if(!strncmp(op,"file_",5)||!strncmp(op,"dir_",4)){
         if((IS("file_write")||IS("file_append"))&&n>1&&a[1].tag==FL_STRING){

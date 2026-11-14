@@ -9,7 +9,7 @@ static const char *const v11_ops[] = {
 "arr-flatten","arr-unique","arr-sort-by","arr-sort-by-desc","append","conj","concat","obj-merge","merge",
 "assoc","dissoc","keys","vals","first","last","rest","take","drop","reverse","range","flatten-1",
 "map","filter","reduce","any?","every?","integer?","float?","type-of",
-"date-parse","now-ms","format-date",
+"date-parse","now-ms","format-date","format-date-utc",
 "env-get","env-or","error-message","process-exit","uuid-short",
 "fd-open","fd-write","fd-read","fd-fsync","fd-close","fd-seek","fd-flush",
 "bytes-count","bytes-slice","fd-create","fd-write-bytes","fd-read-bytes","fd-sync-parent","fd-truncate",
@@ -20,7 +20,7 @@ static const char *const v11_ops[] = {
 "server-use","server-static","server-body-limit","server-header","server-set-cookie","server-redirect-cookie","server-req-cookie","server-req-json","server-req-header","server-req-query","server-json","server-html","server-text","server-status","server-redirect",
 "rss-feed","sitemap-xml",
 "http-get","http-request","http-request-timeout","http-with-timeout",
-"set-timeout","await-result","fl-yield",
+"set-timeout","schedule-at","await-result","fl-yield",
 "tcp-server-raw","tcp-server-tls","tcp-write","tcp-drop","tcp-server-stop","tcp-server-running?","fl-error-drain","fl-error-queue-size",
 "regex_match","regex_match_i","regex_find","regex_find_all","regex_replace","regex_replace_first","regex_split",
 "file_read","file_write","file_append","file_copy","file_delete","file_exists","file_is_file","file_size","dir_create","dir_list",NULL};

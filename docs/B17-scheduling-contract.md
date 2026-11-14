@@ -1,0 +1,13 @@
+# B17 native scheduling and collection contracts
+
+`schedule_at(epoch_ms, callback)` is a native FreeLang builtin. It returns the existing managed timer promise immediately. The timestamp must be a finite integer in the exactly representable range [-9007199254740991, 9007199254740991]; the callback must be a function and exactly two arguments are required. Invalid arguments throw TypeError with the fixed messages in the B17 tests.
+
+A past timestamp runs asynchronously at the next dispatch. A future callback cannot run before its absolute wall-clock timestamp. Long waits recheck CLOCK_REALTIME at most 1000ms later using the existing monotonic cooperative queue; no new background thread or system scheduler is used. The existing HTTP event loop dispatches without incoming requests. CPU-bound callbacks can delay subsequent work, so the application deadline is checked separately.
+
+Successful results and callback exceptions are observable through await_result. Thread-owner cleanup and server shutdown cancel pending jobs, reject their promises with `timer cancelled`, and never invoke their callbacks. Durable business reservations remain application data; restarting a process does not recreate arbitrary closures automatically. The blog reconstructs work from the stored pending posts.
+
+`format_date_utc(epoch_ms, format)` reuses the existing format tokens with gmtime_r. Existing format_date and date_parse behavior remains unchanged. ISO timestamps with Z or explicit numeric offsets denote host-independent instants. The explicit-offset vectors run under UTC, Asia/Seoul and America/New_York. Legacy offset-free date_parse remains host-local: in New York it chooses the earlier fold occurrence and moves gap inputs forward. Applications must not confuse this legacy conversion with explicit IANA-zone validation. The blog's scheduling form accepts UTC or Asia/Seoul explicitly, validates the local calendar by round trip and stores UTC. Other named-zone UI support is not claimed.
+
+The v11 map literal constructor preserves normalized key equality, first key order and last value, including embedded NUL and Unicode. Larger literals use the existing libcrypto SHA-256 and reentrant C-library hsearch_r. The full encoded key accompanies its digest, so digest collisions do not change equality. The raw native fl_map_from_pairs API is unchanged. Tiny literals retain bounded comparisons to avoid temporary-index overhead.
+
+The collection alias, key normalization, binary-key and ordering cases are fixed in the B17 C tests. Existing tests, expected results, runners, limits and seed are unchanged. No list implementation change was necessary after the alias test passed.

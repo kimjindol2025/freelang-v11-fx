@@ -1,0 +1,6 @@
+(defn check [actual expected name]
+  (if (= actual expected) (println (str name "=PASS")) (throw (str name "=FAIL"))))
+(check (format_date_utc (date_parse "2024-11-03T01:30:00") "YYYY-MM-DDTHH:mm:ssZ")
+       "2024-11-03T05:30:00Z" "LEGACY_FOLD_EARLIER")
+(check (format_date_utc (date_parse "2024-03-10T02:30:00") "YYYY-MM-DDTHH:mm:ssZ")
+       "2024-03-10T07:30:00Z" "LEGACY_GAP_FORWARD")
