@@ -1,6 +1,6 @@
 # B17R 누락 관문·예약 서버·메모리 재검수
 
-B17R=보류. 빠진6종은 실제 실행했지만 전체 회귀는 출발점부터 있던 native 심볼 목록 불일치로 실패했다. PRD는2/24이며 예약 항목의 완전 인수에는 미달이다. 본체 생성은1581528KiB로 새 목표1600000KiB 이하이고, 누수12/12·API20/20·TLS3/3·생성 C 고정점은 통과했다.
+B17R=보류. 사용자 후속 승인으로 생성 헤더의 기존 함수 이름 두 개를 동기화했고, 원래 전체 회귀 재실행은 E08_COMPLETION=PASS·상위3/3·실패0·미실행0이었다. 앞서 미실행이던 C01/C03 본문17개도 모두 통과했다. API20/20·누수12/12·TLS3/3·고정점·seed 불변을 확인했다. PRD는2/24이며 예약 항목의 전체 인수 미충족 때문에 B17R 판정은 보류다. 최종 수치와 재검수 근거는 아래 승인 후 결과에 기록했다.
 
 ## 출발점과 검사 준비
 
@@ -51,9 +51,9 @@ SEED_SHA_BEFORE=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
 
 bootstrap은 strace 없이 실행하고 정적 감사와 동적 실행 관측을 구분한다. 검사 중 관측하지 않은 실행 수는0으로 꾸미지 않는다.
 
-## 관문 원문과 미통과 범위
+## 첫 실행 관문 원문과 당시 미통과 범위
 
-빠진 검사6종은 모두 실제 실행했다. 그러나 전체 회귀는 실패했고, 실패한 심볼 점검 뒤 원래 C01/C03 본문은 실행되지 않았다. 이를 미실행0이나 회귀0으로 보고하지 않는다.
+첫 실행에서 빠진 검사6종은 모두 실제 실행했지만 전체 회귀는 실패했고, 심볼 점검 뒤 C01/C03 본문은 실행되지 않았다. 다음 표와 실패 원문은 당시 증거다. 후속 승인 뒤의 전체 재실행 결과와 구분하며 최종 판정은 아래 승인 후 결과를 따른다.
 
 | 검사 | 이번 결과 |
 | --- | --- |
@@ -72,7 +72,7 @@ bootstrap은 strace 없이 실행하고 정적 감사와 동적 실행 관측을
 
 출발점1a01f3e6의 헤더·연산 목록을 다시 대조했고, 메모리 수정 전 self 소스로 별도 읽기 전용 사본에서 원래 --check를 실행해 종료1을 확인했다. 따라서 B17R의 includes-item 수정으로 생긴 불일치가 아니다. 실패 원문을 보존했다. 원래 C01/C03의16개 일반 사례와 missing 음성 사례는 이 선행 점검 뒤에 있어 실행되지 않았다.
 
-B-17R의 “검증·메모리 원인 수정만” 범위를 지키기 위해 제품용 생성 헤더는 아직 수정하지 않았다. 두 이름 동기화와 전체 회귀 재실행의 별도 승인을 요청했으며 응답 전이므로 미적용이다. 심볼 검사를 끄거나 원래 실행기에서 해당 줄을 건너뛰지 않았다. 실패한 전체 E08을 통과로 바꾸지 않고, 그 뒤 독립적으로 실행 가능한 기존 HTTP/L06/TLS/옛 러너/bootstrap만 원래 실행기로 별도 확인했다.
+첫 보고서 시점에는 B-17R의 “검증·메모리 원인 수정만” 범위를 지켜 제품용 생성 헤더를 적용하지 않고 별도 승인을 요청했다. 이후 사용자가 헤더 동기화·전체 회귀 재실행을 명시적으로 승인했고, 그 범위에서 기존 생성기로 두 이름만 동기화했다. 심볼 검사를 끄거나 원래 실행기에서 해당 줄을 건너뛰지 않았다. 실패한 전체 E08을 통과로 바꾸지 않고, 그 뒤 독립적으로 실행 가능한 기존 HTTP/L06/TLS/옛 러너/bootstrap만 원래 실행기로 별도 확인했다.
 
 ## 예약 서버 원문과 준비 오류 재검사
 
@@ -146,7 +146,7 @@ SEED_SHA_AFTER=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
 ```
 
 
-## PRD 24 파생 판정
+## PRD 24 파생 판정 (첫 제품 인수 원문, 판정 유지)
 
 원표 SHA=189514da35ecf929d0b9ec2eb918c2a0965363b109b1759c045470dd005e02bb이며 원표·의존 관계·기대값은 수정하지 않았다. 아래 HTTP는24개 화면/응답을 실제 요청한 결과이며 HTTP200을 전체 인수 통과로 세지 않았다. 모든 하위 인수가 실행됐다는 뜻도 아니다. 정책 대기·미구현·불충족을 각각 적었다.
 
@@ -179,7 +179,7 @@ SEED_SHA_AFTER=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
 
 PRD_PASS=2/24. 직접 정책 대기는6개(E05/P04/O01/U01/C01/C02), 의존 관계와 G-IMAGE까지 포함한 제외 목록은14개(E03/E05/E07/E06/P04/M01/M02/M03/O01/O02/U01/U02/C01/C02)다. pending 결정은D02/D03/D04/D05/D06이며 새 보관·권한·복구·이미지 정책을 정하지 않았다.
 
-## B8 판정과 종료 상태
+## 첫 보고서 시점의 B8 판정과 종료 상태
 
 기존 B8 보충6 기준에서 선행 관계 목록과 단절/버전 보존·기존47개는 통과해2/4를 유지한다. E01+E03 완전 통과 쌍은 E03 때문에 미달이다. 원래 Forgejo 원격 조건은 이번 지시의 Forgejo 보류에 따라 실행하지 않았으며 이를 통과로 올리지 않았다. 이번 결과의 PRD 완전 통과는 E01/P01 두 개다.
 
@@ -187,32 +187,106 @@ PRD_PASS=2/24. 직접 정책 대기는6개(E05/P04/O01/U01/C01/C02), 의존 관�
 
 언어 성과: FreeLang 서버가 방문 없이 예정 후292ms에 발행하고 재시작 뒤 놓친 예약을 중복 없이 처리하는 것을 실제 확인했다. 컴파일러 내부 순회 한 곳의 임시 할당을 줄여 본체 생성도1600000KiB 이하로 되돌렸다.
 
-## 변경 범위와 최종 판정
+## 승인 후 헤더 동기화와 전체 재실행 최종 결과
 
-FX 변경은 self/cgc-main.fl, scripts/b17r-preflight.sh, docs/B17R-VERIFY.md다. blog1 제품 소스와 기존 정답·시험 실행기는 변경하지 않았다. 정상 제품 archive의 시험 페이지 제외를 확인했다. 생성 헤더 수정 후보는 승인 전이므로 저장소에 적용하지 않았다. 커밋 전 staged diff의 민감정보를 검사하고 GitHub 기존 원격만 사용한다. Forgejo·운영 배포·운영 재시작·운영 DB·외부 메일·외부 AI는 사용하지 않았다.
+승인 범위는 이미 구현된 format-date-utc·schedule-at 두 이름의 제품용 runtime/native-symbols.h 동기화와 전체 회귀 재실행이다. 원래 scripts/refresh-native-symbols.sh --write를 사용했고 준비 후보와 byte 동일했다. 추가2·삭제0이며 원래 --check의 NATIVE_SYMBOL_METADATA=PASS를 확인했다. 시험·정답·제한시간·러너·seed·PRD 원표는 변경하지 않았다. 헤더 커밋은d5ef0553d04b77fb5ce4a484025fea503d492c63다.
+
+native-symbols.h를 참조하는 collection.c 객체와 cgc-bridge.c를 포함한 컴파일러를 다시 빌드했다. self 생성 C·본체 생성 C·8192바이트 생성 C는 직전 결과와 cmp 동일했다. 헤더의 두 이름 추가는 생성 C 고정점을 바꾸지 않았다.
+
+기존 전체 실행기 scripts/verify-e08-completion.sh를 새 결과 폴더에서 처음부터 끝까지 다시 실행했다. 실패한 점검만 통과한 것으로 전체 회귀를 대체하지 않았다. 원문은 다음과 같다.
 
 ```text
-B17R=보류
+SMALL_LEAKS_EXIT=0
+WORKER_EXIT=0
+FULL_EXIT=0
+E08_COMPLETION=PASS
+
+NATIVE_SYMBOL_METADATA=PASS
+L08_PASS=17 FAIL=0
+```
+
+첫 실행에서 미실행이던 C01/C03의 일반16개·missing 음성1개도 이번에는 모두 실제 실행했다. 최종 원래 전체 회귀는 상위3묶음 통과3/실패0/미실행0이다. 관측된 실행 감사는 NODE=0 NPM=0 NPX=0 JS=0 PYTHON=0이며 bootstrap은 strace0·정적 감사PASS·동적 실행 수UNOBSERVED를 유지했다.
+
+승인 전후 TLS는 구성별2회씩 총6회 실행했고 모두 키 삭제 뒤 ls EMPTY를 확인했다. 최종 활성 서비스0·지정 두 포트 listener0·잔여 TLS 폴더0·두 저장소 개인키 표지0을 확인했다.
+
+전체 회귀 뒤에는 새 collection 객체와 컴파일러로 합성 fixture 실행 파일을 다시 만들고, 원래 HTTP20·취소20·J1 실패18×100·저장소 API20·B8 기존47/편집/사진/단절/서버API6·CDP27·시간 계약·예약 서버·메뉴 브라우저3폭을 재확인했다. 기존 준비 수정인 stdout flush 순서와 공개 분류 자료의 두 건 교환만 재사용했다. 기존 .fl/HTML 정답은 그대로다. P01의 일괄 휴지통/복구 각각2/1/1과 타 블로그 보존도 새 자료로 통과했다. 각 묶음 종료 원문은 다음과 같다.
+
+```text
+FIXTURES_EXIT=0
+EXTRA_EXIT=0
+B8_EXIT=0
+PRODUCT_API_EXIT=0
+CDP27_EXIT=0
+TIME_CONTRACT_EXIT=0
+SCHEDULE_EXIT=0
+B17_BROWSER_EXIT=0
+FINAL_VALIDATION_EXIT=0
+
+```
+
+| 헤더 반영 후 측정 | 초 | 최고 RSS KiB |
+| --- | --- | --- |
+| 본체 C 생성 | 27.02 | 1581672 |
+| 8192바이트 | 0.53 | 85540 |
+
+10만 키 원문은 다음과 같다.
+
+```text
+MAP_KEYS=100000 ELAPSED_SECONDS=0.100513062 COUNT=100000 VALUES=PASS
+```
+
+헤더 반영 후 예약 서버 원문은 다음과 같다.
+
+```text
+DUE_MS=1794652938876
+PUBLISHED_MS=1794652939162
+DELAY_MS=286
+HTTP_REQUESTS_BEFORE_OBSERVATION=0
+RESTARTS=2
+MISSED_DUE_MS=1794652946059
+RESTART_ONE_MS=1794652947069
+RESTART_TWO_MS=1794652952260
+RESTART_HTTP_REQUESTS=0
+
+NO_VISIT_PUBLISHED=PASS
+NO_VISIT_AUDIT_ONCE=PASS
+MISSED_RESTART_PUBLISHED=PASS
+TWO_RESTARTS_NO_DUPLICATES=PASS
+FAILURE_VISIBLE=PASS
+FAILURE_PRESERVES_PENDING=PASS
+RESTART_RETRY_PUBLISHED_ONCE=PASS
+FAILURE_INJECTION=SYNTHETIC_WAL_READ_ONLY
+FAILURE_LINES=3
+RETRY_AFTER_RESTART=PASS
+SCHEDULE_SERVER=PASS
+```
+
+PRD는E01/P01의2/24를 유지한다. 앱 소스와 생성 C가 같으므로 앞서 기록한 P02의 복원 상태 변경, P03의 저장 시각 한국 시간 표시 미완료, S01의 로고/색상 설정 미완료는 해결했다고 보고하지 않는다. 이들 제품 불충족의 기존 원문은 보존했고 이번 승인 범위에서 기능을 고치지 않았다. 원표 SHA=189514da35ecf929d0b9ec2eb918c2a0965363b109b1759c045470dd005e02bb는 그대로다.
+
+```text
+B17R=보류 (기술 관문 통과, 예약 PRD 전체 인수 미충족)
 점검표=통과 / 점검 스크립트 수정2회
-회귀=E08 상위2통과/1실패; native 심볼 검사 뒤 C01/C03 본문 미실행
+회귀=상위3통과/0실패/0미실행, E08_COMPLETION=PASS
 누수=12/12
 API=20/20
 J_UTF16_LENGTH=native PASS / Chrome PASS
 B8_SUMMARY=2/4
-TLS_3구성=3/3 (8/0, 6/0, 110/0)
-임시키_삭제=3구성 ls EMPTY / 남은 폴더0
+TLS_3구성=3/3
+임시키_삭제=구성별 ls EMPTY / 남은 폴더0
 저장소_키검색=두 저장소 파일명0 / 개인키 표지0
-예약_실행=DELAY_MS=292 / HTTP 요청0 / 예정+5초 이내
-예약_재시작=2회 / 놓친 예약 처리 PASS / 중복0 / 오류 후 재시작 재시도 PASS
-메모리_원인=큰 제품 입력에서 기존 includes-item의 임시 인자/순회 할당 증가
-본체_C생성=27.52초/1581528KiB
-맵_10만키=0.120379792초
+예약_실행=DELAY_MS=286 / HTTP 요청0 / 예정+5초 이내
+예약_재시작=2회 PASS / 중복0 / 실패 후 재시도 PASS
+메모리_원인=includes-item 반복 순회의 임시 할당
+본체_C생성=27.02초/1581672KiB
+맵_10만키=0.100513062초
 PRD_PASS=2/24 (직접 정책 대기6, 선행 포함14)
-고친_파일=self/cgc-main.fl, scripts/b17r-preflight.sh, docs/B17R-VERIFY.md
+고친_파일=self/cgc-main.fl, scripts/b17r-preflight.sh, runtime/native-symbols.h, docs/B17R-VERIFY.md
 고정점=f38f373890d0898552cbe89768b992f934e9c4a567bf27cdf66248a3c1b5cb81 / f38f373890d0898552cbe89768b992f934e9c4a567bf27cdf66248a3c1b5cb81 / f38f373890d0898552cbe89768b992f934e9c4a567bf27cdf66248a3c1b5cb81
-속도=8192바이트 0.52초/85492KiB
+속도=8192바이트 0.53초/85540KiB
 SEED_SHA=f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c / f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c
-HEAD=검증 코드725c6792256956cbc7ccadf987fa8fefbfd69cee / blog1 a0d8515a91eeb1171b96457aebf9d5b745db223f
+HEAD=검증 코드d5ef0553d04b77fb5ce4a484025fea503d492c63 / blog1 a0d8515a91eeb1171b96457aebf9d5b745db223f
 ```
+
+최종 문서 커밋 후 GitHub HEAD 일치·두 작업 트리 CLEAN은 최종 응답에 실제 해시로 기록한다. Forgejo는 보류하고 운영 변경은 하지 않는다. 언어 성과: 기존 UTC·예약 함수의 내장 심볼 목록을 정상화했고, 원래 회귀 전체와 실제 무방문 예약·재시작을 검증했다.
 
 B17R=보류, PRD_PASS=2/24
