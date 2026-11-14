@@ -2565,10 +2565,9 @@
 
 ;; ── Helper for ir-validator ──
 (defn includes-item [$arr $val]
-  (loop [$i 0]
-    (if (>= $i (length $arr)) false
-      (if (= (get $arr $i) $val) true
-        (recur (+ $i 1))))))
+  ;; Keep equality semantics while the existing native traversal avoids
+  ;; allocating length/get/increment call arguments for every scanned item.
+  (any? (fn [$item] (= $item $val)) $arr))
 
 (defn ir-validate [$nodes]
   (if (or (null? $nodes) (= (length $nodes) 0))
