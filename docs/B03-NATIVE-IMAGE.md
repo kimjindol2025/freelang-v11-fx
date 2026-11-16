@@ -39,4 +39,29 @@ IMG19/20 also require supplementary native supervisor evidence: deadline kill,
 worker exit, output cleanup, concurrency one, fd/child stability and repeated-job
 leak checks. contracts.fl alone does not establish those resource properties.
 
-Status: contracts fixed, implementation and all twenty results NOT_RUN.
+Contract commit: ef354a55aa12accea3447031821b9d178c647aec. Before implementation
+the native execution exited 1: Function not found: image-info-result (line 6).
+Initial integration retained two failures (GIF error precedence, output-path errno)
+and corrected their causes without modifying the fixed contracts. Then 20/20 passed
+(0.58 seconds, 10496KiB); resource supervisor 29/29, 200 repeat jobs, 4 concurrent
+requests. This intermediate run precedes bounded input snapshot hardening; final
+retest, language regressions, leak sanitizers and bootstrap are still required.
+
+Pinned archive SHA-256 (source archives, not generated binaries):
+
+| Library | SHA-256 |
+|---|---|
+| zlib 1.4 | 02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584 |
+| libpng 1.6.59 | 86a3e4b501f7f50e392c4e456ea158893e9a595b1c63eb88c7bb9f6cf8772dad |
+| libjpeg-turbo 3.2.1 | c27ad72a68da151177929aa969ae773a2da5ac2af9ce946079314fdac8cece7f |
+| GIFLIB 6.1.3 | b65b66b99f0424b93525f987386f22fc5efb9da2bfc92ad4a532249aaffbab0e |
+
+The isolated prefix contains license notices for all four. The worker uses explicit
+static .a paths, and ldd must confirm no dynamic codec dependency. Build with
+`bash scripts/build-image-deps.sh ISOLATED_BUILD_ROOT` and then
+`bash scripts/build-image-worker.sh ISOLATED_BUILD_ROOT/prefix WORKER_OUTPUT`.
+Caller supplies TMPDIR in the task area, shared heavy lock, ps and memory cap.
+Set trusted FL_IMAGE_WORKER to the worker executable and FL_FILE_BASE to the
+application sandbox. Missing worker configuration produces WORKER_UNAVAILABLE.
+
+Status: language validation in progress; no blog B03 PASS declaration.

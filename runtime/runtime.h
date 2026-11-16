@@ -138,6 +138,8 @@ FLValue fl_file_write(FLValue path, FLValue content);
 #define FL_FILE_IO_MAX_BYTES (64u * 1024u * 1024u)
 FLValue fl_file_read_result(FLValue path);
 FLValue fl_file_sha256_result(FLValue path);
+FLValue fl_image_info_result(FLValue path, FLValue options);
+FLValue fl_image_process_result(FLValue path, FLValue outputs, FLValue options);
 FLValue fl_file_write_result(FLValue path, FLValue content);
 FLValue fl_file_append_result(FLValue path, FLValue content);
 FLValue fl_file_copy_result(FLValue source, FLValue destination);

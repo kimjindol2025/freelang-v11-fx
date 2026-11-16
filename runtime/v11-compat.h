@@ -816,6 +816,15 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
     if(IS("identity"))return ARG(0);
+    if(IS("image-info-result")||IS("image-process-result")){
+        int process=IS("image-process-result");
+        if(n!=(process?3:2)){
+            FLValue error=fl_map_set(fl_map_new(),fl_str_val("ok"),fl_bool(false));
+            error=fl_map_set(error,fl_str_val("error"),fl_str_val("INVALID_ARGUMENT"));
+            return fl_map_set(error,fl_str_val("data"),fl_nil());
+        }
+        return process?fl_image_process_result(ARG(0),ARG(1),ARG(2)):fl_image_info_result(ARG(0),ARG(1));
+    }
     if(IS("file-sha256-result")||IS("file_sha256_result")){
         if(n!=1){fl_throw(fl_make_error("TypeError","file-sha256-result: exactly one argument required"));return fl_nil();}
         return fl_file_sha256_result(ARG(0));

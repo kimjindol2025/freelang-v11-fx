@@ -1,3 +1,6 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include "runtime.h"
 #include "internal.h"
 #include <stdio.h>
@@ -388,3 +391,4 @@ FLValue str_join(FLValue sep, FLValue vec) {
 
 #include "v11-file.h"
 #include "v11-fd.h"
+#include "image-native.h"
