@@ -39,10 +39,18 @@
       (recur (+ $i 1)
              (append $chars {:chars (str-split (get $_lines $i) "")})))))
 
+(defn lexer-char-count [$lines]
+  (loop [$i 0 $total 0]
+    (if (>= $i (length $lines)) $total
+      (recur (+ $i 1)
+             (+ $total (length (get (get $lines $i) :chars))
+                (if (> $i 0) 1 0))))))
+
 (defn make-state [$src]
-  ;; Convert each line once; repeated lexer indexing stays vector-based.
-  {:src (lexer-lines-to-chars (str-split $src "\n"))
-   :src-len (length $src) :idx 0 :line 1 :col 1 :tokens nil})
+  ;; Count the same units that advance consumes, including line separators.
+  (let [[$lines (lexer-lines-to-chars (str-split $src "\n"))]]
+    {:src $lines :src-len (lexer-char-count $lines)
+     :idx 0 :line 1 :col 1 :tokens nil}))
 
 (defn peek-at [$st $offset]
   (let [[$lines (get $st :src)]
