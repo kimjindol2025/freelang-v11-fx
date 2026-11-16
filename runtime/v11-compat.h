@@ -786,6 +786,7 @@ static FLValue t_replace_all(FLValue input,FLValue pattern,FLValue replacement){
 }
 
 #include "v11-time.h"
+#include "v11-terminal.h"
 #include "v11-regex.h"
 #include "v11-error.h"
 #include "v11-json.h"
@@ -893,7 +894,8 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         for(size_t i=0;i<sizeof(bytes);i++)snprintf(hex+i*2,3,"%02x",bytes[i]);
         return fl_str_val(hex);
     }
-    if(IS("date-parse")||IS("format-date")||IS("format-date-utc")||IS("now-ms"))return v11_time(op,argv);
+    if(IS("date-parse")||IS("format-date")||IS("format-date-utc")||IS("now-ms")||IS("now-iso"))return v11_time(op,argv);
+    if(IS("tty-raw-enter!")||IS("tty-raw-leave!"))return fl_v11_terminal(fl_str_val(op),argv);
     if(!strncmp(op,"regex_",6))return v11_regex(op,argv);
     if(!strncmp(op,"file_",5)||!strncmp(op,"dir_",4)){
         if((IS("file_write")||IS("file_append"))&&n>1&&a[1].tag==FL_STRING){

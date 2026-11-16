@@ -1,0 +1,9 @@
+(defn check [actual expected name]
+  (if (= actual expected) (println (str name "=PASS")) (throw (str name "=FAIL"))))
+
+(define utc (now_iso "UTC"))
+(define seoul (now_iso "Asia/Seoul"))
+(check (regex_match utc "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$") true "NOW_ISO_UTC_SHAPE")
+(check (regex_match seoul "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}\\+09:00$") true "NOW_ISO_KST_SHAPE")
+(check (<= (abs (- (date_parse seoul) (date_parse utc))) 10000) true "NOW_ISO_OFFSET")
+(check (try (do (now_iso "Mars/Olympus") false) (catch [error] true)) true "NOW_ISO_ZONE_REJECTED")

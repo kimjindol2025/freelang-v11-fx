@@ -18,7 +18,7 @@ static void vf_escape(TBuffer*out,FLValue value){
  free(s.p);
 }
 static void vf_tag(TBuffer*out,const char*tag,FLValue value){t_ascii(out,"<");t_ascii(out,tag);t_ascii(out,">");vf_escape(out,value);t_ascii(out,"</");t_ascii(out,tag);t_ascii(out,">\n");}
-static FLValue vf_utc(FLValue value,int now){
+static FLValue vf_utc(FLValue value,int now,int offset_minutes){
  double milliseconds=0;
  if(now){struct timespec stamp;if(clock_gettime(CLOCK_REALTIME,&stamp))fl_throw(fl_str_val("rss_feed: clock failure"));milliseconds=(double)stamp.tv_sec*1000+stamp.tv_nsec/1e6;}
  else if(t_numeric(value))milliseconds=t_double(value);
@@ -29,13 +29,15 @@ static FLValue vf_utc(FLValue value,int now){
   else{fl_try_top--;return fl_str_val("Invalid Date");}
  }
  if(!isfinite(milliseconds)||fabs(milliseconds)>8640000000000000.0)return fl_str_val("Invalid Date");
- time_t seconds=(time_t)floor(trunc(milliseconds)/1000);struct tm date;
+ time_t seconds=(time_t)floor(trunc(milliseconds)/1000)+(time_t)offset_minutes*60;struct tm date;
  if(!gmtime_r(&seconds,&date))return fl_str_val("Invalid Date");
  static const char*week[]={"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
  static const char*month[]={"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
- char text[96],year[32];int y=date.tm_year+1900;
+ char text[96],year[32],zone[8];int y=date.tm_year+1900;
+ if(!offset_minutes)strcpy(zone,"GMT");
+ else{int magnitude=offset_minutes<0?-offset_minutes:offset_minutes;snprintf(zone,sizeof(zone),"%c%02d%02d",offset_minutes<0?'-':'+',magnitude/60,magnitude%60);}
  if(y<0)snprintf(year,sizeof(year),"-%04d",-y);else snprintf(year,sizeof(year),"%04d",y);
- snprintf(text,sizeof(text),"%s, %02d %s %s %02d:%02d:%02d GMT",week[date.tm_wday],date.tm_mday,month[date.tm_mon],year,date.tm_hour,date.tm_min,date.tm_sec);
+ snprintf(text,sizeof(text),"%s, %02d %s %s %02d:%02d:%02d %s",week[date.tm_wday],date.tm_mday,month[date.tm_mon],year,date.tm_hour,date.tm_min,date.tm_sec,zone);
  return fl_str_val(text);
 }
 static void vf_cdata(TBuffer*out,FLValue value){
@@ -55,11 +57,15 @@ static FLValue vf_feed(const char*op,FLValue argv){
   FLValue url=vf_get(first,"url");if(url.tag!=FL_STRING){free(out.p);fl_throw(fl_make_error("TypeError","rss_feed: URL string required"));return fl_nil();}
   t_ascii(&out,"<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\" xmlns:content=\"http://purl.org/rss/1.0/modules/content/\">\n<channel>\n");
   vf_tag(&out,"title",vf_get(first,"title"));vf_tag(&out,"link",url);vf_tag(&out,"description",vf_default(vf_get(first,"description"),""));vf_tag(&out,"language",vf_default(vf_get(first,"language"),"en"));
-  FLValue updated=vf_get(first,"updated");vf_tag(&out,"lastBuildDate",fl_v11_truthy(updated)?updated:vf_utc(fl_nil(),1));
+  FLValue updated=vf_get(first,"updated");vf_tag(&out,"lastBuildDate",fl_v11_truthy(updated)?updated:vf_utc(fl_nil(),1,0));
   t_ascii(&out,"<atom:link href=\"");vf_escape(&out,url);FLString*u=(FLString*)url.obj;if(!u->len||u->data[u->len-1]!='/')t_ascii(&out,"/");t_ascii(&out,"feed.xml\" rel=\"self\" type=\"application/rss+xml\"/>\n");
   for(uint32_t i=0;list&&i<list->len;i++){
    FLValue item=list->data[i];t_ascii(&out,"<item>\n");vf_tag(&out,"title",vf_get(item,"title"));vf_tag(&out,"link",vf_get(item,"url"));t_ascii(&out,"<guid isPermaLink=\"true\">");vf_escape(&out,vf_get(item,"url"));t_ascii(&out,"</guid>\n");
-   FLValue date=vf_get(item,"date");if(fl_v11_truthy(date))vf_tag(&out,"pubDate",vf_utc(date,0));
+   FLValue date=vf_get(item,"date");if(fl_v11_truthy(date)){
+    FLValue timezone=vf_get(item,"timezone");int offset=0;
+    if(timezone.tag==FL_STRING){const char*zone=((FLString*)timezone.obj)->data;if(!strcmp(zone,"Asia/Seoul"))offset=540;else if(strcmp(zone,"UTC")){free(out.p);fl_throw(fl_make_error("RangeError","rss_feed: timezone must be UTC or Asia/Seoul"));return fl_nil();}}
+    vf_tag(&out,"pubDate",vf_utc(date,0,offset));
+   }
    FLValue author=vf_get(item,"author");if(fl_v11_truthy(author))vf_tag(&out,"author",author);
    FLValue description=vf_get(item,"description");if(fl_v11_truthy(description))vf_tag(&out,"description",description);
    FLValue content=vf_get(item,"content");if(fl_v11_truthy(content)){t_ascii(&out,"<content:encoded><![CDATA[");vf_cdata(&out,content);t_ascii(&out,"]]></content:encoded>\n");}

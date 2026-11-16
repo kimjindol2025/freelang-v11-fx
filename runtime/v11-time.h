@@ -152,12 +152,38 @@ static FLValue vt_format(FLValue stamp,FLValue format,int utc){
     return result;
 }
 
+static FLValue vt_now_iso(FLValue argv){
+    FLVector*args=(FLVector*)argv.obj;
+    int offset=0;
+    if(args->len>1){fl_throw(fl_make_error("TypeError","now_iso: accepts at most one timezone"));return fl_nil();}
+    if(args->len){
+        FLValue zone=t_js_string(args->data[0]);
+        const char*name=((FLString*)zone.obj)->data;
+        if(!strcmp(name,"UTC"))offset=0;
+        else if(!strcmp(name,"Asia/Seoul"))offset=540;
+        else{fl_throw(fl_make_error("RangeError","now_iso: timezone must be UTC or Asia/Seoul"));return fl_nil();}
+    }
+    struct timespec now;
+    if(clock_gettime(CLOCK_REALTIME,&now)){fl_throw(fl_str_val("now_iso: clock failure"));return fl_nil();}
+    time_t shifted=now.tv_sec+(time_t)offset*60;
+    struct tm date;
+    if(!gmtime_r(&shifted,&date)){fl_throw(fl_str_val("now_iso: timestamp out of range"));return fl_nil();}
+    char text[48],suffix[8];
+    if(offset==0)strcpy(suffix,"Z");
+    else{int magnitude=offset<0?-offset:offset;snprintf(suffix,sizeof(suffix),"%c%02d:%02d",offset<0?'-':'+',magnitude/60,magnitude%60);}
+    snprintf(text,sizeof(text),"%04d-%02d-%02dT%02d:%02d:%02d.%03ld%s",
+             date.tm_year+1900,date.tm_mon+1,date.tm_mday,date.tm_hour,date.tm_min,date.tm_sec,
+             now.tv_nsec/1000000L,suffix);
+    return fl_str_val(text);
+}
+
 static FLValue v11_time(const char *op,FLValue argv){
     FLVector*a=(FLVector*)argv.obj;
     FLValue x=a->len?a->data[0]:fl_nil(),y=a->len>1?a->data[1]:fl_nil();
     if(!strcmp(op,"date-parse"))return vt_parse(x);
     if(!strcmp(op,"format-date"))return vt_format(x,y,0);
     if(!strcmp(op,"format-date-utc"))return vt_format(x,y,1);
+    if(!strcmp(op,"now-iso"))return vt_now_iso(argv);
     struct timespec now;
     if(clock_gettime(CLOCK_REALTIME,&now))fl_throw(fl_str_val("now_ms: clock failure"));
     return fl_int((int64_t)now.tv_sec*1000+now.tv_nsec/1000000);
