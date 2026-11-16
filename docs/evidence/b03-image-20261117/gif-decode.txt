@@ -1,0 +1,1 @@
+{"ok":true,"error":"","data":{"width":1,"height":1,"mime":"image/gif","alpha":false,"frames":1,"jpeg_quality":85,"outputs":[]}}

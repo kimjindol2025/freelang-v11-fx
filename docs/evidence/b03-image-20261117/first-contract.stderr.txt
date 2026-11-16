@@ -1,0 +1,3 @@
+Uncaught error (line 3): [check] IMG12=FAIL (at line 30, col 0)
+Command exited with non-zero status 1
+ELAPSED=0.42 MAX_RSS_KB=10572 EXIT=1

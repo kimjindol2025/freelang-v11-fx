@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "audit_id": "B03-IMAGE-20261117",
+  "verdict": "LANGUAGE_CONTRACTS_PASSED_REGRESSION_BLOCKED",
+  "source_commit": "73885b248f472c49185255b1c7515b3a5fef4c54",
+  "fixed_contract_commit": "ef354a55aa12accea3447031821b9d178c647aec",
+  "contracts": {
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0,
+    "not_run": 0,
+    "seconds": 0.59,
+    "max_rss_kib": 10460
+  },
+  "resource_assertions": {
+    "normal": 32,
+    "asan_ubsan_lsan": 32,
+    "sanitizer_stderr_bytes": 0,
+    "repeated_jobs": 200,
+    "concurrent_callers": 4,
+    "single_worker": true
+  },
+  "cleanup_fault": {
+    "before": "FAIL/FAIL",
+    "after": "PASS/PASS",
+    "transient_recovery": true,
+    "silent_success_fixed": true
+  },
+  "original_sha256_unchanged_formats": [
+    "JPEG",
+    "PNG",
+    "GIF"
+  ],
+  "worker_elf_sha256": "a192120e8463071a2ddce30100119289a4b0cccababb070b448363b25dfbd4f1",
+  "bootstrap": {
+    "stage2": "f38f373890d0898552cbe89768b992f934e9c4a567bf27cdf66248a3c1b5cb81",
+    "stage3": "f38f373890d0898552cbe89768b992f934e9c4a567bf27cdf66248a3c1b5cb81",
+    "stage4": "f38f373890d0898552cbe89768b992f934e9c4a567bf27cdf66248a3c1b5cb81",
+    "matches_starting_c99b6f78": true,
+    "strace": false,
+    "seed_before": "f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c",
+    "seed_after": "f7425bf086d99d11231ba79296e194fcc36b454379e46d44131bafb0dc74101c"
+  },
+  "regressions": {
+    "overall_pass": false,
+    "completed_native_groups": 21,
+    "cli": "4/4",
+    "storage_api": "20/20",
+    "l07": {
+      "passed": 221,
+      "failed": 0
+    },
+    "leaks": "12/12",
+    "utf16": "PASS",
+    "e10_chrome": "20/20",
+    "e09": {
+      "current_reader_failures": 2,
+      "baseline_reader": "20/20",
+      "generated_js_identical": true,
+      "reader_error": "DOM.describeNode -32000: Could not find node with given id",
+      "proposed_patch_applied": false
+    },
+    "full_suite": "INTERRUPTED_BEFORE_TLS_KEY_GENERATION",
+    "interruption_exit": 137,
+    "intentional_interruption_not_oom": true,
+    "tls_key_files_created": 0,
+    "runtime_equivalent_source_commits": [
+      "a3de34169cc0f832daa7131af860076a2e201938",
+      "d2f655a58302ea413416c5cee26413542bd95597"
+    ],
+    "after_cleanup_fix": "New API tests, resource sanitizers and bootstrap rerun; complete legacy suite not rerun"
+  },
+  "audit": {
+    "recorded_native_exec_traces": {
+      "node": 0,
+      "npm": 0,
+      "npx": 0,
+      "js": 0,
+      "python": 0
+    },
+    "bootstrap_dynamic_exec_counts": "UNOBSERVED_STATIC_AUDIT",
+    "dependency_dynamic_exec_counts": "UNOBSERVED",
+    "system_install": false
+  },
+  "pending_approvals": [
+    "TLS ephemeral key location exception in the approved task temporary area",
+    "7-line stale DOM.describeNode recovery in the existing FX C reader"
+  ],
+  "product_integration": false,
+  "blog_B03_pass": false,
+  "next_step_opened": false,
+  "evidence": [
+    {
+      "path": "docs/evidence/b03-image-20261117/before-runtime-error.txt",
+      "sha256": "38125dbf076c3fbf44937f4f3ca8b8ed47420768cde6934c13f72e32f343140b"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/bootstrap.txt",
+      "sha256": "b3afdc870021e10e093c8bbee24ef37777c5e45e83453fb4f3b0a9b6e16fbd48"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/cleanup-after.txt",
+      "sha256": "76c258424369cd41b745735ef4ec1a509222c721d0d3eb54657cd94c3795d830"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/cleanup-before.txt",
+      "sha256": "0d360610bfae2d99edbb04dde832748294852ca2c70e06be13335ad5a8a80378"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/cli4.txt",
+      "sha256": "740dc542fc3054f411a5c9e2f747de388b2f6b616290cf124c369d56eea44d0d"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/dependency-archives.txt",
+      "sha256": "cde7917b0bc35d93da2f7567bfa9d3c25564ba03b06a3374e0df757e501a72a0"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/e09-baseline.txt",
+      "sha256": "d0b312c680ad55c1f1fa3635f66ecb3f1d8e071175efd4e2b26ed17c424a2526"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/e09-first-reader-error.txt",
+      "sha256": "56ef862662500f31db71c9d2643f0087c9beaed3543ab209dbe23ed15df1cf5c"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/e09-second-reader-error.txt",
+      "sha256": "56ef862662500f31db71c9d2643f0087c9beaed3543ab209dbe23ed15df1cf5c"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/e10-cancel.txt",
+      "sha256": "59f8d3f5a58dfe9832314d2db222f3e3ec18421790106a3f62132fcc8b055088"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/final-verdict.txt",
+      "sha256": "f7acab9822a70c013156f1dde66f4aa7a18371ff7df7093fc475682e835f9a1c"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/first-contract.stderr.txt",
+      "sha256": "f747d16b383be918140123d40fc9fc0e3ad9c0d6400ee52477a15256982b2737"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/first-contract.stdout.txt",
+      "sha256": "8fad78c2818bfb2dc37549ef6015b94a28808ea59aeeb8600d1f8112126b42c3"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/fixed20-resource.txt",
+      "sha256": "467cd5b6b8d1dca33f1db92f7892f407794e33730e3bdfa914390121c60f531e"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/fixed20.txt",
+      "sha256": "51fac37ea65ea8d63fd77b029956a2c08f0495dea70187d221fee4d880724c61"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/gif-decode.txt",
+      "sha256": "0a7e8b9e82effe2158a3ed33243768cc5b8a903bb10345fb1c684f8d2b694203"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/l07.txt",
+      "sha256": "bb748c7c1c44b8b0415fe64228610f4cb776255511c34c20f31b3573b069877c"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/native-partial.txt",
+      "sha256": "8b722003adb0c39d9c4447a5bacd5222d2aca1447d2033126f16b8ad90134359"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/original-sha256.txt",
+      "sha256": "fde3cb59e71a70c57cb2dbda28286a1f04ba0c12ed5b487e9a09d38e20fcc97d"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/proposed-cdp-patch.txt",
+      "sha256": "1d3d7f8eed0b490ea32c59a055330e677a34d22319115b6925b2103cb7d98b29"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/recorded-native-exec-audit.txt",
+      "sha256": "57bf13259a6393dad120ca8f7c30038ffeb8ddb2586620fb1ed6164fb2ea51bc"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/resources-asan.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/resources-asan.txt",
+      "sha256": "e114222349d8549641e72b2c3d8b7193e35fa043d86093cb91d7ab4df224f7cd"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/resources.txt",
+      "sha256": "e114222349d8549641e72b2c3d8b7193e35fa043d86093cb91d7ab4df224f7cd"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/second-contract.stderr.txt",
+      "sha256": "930abd913e1dda62e22385d502290c82a0f39b2e6db6eb7900276eada2bed573"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/second-contract.stdout.txt",
+      "sha256": "b93c779fe1f3acb913ae33bd18ce9adc893b7c0d6779db93c0fd75eaaf2d4037"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/seed-after.txt",
+      "sha256": "073070c7162650e6385b295c019408b5e8564743ac94d1c67967c838a665a18e"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/seed-before.txt",
+      "sha256": "073070c7162650e6385b295c019408b5e8564743ac94d1c67967c838a665a18e"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/storage20-stderr-check.txt",
+      "sha256": "f91b1dafaa05334f9ae4f1a352885f0543c548f60a3ab919c17f2115284fc9ae"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/storage20.png",
+      "sha256": "f0888d2756d53df23a4aadab209f8cec77bb414929f500a63ab66e2f96ff7f48"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/storage20.txt",
+      "sha256": "70fb285b6777bf480a616bea547cf5bcb6c25fe99f55e826af1c489da61bc1f9"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/tested-source-sha256.txt",
+      "sha256": "3d8b9f2ed5bcd060bb7ec94c257ebc2ddd2dd77f516c1f97dc9d131baea5b682"
+    },
+    {
+      "path": "docs/evidence/b03-image-20261117/tls-policy-interruption.txt",
+      "sha256": "c29725f640e880902a3626e04e2773efb225d660f8d5ddb3ba8850067e26cf37"
+    }
+  ]
+}

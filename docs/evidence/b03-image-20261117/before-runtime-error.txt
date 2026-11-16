@@ -1,0 +1,1 @@
+Uncaught error (line 106): [info] [image-info-result] Function not found: image-info-result (at line 6, col 0)
