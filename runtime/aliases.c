@@ -409,10 +409,10 @@ FLValue fl_concat(FLValue a, FLValue b) {
     if (a.tag == FL_VECTOR && b.tag == FL_VECTOR) {
         FLVector* va = (FLVector*)a.obj;
         FLVector* vb = (FLVector*)b.obj;
-        FLValue result = fl_vec_new();
-        for (uint32_t i = 0; i < va->len; i++) result = fl_vec_push(result, va->data[i]);
-        for (uint32_t i = 0; i < vb->len; i++) result = fl_vec_push(result, vb->data[i]);
-        return result;
+        FLValue result = fl_vec_builder_new();
+        for (uint32_t i = 0; i < va->len; i++) fl_vec_builder_push(result, va->data[i]);
+        for (uint32_t i = 0; i < vb->len; i++) fl_vec_builder_push(result, vb->data[i]);
+        return fl_vec_builder_freeze(result);
     }
     /* 문자열 연결 */
     if (a.tag == FL_STRING && b.tag == FL_STRING) {

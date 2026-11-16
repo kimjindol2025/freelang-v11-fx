@@ -90,14 +90,35 @@ FLValue split(FLValue s, FLValue sep) {
     if (s.tag!=FL_STRING||sep.tag!=FL_STRING) return fl_vec_new();
     const char *src=((FLString*)s.obj)->data;
     const char *d=((FLString*)sep.obj)->data;
-    size_t dlen=strlen(d); FLValue vec=fl_vec_new();
+    size_t dlen=strlen(d); FLValue vec=fl_vec_builder_new();
+    if (dlen==0) {
+        const unsigned char *bytes=(const unsigned char*)src;
+        size_t len=strlen(src), i=0;
+        while (i<len) {
+            unsigned char c=bytes[i];
+            size_t width=(c<0x80)?1:
+                ((c>=0xC2&&c<=0xDF)?2:
+                 ((c>=0xE0&&c<=0xEF)?3:
+                  ((c>=0xF0&&c<=0xF4)?4:1)));
+            if (i+width>len) width=1;
+            for (size_t j=1;j<width;j++) {
+                if ((bytes[i+j]&0xC0)!=0x80) { width=1; break; }
+            }
+            char piece[5];
+            memcpy(piece,bytes+i,width); piece[width]='\0';
+            fl_vec_builder_push(vec,fl_str_val(piece));
+            i+=width;
+        }
+        return fl_vec_builder_freeze(vec);
+    }
     const char *p=src, *q;
     while ((q=strstr(p,d))) {
         size_t n=(size_t)(q-p); char *buf=(char*)malloc(n+1);
         memcpy(buf,p,n); buf[n]='\0';
-        vec=fl_vec_push(vec,fl_str_val(buf)); free(buf); p=q+dlen;
+        fl_vec_builder_push(vec,fl_str_val(buf)); free(buf); p=q+dlen;
     }
-    return fl_vec_push(vec,fl_str_val(p));
+    fl_vec_builder_push(vec,fl_str_val(p));
+    return fl_vec_builder_freeze(vec);
 }
 FLValue join(FLValue vec, FLValue sep) {
     if (vec.tag!=FL_VECTOR) return fl_str_val("");

@@ -41,7 +41,7 @@
 
 (defn make-state [$src]
   ;; Convert each line once; repeated lexer indexing stays vector-based.
-  {:src (lexer-lines-to-chars (str-lines $src))
+  {:src (lexer-lines-to-chars (str-split $src "\n"))
    :src-len (length $src) :idx 0 :line 1 :col 1 :tokens nil})
 
 (defn peek-at [$st $offset]
@@ -1046,9 +1046,20 @@
       (if (= $op "__apply__")
         (cgc-context-call (cgc (get $args 0)) (slice $args 1 (length $args)) $context (get $n :line))
         (cgc-context-call (cgc (make-variable (substring $op 1 (length $op)) (get $n :line))) $args $context (get $n :line))))
-      (if (and (string? $op) (fl_v11_has $op) (not (includes-item ["if" "and" "or"] $op)))
-        (cgc-context-call "fl_nil()" $args $op (get $n :line))
-        (cgc-sexpr-plain $n)))))
+      ;; Source modules commonly use snake_case spellings for standard
+      ;; builtins while the native registry stores their kebab-case names
+      ;; (for example arr_flatten / arr-flatten). Normalize only when the
+      ;; normalized spelling is actually registered, so user function names
+      ;; containing underscores keep their original identity.
+      (let [[$op-native (if (and (string? $op) (not (fl_v11_has $op))
+                               (not (= (str-index-of $op "_") -1))
+                               (fl_v11_has (str-replace $op "_" "-")))
+                          (str-replace $op "_" "-")
+                          $op)]]
+      (if (and (string? $op-native) (fl_v11_has $op-native)
+               (not (includes-item ["if" "and" "or"] $op-native)))
+        (cgc-context-call "fl_nil()" $args $op-native (get $n :line))
+        (cgc-sexpr-plain $n))))))
 
 (defn cgc-sexpr-plain [$n]
   (let [[$op (get $n :op)] [$args (get $n :args)]]
@@ -1178,6 +1189,9 @@
   [(= $op "str-pad-left") (str "str_pad_left(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "str-pad-right")(str "str_pad_right(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "str-index-of") (str "str_index_of(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  ;; Keep bootstrap seeds that predate the V11 registry able to compile this
+  ;; compiler; the runtime owns the implementation and argument contract.
+  [(= $op "str-lines") (cgc-v11-call $op $args)]
   [(= $op "str-repeat")   (str "str_repeat(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "str-length")   (str "length(" (cgc (get $args 0)) ")")]
   [(= $op "str-to-num")   (str "fl_str_to_num(" (cgc (get $args 0)) ")")]
@@ -2055,9 +2069,14 @@
         [$vnode  (get $items 0)]
         [$cnode  (get $items 1)]
         [$var-c  (cgc-extract-name $vnode)]
+        ;; The loop variable is visible to closures inside the loop body only.
+        ;; Keeping it in outer-params after code generation makes later sibling
+        ;; closures capture a C local whose scope has already ended.
+        [$outer-len (length @outer-params-atom)]
         [$_      (swap! outer-params-atom append $var-c)]
         [$coll-c (cgc $cnode)]
-        [$body-c (cgc-body $args 1 "")]]
+        [$body-c (cgc-body $args 1 "")]
+        [$_restore (reset! outer-params-atom (slice @outer-params-atom 0 $outer-len))]]
     (str "(__extension__ ({ FLValue _ds_c = " $coll-c ";"
          " FLValue _ds_len = length(_ds_c);"
          " FLValue _ds_i = fl_int(0);"
