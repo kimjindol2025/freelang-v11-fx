@@ -44,6 +44,12 @@ int main(int argc,char **argv){
     check(error(fl_image_process_result(fl_str_val("tiny.png"),outputs("exited.png"),options(102,5000)),"WORKER_FAILED")&&access("exited.png",F_OK)&&temporary_count()==0,"EXIT_CLEANUP");
     check(error(fl_image_info_result(fl_str_val("tiny.png"),options(103,5000)),"WORKER_FAILED"),"BOUNDED_REPLY");
     check(error(fl_image_info_result(fl_str_val("tiny.png"),options(104,5000)),"WORKER_FAILED"),"INVALID_REPLY");
+    FLValue two[2]={fl_vec_get(outputs("rollback.png"),fl_int(0)),fl_vec_get(outputs("collision.png"),fl_int(0))};
+    check(error(fl_image_process_result(fl_str_val("tiny.png"),fl_vec_from(two,2),options(106,5000)),"OUTPUT_EXISTS")&&access("rollback.png",F_OK)&&temporary_count()==0,"PARTIAL_PUBLICATION_ROLLBACK");
+    FILE *collision=fopen("collision.png","rb");char collision_bytes[6]={0};
+    check(collision&&fread(collision_bytes,1,5,collision)==5&&!strcmp(collision_bytes,"OTHER"),"RACING_OUTPUT_PRESERVED");if(collision)fclose(collision);
+    FLValue limits=fl_map_get(fl_image_info_result(fl_str_val("tiny.png"),options(107,5000)),fl_str_val("data"));
+    check(fl_map_get(limits,fl_str_val("memory")).i==536870912&&fl_map_get(limits,fl_str_val("core")).i==0,"WORKER_LIMITS");
     int gate[2];check(!pipe(gate),"CONCURRENCY_SETUP");pid_t peers[4];
     for(int i=0;i<4;i++){
         peers[i]=fork();if(peers[i]==0){close(gate[1]);char c;if(read(gate[0],&c,1)!=1)_exit(2);
