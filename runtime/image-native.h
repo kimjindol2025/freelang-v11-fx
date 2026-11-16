@@ -37,6 +37,12 @@ static const char *im_open_error(FileError *e){
     return "IO_ERROR";
 }
 static int64_t im_clock(void){struct timespec t;if(clock_gettime(CLOCK_MONOTONIC,&t))return -1;return (int64_t)t.tv_sec*1000+t.tv_nsec/1000000;}
+/* A cleanup error must never turn into success. Retry a transient removal once
+ * to leave no remnant, while retaining the original failure in the result. */
+static int im_remove(int dir,const char *name){
+    if(!unlinkat(dir,name,0)||errno==ENOENT)return 0;
+    (void)unlinkat(dir,name,0);return 1;
+}
 typedef struct {int dir,fd,published;char name[NAME_MAX+1],temporary[NAME_MAX+1];uint64_t edge;} ImageOutput;
 static int im_output_parent(FLValue path,ImageOutput *out){
     char copy[PATH_MAX];strcpy(copy,_strval(path));char *slash=strrchr(copy,'/');
@@ -155,13 +161,27 @@ static FLValue im_run(FLValue path,FLValue outputs,FLValue options,int processin
     }
 done:
     if(child>0){kill(child,SIGKILL);while(waitpid(child,&status,0)<0&&errno==EINTR){}}
+    int cleanup_failed=0;
     for(int i=0;i<2;i++){
-        if(dest[i].fd>=0){close(dest[i].fd);unlinkat(dest[i].dir,dest[i].temporary,0);}
-        if(error&&dest[i].published)unlinkat(dest[i].dir,dest[i].name,0);
-        if(dest[i].dir>=0)close(dest[i].dir);
+        if(dest[i].fd>=0){
+            if(close(dest[i].fd))cleanup_failed=1;
+            if(im_remove(dest[i].dir,dest[i].temporary))cleanup_failed=1;
+        }
     }
-    if(source>=0)close(source);if(pipefd[0]>=0)close(pipefd[0]);if(pipefd[1]>=0)close(pipefd[1]);
-    if(lock>=0)close(lock);
+    if(source>=0&&close(source))cleanup_failed=1;
+    if(pipefd[0]>=0&&close(pipefd[0]))cleanup_failed=1;
+    if(pipefd[1]>=0&&close(pipefd[1]))cleanup_failed=1;
+    if(error||cleanup_failed)for(int i=0;i<2;i++)if(dest[i].published){
+        if(im_remove(dest[i].dir,dest[i].name))cleanup_failed=1;
+        if(fsync(dest[i].dir))cleanup_failed=1;
+    }
+    for(int i=0;i<2;i++)if(dest[i].dir>=0&&close(dest[i].dir))cleanup_failed=1;
+    if(lock>=0&&close(lock))cleanup_failed=1;
+    if(cleanup_failed){
+        FLValue failure=im_error("CLEANUP_FAILED");
+        FLValue cause=error?fl_str_val(error):result.tag==FL_MAP?fl_map_get(result,fl_str_val("error")):fl_nil();
+        return fl_map_set(failure,fl_str_val("cause"),cause);
+    }
     return error?im_error(error):result;
 }
 FLValue fl_image_info_result(FLValue path,FLValue options){return im_run(path,fl_nil(),options,0);}
