@@ -9,7 +9,7 @@ __thread FLTryFrame fl_try_stack[FL_TRY_MAX];
 __thread int fl_try_top = 0;
 
 /* FL 소스 라인 추적 (cgc-main이 throw 직전에 설정) */
-int __fl_throw_line = 0;
+__thread int __fl_throw_line = 0;
 
 /* ── 콜스택 추적 ── */
 #define FL_CALLSTACK_MAX 64
@@ -34,6 +34,11 @@ void fl_push_frame_ln(const char* fn, int line) {
 }
 void fl_pop_frame(void) {
     if (__fl_callstack_depth > 0) __fl_callstack_depth--;
+}
+
+int fl_callstack_mark(void) { return __fl_callstack_depth; }
+void fl_callstack_restore(int mark) {
+    if (mark >= 0 && mark <= FL_CALLSTACK_MAX) __fl_callstack_depth = mark;
 }
 
 static void print_uncaught(FLValue err) {

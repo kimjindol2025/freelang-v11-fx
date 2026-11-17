@@ -20,6 +20,175 @@
 static FLValue fl_apply_fn(FLValue fn, FLValue arg) {
     return fl_fn_call(fn, 1, &arg);
 }
+static inline const char* fl_cstr(FLValue v);
+
+/* The testing context follows the owning arena and is independent per thread.
+ * Error strings use owned memory so nested temporary arenas cannot invalidate
+ * the accumulated report. Existing arena cleanup also releases unused reports. */
+typedef struct FLTestErrors {
+    FLVector vector;
+    struct FLTestErrors *next;
+} FLTestErrors;
+typedef struct {
+    int64_t passed, failed;
+    FLTestErrors *errors, *retired;
+    int watched, started;
+} FLTestResults;
+static __thread FLTestResults fl_tests;
+
+static void fl_tests_release(FLTestErrors *list) {
+    while (list) {
+        FLTestErrors *next = list->next;
+        for (uint32_t i = 0; i < list->vector.len; i++) free(list->vector.data[i].obj);
+        free(list->vector.data);
+        free(list);
+        list = next;
+    }
+}
+static void fl_tests_clear(void) {
+    fl_tests_release(fl_tests.errors);
+    fl_tests_release(fl_tests.retired);
+    fl_tests.errors = fl_tests.retired = NULL;
+    fl_tests.passed = fl_tests.failed = 0;
+    fl_tests.started = 0;
+}
+static void fl_tests_reset(void) {
+    /* Earlier summaries keep their old error array until the context ends. */
+    if (fl_tests.errors) {
+        fl_tests.errors->next = fl_tests.retired;
+        fl_tests.retired = fl_tests.errors;
+        fl_tests.errors = NULL;
+    }
+    fl_tests.passed = fl_tests.failed = 0;
+    fl_tests.started = 1;
+}
+static FLTestErrors *fl_tests_errors(void) {
+    if (!fl_tests.errors) {
+        FLTestErrors *list = calloc(1, sizeof(*list));
+        if (!list) fl_throw(fl_str_val("test report allocation failed"));
+        list->vector.base.type = FL_VECTOR;
+        list->vector.base.rc = 1;
+        fl_tests.errors = list;
+    }
+    return fl_tests.errors;
+}
+static void fl_tests_cleanup(void *unused) {
+    (void)unused;
+    fl_tests_clear();
+    fl_tests.watched = 0;
+}
+static void fl_tests_begin(void) {
+    if (!fl_tests.watched) {
+        if (fl_arena_on_reset(fl_tests_cleanup, NULL) != 1)
+            fl_throw(fl_str_val("test context allocation failed"));
+        fl_tests.watched = 1;
+    }
+}
+void fl_test_begin(void) {
+    fl_tests_begin();
+    fl_tests.started = 1;
+}
+FLValue fl_test_name(FLValue name) {
+    fl_test_begin();
+    return fl_v11_utf8_string(name);
+}
+FLValue fl_test_case_pass(FLValue name) {
+    fl_test_begin();
+    FLString *label = (FLString *)name.obj;
+    fl_tests.passed++;
+    fputs("  ✓ ", stdout);
+    fwrite(label->data, 1, label->len, stdout);
+    fputc('\n', stdout);
+    return fl_nil();
+}
+FLValue fl_test_case_fail(FLValue name, FLValue error) {
+    fl_test_begin();
+    FLValue message = error.tag == FL_MAP ? fl_map_get(error, fl_str_val("message")) : fl_nil();
+    message = fl_v11_utf8_string(message.tag == FL_NIL ? error : message);
+    FLString *label = (FLString *)name.obj, *detail = (FLString *)message.obj;
+    const char prefix[] = "  ✗ ", separator[] = ": ";
+    size_t prefix_length = sizeof prefix - 1, separator_length = sizeof separator - 1;
+    size_t length = prefix_length + label->len + separator_length + detail->len;
+    FLVector *errors = &fl_tests_errors()->vector;
+    if (length > UINT32_MAX || length > SIZE_MAX - sizeof(FLString) - 1)
+        fl_throw(fl_str_val("test report allocation failed"));
+    FLString *record = malloc(sizeof(*record) + length + 1);
+    if (!record) fl_throw(fl_str_val("test report allocation failed"));
+    record->base.type = FL_STRING; record->base.rc = 1;
+    record->len = (uint32_t)length;
+    memcpy(record->data, prefix, prefix_length);
+    memcpy(record->data + prefix_length, label->data, label->len);
+    memcpy(record->data + prefix_length + label->len, separator, separator_length);
+    memcpy(record->data + prefix_length + label->len + separator_length, detail->data, detail->len);
+    record->data[length] = 0;
+    if (errors->len == errors->cap) {
+        size_t capacity = errors->cap ? (size_t)errors->cap * 2 : 8;
+        if (capacity > UINT32_MAX) capacity = UINT32_MAX;
+        if (capacity == errors->cap || capacity > SIZE_MAX / sizeof(FLValue)) {
+            free(record);
+            fl_throw(fl_str_val("test report allocation failed"));
+        }
+        FLValue *data = realloc(errors->data, capacity * sizeof(FLValue));
+        if (!data) {
+            free(record);
+            fl_throw(fl_str_val("test report allocation failed"));
+        }
+        errors->data = data;
+        errors->cap = (uint32_t)capacity;
+    }
+    errors->data[errors->len++] = (FLValue){.tag=FL_STRING,.obj=(FLObject *)record};
+    fl_tests.failed++;
+    fwrite(record->data, 1, record->len, stdout);
+    fputc('\n', stdout);
+    return fl_nil();
+}
+static FLValue fl_tests_json(FLValue value) {
+    FLValue encoded = fl_v11_json_encode(value);
+    return encoded.tag == FL_STRING ? encoded : fl_str_val("undefined");
+}
+FLValue fl_test_builtin(FLValue name, FLValue argv, FLValue line) {
+    const char *op = fl_cstr(name);
+    FLVector *args = (FLVector *)argv.obj;
+    size_t n = args->len;
+    if (line.tag == FL_INT) __fl_throw_line = (int)line.i;
+    if (!strcmp(op, "is")) {
+        FLValue value = n ? args->data[0] : fl_bool(false);
+        FLValue message = n > 1 ? fl_v11_utf8_string(args->data[1]) :
+            fl_str_n(2, fl_str_val("Expected truthy, got: "), fl_tests_json(value));
+        if (!fl_v11_truthy(value)) fl_throw(message);
+        return value;
+    }
+    if (!strcmp(op, "is=")) {
+        if (n < 2) {
+            char message[128];
+            snprintf(message, sizeof message, "[E_ARG_COUNT] is=: expects 2 args, got %zu", n);
+            fl_throw(fl_str_val(message));
+        }
+        FLValue expected = fl_tests_json(args->data[0]), actual = fl_tests_json(args->data[1]);
+        FLString *a = (FLString *)expected.obj, *b = (FLString *)actual.obj;
+        if (a->len != b->len || memcmp(a->data, b->data, a->len))
+            fl_throw(fl_str_n(4, fl_str_val("Expected "), expected, fl_str_val(", got "), actual));
+        return args->data[1];
+    }
+    fl_tests_begin();
+    FLValue summary = fl_map_new();
+    summary = fl_map_set(summary, fl_str_val("passed"), fl_int(fl_tests.passed));
+    summary = fl_map_set(summary, fl_str_val("failed"), fl_int(fl_tests.failed));
+    summary = fl_map_set(summary, fl_str_val("total"), fl_int(fl_tests.passed + fl_tests.failed));
+    if (!strcmp(op, "test-summary")) {
+        /* Before the first case, the source returns a detached empty array. */
+        FLValue errors = fl_tests.started ?
+            (FLValue){.tag=FL_VECTOR,.obj=(FLObject *)&fl_tests_errors()->vector} : fl_vec_new();
+        return fl_map_set(summary, fl_str_val("errors"), errors);
+    }
+    if (strcmp(op, "run-tests")) fl_throw(fl_str_val("unknown native test operation"));
+    printf("\nTest Results: %lld/%lld passed", (long long)fl_tests.passed,
+           (long long)(fl_tests.passed + fl_tests.failed));
+    if (fl_tests.failed) printf(" (%lld FAILED)", (long long)fl_tests.failed);
+    printf("\n");
+    fl_tests_reset();
+    return summary;
+}
 
 /* ── 환경 ── */
 FLValue env_get(FLValue key)        { return _fl_env_get(key); }

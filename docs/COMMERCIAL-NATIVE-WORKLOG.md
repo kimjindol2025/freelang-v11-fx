@@ -15,6 +15,10 @@ Use the existing verified private curl prefix through environment variables.
 Heavy commands require the shared lock and the existing 2 GiB limit.
 Actual production deployment remains a separate final approval step.
 
+The user explicitly confirmed the complete scope as FX + DB95 + frontend +
+applications, with Node.js removal as the first priority and commercial DB
+readiness as a required result.
+
 ## Recorded starting evidence
 
 - FX baseline: cbf0e9db7a090a8e653337dfb79056eb29a62208.
@@ -88,3 +92,121 @@ Recorded verification, outside the repositories:
 
 This closes the two observed WAL test failures. It does not establish crash
 durability or resolve the recorded checkpoint corruption recovery blocker.
+
+## Milestone 2: frontend Native checker entry
+
+The clean frontend FE18 baseline b371d5abb747c41a1bccc60bfa96e30954399aca
+was preserved. A separate codex/native-frontend-start worktree contains the
+new scripts/fl-check-native product entry and its usage/evidence document.
+The existing checker, fixtures, Node launcher and protected test runners
+were not modified.
+
+- Frontend commit: 3c728a8d5fa5b51294cb6353383a36292ee34d04, GitHub ref verified.
+- Native checker build and default page check: PASS.
+- Existing checker fixture matrix: 32/32, including expected diagnostic
+  classes and the documented JSON-props timing bound.
+- execve traces: zero Node/npm/npx/bun/deno invocations.
+- Missing binary/protocol: explicit exit 2. Native failure: exit preserved.
+- New JS files and JS line changes: zero.
+
+The complete website is not yet Node-free: the web builder, dev server,
+default launchers and test execution path remain on the dependency list.
+Initial inventory found 20 FX server entry roots. Static dependency mentions
+are candidates, not proof that a runtime path executes Node.
+
+## Milestone 3: Native assertion and shell contracts
+
+The original frontend tests compiled to C but stopped at Function not found:
+is=. Native compilation now handles deftest/describe/it, is/is=, run-tests
+and test-summary using the contracts in the existing bootstrap.js source.
+The reference was read without executing Node. Test bodies run in order under
+a case-level exception boundary. Failures stop that case, increment the real
+failure count and allow later cases to run. Assertions retain argument order,
+JSON equality, return values and truthiness. Invalid is= arity fails before
+argument evaluation. Surplus arguments retain the source evaluation rules.
+
+Summary counts are snapshots. Their error array remains shared with the
+current context, and earlier arrays stay valid after run-tests resets that
+context. A summary before any case has a detached empty array. The generated
+case boundary initializes its context before evaluating the case name.
+Reports are isolated per thread; owned error records are released at arena
+cleanup, including when a nested temporary arena has already ended. Throw
+line tracking is also thread-local. C provides the exception/resource bridge;
+the compiler implementation remains FreeLang.
+
+The boundary refinement exposed a pre-existing repeat code-generation order
+defect. A real effect probe observed [value,count] instead of [count,value].
+The same unsequenced C function arguments also changed temporary ID order
+between Stage 2 and Stage 3, causing one exact-comparison failure. repeat now
+uses the existing sequential argument-emission helper before calling the
+runtime. This fixes both the language effect order and deterministic code
+generation; the seed and byte-comparison criteria remain unchanged.
+
+The existing provider tests then exposed two masking failures and a missing
+shell-exec-result primitive. Native shell-exec and shell-exec-result now use
+POSIX process spawning, separate stdout/stderr pipes, EOF on stdin, UTF-8
+decoding, real exit status and child reaping. The existing reference's one-MiB
+limit applies to each stream; overflow or signal termination returns exit -1
+and ok=false. This is the inherited spawnSync contract, documented in the
+[official Node child-process reference](https://nodejs.org/api/child_process.html#child_processspawnsynccommand-args-options).
+The implementation does not invoke Node. The frontend uses the documented
+text-first regex_replace module API at its six redaction calls, preserving
+the masking assertions and the distinct legacy regex-replace signature.
+
+Verification records are retained under evidence identifier
+native-test-forms.idxwvm in a private directory (<가림>). Existing frontend
+test files, FX regression fixtures, expected outputs, protected runners and
+the checker were not changed. New JS files and JS line changes are zero.
+
+The diagnostic probes deliberately produce real failed assertions and check
+their exact counts, early body termination, later-case continuation, summary
+aliasing, context reset and invalid-arity evaluation order. They are not
+counted as an all-passing product suite. Separate shell probes cover success,
+failure, signals, independent large streams, the output limit, invalid UTF-8,
+NUL bytes and stdin EOF. C probes check descriptor stability across 100
+commands, closed standard descriptors, child reaping, nested-arena allocation
+cleanup and independent thread contexts. These checks are scoped resource
+diagnostics, not an ASan/Valgrind or complete leak-suite result.
+
+Final source verification (2026-11-18 KST):
+
+| Check | Actual result |
+|---|---|
+| Native Stage 0 through Stage 4 build/generation | Exit 0 |
+| Exact Stage 2 = Stage 3 = Stage 4 C comparison | PASS, SHA-256 65fc56c092629248471828a88859237d4a2231de344e05213df7fe0e52f96cc2 |
+| Verified Stage 3 compiler ELF SHA-256 | 44379c85c41071c0c7822a8710973ab0a827740b9041f4114767cdb6fbf06546 |
+| Stage 2 generated C size | 1,492,756 bytes |
+| Stage 2 to 3 generation | 20.19 seconds, peak RSS 1,201,256 KiB, exit 0 |
+| Stage 3 to 4 generation | 20.11 seconds, peak RSS 1,200,564 KiB, exit 0 |
+| Original frontend unit suite | 7 files, 71/71, each exit 0 |
+| Original FX tail/scope/error/order regression fixtures | 11/11, expected outputs identical, each exit 0 |
+| Native checker | 32/32 existing fixtures and default pages, expected diagnostic classes, exit 0 for the validation batch |
+| JSON props checker bound | 0.07 seconds, below the original one-second bound |
+| Forbidden Node/npm/npx/bun/deno executions | 0 in the frontend unit, checker and compiler generation traces |
+| Original DB95 cases 7 / 13 / 36 / 40 | Each exit 0 under the original 120-second case bound; transaction isolation and MVCC PASS |
+| Shell contract probes | 9/9, exit 0 |
+| Negative assertion / summary / arity / repeat-order diagnostics | Expected failures and exact real counts verified; diagnostic processes exit 0 |
+| Allocation/thread and descriptor/child cleanup probes | Exit 0 |
+| Existing tests, expected outputs, protected runners, JS | Unchanged |
+
+The bootstrap/stage0.c input SHA-256 is unchanged before/after:
+0101cb63a86f20b93451f70b88a0b577f9548ded0a8b328ebdeedb7e8e4fd767.
+No seed was replaced or regenerated. The protected official verification
+script still pins an older f7425bf0 input; it is NOT_RUN for this source,
+not reported as passing. The separate evidence harness uses the same Native
+GCC/runtime recipe and performs the actual Stage 0→1→2→3→4 generation and
+exact comparisons without changing that script or its criteria. All heavy
+work used the shared lock, two-GiB virtual-memory cap and existing private
+curl through process environment variables. No installation was performed.
+
+The original complete Native DB95 gate remains the recorded 51/71 baseline.
+Cases 7, 13, 36 and 40 have now been rerun after the runtime changes. Do not
+advertise a new complete-gate count until the complete gate is executed again.
+
+The default frontend test launcher still uses Node. The 71 original unit
+cases are also compiled and executed individually as Native binaries in the
+evidence harness. A supported Native test entry, the web builder/dev server
+and application flows remain migration work. Current Node parity and the
+full fl-tools adapter checks are NOT_RUN because their execution paths invoke
+Node. No blanket frontend or commercial-readiness claim follows from unit
+results.

@@ -969,6 +969,14 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         }
         return t_js_string(value);
     }
+    if(IS("shell-exec")||IS("shell-exec-result")){
+        FLValue result=fl_shell_exec_result(ARG(0).tag==FL_NIL?fl_str_val(""):ARG(0));
+        if(IS("shell-exec")){
+            FLValue status=fl_map_get(result,fl_str_val("exit"));
+            return status.tag==FL_INT&&status.i==0?fl_map_get(result,fl_str_val("stdout")):fl_nil();
+        }
+        return result;
+    }
     if(IS("process-exit")){
         FLValue code=ARG(0);
         double number=code.tag==FL_NIL?0:t_double(code);

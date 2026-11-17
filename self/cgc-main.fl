@@ -1046,8 +1046,70 @@
              (str "fl_vec_from(__fl_av_" $id ", " (length $args) ")"))
          ", fl_int(" (if (null? $line) "0" (to-string $line)) ")); }))")))
 
+;; Sequence generation and execution of repeat arguments explicitly. C function
+;; argument order must not reorder language effects or compiler temporary IDs.
+(defn cgc-repeat [$args]
+  (let [[$id @lambda-id-atom]
+        [$_reserve (swap! lambda-id-atom + 1)]
+        [$used (slice $args 0 2)]
+        [$arguments-c (if (= (length $used) 0) "" (cgc-eval-args $used $id 0 ""))]]
+    (str "(__extension__ ({ " $arguments-c
+         " fl_repeat(" (if (> (length $used) 0) (str "__fl_arg_" $id "_0") "fl_nil()")
+         ", " (if (> (length $used) 1) (str "__fl_arg_" $id "_1") "fl_nil()") "); }))")))
+
+(defn cgc-test-case [$args]
+  (let [[$id @lambda-id-atom]
+        [$_reserve (swap! lambda-id-atom + 1)]
+        [$name-c (if (> (length $args) 0)
+                    (cgc (get $args 0))
+                    "fl_str_val(\"(anonymous)\")")]
+        [$body-c (cgc-do (slice $args 1 (length $args)))]]
+    (str "(__extension__ ({\n"
+         "    fl_test_begin();\n"
+         "    FLValue _fl_tc_name_" $id " = fl_test_name(" $name-c ");\n"
+         "    int _fl_tc_saved_" $id " = fl_try_top;\n"
+         "    int _fl_tc_stack_" $id " = fl_callstack_mark();\n"
+         "    int _fl_tc_line_" $id " = __fl_throw_line;\n"
+         "    if (fl_try_top >= FL_TRY_MAX) fl_throw(fl_str_val(\"try stack exhausted\"));\n"
+         "    FLTryFrame* _fl_tc_frame_" $id " = &fl_try_stack[fl_try_top++];\n"
+         "    if (setjmp(_fl_tc_frame_" $id "->buf) == 0) {\n"
+         "        (void)(" $body-c ");\n"
+         "        fl_try_top = _fl_tc_saved_" $id ";\n"
+         "        fl_test_case_pass(_fl_tc_name_" $id ");\n"
+         "    } else {\n"
+         "        FLValue _fl_tc_error_" $id " = _fl_tc_frame_" $id "->err;\n"
+         "        fl_try_top = _fl_tc_saved_" $id ";\n"
+         "        fl_callstack_restore(_fl_tc_stack_" $id ");\n"
+         "        fl_test_case_fail(_fl_tc_name_" $id ", _fl_tc_error_" $id ");\n"
+         "    }\n"
+         "    fl_callstack_restore(_fl_tc_stack_" $id ");\n"
+         "    __fl_throw_line = _fl_tc_line_" $id ";\n"
+         "    fl_nil();\n"
+         "}))")))
+
+(defn cgc-test-form [$n]
+  (let [[$op (get $n :op)] [$args (get $n :args)]]
+    (if (includes-item ["deftest" "describe" "it"] $op)
+      (cgc-test-case $args)
+      (let [[$id @lambda-id-atom]
+            [$_reserve (swap! lambda-id-atom + 1)]
+            ;; Arity rejection happens before evaluating an is= argument.
+            [$used (if (includes-item ["is" "is="] $op)
+                       (if (and (= $op "is=") (< (length $args) 2))
+                         (repeat (length $args) (make-literal "nil" nil (get $n :line)))
+                         (slice $args 0 2)) [])]
+            [$arguments-c (cgc-eval-args $used $id 0 "")]
+            [$line (get $n :line)]]
+        (str "(__extension__ ({ " $arguments-c
+             " fl_test_builtin(fl_str_val(\"" $op "\"), "
+             (if (= (length $used) 0) "fl_vec_new()"
+                 (str "fl_vec_from(__fl_av_" $id ", " (length $used) ")"))
+             ", fl_int(" (if (null? $line) "0" (to-string $line)) ")); }))")))))
+
 (defn cgc-sexpr [$n]
   (let [[$op (get $n :op)] [$args (get $n :args)] [$context (get $n "call-op")]]
+    (if (includes-item ["deftest" "describe" "it" "is" "is=" "run-tests" "test-summary"] $op)
+      (cgc-test-form $n)
     (if (not (null? $context))
       (if (= (get $n "call-lookup") true)
         (cgc-context-call (str "fl_named_fn(fl_str_val(\"" (c-esc $context) "\"))") $args $context (get $n :line))
@@ -1067,7 +1129,7 @@
       (if (and (string? $op-native) (fl_v11_has $op-native)
                (not (includes-item ["if" "and" "or"] $op-native)))
         (cgc-context-call "fl_nil()" $args $op-native (get $n :line))
-        (cgc-sexpr-plain $n))))))
+        (cgc-sexpr-plain $n)))))))
 
 (defn cgc-sexpr-plain [$n]
   (let [[$op (get $n :op)] [$args (get $n :args)]]
@@ -1242,7 +1304,7 @@
   [(= $op "none?")       (str "fl_none_p(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "find-first")  (str "fl_find_first(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "count-if")    (str "fl_count_if(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
-  [(= $op "repeat")      (str "fl_repeat(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "repeat")      (cgc-repeat $args)]
   [(= $op "map-indexed") (str "fl_map_indexed(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "mapcat")      (str "fl_mapcat(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "keep")        (str "fl_keep(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]

@@ -171,6 +171,7 @@ FLValue fl_named_fn(FLValue name);
 FLValue fl_function_alias(FLValue name);
 FLValue fl_v11_has(FLValue name);
 FLValue fl_v11_builtin(FLValue name, FLValue argv);
+FLValue fl_shell_exec_result(FLValue command);
 FLValue fl_v11_file(FLValue name, FLValue argv);
 FLValue fl_v11_fd(FLValue name, FLValue argv);
 FLValue fl_v11_json_encode(FLValue value);
@@ -644,11 +645,20 @@ FLValue fl_make_error(const char* type, const char* msg);
 FLValue fl_v11_catch(FLValue raw);
 void fl_v11_throw(FLValue value);
 /* throw 시 FL 소스 라인 추적 (cgc-main이 설정, uncaught handler가 출력) */
-extern int __fl_throw_line;
+extern __thread int __fl_throw_line;
 /* 콜스택 추적 */
 void fl_push_frame(const char* fn);
 void fl_push_frame_ln(const char* fn, int line);
 void fl_pop_frame(void);
+int fl_callstack_mark(void);
+void fl_callstack_restore(int mark);
+
+/* Native testing forms: cases isolate exceptions and retain truthful totals. */
+void fl_test_begin(void);
+FLValue fl_test_name(FLValue name);
+FLValue fl_test_case_pass(FLValue name);
+FLValue fl_test_case_fail(FLValue name, FLValue error);
+FLValue fl_test_builtin(FLValue name, FLValue argv, FLValue line);
 FLValue fl_assoc_in(FLValue m, FLValue keys, FLValue val);
 FLValue fl_update_in(FLValue m, FLValue keys, FLValue fn);
 FLValue fl_inspect(FLValue v);
