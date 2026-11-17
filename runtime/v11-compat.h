@@ -553,6 +553,48 @@ static int64_t t_find_units(TUnits a,TUnits b,size_t start){
     return-1;
 }
 
+/* Private construction may fill an unpublished vector directly. Repeated
+ * immutable push here copied 1 + ... + n values for an n-character split. */
+static FLValue t_split_units(TUnits u,TUnits d){
+    int saved=fl_try_top;
+    if(saved>=FL_TRY_MAX){
+        free(u.p);free(d.p);
+        fl_throw(fl_str_val("split: try stack exhausted"));return fl_nil();
+    }
+    FLTryFrame *frame=&fl_try_stack[fl_try_top++];
+    if(setjmp(frame->buf)!=0){
+        FLValue error=frame->err;fl_try_top=saved;
+        free(u.p);free(d.p);fl_throw(error);return fl_nil();
+    }
+    size_t count=d.n?1:u.n,pos=0;
+    int64_t at;
+    if(d.n)while((at=t_find_units(u,d,pos))>=0){
+        if(count==UINT32_MAX)fl_throw(fl_str_val("split result too large"));
+        count++;pos=(size_t)at+d.n;
+    }
+    if(count>UINT32_MAX||count>SIZE_MAX/sizeof(FLValue))
+        fl_throw(fl_str_val("split result too large"));
+    FLVector *v=fl_arena_alloc(sizeof(*v));
+    if(!v)fl_throw(fl_str_val("split allocation failed"));
+    *v=(FLVector){.base={.type=FL_VECTOR,.rc=1},.len=(uint32_t)count,.cap=(uint32_t)count};
+    if(count){
+        v->data=fl_arena_alloc(count*sizeof(*v->data));
+        if(!v->data)fl_throw(fl_str_val("split allocation failed"));
+    }
+    if(!d.n){
+        for(size_t i=0;i<u.n;i++)v->data[i]=t_from_units(u.p+i,1);
+    }else{
+        size_t i=0;pos=0;
+        while((at=t_find_units(u,d,pos))>=0){
+            v->data[i++]=t_from_units(u.p+pos,(size_t)at-pos);
+            pos=(size_t)at+d.n;
+        }
+        v->data[i]=t_from_units(u.p?u.p+pos:NULL,u.n-pos);
+    }
+    free(u.p);free(d.p);fl_try_top=saved;
+    return(FLValue){.tag=FL_VECTOR,.obj=(FLObject*)v};
+}
+
 static uint32_t t_case_simple(uint32_t cp,int upper){
     const UMap*a=upper?unicode_Uc:unicode_Lc;
     size_t lo=0,hi=upper?NEL(unicode_Uc):NEL(unicode_Lc);
@@ -984,6 +1026,14 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
             fl_throw(fl_str_val("process_exit: integer exit code required"));
         fl_schedule_shutdown();exit((int)number);
     }
+    if(IS("tty-raw-enter!")||IS("tty-raw-leave!")||IS("tty-read-byte")||IS("tty-run"))return fl_v11_tty(name,argv);
+    if(IS("char-from-code")){
+        double number=t_double(t_parse(ARG(0),0));
+        double byte=isfinite(number)?fmod(trunc(number),256):0;
+        if(byte<0)byte+=256;
+        uint16_t unit=(uint16_t)byte;
+        return t_from_units(&unit,1);
+    }
     if(IS("uuid-short")){
         unsigned char bytes[4];char hex[9];
         if(RAND_bytes(bytes,sizeof(bytes))!=1)fl_throw(fl_str_val("uuid_short: secure random failed"));
@@ -1041,7 +1091,9 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
             return t_text(raw);
         }
         if(b.n)fwrite(b.p,1,b.n,stdout);
-        if(IS("println")){fputc('\n',stdout);fflush(stdout);}
+        if(IS("println"))fputc('\n',stdout);
+        /* A following raw read bypasses stdio's implicit prompt flush. */
+        fflush(stdout);
         free(b.p);
         return fl_nil();
     }
@@ -1206,21 +1258,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         if(IS("str-replace")&&ARG(0).tag!=FL_STRING)return fl_str_val("");
         FLValue s=t_js_string(ARG(0)),delim=IS("str-lines")?fl_str_val("\n"):IS("str-replace")&&ARG(1).tag==FL_NIL?fl_str_val(""):t_js_string(ARG(1));
         TUnits u=t_units(s),d=t_units(delim);
-        FLValue parts=fl_vec_new();
-        size_t pos=0;
-        if(!d.n){
-            for(size_t i=0;i<u.n;i++)parts=fl_vec_push(parts,t_from_units(u.p+i,1));
-        }
-        else{
-            int64_t at;
-            while((at=t_find_units(u,d,pos))>=0){
-                parts=fl_vec_push(parts,t_from_units(u.p+pos,at-pos));
-                pos=at+d.n;
-            }
-            parts=fl_vec_push(parts,t_from_units(u.p+pos,u.n-pos));
-        }
-        free(u.p);
-        free(d.p);
+        FLValue parts=t_split_units(u,d);
         if(IS("str-lines"))return parts;
         if(IS("str-replace")||IS("str-replace-in")){
             FLValue j[2]={

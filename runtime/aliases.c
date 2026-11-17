@@ -21,6 +21,9 @@ static FLValue fl_apply_fn(FLValue fn, FLValue arg) {
     return fl_fn_call(fn, 1, &arg);
 }
 static inline const char* fl_cstr(FLValue v);
+FLValue char_from_code(FLValue value) {
+    return fl_v11_builtin(fl_str_val("char-from-code"), fl_vec_from(&value, 1));
+}
 
 /* The testing context follows the owning arena and is independent per thread.
  * Error strings use owned memory so nested temporary arenas cannot invalidate

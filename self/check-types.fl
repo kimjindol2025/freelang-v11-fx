@@ -1,0 +1,190 @@
+;; Native port of the reference command's best-effort static type checks.
+;; Requires the raw-AST traversal helpers in check-meta.fl. These diagnostics
+;; are not a soundness proof and do not change runtime argument evaluation.
+
+(define fl-native-stdlib-arity
+  {"str" [0 nil] "println" [0 nil] "print" [0 nil]
+   "get" [2 3] "assoc" [3 nil] "dissoc" [2 2] "keys" [1 1] "values" [1 1]
+   "length" [1 1] "map" [2 2] "filter" [2 2] "reduce" [3 3] "append" [2 2]
+   "slice" [2 3] "str-slice" [2 3] "str-substr" [3 3] "str-split" [2 2]
+   "json-parse" [1 1] "json-stringify" [1 2] "now-ms" [0 0] "now-iso" [0 0]
+   "nil?" [1 1] "not" [1 1] "if" [2 3] "let" [2 nil] "do" [1 nil]
+   "or" [2 nil] "and" [2 nil] "contains?" [2 2] "has-key?" [2 2]
+   "http-get-bearer" [2 2] "http-post-bearer" [3 3] "http-parallel" [1 1]
+   "http-retry" [2 3] "http-retry-post" [3 4] "frequencies" [1 1]
+   "auth-sha256" [1 1] "auth-hmac" [2 2] "math-round-dec" [2 2]
+   "server-get" [2 2] "server-post" [2 2] "server-put" [2 2] "server-json" [1 2]})
+
+(define fl-native-check-special-forms
+  ["define" "defn" "defun" "fn" "lambda" "if" "cond" "let" "let*" "when" "unless"
+   "do" "begin" "and" "or" "not" "match" "try" "catch" "throw" "load" "fl-require"
+   "server-get" "server-post" "server-put" "server-delete" "server-start"
+   "server-json" "server-html" "server-text" "server-status"
+   "db-create" "db-query" "db-exec" "db-insert"])
+
+(defn fl-native-type-hint? [node]
+  (and (= (get node :kind) "literal")
+       (= (char-at (str (get node :value)) 0) "^")))
+
+(defn fl-native-hint-type [hint]
+  (let [text (str-lower (if (= (char-at hint 0) "^")
+                          (substring hint 1 (length hint)) hint))]
+    (cond
+      [(includes-item ["string" "str"] text) "string"]
+      [(includes-item ["number" "num" "int" "float"] text) "number"]
+      [(includes-item ["bool" "boolean"] text) "bool"]
+      [(includes-item ["array" "list" "vec"] text) "array"]
+      [(includes-item ["map" "object" "obj"] text) "map"]
+      [(includes-item ["nil" "null"] text) "nil"]
+      [(includes-item ["fn" "function"] text) "fn"]
+      [true "any"])))
+
+(defn fl-native-literal-type [node]
+  (let [kind (get node :kind) type (get node :type)]
+    (cond
+      [(and (= kind "literal") (= type "string")) "string"]
+      [(and (= kind "literal") (= type "number")) "number"]
+      [(and (= kind "literal") (= type "boolean")) "bool"]
+      [(and (= kind "literal") (includes-item ["nil" "null"] type)) "nil"]
+      [(and (= kind "block") (= type "Array")) "array"]
+      [(and (= kind "block") (= type "Map")) "map"]
+      [(= kind "keyword") "string"]
+      [true nil])))
+
+(defn fl-native-type-name [node]
+  (cond
+    [(= (get node :kind) "variable") (get node :name)]
+    [(and (= (get node :kind) "literal") (= (get node :type) "symbol"))
+     (str (get node :value))]
+    [true nil]))
+
+(defn fl-native-compatible-types? [expected actual]
+  (or (= expected "any") (= actual "any") (= expected actual)))
+
+(defn fl-native-argument-type [node variables]
+  (let [literal (fl-native-literal-type node)]
+    (if (nil? literal) (get variables (fl-native-type-name node)) literal)))
+
+(defn fl-native-type-parameters [node]
+  (let [items (if (and (= (get node :kind) "block") (= (get node :type) "Array"))
+                (fl-native-check-items node) [])]
+    (loop [i 0 parameters [] variadic false]
+      (if (>= i (length items)) {:params parameters :variadic variadic}
+        (let [item (get items i)
+              hinted (fl-native-type-hint? item)
+              parameter (if hinted (get items (+ i 1)) item)
+              name (fl-native-type-name parameter)
+              type (if hinted (fl-native-hint-type (get item :value)) "any")
+              spread (and (not hinted) (not (nil? name))
+                          (or (str-starts-with name "...") (str-starts-with name "rest")))]
+          (recur (+ i (if hinted 2 1))
+                 (if (nil? name) parameters (push parameters {:name name :type type}))
+                 (or variadic spread)))))))
+
+(defn fl-native-type-definition [node]
+  (let [args (or (get node :args) [])
+        hinted (fl-native-type-hint? (get args 0))
+        offset (if hinted 1 0)
+        name (fl-native-type-name (get args offset))
+        hint (if hinted (str (get (get args 0) :value)) "")
+        parameters (fl-native-type-parameters (get args (+ offset 1)))
+        body (slice args (+ offset 2) (length args))]
+    (if (or (nil? name) (= name "")) nil
+      {:name name :params (get parameters :params) :variadic (get parameters :variadic)
+       :returnType (if (or (not hinted) (= hint "^pure")) "any" (fl-native-hint-type hint))
+       :line (or (get node :line) 0) :body body :lastExprNode (last body)})))
+
+(defn fl-native-type-bind [variables name-node value-node]
+  (let [name (fl-native-type-name name-node) type (fl-native-literal-type value-node)]
+    (if (or (nil? name) (= name "") (nil? type)) variables (assoc variables name type))))
+
+(defn fl-native-type-bindings [variables node]
+  (if (not (and (= (get node :kind) "block") (= (get node :type) "Array"))) variables
+    (let [items (fl-native-check-items node)
+          nested (= (get (get items 0) :kind) "block")]
+      (loop [i 0 types variables]
+        (if (>= i (length items)) types
+          (let [pair (if nested (fl-native-check-items (get items i)) items)
+                index (if nested 0 i)]
+            (recur (+ i (if nested 1 2))
+                   (fl-native-type-bind types (get pair index) (get pair (+ index 1))))))))))
+
+(defn fl-native-collect-types [nodes]
+  ;; As in the reference, literal-variable inference is a diagnostic heuristic.
+  ;; It does not establish the runtime types of dynamically computed values.
+  (loop [frame (fl-native-check-frame nodes nil) definitions {} variables {}]
+    (if (nil? frame) {:defs definitions :varTypes variables}
+      (let [node (get (get frame :nodes) (get frame :index))
+            op (get node :op) args (or (get node :args) [])
+            function? (and (= (get node :kind) "sexpr") (includes-item ["defn" "defun"] op))
+            definition (if function? (fl-native-type-definition node) nil)
+            next-defs (if (nil? definition) definitions
+                        (assoc definitions (get definition :name) definition))
+            next-vars (cond
+                        [(= op "define") (fl-native-type-bind variables (get args 0) (get args 1))]
+                        [(includes-item ["let" "let*"] op) (fl-native-type-bindings variables (get args 0))]
+                        [true variables])
+            children (if function? (or (get definition :body) []) (fl-native-check-children node))]
+        (recur (fl-native-check-frame children (fl-native-check-next-frame frame)) next-defs next-vars)))))
+
+(defn fl-native-arity-issue [op count minimum maximum parameters line]
+  (let [range (cond
+                [(nil? maximum) (str minimum "개 이상")]
+                [(= minimum maximum) (str minimum "개")]
+                [true (str minimum "~" maximum "개")])
+        names (if (nil? parameters) ""
+                (str " (" (str-join " " (map (fn [p] (str "$" (get p :name))) parameters)) ")"))]
+    {:kind "error" :code "arity" :line line
+     :message (str "(" op ") — 인자 " count "개 전달, " range " 필요" names)}))
+
+(defn fl-native-call-type-issues [node definitions variables]
+  (let [op (get node :op) args (or (get node :args) []) line (or (get node :line) 0)
+        definition (get definitions op)
+        standard (get fl-native-stdlib-arity op)]
+    (cond
+      [(or (not (= (get node :kind) "sexpr")) (includes-item fl-native-check-special-forms op)) []]
+      [(and (not (nil? definition)) (not (get definition :variadic)))
+       (let [parameters (get definition :params)]
+         (if (not (= (length args) (length parameters)))
+           [(fl-native-arity-issue op (length args) (length parameters) (length parameters) parameters line)]
+           (loop [i 0 issues []]
+             (if (>= i (length parameters)) issues
+               (let [parameter (get parameters i) actual (fl-native-argument-type (get args i) variables)
+                     expected (get parameter :type)]
+                 (recur (+ i 1)
+                   (if (or (nil? actual) (fl-native-compatible-types? expected actual)) issues
+                     (push issues {:kind "warning" :code "type-mismatch" :line line
+                       :message (str "(" op ") — $" (get parameter :name) ": ^" expected " 파라미터에 " actual " 전달")}))))))))]
+      [(and (nil? definition) (not (nil? standard)))
+       (let [minimum (get standard 0) maximum (get standard 1)]
+         (if (or (< (length args) minimum)
+                 (and (not (nil? maximum)) (> (length args) maximum)))
+           [(fl-native-arity-issue op (length args) minimum maximum nil line)] []))]
+      [true []])))
+
+(defn fl-native-return-type-issues [definition]
+  (let [expected (get definition :returnType) last-node (get definition :lastExprNode)
+        actual (fl-native-literal-type last-node)]
+    (if (or (nil? definition) (= expected "any") (nil? actual)
+            (fl-native-compatible-types? expected actual)) []
+      [{:kind "warning" :code "return-type" :line (get definition :line)
+        :message (str "(" (get definition :name) ") — 선언 반환 타입 ^" expected "이나 " actual " 리터럴 반환")}])))
+
+(defn fl-native-check-types [nodes]
+  (let [collected (fl-native-collect-types nodes) definitions (get collected :defs)
+        variables (get collected :varTypes)
+        issues (loop [frame (fl-native-check-frame nodes nil) result []]
+                 (if (nil? frame) result
+                   (let [node (get (get frame :nodes) (get frame :index))
+                         function? (and (= (get node :kind) "sexpr")
+                                        (includes-item ["defn" "defun"] (get node :op)))
+                         info (if function? (fl-native-type-definition node) nil)
+                         found (if function?
+                                 (fl-native-return-type-issues (get definitions (get info :name)))
+                                 (fl-native-call-type-issues node definitions variables))
+                         children (if function? (or (get info :body) []) (fl-native-check-children node))]
+                     (recur (fl-native-check-frame children (fl-native-check-next-frame frame))
+                            (concat result found)))))]
+    {:errors (filter (fn [issue] (= (get issue :kind) "error")) issues)
+     :warnings (filter (fn [issue] (= (get issue :kind) "warning")) issues)
+     :fnCount (length definitions) :checkedCalls (length issues)}))

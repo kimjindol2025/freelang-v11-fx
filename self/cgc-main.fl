@@ -157,18 +157,38 @@
   [(= $c "n") "\n"] [(= $c "t") "\t"] [(= $c "r") "\r"]
   [(= $c "\"") "\""] [(= $c "\\") "\\"] [true $c]))
 
+(defn hex-digit-value [$c]
+  (if (null? $c) -1
+    (let [[$value (str-index-of "0123456789abcdefABCDEF" $c)]]
+      (if (> $value 15) (- $value 6) $value))))
+
+(defn read-string-escape [$st]
+  (let [[$c (peek $st)] [$after (advance $st)]]
+    (if (null? $c) {:st $st :text "\\"}
+      (if (= $c "x")
+        (let [[$second (advance $after)]
+              [$high (hex-digit-value (peek $after))]
+              [$low (hex-digit-value (peek $second))]]
+          (if (and (>= $high 0) (>= $low 0))
+            {:st (advance $second) :text (char-from-code (+ (* $high 16) $low))}
+            {:st $after :text "x"}))
+        {:st $after :text (translate-esc $c)}))))
+
 (defn read-string-iter [$_cur $_res_acc $line $col]
-  (loop [$cur $_cur $res_acc $_res_acc]
-    (if (at-end? $cur) (emit $cur "String" $res_acc $line $col)
-      (let [[$c (peek $cur)]]
-        (cond
-          [(= $c "\"")
-           (emit (advance $cur) "String" $res_acc $line $col)]
-          [(= $c "\\")
-           (let [[$st2 (advance $cur)] [$c2 (peek $st2)]]
-             (recur (advance $st2) (str $res_acc (translate-esc $c2))))]
-          [true
-           (recur (advance $cur) (str $res_acc $c))])))))
+  (let [[$initial (if (= (length $_res_acc) 0) nil (token-chunk-add nil [$_res_acc]))]]
+    (loop [$cur $_cur $parts $initial]
+      (if (at-end? $cur)
+        (emit $cur "String" (str-join "" (token-chunks-finish $parts)) $line $col)
+        (let [[$c (peek $cur)]]
+          (cond
+            [(= $c "\"")
+             (emit (advance $cur) "String" (str-join "" (token-chunks-finish $parts)) $line $col)]
+            [(= $c "\\")
+             (let [[$escaped (read-string-escape (advance $cur))]]
+               (recur (get $escaped :st)
+                      (token-chunk-add $parts [(get $escaped :text)])))]
+            [true
+             (recur (advance $cur) (token-chunk-add $parts [$c]))]))))))
 
 (defn read-string-body [$st $acc $line $col]
   (read-string-iter $st $acc $line $col))
@@ -380,7 +400,44 @@
   {:kind "throw" :expr expr :line line})
 
 (defn make-template-string [value expressions line]
-  {:kind "template-string" :value value :parts (list) :expressions expressions :line line})
+  ;; Parse references before lexical binding resolution, so globals, shadowed
+  ;; locals and closure captures all follow the same rules as ordinary code.
+  {:kind "template-string" :value value
+   :parts (template-parse-parts value line)
+   :expressions expressions :line line})
+
+(defn template-path [parts line]
+  (let [[$first (get parts 0)]
+        [$name (if (= (char-at $first 0) "$")
+                   (substring $first 1 (length $first)) $first)]]
+    (loop [$i 1 $node (make-variable $name line)]
+      (if (>= $i (length parts)) $node
+        (recur (+ $i 1)
+          (make-sexpr "get" (list $node (make-string (get parts $i) line)) line))))))
+
+(defn template-expression [content line]
+  (let [[$text (str-trim content)]]
+    (if (= (char-at $text 0) "(")
+      (let [[$nodes (parse (lex $text))]]
+        (if (= (length $nodes) 1) (get $nodes 0)
+          (throw "template interpolation requires one expression")))
+      (template-path (str-split $text ".") line))))
+
+(defn template-parse-parts [value line]
+  (loop [$s value $parts []]
+    (let [[$dollar (str-index-of $s (str "$" "{"))]
+          [$hash (str-index-of $s (str "#" "{"))]
+          [$start (if (= $dollar -1) $hash
+                      (if (= $hash -1) $dollar (if (< $dollar $hash) $dollar $hash)))]]
+      (if (= $start -1)
+        (push $parts (make-string $s line))
+        (let [[$rest (substring $s (+ $start 2) (length $s))]
+              [$close (str-index-of $rest "}")]]
+          (if (<= $close 0)
+            (push $parts (make-string $s line))
+            (recur (substring $rest (+ $close 1) (length $rest))
+              (push (push $parts (make-string (substring $s 0 $start) line))
+                    (template-expression (substring $rest 0 $close) line)))))))))
 
 (defn make-loop [init condition update body line]
   {:kind "loop" :init init :condition condition :update update :body body :line line})
@@ -788,9 +845,52 @@
     (get (get $node :fields) "items")
     $node)))
 
+(define c-control-escapes
+  [
+    [(char-from-code 0) "\\000"]
+    [(char-from-code 1) "\\001"]
+    [(char-from-code 2) "\\002"]
+    [(char-from-code 3) "\\003"]
+    [(char-from-code 4) "\\004"]
+    [(char-from-code 5) "\\005"]
+    [(char-from-code 6) "\\006"]
+    [(char-from-code 7) "\\007"]
+    [(char-from-code 8) "\\010"]
+    [(char-from-code 11) "\\013"]
+    [(char-from-code 12) "\\014"]
+    [(char-from-code 14) "\\016"]
+    [(char-from-code 15) "\\017"]
+    [(char-from-code 16) "\\020"]
+    [(char-from-code 17) "\\021"]
+    [(char-from-code 18) "\\022"]
+    [(char-from-code 19) "\\023"]
+    [(char-from-code 20) "\\024"]
+    [(char-from-code 21) "\\025"]
+    [(char-from-code 22) "\\026"]
+    [(char-from-code 23) "\\027"]
+    [(char-from-code 24) "\\030"]
+    [(char-from-code 25) "\\031"]
+    [(char-from-code 26) "\\032"]
+    [(char-from-code 27) "\\033"]
+    [(char-from-code 28) "\\034"]
+    [(char-from-code 29) "\\035"]
+    [(char-from-code 30) "\\036"]
+    [(char-from-code 31) "\\037"]
+    [(char-from-code 127) "\\177"]
+  ])
+
+(defn c-escape-controls [$_text]
+  (loop [$i 0 $text $_text]
+    (if (>= $i (length c-control-escapes)) $text
+      (let [[$pair (get c-control-escapes $i)]
+            [$control (get $pair 0)]]
+        (recur (+ $i 1)
+               (if (= (str-index-of $text $control) -1) $text
+                 (str-replace $text $control (get $pair 1))))))))
+
 (defn c-esc [$s]
   ;; 문자열 리터럴을 C 이스케이프로 변환 (\\ " \n \t \r)
-  (str-replace
+  (c-escape-controls (str-replace
     (str-replace
       (str-replace
         (str-replace
@@ -798,7 +898,7 @@
           "\"" "\\\"")
         "\n" "\\n")
       "\t" "\\t")
-    "\r" "\\r"))
+    "\r" "\\r")))
 
 (defn c-reserved? [$s]
   (includes-item ["else" "return" "for" "while" "do" "int" "long" "short" "void"
@@ -889,38 +989,31 @@
     [true null])))
 
 ;; ── 문자열 보간 (${var} 및 #{var} 지원) ──────────────────────────
-(defn template-to-parts [$s $prefix $acc]
-  (let [[$idx (str-index-of $s $prefix)]]
-    (if (= $idx -1)
-      (if (> (length $s) 0)
-        (push $acc (str "fl_str_val(\"" (c-esc $s) "\")"))
-        $acc)
-      (let [[$before   (substring $s 0 $idx)]
-            [$rest     (substring $s (+ $idx 2) (length $s))]
-            [$close    (str-index-of $rest "}")]
-            [$varname  (str-trim (substring $rest 0 $close))]
-            [$after    (substring $rest (+ $close 1) (length $rest))]
-            [$with-txt (if (> (length $before) 0)
-                         (push $acc (str "fl_str_val(\"" (c-esc $before) "\")"))
-                         $acc)]
-            [$with-var (push $with-txt (c-name $varname))]]
-        (template-to-parts $after $prefix $with-var)))))
+(defn cgc-template-parts [$parts $id]
+  (loop [$i 0 $code ""]
+    (if (>= $i (length $parts)) $code
+      (let [[$value-c (cgc-value (get $parts $i))]
+            [$name (str "__fl_template_" $id "_" $i)]]
+        (recur (+ $i 1)
+          (str $code " FLValue " $name " = " $value-c ";"
+               " " $name " = " $name ".tag == FL_NIL ? FL_STR_LITERAL(\"\") : fl_v11_utf8_string(" $name ");"))))))
 
 (defn cgc-template-string [$n]
-  (let [[$v (get $n :value)]
-        [$prefix (if (string-contains? $v (str "$" "{")) (str "$" "{") (str "#" "{"))]
-        [$parts  (template-to-parts $v $prefix (list))]]
-    (if (= (length $parts) 0)
-      "fl_str_val(\"\")"
-      (if (= (length $parts) 1)
-        (get $parts 0)
-        (str "fl_str_n(" (length $parts) ", " (str-join ", " $parts) ")")))))
+  (let [[$parts (get $n :parts)]
+        [$id @lambda-id-atom]
+        [$_reserve (swap! lambda-id-atom + 1)]
+        [$values-c (cgc-template-parts $parts $id)]
+        [$names (loop [$i 0 $acc []]
+                  (if (>= $i (length $parts)) $acc
+                    (recur (+ $i 1) (push $acc (str "__fl_template_" $id "_" $i)))))]]
+    (str "(__extension__ ({" $values-c " fl_str_n(" (length $parts)
+         (if (= (length $parts) 0) "" (str ", " (str-join ", " $names))) "); }))")))
 
 (defn cgc-literal [$n]
   (let [[$t (get $n :type)] [$v (get $n :value)]]
   (cond
     [(= $t "number")  (fl_v11_literal $v)]
-    [(= $t "string")  (str "fl_str_val(\"" (c-esc $v) "\")")]
+    [(= $t "string")  (str "FL_STR_LITERAL(\"" (c-esc $v) "\")")]
     [(= $t "boolean") (if $v "fl_bool(true)" "fl_bool(false)")]
     [(= $t "nil")     "fl_nil()"]
     [(= $t "symbol")  (cond
@@ -1045,6 +1138,16 @@
          (if (= (length $args) 0) "fl_vec_new()"
              (str "fl_vec_from(__fl_av_" $id ", " (length $args) ")"))
          ", fl_int(" (if (null? $line) "0" (to-string $line)) ")); }))")))
+
+;; Reserve temporary IDs before compiling children and evaluate all source
+;; arguments before the C call, including ignored extras, in language order.
+(defn cgc-push [$args]
+  (let [[$id @lambda-id-atom]
+        [$_reserve (swap! lambda-id-atom + 1)]
+        [$arguments-c (if (= (length $args) 0) "" (cgc-eval-args $args $id 0 ""))]]
+    (str "(__extension__ ({ " $arguments-c
+         " fl_vec_push(" (if (> (length $args) 0) (str "__fl_arg_" $id "_0") "fl_nil()")
+         ", " (if (> (length $args) 1) (str "__fl_arg_" $id "_1") "fl_nil()") "); }))")))
 
 ;; Sequence generation and execution of repeat arguments explicitly. C function
 ;; argument order must not reorder language effects or compiler temporary IDs.
@@ -1286,7 +1389,7 @@
   [(= $op "filter")      (str "fl_filter_fn(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
   [(= $op "reduce")      (str "fl_reduce_fn(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ", " (cgc (get $args 2)) ")")]
   [(= $op "append")      (str "fl_vec_push(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
-  [(= $op "push")        (str "fl_vec_push(" (cgc (get $args 0)) ", " (cgc (get $args 1)) ")")]
+  [(= $op "push")        (cgc-push $args)]
   ;; 가변 빌더 O(1) amortized — (vec-builder) → (append b v) → (freeze-builder b)
   [(= $op "vec-builder")    "fl_vec_builder_new()"]
   [(= $op "freeze-builder") (str "fl_vec_builder_freeze(" (cgc (get $args 0)) ")")]
@@ -1601,6 +1704,8 @@
     [(= (get $node :kind) "variable")
      (let [[$n (c-name (get $node :name))]]
        (if (includes-item $acc $n) $acc (push $acc $n)))]
+    [(= (get $node :kind) "template-string")
+     (cgc-collect-vars-loop (get $node :parts) 0 $acc)]
     [(= (get $node :kind) "sexpr")
      ;; :op 위치의 $var도 수집 (e.g. ($f ($g $x)) 에서 f, g 캡처)
      (let [[$op (get $node :op)]
@@ -1722,12 +1827,18 @@
 
 ;; ── if ──
 
+;; A consumed value must finish before its enclosing expression continues.
+;; In particular, an if inside a collection or condition is not a tail call
+;; of the enclosing function, even when the function's trampoline is active.
+(defn cgc-value [$node]
+  (str "FL_VALUE(" (cgc $node) ")"))
+
 (defn cgc-tail-args [$args $id $i $acc]
   (if (>= $i (length $args))
     (str $acc " FLValue __fl_av_" $id "[" (length $args) "] = {"
          (cgc-eval-names $id (length $args) 0 "") "};")
     (cgc-tail-args $args $id (+ $i 1)
-      (str $acc " FLValue __fl_arg_" $id "_" $i " = " (cgc (get $args $i)) ";"))))
+      (str $acc " FLValue __fl_arg_" $id "_" $i " = " (cgc-value (get $args $i)) ";"))))
 
 (defn cgc-if-branch [$node]
   (if (and (= (get $node :kind) "sexpr") (= (get $node "call-user") true))
@@ -1749,7 +1860,7 @@
     (cgc $node)))
 
 (defn cgc-if [$args]
-  (let [[$cond (cgc (get $args 0))]
+  (let [[$cond (cgc-value (get $args 0))]
         [$then (cgc-if-branch (get $args 1))]
         [$else (if (>= (length $args) 3) (cgc-if-branch (get $args 2)) "fl_nil()")]]
   (str "(fl_v11_truthy(" $cond ") ? " $then " : " $else ")")))
@@ -1776,7 +1887,7 @@
     (cgc-cond-nested $args (- $i 1)
       (if $is-else
         (cgc $body)
-        (let [[$test-c (cgc $test)] [$body-c (cgc $body)]]
+        (let [[$test-c (cgc-value $test)] [$body-c (cgc $body)]]
           (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 (defn cgc-cond-flat [$args $i $acc]
@@ -1788,7 +1899,7 @@
     (cgc-cond-flat $args (- $i 2)
       (if $is-else
         (cgc $body)
-        (let [[$test-c (cgc $test)] [$body-c (cgc $body)]]
+        (let [[$test-c (cgc-value $test)] [$body-c (cgc $body)]]
           (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 ;; ── do ──
@@ -1897,7 +2008,7 @@
     [true (cgc $node)]))))
 
 (defn cgc-if-wr-goto [$args $vars $label]
-  (let [[$cond (cgc (get $args 0))]
+  (let [[$cond (cgc-value (get $args 0))]
         [$then (if (cgc-node-has-recur (get $args 1))
                    (cgc-with-recur-goto (get $args 1) $vars $label)
                    (cgc-if-branch (get $args 1)))]
@@ -1926,7 +2037,7 @@
     (cgc-cond-nested-wr-goto $args $vars $label (- $i 1)
       (if $is-else
         (cgc-with-recur-goto $body $vars $label)
-        (let [[$test-c (cgc $test)] [$body-c (cgc-with-recur-goto $body $vars $label)]]
+        (let [[$test-c (cgc-value $test)] [$body-c (cgc-with-recur-goto $body $vars $label)]]
           (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 ;; ── -> / ->> threading macro ──
@@ -2208,7 +2319,7 @@
     (cgc-cond-flat-wr-goto $args $vars $label (- $i 2)
       (if $is-else
         (cgc-with-recur-goto $body $vars $label)
-        (let [[$test-c (cgc $test)] [$body-c (cgc-with-recur-goto $body $vars $label)]]
+        (let [[$test-c (cgc-value $test)] [$body-c (cgc-with-recur-goto $body $vars $label)]]
           (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 (defn cgc-do-wr-goto [$args $vars $label]
@@ -2336,7 +2447,7 @@
 (defn cgc-args-loop [$_args $_i $_acc]
   (loop [$i $_i $acc $_acc]
     (if (or (null? $_args) (>= $i (length $_args))) $acc
-    (let [[$c (cgc (get $_args $i))]]
+    (let [[$c (cgc-value (get $_args $i))]]
       (recur (+ $i 1) (if (= $i 0) $c (str $acc ", " $c)))))))
 
 ;; ── stmts (do 블록) ──
@@ -2471,7 +2582,7 @@
 (defn loop-make-decls [$items $i $acc]
   (if (>= $i (length $items)) $acc
   (let [[$name (cgc-extract-name (get $items $i))]
-        [$val (cgc (get $items (+ $i 1)))]
+        [$val (cgc-value (get $items (+ $i 1)))]
         [$tmp (str "__fl_loop_tmp_" $i)]]
     (loop-make-decls $items (+ $i 2)
       (str $acc
@@ -2497,7 +2608,7 @@
 (defn cgc-recur-temps [$args $i $acc]
   (if (>= $i (length $args)) $acc
   (cgc-recur-temps $args (+ $i 1)
-    (str $acc "    FLValue _fl_t" $i " = " (cgc (get $args $i)) ";\n"))))
+    (str $acc "    FLValue _fl_t" $i " = " (cgc-value (get $args $i)) ";\n"))))
 
 ;; 임시변수 → 루프 변수 재할당
 (defn cgc-recur-assigns [$vars $i $acc]
@@ -2533,7 +2644,7 @@
 
 ;; if 내부 recur-aware
 (defn cgc-if-wr [$args $vars]
-  (let [[$cond (cgc (get $args 0))]
+  (let [[$cond (cgc-value (get $args 0))]
         [$then (cgc-with-recur (get $args 1) $vars)]
         [$else (if (>= (length $args) 3) (cgc-with-recur (get $args 2) $vars) "fl_nil()")]]
   (str "(fl_v11_truthy(" $cond ") ? " $then " : " $else ")")))
@@ -2545,7 +2656,19 @@
         [$nested (and (= (get $first :kind) "block") (= (get $first :type) "Array"))]]
     (if $nested
       (cgc-cond-nested-wr $args $vars (- (length $args) 1) "fl_nil()")
-      "fl_nil()"))))
+      (cgc-cond-flat-wr $args $vars (- (length $args) 2) "fl_nil()")))))
+
+(defn cgc-cond-flat-wr [$args $vars $i $acc]
+  (if (< $i 0) $acc
+    (let [[$test (get $args $i)]
+          [$body (get $args (+ $i 1))]
+          [$is-else (and (= (get $test :kind) "literal")
+                         (or (= (get $test :value) true) (= (get $test :value) "true")))]]
+      (cgc-cond-flat-wr $args $vars (- $i 2)
+        (if $is-else
+          (cgc-with-recur $body $vars)
+          (let [[$test-c (cgc-value $test)] [$body-c (cgc-with-recur $body $vars)]]
+            (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 (defn cgc-cond-nested-wr [$args $vars $i $acc]
   (if (< $i 0) $acc
@@ -2557,7 +2680,7 @@
     (cgc-cond-nested-wr $args $vars (- $i 1)
       (if $is-else
         (cgc-with-recur $body $vars)
-        (let [[$test-c (cgc $test)] [$body-c (cgc-with-recur $body $vars)]]
+        (let [[$test-c (cgc-value $test)] [$body-c (cgc-with-recur $body $vars)]]
           (str "(fl_v11_truthy(" $test-c ") ? " $body-c " : " $acc ")")))))))
 
 ;; do 내부 recur-aware
@@ -2595,7 +2718,7 @@
            " fl_vec_from(__fl_arr, " $cnt "); }))")))))
 
 (defn cgc-map-entry-c [$ent]
-  (str "fl_str_val(\"" (c-esc (get $ent 0)) "\"), " (cgc (get $ent 1))))
+  (str "fl_str_val(\"" (c-esc (get $ent 0)) "\"), " (cgc-value (get $ent 1))))
 
 (defn cgc-map-entries-c [$ents $i $acc]
   (if (>= $i (length $ents)) $acc
@@ -2607,13 +2730,13 @@
 (defn cgc-map-key-c [$key-node]
   (if (= (get $key-node :kind) "keyword")
     (str "fl_str_val(\"" (c-esc (get $key-node :name)) "\")")
-    (cgc $key-node)))
+    (cgc-value $key-node)))
 
 (defn cgc-map-items-c [$items $i $acc]
   (if (>= $i (length $items)) $acc
     (let [[$sep (if (= $i 0) "" ", ")]
           [$key-c (cgc-map-key-c (get $items $i))]
-          [$val-c (cgc (get $items (+ $i 1)))]]
+          [$val-c (cgc-value (get $items (+ $i 1)))]]
       (cgc-map-items-c $items (+ $i 2)
         (str $acc $sep $key-c ", " $val-c)))))
 

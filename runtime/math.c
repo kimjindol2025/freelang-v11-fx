@@ -63,28 +63,39 @@ FLValue type_of(FLValue v) {
 }
 
 /* B-3: String ops */
+static const char *fl_find_bytes(const char *text, size_t length, const char *needle, size_t width) {
+    if (width > length) return NULL;
+    if (!width) return text;
+    for (size_t i = 0; i <= length - width; i++)
+        if (text[i] == needle[0] && !memcmp(text + i, needle, width)) return text + i;
+    return NULL;
+}
 FLValue str_replace(FLValue s, FLValue from, FLValue to) {
     if (s.tag!=FL_STRING||from.tag!=FL_STRING||to.tag!=FL_STRING) return s;
-    const char *src=((FLString*)s.obj)->data;
-    const char *f=((FLString*)from.obj)->data;
-    const char *t=((FLString*)to.obj)->data;
-    size_t flen=strlen(f);
+    FLString *source=(FLString *)s.obj,*pattern=(FLString *)from.obj,*replacement=(FLString *)to.obj;
+    const char *src=source->data,*f=pattern->data,*t=replacement->data;
+    size_t length=source->len,flen=pattern->len,tlen=replacement->len;
     if (flen==0) return s;
-    size_t tlen=strlen(t);
-    /* global replace: 모든 occurrence 치환 */
-    size_t cap=strlen(src)*2+64; char *buf=(char*)malloc(cap+1);
-    size_t wi=0; const char *cur=src; const char *pos;
-    while ((pos=strstr(cur,f))) {
-        size_t plen=(size_t)(pos-cur);
-        if (wi+plen+tlen>cap) { cap=(wi+plen+tlen)*2; buf=(char*)realloc(buf,cap+1); }
-        memcpy(buf+wi,cur,plen); wi+=plen;
-        memcpy(buf+wi,t,tlen); wi+=tlen;
-        cur=pos+flen;
+    size_t matches=0,offset=0;
+    const char *pos;
+    while ((pos=fl_find_bytes(src+offset,length-offset,f,flen))) {
+        matches++; offset=(size_t)(pos-src)+flen;
     }
-    size_t rest=strlen(cur);
-    if (wi+rest>cap) buf=(char*)realloc(buf,wi+rest+1);
-    memcpy(buf+wi,cur,rest); buf[wi+rest]='\0';
-    FLValue r=fl_str_val(buf); free(buf); return r;
+    if (!matches) return s;
+    if (tlen>flen && matches>(UINT32_MAX-length)/(tlen-flen)) {
+        fl_throw(fl_str_val("string replacement exceeds runtime capacity")); return fl_nil();
+    }
+    size_t total=tlen>flen?length+matches*(tlen-flen):length-matches*(flen-tlen);
+    FLString *result=fl_string_alloc(total);
+    size_t written=0;offset=0;
+    while ((pos=fl_find_bytes(src+offset,length-offset,f,flen))) {
+        size_t piece=(size_t)(pos-(src+offset));
+        memcpy(result->data+written,src+offset,piece);written+=piece;
+        memcpy(result->data+written,t,tlen);written+=tlen;
+        offset=(size_t)(pos-src)+flen;
+    }
+    memcpy(result->data+written,src+offset,length-offset);
+    return (FLValue){.tag=FL_STRING,.obj=(FLObject *)result};
 }
 FLValue split(FLValue s, FLValue sep) {
     if (s.tag!=FL_STRING||sep.tag!=FL_STRING) return fl_vec_new();
@@ -124,17 +135,25 @@ FLValue join(FLValue vec, FLValue sep) {
     if (vec.tag!=FL_VECTOR) return fl_str_val("");
     FLVector *v=(FLVector*)vec.obj;
     const char *d=sep.tag==FL_STRING?((FLString*)sep.obj)->data:"";
-    size_t dlen=strlen(d), total=0;
+    size_t dlen=sep.tag==FL_STRING?((FLString *)sep.obj)->len:0,total=0;
     for (uint32_t i=0;i<v->len;i++) {
-        if (v->data[i].tag==FL_STRING) total+=strlen(((FLString*)v->data[i].obj)->data);
-        if (i+1<v->len) total+=dlen;
+        size_t length=v->data[i].tag==FL_STRING?((FLString *)v->data[i].obj)->len:0;
+        if (length>UINT32_MAX-total) { fl_throw(fl_str_val("string join exceeds runtime capacity")); return fl_nil(); }
+        total+=length;
+        if (i+1<v->len) {
+            if (dlen>UINT32_MAX-total) { fl_throw(fl_str_val("string join exceeds runtime capacity")); return fl_nil(); }
+            total+=dlen;
+        }
     }
-    char *buf=(char*)malloc(total+1); buf[0]='\0';
+    FLString *result=fl_string_alloc(total);size_t written=0;
     for (uint32_t i=0;i<v->len;i++) {
-        if (v->data[i].tag==FL_STRING) strcat(buf,((FLString*)v->data[i].obj)->data);
-        if (i+1<v->len) strcat(buf,d);
+        if (v->data[i].tag==FL_STRING) {
+            FLString *part=(FLString *)v->data[i].obj;
+            memcpy(result->data+written,part->data,part->len);written+=part->len;
+        }
+        if (i+1<v->len) { memcpy(result->data+written,d,dlen);written+=dlen; }
     }
-    FLValue r=fl_str_val(buf); free(buf); return r;
+    return (FLValue){.tag=FL_STRING,.obj=(FLObject *)result};
 }
 
 /* B-4: Range / String utilities */
@@ -155,7 +174,7 @@ FLValue range2(FLValue start, FLValue end) {
 FLValue char_code_at(FLValue s, FLValue idx) {
     if (s.tag!=FL_STRING||idx.tag!=FL_INT) return fl_nil();
     const char *p=((FLString*)s.obj)->data;
-    int64_t i=idx.i, len=(int64_t)strlen(p);
+    int64_t i=idx.i, len=((FLString *)s.obj)->len;
     if (i<0||i>=len) return fl_nil();
     return fl_int((unsigned char)p[i]);
 }
@@ -174,18 +193,18 @@ FLValue substring(FLValue s, FLValue start, FLValue end) {
     }
     if (s.tag!=FL_STRING) return fl_str_val("");
     const char *p=((FLString*)s.obj)->data;
-    int64_t len=(int64_t)strlen(p);
+    int64_t len=((FLString *)s.obj)->len;
     /* FL_FLOAT 인덱스 지원 (math_floor 결과) */
     int64_t a = (start.tag==FL_INT) ? start.i :
                 (start.tag==FL_FLOAT) ? (int64_t)start.f : 0;
     int64_t b = (end.tag==FL_INT)   ? end.i   :
                 (end.tag==FL_FLOAT)   ? (int64_t)end.f   : len;
     if (a<0) a=0;
+    if (a>len) a=len;
+    if (b<0) b=0;
     if (b>len) b=len;
     if (a>b) a=b;
-    size_t n=(size_t)(b-a); char *buf=(char*)malloc(n+1);
-    memcpy(buf,p+a,n); buf[n]='\0';
-    FLValue r=fl_str_val(buf); free(buf); return r;
+    return fl_strn_val(p+a,(size_t)(b-a));
 }
 FLValue trim(FLValue s) {
     if (s.tag!=FL_STRING) return s;
@@ -207,7 +226,8 @@ FLValue index_of(FLValue vec, FLValue val) {
 }
 FLValue str_index_of(FLValue s, FLValue sub) {
     if (s.tag!=FL_STRING||sub.tag!=FL_STRING) return fl_int(-1);
-    const char *p=strstr(((FLString*)s.obj)->data,((FLString*)sub.obj)->data);
+    FLString *text=(FLString *)s.obj,*needle=(FLString *)sub.obj;
+    const char *p=fl_find_bytes(text->data,text->len,needle->data,needle->len);
     if (!p) return fl_int(-1);
     return fl_int((int64_t)(p-((FLString*)s.obj)->data));
 }

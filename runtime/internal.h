@@ -10,6 +10,7 @@ typedef struct FLAtom {
     int gc_candidate;
 } FLAtom;
 int fl_arena_active(void);
+FLString *fl_string_alloc(size_t length);
 void fl_gc_lock(void);
 void fl_gc_unlock(void);
 void fl_gc_track_atom(FLAtom *atom);

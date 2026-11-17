@@ -1,0 +1,150 @@
+;; Native metadata/effect analysis of the parser's raw AST. This component
+;; preserves the inspected reference check command's catalogue and diagnostic
+;; records. CLI rendering, type checks and compiler integration are separate.
+
+(define fl-native-effect-catalog
+  {"http_get" "http" "http-get" "http" "http_post" "http" "http-post" "http"
+   "http_put" "http" "http-put" "http" "http_delete" "http" "http-delete" "http"
+   "http_patch" "http" "http-patch" "http" "http_get_bearer" "http"
+   "http_post_bearer" "http" "http_post_json" "http" "http_get_json" "http"
+   "ws_send" "http" "ws-send" "http"
+   "file_read" "file-read" "file-read" "file-read"
+   "file_write" "file-write" "file-write" "file-write"
+   "file_append" "file-write" "file-append" "file-write"
+   "file_delete" "file-write" "file-delete" "file-write"
+   "file_exists" "file-read" "file-exists" "file-read" "file_list" "file-read"
+   "file_append_line" "file-write" "file-append-line" "file-write"
+   "db_query" "db-read" "db-query" "db-read"
+   "db_execute" "db-write" "db-execute" "db-write"
+   "db_insert" "db-write" "db-insert" "db-write"
+   "db_update" "db-write" "db-update" "db-write"
+   "db_delete" "db-write" "db-delete" "db-write"
+   "db_transaction" "db-write" "db-transaction" "db-write"
+   "db_exec" "db-write" "db-exec" "db-write"
+   "shell_exec" "shell" "shell-exec" "shell"
+   "shell_exec_result" "shell" "shell-exec-result" "shell"
+   "shell_run" "shell" "process_spawn" "shell" "process-spawn" "shell"
+   "process_capture" "shell" "process-capture" "shell"
+   "println" "io" "print" "io" "log/info" "io" "log/warn" "io" "log/error" "io"
+   "now" "time" "timestamp" "time" "now_ms" "time" "now-ms" "time" "sleep" "time"
+   "random" "random" "rand-int" "random" "rand" "random" "uuid" "random"
+   "server_start" "server" "server-start" "server"})
+
+(defn fl-native-check-node-text [node]
+  (cond
+    [(= (get node :kind) "variable") (get node :name)]
+    [(= (get node :kind) "keyword") (get node :name)]
+    [(= (get node :kind) "literal") (str (get node :value))]
+    [true "?"]))
+
+(defn fl-native-check-key [node]
+  (let [text (fl-native-check-node-text node)]
+    (if (= (char-at text 0) ":") (substring text 1 (length text)) text)))
+
+(defn fl-native-check-items [node]
+  (or (get (get node :fields) "items") []))
+
+(defn fl-native-check-meta-map [node]
+  (if (and (= (get node :kind) "block") (= (get node :type) "Map"))
+    (let [items (fl-native-check-items node)]
+      (loop [i 0 result {} recognized false]
+        (if (>= i (length items))
+          (if recognized result nil)
+          (let [key (fl-native-check-key (get items i))]
+            (recur (+ i 2) (assoc result key (get items (+ i 1)))
+                   (or recognized (includes-item ["returns" "context" "effects" "examples"] key)))))))
+    nil))
+
+(defn fl-native-check-map-values [items]
+  (loop [i 1 result []]
+    (if (>= i (length items)) result
+      (recur (+ i 2) (push result (get items i))))))
+
+(defn fl-native-check-children [node]
+  (let [kind (get node :kind)]
+    (cond
+      [(= kind "sexpr") (or (get node :args) [])]
+      [(= kind "block")
+       (let [fields (get node :fields) items (get fields "items")]
+         (if (array? items)
+           (if (= (get node :type) "Map")
+             (fl-native-check-map-values items) items)
+           (vals fields)))]
+      ;; The Native parser normalizes these forms out of the sexpr shape.
+      [(= kind "try") [(get node :body) (get node :catch) (get node :finally)]]
+      [(= kind "throw") [(get node :expr)]]
+      [(includes-item ["and" "or"] kind) (or (get node :args) [])]
+      [true []])))
+
+(defn fl-native-check-frame [nodes rest]
+  (if (= (length nodes) 0) rest {:nodes nodes :index 0 :rest rest}))
+
+(defn fl-native-check-next-frame [frame]
+  (let [i (+ (get frame :index) 1)]
+    (if (>= i (length (get frame :nodes))) (get frame :rest)
+      (assoc frame :index i))))
+
+(defn fl-native-check-called-ops [nodes]
+  ;; Frame traversal preserves source order without copying the whole
+  ;; remaining AST every time a node's children are visited.
+  (loop [frame (fl-native-check-frame nodes nil) found []]
+    (if (nil? frame) found
+      (let [node (get (get frame :nodes) (get frame :index))
+            op (if (= (get node :kind) "sexpr") (get node :op) nil)
+            next (fl-native-check-frame (fl-native-check-children node)
+                                       (fl-native-check-next-frame frame))]
+        (recur next (if (or (nil? op) (includes-item found op)) found (push found op)))))))
+
+(defn fl-native-check-function [node]
+  (let [args (or (get node :args) [])
+        first-text (fl-native-check-node-text (get args 0))
+        hint (if (and (= (get (get args 0) :kind) "literal")
+                      (= (char-at first-text 0) "^")) first-text nil)
+        offset (if (nil? hint) 0 1)
+        body (slice args (+ offset 2) (length args))
+        meta (fl-native-check-meta-map (get body 0))]
+    {:name (fl-native-check-node-text (get args offset))
+     :line (or (get node :line) 0)
+     :pure-hint (= hint "^pure")
+     :meta meta :body (if (nil? meta) body (slice body 1 (length body)))}))
+
+(defn fl-native-check-declared-effects [meta pure-hint]
+  (let [effects (get meta "effects")]
+    (if (or pure-hint (not (= (get effects :kind) "block"))
+            (not (= (get effects :type) "Array"))) []
+      (map (fn [item]
+             (if (includes-item ["literal" "keyword"] (get item :kind))
+               (fl-native-check-key item) "?"))
+           (fl-native-check-items effects)))))
+
+(defn fl-native-check-function-effects [info]
+  (let [meta (get info :meta) pure-hint (get info :pure-hint)]
+    (if (not (or pure-hint (not (nil? (get meta "effects"))))) nil
+      (let [declared (fl-native-check-declared-effects meta pure-hint)
+            called (fl-native-check-called-ops (get info :body))
+            undeclared (loop [i 0 result []]
+                         (if (>= i (length called)) result
+                           (let [effect (get fl-native-effect-catalog (get called i))]
+                             (recur (+ i 1)
+                               (if (or (nil? effect) (includes-item declared effect)
+                                       (includes-item result effect)) result
+                                 (push result effect))))))]
+        (if (= (length undeclared) 0) nil
+          {:name (get info :name) :line (get info :line)
+           :undeclared undeclared :isPure (or pure-hint (= (length declared) 0))})))))
+
+(defn fl-native-check-metadata [nodes]
+  (loop [frame (fl-native-check-frame nodes nil) missing [] warnings []]
+    (if (nil? frame) {"metaMissing" missing "effectsWarn" warnings}
+      (let [node (get (get frame :nodes) (get frame :index))
+            function? (and (= (get node :kind) "sexpr")
+                           (includes-item ["defn" "defun"] (get node :op)))
+            info (if function? (fl-native-check-function node) nil)
+            effect (if function? (fl-native-check-function-effects info) nil)
+            no-meta (and function? (nil? (get info :meta))
+                         (> (length (get info :body)) 0))
+            children (if function? (get info :body) (fl-native-check-children node))]
+        (recur (fl-native-check-frame children (fl-native-check-next-frame frame))
+               (if no-meta
+                 (push missing {:name (get info :name) :line (get info :line)}) missing)
+               (if (nil? effect) warnings (push warnings effect)))))))

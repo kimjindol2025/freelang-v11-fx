@@ -257,3 +257,97 @@ This advances the Native CLI path. Native TUI interaction, actual remote
 provider operations, default-launcher migration, web build/dev and browser/app
 flows remain unverified or pending. The complete DB95 gate was not rerun for
 the alias addition; its checkpoint durability blocker remains unresolved.
+
+## Native terminal, literal and checker components (in progress)
+
+Native raw input and supervised terminal execution are implemented with no
+Node fallback. The frontend retains its CLI and TUI functionality through a
+separate Native entry. Hexadecimal escapes now emit actual control bytes;
+length-aware strings retain NUL; template references resolve through lexical
+bindings and closure capture. See NATIVE-TERMINAL-RUNTIME.md.
+
+Three broad terminal/string attempts stopped at distinct actual failures:
+an unavailable min dependency in the new prefix selector, the legacy C join
+adapter's quoted/NUL-truncating conversion, and an unflushed interactive
+prompt. The broad batch was stopped after its third failure. Separate focused
+probes established each correction without relaxing assertions or waits.
+The 436-byte literal oracle and 152-byte template oracle matched exactly.
+Raw PTY/host coverage included 18 restoration/signal/child-reaping markers;
+the Enter prompt and menu restoration passed after print/println were fixed
+to flush stdout. Typed Unicode input and Git-quoted paths remain pending.
+
+A fresh bootstrap exposed unspecified C argument order in nested push code
+generation: Stage 2/3 differed only in generated temporary IDs. Generation
+and runtime argument evaluation now use explicit ordered statements, including
+ignored extra arguments. The baseline private ordering contract failed 0/3;
+the correction passed 3/3. Stage 2 = Stage 3 = Stage 4 then matched exactly
+(C d5c538551e081c93b11fa006c704c950c436121cb3cb9cf9278cd033a5f44949).
+That intermediate source also passed the original frontend 71/71, CLI 22/22,
+FX 11/11, checker 32/32 plus default pages, and DB cases 7/13/36/40. These are
+historical results, not a substitute for validation of later source changes.
+
+The preserved frontend scripts/fl-test invokes reference check before run.
+Compiling and running 71 assertions does not replace its lexical/parser,
+metadata/effect/type and JSON diagnostic behavior. Text and JSON reference
+modes differ in pure-effect exit behavior. Existing runners are unchanged.
+
+Three FreeLang modules implement independent checker components but are not
+yet connected to a compiler command or the frontend test launcher:
+
+| Module | Component scope | Focused execution |
+|---|---|---|
+| self/syntax-guard.fl | Delimiters, comments, quoted/escaped strings, positions, Unicode/NUL, 100k literal | 5/5; 0.49 s, 60,552 KiB in the first corrected runtime run |
+| self/check-meta.fl | Function metadata and source-ordered effects; normalized control/collection traversal | 7/7 |
+| self/check-types.fl | Reference best-effort arity and literal-type diagnostics | 10/10 after value-context correction |
+
+Static reference extraction matched all 68 effect catalogue entries
+(SHA-256 c0ee01ee9ac71ae3313e497793ea7d01236711c64f38e3953c988b02c6998c40),
+43 arity rules (fa252af23349f3ed7bfb463610e1a52d00f606ff63ffb095b9232f626046199a)
+and 35 ordered special forms
+(dc972c6c817ad438fd122046df92c05b34647cb95f391bd33b19392d120e258f).
+The Native walker also inspects collection-contained calls. The reference
+walker lacks a general array branch; current zero-difference parity is not
+claimed. These heuristics do not prove typed program code generation or
+formal type safety.
+
+The components exposed two further compiler defects: flat cond in loop/recur
+was silently emitted as nil, and a non-tail if inside a collection or condition
+could store an internal tail-call request instead of a completed result.
+Flat recur-aware clauses now emit their actual branches; consumed values,
+conditions and recursive-call arguments explicitly use value scopes. A private
+map/vector/nested-condition contract moved from 0/3 to 3/3.
+
+The 100k-character syntax contract also exposed quadratic immutable appends
+inside str-split. The runtime now counts fields and fills one unpublished
+result vector, checking size/allocation and releasing decoded units on error.
+Public immutable push semantics are unchanged. The original syntax contract
+passed 5/5; a freshly built 21-object runtime passed it again and passed the
+six-case split/Unicode/NUL/large-input contract. The first new split diagnostic
+incorrectly asked the legacy byte-index char-code-at API for UTF-16 units;
+its 5/6 result is retained. A separate oracle checks actual JSON surrogate
+encoding and round-trip text. One diagnostic accidentally linked an older
+archive; those results are excluded. Fresh archives now retain object hashes
+and verify them before linking. No protected test/expectation/timeout changed.
+
+The final full Native bootstrap and core regressions passed for the latest
+value/split source. Exact Stage 2 = Stage 3 = Stage 4 C SHA-256 is
+69ec33d69ea93079296fa5723cc84e4b5b50e4466a6bd43d379385056bc72999;
+Stage 3 ELF is
+54d85380a55275e5ecce727e2e491e8acfb5fe015d701f2cc21ae0a217bf1d88.
+Stage 2 to 3 generation took 27.77 s / 1,141,916 KiB; Stage 3 to 4 took
+28.76 s / 1,139,816 KiB, each exit 0. Fresh frontend 71/71, CLI 22/22,
+FX 11/11, checker 32/32 plus default pages and DB cases 7/13/36/40 passed.
+The newly generated value, push, syntax and split contracts passed, with
+436/152 literal/template bytes matching their independent expected output.
+A dedicated fresh terminal pass exercised raw capability/ownership, character
+conversion 4/4, all 18 host restoration/reaping markers and Enter/menu
+restoration, exit 0. Collected core/terminal traces contain zero Node-family
+executions. Final metadata/type component verification passed 7/7 and 10/10, exit 0; the original syntax component also passed 5/5 with that compiler/runtime. These are component results, not an integrated Native check command.
+
+Receipts: native-core-value-split.gzQgDG, native-terminal-final.bv22g0 and native-check-components-current.tMIa17.
+The seed, protected tests/runners and JS are unchanged; paths/owners are
+<가림>. Temporary curl dependency packaging, complete Native check command
+integration, typed Unicode TUI input and browser/app/default-launcher
+migration remain pending. Current Node comparison is NOT_RUN; no zero-diff
+claim is made. The complete DB95 gate is still the recorded 51 PASS / 20 FAIL
+baseline; checkpoint fault recovery and commercial readiness remain HOLD.

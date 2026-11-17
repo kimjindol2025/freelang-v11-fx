@@ -363,23 +363,11 @@ FLValue _fl_env_all(void) {
 
 /* ── str_join ── */
 FLValue str_join(FLValue sep, FLValue vec) {
-    if (vec.tag != FL_VECTOR) return fl_str_val("");
-    FLVector* v = (FLVector*)vec.obj;
-    const char* s = (sep.tag == FL_STRING && sep.obj) ? ((FLString*)sep.obj)->data : "";
-    size_t slen = strlen(s);
-    /* 먼저 총 길이 계산 */
-    size_t total = 0;
-    char tmp[64];
-    for (uint32_t i = 0; i < v->len; i++) {
-        total += strlen(fl_to_str(v->data[i], tmp, sizeof(tmp)));
-        if (i + 1 < v->len) total += slen;
-    }
-    char* buf = malloc(total + 1); buf[0] = '\0';
-    for (uint32_t i = 0; i < v->len; i++) {
-        strcat(buf, fl_to_str(v->data[i], tmp, sizeof(tmp)));
-        if (i + 1 < v->len) strcat(buf, s);
-    }
-    FLValue r = fl_str_val(buf); free(buf); return r;
+    /* Separator-first C adapter: preserve its empty separator default, and
+     * use the language's join conversion instead of quoted display output.
+     * Return UTF-8 bytes for C callers, including embedded NUL characters. */
+    FLValue args[2] = {vec, sep.tag == FL_STRING ? sep : fl_str_val("")};
+    return fl_v11_utf8_string(fl_v11_builtin(fl_str_val("str-join"), fl_vec_from(args, 2)));
 }
 
 /* ── _fl_process_* ── */

@@ -98,6 +98,8 @@ typedef struct {
 FLValue fl_int(int64_t v);
 FLValue fl_float(double v);
 FLValue fl_str_val(const char* s);
+FLValue fl_strn_val(const char* s, size_t length);
+#define FL_STR_LITERAL(s) fl_strn_val((s), sizeof(s) - 1)
 FLValue fl_bool(bool v);
 FLValue fl_nil(void);
 
@@ -172,6 +174,7 @@ FLValue fl_function_alias(FLValue name);
 FLValue fl_v11_has(FLValue name);
 FLValue fl_v11_builtin(FLValue name, FLValue argv);
 FLValue fl_shell_exec_result(FLValue command);
+FLValue fl_v11_tty(FLValue name, FLValue argv);
 FLValue fl_v11_file(FLValue name, FLValue argv);
 FLValue fl_v11_fd(FLValue name, FLValue argv);
 FLValue fl_v11_json_encode(FLValue value);
@@ -350,6 +353,7 @@ FLValue split(FLValue s, FLValue sep);
 FLValue join(FLValue vec, FLValue sep);
 FLValue range(FLValue n);  /* cgc: (range N) → 0..N-1 */
 FLValue char_code_at(FLValue s, FLValue idx);
+FLValue char_from_code(FLValue value);
 FLValue substring(FLValue s, FLValue start, FLValue end);
 FLValue trim(FLValue s);
 FLValue index_of(FLValue vec, FLValue val);

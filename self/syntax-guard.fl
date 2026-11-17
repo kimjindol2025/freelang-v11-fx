@@ -1,0 +1,67 @@
+;; Native lexical preflight, independent of code generation. The compiler's
+;; source loader will call this before its structural parser once integration
+;; and negative syntax checks are complete. This file is not wired in yet.
+
+(defn fl-native-syntax-error [code message line column]
+  {:ok false :code code :message message :line line :column column})
+
+(defn fl-native-syntax-guard [source]
+  (if (not (string? source))
+    (fl-native-syntax-error "SYNTAX_SOURCE" "source must be a string" 1 1)
+    (let [lines (map (fn [line] (str-split line "")) (str-split source "\n"))
+          closing {"(" ")" "[" "]" "{" "}"}]
+      ;; Split once into UTF-16 units, matching the lexer, instead of decoding
+      ;; the complete source again for each character access.
+      (loop [row 0 column 0 stack [] quoted false escaped false comment false
+             quote-line 1 quote-column 1]
+        (let [chars (get lines row)
+              at-line-end (>= column (length chars))
+              at-end (and at-line-end (>= (+ row 1) (length lines)))
+              ch (if at-line-end "\n" (get chars column))
+              next-row (if at-line-end (+ row 1) row)
+              next-column (if at-line-end 0 (+ column 1))
+              line-number (+ row 1)
+              column-number (+ column 1)]
+          (cond
+            at-end
+              (cond
+                quoted
+                  (fl-native-syntax-error "SYNTAX_STRING" "unterminated string"
+                                          quote-line quote-column)
+                (> (length stack) 0)
+                  (let [open (last stack)]
+                    (fl-native-syntax-error "SYNTAX_DELIMITER"
+                      (str "missing closing delimiter " (get closing (get open :kind)))
+                      (get open :line) (get open :column)))
+                true {:ok true})
+            comment
+              (recur next-row next-column stack quoted escaped
+                     (not (= ch "\n")) quote-line quote-column)
+            quoted
+              (cond
+                escaped
+                  (recur next-row next-column stack true false false quote-line quote-column)
+                (= ch "\\")
+                  (recur next-row next-column stack true true false quote-line quote-column)
+                (= ch "\"")
+                  (recur next-row next-column stack false false false quote-line quote-column)
+                true
+                  (recur next-row next-column stack true false false quote-line quote-column))
+            (= ch ";")
+              (recur next-row next-column stack false false true quote-line quote-column)
+            (= ch "\"")
+              (recur next-row next-column stack true false false line-number column-number)
+            (includes-item ["(" "[" "{"] ch)
+              (recur next-row next-column
+                     (push stack {:kind ch :line line-number :column column-number})
+                     false false false quote-line quote-column)
+            (includes-item [")" "]" "}"] ch)
+              (if (or (= (length stack) 0)
+                      (not (= ch (get closing (get (last stack) :kind)))))
+                (fl-native-syntax-error "SYNTAX_DELIMITER"
+                                       (str "unexpected closing delimiter " ch)
+                                       line-number column-number)
+                (recur next-row next-column (slice stack 0 (- (length stack) 1))
+                       false false false quote-line quote-column))
+            true
+              (recur next-row next-column stack false false false quote-line quote-column)))))))

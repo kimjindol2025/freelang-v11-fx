@@ -1,9 +1,11 @@
 #include "runtime.h"
+#include "internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <unistd.h>
 
 /* ── try 스택은 error.c에서 __thread로 정의 ── */
 
@@ -28,17 +30,32 @@ FLValue fl_float(double v) {
  * Arena 객체는 arena_end 후 재사용되므로 dangling 참조 주의.
  * → 요청 핸들러 외부(전역 define)는 malloc이 더 안전.
  */
-FLValue fl_str_val(const char* s) {
-    size_t len = strlen(s);
+FLString *fl_string_alloc(size_t len) {
+    if (len > UINT32_MAX || len > SIZE_MAX - sizeof(FLString) - 1) {
+        const char message[] = "FreeLang: string length exceeds runtime capacity\n";
+        (void)write(STDERR_FILENO, message, sizeof message - 1);
+        exit(1);
+    }
     size_t total = sizeof(FLString) + len + 1;
     FLString* obj = (FLString*)fl_arena_alloc(total);
     if (!obj) obj = malloc(total);   /* arena 없을 때 폴백 */
+    if (!obj) {
+        const char message[] = "FreeLang: string allocation failed\n";
+        (void)write(STDERR_FILENO, message, sizeof message - 1);
+        exit(1);
+    }
     obj->base.type = FL_STRING;
     obj->base.rc = 1;
     obj->len = (uint32_t)len;
-    memcpy(obj->data, s, len + 1);
+    obj->data[len] = 0;
+    return obj;
+}
+FLValue fl_strn_val(const char* s, size_t len) {
+    FLString* obj = fl_string_alloc(len);
+    if (len) memcpy(obj->data, s, len);
     FLValue r; r.tag = FL_STRING; r.obj = (FLObject*)obj; return r;
 }
+FLValue fl_str_val(const char* s) { return fl_strn_val(s, strlen(s)); }
 
 FLValue fl_bool(bool v) {
     FLValue r; r.tag = FL_BOOL; r.b = v; return r;
@@ -297,28 +314,36 @@ FLValue fl_or(FLValue a, FLValue b)   { return fl_truthy(a) ? a : b; }
 
 FLValue fl_str_n(int count, ...) {
     if (count == 0) return fl_str_val("");
+    typedef struct { char buffer[64]; const char *data; size_t len; } Part;
+    Part stack[8], *parts = stack;
+    if (count < 0 || (size_t)count > SIZE_MAX / sizeof(Part)) {
+        fl_throw(fl_str_val("invalid string argument count")); return fl_nil();
+    }
+    if (count > 8) {
+        parts = malloc((size_t)count * sizeof *parts);
+        if (!parts) { fl_throw(fl_str_val("string argument allocation failed")); return fl_nil(); }
+    }
     va_list ap;
     va_start(ap, count);
-    char bufs[count][64];
-    const char* parts[count];
-    size_t lens[count];
     size_t total = 0;
     for (int i = 0; i < count; i++) {
         FLValue v = va_arg(ap, FLValue);
-        parts[i] = fl_display(v, bufs[i], 64);
-        lens[i] = strlen(parts[i]);
-        total += lens[i];
+        parts[i].data = fl_display(v, parts[i].buffer, sizeof parts[i].buffer);
+        parts[i].len = v.tag == FL_STRING ? ((FLString *)v.obj)->len : strlen(parts[i].data);
+        if (parts[i].len > UINT32_MAX - total) {
+            va_end(ap); if (parts != stack) free(parts);
+            fl_throw(fl_str_val("string concatenation exceeds runtime capacity")); return fl_nil();
+        }
+        total += parts[i].len;
     }
     va_end(ap);
-    FLString* obj = fl_arena_alloc(sizeof(FLString) + total + 1);
-    obj->base.type = FL_STRING; obj->base.rc = 1;
-    obj->len = (uint32_t)total;
+    FLString* obj = fl_string_alloc(total);
     size_t off = 0;
     for (int i = 0; i < count; i++) {
-        memcpy(obj->data + off, parts[i], lens[i]);
-        off += lens[i];
+        memcpy(obj->data + off, parts[i].data, parts[i].len);
+        off += parts[i].len;
     }
-    obj->data[total] = '\0';
+    if (parts != stack) free(parts);
     FLValue r; r.tag = FL_STRING; r.obj = (FLObject*)obj; return r;
 }
 
@@ -326,21 +351,26 @@ FLValue fl_str_n(int count, ...) {
 
 FLValue fl_println(FLValue v) {
     if (v.tag == FL_STRING) {
-        puts(((FLString*)v.obj)->data);
+        FLString *text = (FLString *)v.obj;
+        fwrite(text->data, 1, text->len, stdout);
     } else {
         char buf[4096];
-        puts(fl_to_str(v, buf, sizeof(buf)));
+        fputs(fl_to_str(v, buf, sizeof(buf)), stdout);
     }
+    fputc('\n', stdout);
+    fflush(stdout);
     return fl_nil();
 }
 
 FLValue fl_print(FLValue v) {
     if (v.tag == FL_STRING) {
-        fputs(((FLString*)v.obj)->data, stdout);
+        FLString *text = (FLString *)v.obj;
+        fwrite(text->data, 1, text->len, stdout);
     } else {
         char buf[4096];
         fputs(fl_to_str(v, buf, sizeof(buf)), stdout);
     }
+    fflush(stdout);
     return fl_nil();
 }
 
