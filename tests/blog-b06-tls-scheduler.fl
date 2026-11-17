@@ -1,0 +1,7 @@
+;; No HTTP visitor is sent: the callback must run while TLS is listening.
+(defn tls-probe-response [req] (server_text "synthetic"))
+(server_get "/" "tls-probe-response")
+(schedule-at (+ (now_ms) 100) (fn []
+ (file_write (str (env-get "FL_FILE_BASE") "/tls-timer-fired") "TLS_TIMER_FIRED_ONCE")
+ (process-exit 0)))
+(server_start_tls 0 (env-get "BLOG_TLS_CERT") (env-get "BLOG_TLS_KEY"))
