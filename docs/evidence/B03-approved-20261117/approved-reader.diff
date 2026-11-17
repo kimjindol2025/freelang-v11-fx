@@ -1,0 +1,18 @@
+diff --git a/tests/l08-platform/editor-ui-cdp.c b/tests/l08-platform/editor-ui-cdp.c
+index 82cc1f2..3bf85df 100644
+--- a/tests/l08-platform/editor-ui-cdp.c
++++ b/tests/l08-platform/editor-ui-cdp.c
+@@ -57,6 +57,13 @@ static FLValue command(const char *method,FLValue params){
+    FLValue error=field(msg,"error");
+    /* Navigation can invalidate the root between getDocument and querySelector. */
+    if(!strcmp(method,"DOM.querySelector")&&number(field(error,"code"))==-32000){document_root=0;document_retries++;return fl_nil();}
++   /* Only retry a stale node after observing an actual document update.
++      Caller reacquires the root under its existing, unchanged deadline. */
++   if(!strcmp(method,"DOM.describeNode")&&document_root==0&&
++      number(field(error,"code"))==-32000&&
++      !strcmp(text(field(error,"message")),"Could not find node with given id")){
++    document_retries++;printf("CDP_DOCUMENT_RETRY=%d\n",document_retries);return fl_nil();
++   }
+    fprintf(stderr,"EDITOR_UI_CDP_METHOD=%s CODE=%.0f\n",method,number(field(error,"code")));
+    if(!strncmp(method,"DOM.",4)||!strncmp(method,"CSS.",4))fprintf(stderr,"EDITOR_UI_CDP_MESSAGE=%s\n",text(field(error,"message")));
+    die("protocol_error");
