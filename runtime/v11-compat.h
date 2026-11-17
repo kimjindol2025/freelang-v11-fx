@@ -1198,6 +1198,8 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         FLValue r=t_finish(&b);
         return t_text(r);
     }
+    /* The reference defines these two names with identical split/join rules. */
+    if(IS("str-replace-all"))return fl_v11_builtin(fl_str_val("str-replace"),argv);
     if(IS("str-replace-in"))return t_replace_all(ARG(0),ARG(1),ARG(2));
     if(IS("str-lines")||IS("str-split")||IS("str-replace")){
         if(IS("str-split")&&(ARG(0).tag!=FL_STRING||ARG(1).tag!=FL_STRING))return fl_vec_new();

@@ -210,3 +210,50 @@ and application flows remain migration work. Current Node parity and the
 full fl-tools adapter checks are NOT_RUN because their execution paths invoke
 Node. No blanket frontend or commercial-readiness claim follows from unit
 results.
+
+## Milestone 4: Native CLI execution
+
+The src/main.fl CLI compiled and ran help/status, but real add failed at
+str-replace-all. Both inspected reference runtimes define this as the same
+literal split/join operation as str-replace. The Native registry now exposes
+that alias through the existing implementation, without changing prior
+opcode positions or adding a second replacement algorithm. A stale partial
+archive initially retained the old dispatch; rebuilding its actual owner,
+core.c, corrected the artifact. Both the failed log and successful checks are
+preserved. No failing probe was reported as passing based only on exit 0.
+
+The frontend adds scripts/fl-git-native with explicit verified CLI/TUI binary
+selection, status-marker validation and no Node fallback. Its context command
+also replaces an unimplemented doall wrapper with a doseq loop, preserving all
+seven printed cards. The existing default launcher and tests remain unchanged.
+
+- Literal replacement probes: 7/7, including defaults, literal replacement
+  tokens, non-overlap, empty search, Unicode and NUL bytes.
+- Native CLI integration: 22/22 in a new private fixture repository with
+  synthetic local identity and no remotes. Real add/commit/stage/unstage,
+  branch creation/deletion and guards, reads, failed Git status propagation,
+  text/JSON context and launcher rejection cases passed. Quoted filenames and
+  commit messages preserve apostrophes, spaces, Korean and emoji.
+- Text context includes cards 01 through 07; JSON contains seven cards and
+  seven available keys and reports the actual fixture branch.
+- Latest runtime/compiler original frontend suite: 71/71, exit 0, no FAILED
+  summaries and empty stderr in all seven files.
+- Fresh Stage 2 = Stage 3 = Stage 4 C comparisons: PASS; SHA remains
+  65fc56c092629248471828a88859237d4a2231de344e05213df7fe0e52f96cc2.
+- Latest compiler ELF SHA-256:
+  28d6b736f3ccb8f808eccfe4afb2087329aceed2c75e7cc61683276638bf3836.
+- Native CLI ELF SHA-256:
+  e9dbd8355c1e97fe7b520b08bea1f0b52c77a518a01231c4792b859ad3bf457a.
+- Stage 2→3 / 3→4 generation: 24.99 / 24.13 seconds; peak RSS
+  1,201,292 / 1,201,416 KiB; both exit 0 under the unchanged two-GiB cap.
+- CLI integration and unit process traces: zero Node/npm/npx/bun/deno.
+- Existing tests/runners/expectations, JS and bootstrap input are unchanged.
+  No installation or global configuration change occurred. The original
+  bootstrap verifier remains NOT_RUN for its older pinned input as explained
+  above. Bash syntax and diff whitespace validation passed; ShellCheck is
+  unavailable and was not installed.
+
+This advances the Native CLI path. Native TUI interaction, actual remote
+provider operations, default-launcher migration, web build/dev and browser/app
+flows remain unverified or pending. The complete DB95 gate was not rerun for
+the alias addition; its checkpoint durability blocker remains unresolved.
