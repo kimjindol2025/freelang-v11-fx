@@ -687,10 +687,30 @@ FLValue fl_obj_omit(FLValue m, FLValue ks) {
 
 /* repeat: n번 값 반복 → 벡터 */
 FLValue fl_repeat(FLValue n_v, FLValue val) {
-    int64_t n = (n_v.tag == FL_INT) ? n_v.i : 0;
-    FLValue result = fl_vec_builder_new();
-    for (int64_t i = 0; i < n; i++) fl_vec_builder_push(result, val);
-    return fl_vec_builder_freeze(result);
+    if (n_v.tag != FL_INT && n_v.tag != FL_FLOAT) return fl_vec_new();
+    double requested = n_v.tag == FL_INT ? (double)n_v.i : n_v.f;
+    if (!isfinite(requested) || requested < 0 ||
+        requested > UINT32_MAX || floor(requested) != requested) {
+        fl_throw(fl_str_val("Invalid array length"));
+        return fl_nil();
+    }
+    uint32_t n = (uint32_t)requested;
+    FLValue result = fl_vec_new();
+    FLVector* vector = (FLVector*)result.obj;
+    if (n) {
+        if ((size_t)n > SIZE_MAX / sizeof(FLValue)) {
+            fl_throw(fl_str_val("repeat allocation failed"));
+            return fl_nil();
+        }
+        vector->data = fl_arena_alloc(sizeof(FLValue) * (size_t)n);
+        if (!vector->data) {
+            fl_throw(fl_str_val("repeat allocation failed"));
+            return fl_nil();
+        }
+        for (uint32_t i = 0; i < n; i++) vector->data[i] = val;
+        vector->len = vector->cap = n;
+    }
+    return result;
 }
 
 /* sort-by: keyfn으로 정렬 */
