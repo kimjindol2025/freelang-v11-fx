@@ -1207,8 +1207,14 @@ FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
     listen(server_fd, 128);
     fprintf(stderr, "[tls] HTTPS 서버 시작: https://%s:%d\n", loopback_only ? "127.0.0.1" : "0.0.0.0", port);
 
-    /* accept 루프 */
+    /* Match HTTP scheduling so TLS runs jobs without incoming requests. */
+    (void)fl_schedule_wake_fd();
     while (!g_pool.shutdown) {
+        fl_schedule_tick(0);
+        int ready = fl_io_wait(server_fd, fl_schedule_timeout_ms(50));
+        if (g_pool.shutdown) break;
+        if (ready & (POLLERR | POLLHUP | POLLNVAL)) break;
+        if (!(ready & POLLIN)) continue;
         struct sockaddr_in caddr;
         socklen_t clen = sizeof(caddr);
         int cfd = accept(server_fd, (struct sockaddr*)&caddr, &clen);
@@ -1232,6 +1238,7 @@ FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
 
     if (g_server_fd >= 0) { close(g_server_fd); g_server_fd = -1; }
     pool_shutdown(30);
+    fl_schedule_shutdown();
     SSL_CTX_free(ctx);
     return fl_nil();
 }
