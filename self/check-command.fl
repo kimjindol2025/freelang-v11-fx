@@ -1,0 +1,165 @@
+;; Language-level Native check command. Its default text mode preserves the
+;; reference's historical pure-effect exit policy; JSON mode fails on every
+;; diagnostic with error severity. Source is parsed and inspected, never run.
+
+(defn fl-native-check-absolute-path [input]
+  (let [path (if (str-starts-with input "/") input (str (process-cwd) "/" input))
+        parts (str-split path "/")
+        normalized (loop [i 0 result []]
+                     (if (>= i (length parts)) result
+                       (let [part (get parts i)]
+                         (recur (+ i 1)
+                           (cond
+                             [(or (= part "") (= part ".")) result]
+                             [(= part "..") (slice result 0 (if (> (length result) 0)
+                                                               (- (length result) 1) 0))]
+                             [true (push result part)])))))]
+    (str "/" (str-join "/" normalized))))
+
+(defn fl-native-check-basename [file]
+  (last (str-split file "/")))
+
+(defn fl-native-check-missing-file [file input]
+  (fl-native-check-diagnostic "FL5001" "E_FILE_NOT_FOUND" "error" file nil nil
+    (str "파일을 찾을 수 없습니다: " input)
+    "파일 경로와 현재 작업 디렉터리를 확인하세요."))
+
+(defn fl-native-check-read-error [read file input]
+  (let [number (get read :errno)
+        directory (_fl_file_is_dir file)
+        legacy (if directory "EISDIR"
+                 (or (get {"1" "EPERM" "2" "ENOENT" "5" "EIO" "12" "ENOMEM"
+                           "13" "EACCES" "20" "ENOTDIR" "21" "EISDIR" "22" "EINVAL"
+                           "23" "ENFILE" "24" "EMFILE" "28" "ENOSPC"
+                           "36" "ENAMETOOLONG" "40" "ELOOP"}
+                          (str number)) "EIO"))
+        io? (includes-item ["EACCES" "EISDIR" "ELOOP" "EMFILE" "ENFILE"
+                             "ENAMETOOLONG" "ENOSPC" "EPERM"] legacy)]
+    (if (includes-item ["ENOENT" "ENOTDIR"] legacy)
+      (fl-native-check-missing-file file input)
+      (fl-native-check-diagnostic (if io? "FL5002" "FL6004") legacy "error" file nil nil
+        (if directory "EISDIR: illegal operation on a directory, read"
+          (str "source read failed (" (get read :error) ", " legacy ")")) nil))))
+
+(defn fl-native-check-file [input]
+  (let [file (fl-native-check-absolute-path input)
+        read (fl_file_read_result file)]
+    (if (get read :ok)
+      (assoc (fl-native-check-source (get read :data) file) :source (get read :data))
+      {:payload (fl-native-check-error-result (fl-native-check-read-error read file input))
+       :syntax-ok false})))
+
+(defn fl-native-check-render-metadata [metadata base]
+  (let [missing (get metadata "metaMissing")
+        effects (get metadata "effectsWarn")
+        pure (filter (fn [warning] (get warning :isPure)) effects)
+        impure (filter (fn [warning] (not (get warning :isPure))) effects)]
+    (when (> (length missing) 0)
+      (fl_stderr_write (str "\n\x1b[33m[meta-check]\x1b[0m  " base " — "
+                            (length missing) "개 함수에 메타 없음\n"))
+      (doseq [warning missing]
+        (fl_stderr_write (str "  \x1b[33m⚠\x1b[0m  line " (get warning :line)
+                              ": \x1b[1m" (get warning :name) "\x1b[0m — :context/:returns 없음\n")))
+      (fl_stderr_write (str "\x1b[2m  팁: (defn " (get (get missing 0) :name)
+                            " [...] {:context \"...\" :returns \"...\"} ...)\x1b[0m\n")))
+    (when (> (length pure) 0)
+      (fl_stderr_write (str "\n\x1b[31m[pure-violation]\x1b[0m  " base " — "
+                            (length pure) "개 ^pure 함수에서 side effect 발견\n"))
+      (doseq [warning pure]
+        (fl_stderr_write
+          (str "  \x1b[31m✖\x1b[0m  line " (get warning :line) ": \x1b[1m"
+               (get warning :name) "\x1b[0m — \x1b[31m"
+               (str-join " " (map (fn [effect] (str ":" effect)) (get warning :undeclared)))
+               "\x1b[0m  (순수 함수 위반)\n")))
+      (fl_stderr_write "\x1b[2m  :effects [] 또는 ^pure 선언 시 side effect 호출 불가\x1b[0m\n"))
+    (when (> (length impure) 0)
+      (fl_stderr_write (str "\n\x1b[33m[effects-check]\x1b[0m  " base " — "
+                            (length impure) "개 함수에 미선언 effect\n"))
+      (doseq [warning impure]
+        (fl_stderr_write
+          (str "  \x1b[33m⚠\x1b[0m  line " (get warning :line) ": \x1b[1m"
+               (get warning :name) "\x1b[0m — 미선언 effect: \x1b[33m"
+               (str-join " " (map (fn [effect] (str ":" effect)) (get warning :undeclared)))
+               "\x1b[0m\n"))))
+    (when (or (> (length missing) 0) (> (length effects) 0))
+      (fl_stderr_write "\n"))))
+
+(defn fl-native-check-render-types [types base]
+  (let [issues (concat (get types :errors) (get types :warnings))]
+    (if (> (length issues) 0)
+      (do
+        (fl_stderr_write (str "\n\x1b[36m[type-check]\x1b[0m  " base " — "
+                              (length issues) "건\n"))
+        (doseq [issue issues]
+          (let [error? (= (get issue :kind) "error") color (if error? "\x1b[31m" "\x1b[33m")]
+            (fl_stderr_write (str "  " color (if error? "✖" "⚠") "\x1b[0m  line "
+                                  (get issue :line) ": " color (get issue :code)
+                                  "\x1b[0m — " (get issue :message) "\n"))))
+        (fl_stderr_write "\n"))
+      (when (> (get types :fnCount) 0)
+        (println (str "\x1b[36m[type-check]\x1b[0m  " base "  타입 이상 없음 (함수 "
+                      (get types :fnCount) "개 분석)"))))))
+
++(defn fl-native-check-repeat-text [text count]
+  (loop [remaining count piece text result ""]
+    (if (<= remaining 0) result
+      (recur (math-floor (/ remaining 2))
+             (if (> remaining 1) (str piece piece) piece)
+             (if (= (mod remaining 2) 1) (str result piece) result)))))
+
+(defn fl-native-check-render-source-error [result base]
+  (let [payload (get result :payload) code (get payload :code)
+        line (get payload :line) column (get payload :column)
+        source (get result :source)]
+    (cond
+      [(= code "FL1001")
+       (do
+         (fl_stderr_write (str "\n\x1b[31m파싱 오류\x1b[0m  " base ":" line ":" column "\n"))
+         (when (and (string? source) (> (length source) 0))
+           (let [lines (str-split source "\n") index (- line 1)]
+             (when (and (>= index 0) (< index (length lines)))
+               (let [number (str line) padding (- 4 (length number))]
+                 (fl_stderr_write
+                   (str "  " (fl-native-check-repeat-text " " padding) number
+                        " │ " (get lines index) "\n       "
+                        (fl-native-check-repeat-text "─" (- column 1)) "^\n"))))))
+         (fl_stderr_write (str "  " (get payload :message) "\n")))]
+      [(= code "FL1002")
+       (fl_stderr_write (str "\n\x1b[31m실행 오류\x1b[0m  " base
+                             "\n  \x1b[31m✖\x1b[0m " (get payload :message) "\n"))]
+      [true (fl_stderr_write (str "\x1b[31m오류\x1b[0m  " (get payload :message) "\n"))])))
+
+
+(defn fl-native-check-render-text [result]
+  (let [payload (get result :payload) file (get payload :file)
+        base (fl-native-check-basename file)]
+    (if (not (get result :syntax-ok))
+      (do
+        (fl-native-check-render-source-error result base)
+        1)
+      (do
+        (println (str "\x1b[32m✓\x1b[0m  " base "  문법 이상 없음"))
+        (fl-native-check-render-metadata (get result :metadata) base)
+        (fl-native-check-render-types (get result :types) base)
+        (if (> (length (get (get result :types) :errors)) 0) 1 0)))))
+
+(defn fl-native-check-options [arguments]
+  (loop [i 0 file nil json? false]
+    (if (>= i (length arguments)) {:file file :json json?}
+      (let [argument (get arguments i)]
+        (cond
+          [(= argument "--json") (recur (+ i 1) file true)]
+          [(and (nil? file) (not (str-starts-with argument "--")))
+           (recur (+ i 1) argument json?)]
+          [true (throw "compiler: --check expects one file and optional --json")])))))
+
+(defn fl-native-check-command [arguments]
+  (let [options (fl-native-check-options arguments) input (get options :file)]
+    (if (or (nil? input) (= input ""))
+      (do (fl_stderr_write "usage: cgc-bin --check <input.fl> [--json]\n") (process-exit 2))
+      (let [result (fl-native-check-file input)
+            status (if (get options :json)
+                     (do (println (json-stringify (get result :payload)))
+                         (if (= (get (get result :payload) :status) "error") 1 0))
+                     (fl-native-check-render-text result))]
+        (process-exit status)))))

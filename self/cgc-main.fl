@@ -3072,7 +3072,16 @@
         (throw "compiler: missing --extern name")
         (do (fl_compiler_add_extern (get $rest 1))
             (recur (slice $rest 2 (length $rest)))))
-      (if (= (get $rest 0) "--browser-js") (browser-emit $rest)
-        (cgc-run-positional $rest)))))
+      (cond
+        [(= (get $rest 0) "--browser-js") (browser-emit $rest)]
+        [(= (get $rest 0) "--check")
+         (fl-native-check-command (slice $rest 1 (length $rest)))]
+        [true (cgc-run-positional $rest)]))))
+
+(load "syntax-guard.fl")
+(load "check-meta.fl")
+(load "check-types.fl")
+(load "check-source.fl")
+(load "check-command.fl")
 
 (cgc-run (cli-args))

@@ -40,9 +40,9 @@ readiness as a required result.
 
 | Area | Required evidence | Current state |
 |---|---|---|
-| FX compiler/runtime | Native bootstrap, fixed point, language/collection/error/IO/resource regressions, zero Node processes | Fixed point verified at baseline; runtime gaps under investigation |
+| FX compiler/runtime | Native bootstrap, fixed point, language/collection/error/IO/resource regressions, zero Node processes | Native fixed point/core milestones verified; Native language check integration in progress |
 | DB95 | WAL and checkpoint safety, acknowledged data recovery under faults, isolation, native wire/TLS/client tests, sustained load | Full Native gate has 20 failures; checkpoint safety blocker recorded |
-| Frontend | Native compiler/checker, pages and islands with preserved functionality, runtime and browser flows | Inventory pending; original frontend worktree is dirty and must be preserved |
+| Frontend | Native compiler/checker, pages and islands with preserved functionality, runtime and browser flows | Native CLI/TUI, unit and page-check paths verified; default/test/web migration remains |
 | Applications | Every declared app builds and executes its supported flows without Node; local integration and failure cleanup | Inventory pending; existing deployed services are not modified |
 | Release/operations | Clean build/artifact hashes, configuration checks, backup/restore and rollback rehearsal, monitoring and security review | Not yet verified |
 
@@ -258,7 +258,7 @@ provider operations, default-launcher migration, web build/dev and browser/app
 flows remain unverified or pending. The complete DB95 gate was not rerun for
 the alias addition; its checkpoint durability blocker remains unresolved.
 
-## Native terminal, literal and checker components (in progress)
+## Native terminal, literal and checker components (historical checkpoint)
 
 Native raw input and supervised terminal execution are implemented with no
 Node fallback. The frontend retains its CLI and TUI functionality through a
@@ -351,3 +351,131 @@ integration, typed Unicode TUI input and browser/app/default-launcher
 migration remain pending. Current Node comparison is NOT_RUN; no zero-diff
 claim is made. The complete DB95 gate is still the recorded 51 PASS / 20 FAIL
 baseline; checkpoint fault recovery and commercial readiness remain HOLD.
+
+## Native language check command (initial integration receipt)
+
+The compiler source now loads the verified FreeLang checker components and
+routes --check <file> [--json] through them. A small C IO bridge writes UTF-8
+diagnostics to stderr; it does not add a dependency. Sources are inspected
+without executing their bodies. Lexical/file errors, delimiter stacks,
+source positions, metadata/effects and type diagnostics use the reference
+freelang.diagnostic.v1 payload shape.
+
+A read-only reference capture used existing Node v22.19.0, solely for
+compatibility diagnostics rather than a compiler build stage. Reference
+bootstrap SHA-256:
+2827f82534025ea18e06050dd56dfeefbd176c71f5eac887d4edd10d0e900052.
+All 54 source-check invocations left the reference/inputs unchanged, made
+zero network request syscalls and did not execute a file-write expression
+embedded in an inspected source. No JS source was created or edited.
+
+The first Native assembly matched 16/26 JSON payloads. A linked token-grammar
+preflight then rejected five malformed inputs previously accepted by the
+legacy parser and reproduced four delimiter diagnostic records, including
+UTF-16 columns, exactly. Native assembly then matched 25/26 JSON payloads.
+
+The first integrated Native command captured 54 executions: 26/27 JSON
+payloads and 53/54 exit codes matched the frozen reference. The one semantic
+difference is explicit: a println inside an array in a declared pure
+function is missed by the reference effect walker and detected by Native.
+The Native JSON result is an error; both text modes exit 0 under the legacy
+text policy. This is not zero-difference parity. The existing Node checker,
+tests, expectations and runners were not changed to hide that result.
+
+Normal, metadata, pure, arity and type text output matched byte for byte in
+that command pass. Parser/lexer error text initially differed; its source
+line/caret/hint renderer has now been ported and awaits fresh validation.
+The integrated compiler's first complete fresh Native fixed-point build is
+running with the unchanged seed, shared lock and 2 GiB cap. No new integrated
+compiler fixed-point hash or commercial-readiness PASS is claimed yet.
+
+Receipts: native-check-reference.ncFCVI, native-check-assembly.ZmlToB,
+native-check-assembly-v2.25bgSh, native-check-command.tfB0Jm and
+native-check-fixedpoint.6o1yXU. Paths and owners: <가림>.
+
+## Remaining frontend Node paths (source inventory)
+
+The frontend tracks ten JS/MJS/CJS files. The separate Native CLI/TUI and
+page checker have verified execution paths; the protected default entries
+remain unchanged. scripts/fl-test still performs reference check then run,
+and scripts/provider-gate still invokes Node. The separate scripts/fl-test-native now preserves that first check phase
+using the verified Native --check command; the default runner is unchanged.
+
+The web entry still invokes web/fl-front-build.js (2,937 lines) and the
+bundled web/runtime/bootstrap.js. The development entry invokes
+web/dev-server.js (665 lines), with watch/rebuild, SSE reload, build/error
+state and server lifecycle handling. The builder also imports the style
+compiler (312 lines), island compiler (582), diagnostic catalogue (220),
+and references an optional fix module whose path requires investigation.
+These are source counts, not completed migration or test counts.
+
+The existing FX --browser-js target and embedded FreeLang browser-core
+provide an available backend for a Node-free island build. They do not
+replace the remaining frontend builder/dev server by themselves. Browser
+build/render/hydration/interaction parity, default entry migration and
+complete app inventory remain pending. No feature is deleted to claim
+Node removal or a passing build.
+
+## Native check and test entry: completed checkpoint
+
+The integrated Native --check command and separate frontend
+scripts/fl-test-native entry now have fresh receipts. See
+NATIVE-LANGUAGE-CHECK.md for diagnostic behavior, exact comparison counts
+and the intentional pure-array difference. Earlier pending statements above
+describe historical checkpoints, not the current command.
+
+| Current verification | Result |
+|---|---|
+| Fresh Stage 2 = Stage 3 = Stage 4 C | Exact bytes, exit 0 |
+| Stage 2 to 3 / Stage 3 to 4 | 38.80 / 39.58 seconds |
+| Generation peak RSS | 1,514,012 / 1,515,368 KiB; unchanged 2 GiB cap |
+| Existing frontend test checks, JSON and text | 14/14 byte-identical stdout/stderr and exit |
+| Synthetic/missing-file JSON payloads | 26/27 identical |
+| Synthetic/missing-file text stdout/stderr | 26/27 byte-identical |
+| Synthetic/missing-file exits | 53/54 identical |
+| New Native test entry, original tests | 71/71; all seven files checked before compilation/run |
+| Native entry negative/discovery controls | 7/7; actual failures remain failures |
+| Fresh core regressions | frontend 71/71, CLI 22/22, FX 11/11, page checker 32/32 plus defaults |
+| Original DB95 cases 7, 13, 36, 40 | All exit 0; not the complete DB gate |
+| Fresh terminal coverage | raw capability/ownership, character 4/4, 18 host markers, Enter/menu restore; exit 0 |
+| Collected Native traces | zero Node-family executions and zero test-entry/check network requests |
+
+Current generated C SHA-256:
+4e589203e96b1cbfa8e4983439df33ab9a471daa3c95f5d4d89f99573c139c7e.
+Current Stage 3 ELF SHA-256:
+24355a87f854de32775c65773663f32050f4cc5c0b2e156b964966ea356f7fa3.
+Seed before/after remains
+0101cb63a86f20b93451f70b88a0b577f9548ded0a8b328ebdeedb7e8e4fd767.
+The unchanged official verifier with its older pinned seed is NOT_RUN.
+
+The seven test-entry controls cover a failed assertion, missing summary,
+malformed source, unsupported Native block, empty discovery, missing compiler
+and unreadable discovery. Syntax/unsupported generation failures invoke no
+GCC. Empty discovery reports NO_TESTS; unavailable inputs report BLOCKED.
+The new entry adds no product timeout. The protected old entry, existing
+tests, expected values, limits, JS and seeds remain unchanged.
+
+One private receipt logger wrote literal backslash-n record separators.
+The core driver had completed successfully; its raw log was preserved.
+A read-only completion receipt independently checks the exact raw suffix,
+source manifests, DB case exits and empty execution/generation audits.
+The first downstream harness therefore stopped at its receipt gate without
+executing tests; the corrected harness consumed that verified receipt.
+No product output or assertion was normalized to obtain a pass.
+
+Receipts: native-check-fixedpoint.6o1yXU,
+native-check-command-final.nSZaNo, native-check-core-final.dtc39N,
+native-test-launcher-v2.Gs7UX1 and native-terminal-check-build.ZgoNCk.
+Paths and owners: <가림>.
+
+The stricter pure-array diagnostic is retained; universal zero-difference
+parity is not claimed. Web builder/dev server, browser/app flows, default
+entry migration, Unicode TUI input and production dependency packaging remain
+pending. The full DB95 gate is NOT_RERUN, with its recorded 51 PASS / 20 FAIL
+baseline and checkpoint fault-recovery blocker. Commercial readiness is HOLD.
+
+Final source hygiene removed only extra blank lines at EOF from the two new
+FreeLang modules. A fresh Native generation from those final bytes matched
+the recorded Stage 4 C exactly, exit 0 (38.75 s, 1,515,944 KiB). Its full
+source manifest was unchanged and its trace contained zero Node executions.
+Receipt: native-check-final-source.i3wziqo8.

@@ -32,6 +32,18 @@ const char* _strval(FLValue v) {
 
 typedef struct { const char* code; int number; size_t bytes; } FileError;
 
+/* Native command renderers keep diagnostic bytes on the error channel. */
+FLValue fl_stderr_write(FLValue text) {
+    if (text.tag != FL_STRING || !text.obj) {
+        fl_throw(fl_str_val("stderr write expects a string")); return fl_nil();
+    }
+    text = fl_v11_utf8_string(text);
+    FLString *value = (FLString *)text.obj;
+    if (fwrite(value->data, 1, value->len, stderr) != value->len || fflush(stderr))
+        fl_throw(fl_make_error("IOError", "stderr write failed"));
+    return fl_nil();
+}
+
 static void file_error(FileError* e, const char* code, int number) {
     if (!e->code) { e->code = code; e->number = number ? number : EIO; }
 }

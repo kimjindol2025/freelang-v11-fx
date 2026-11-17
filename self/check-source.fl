@@ -1,0 +1,240 @@
+;; Native check result construction. Requires syntax-guard, check-meta,
+;; check-types and the existing Native lex/parse callbacks. Command/file IO
+;; and complete parser diagnostic parity are separate integration steps.
+
+(defn fl-native-check-diagnostic [code legacy severity file line column message hint]
+  {:code code :legacy_code legacy :severity severity :file file
+   :line line :column column :message message :hint hint :related []})
+
+(defn fl-native-check-error-result [diagnostic]
+  (merge (merge {:schema "freelang.diagnostic.v1" :status "error"} diagnostic)
+         {:diagnostics [diagnostic]}))
+
+(defn fl-native-check-meta-diagnostic [warning file]
+  (fl-native-check-diagnostic
+    "FL3004" "W_MISSING_META" "warning" file (get warning :line) nil
+    (str "함수 '" (get warning :name) "'에 metadata가 없습니다.")
+    ":context 또는 :returns metadata를 추가하세요."))
+
+(defn fl-native-check-effect-diagnostic [warning file]
+  (let [pure (get warning :isPure) name (get warning :name)]
+    (fl-native-check-diagnostic
+      (if pure "FL4001" "FL4002")
+      (if pure "E_PURE_VIOLATION" "W_UNDECLARED_EFFECT")
+      (if pure "error" "warning") file (get warning :line) nil
+      (if pure (str "순수 함수 '" name "'에서 side effect가 발견되었습니다.")
+        (str "함수 '" name "'에 effect 선언이 없습니다: "
+             (str-join ", " (get warning :undeclared))))
+      (if pure ":effects []를 제거하거나 실제 effect를 선언하세요."
+               ":effects에 호출 effect를 선언하세요."))))
+
+(defn fl-native-check-type-diagnostic [issue file]
+  (fl-native-check-diagnostic
+    (if (= (get issue :kind) "error") "FL2004" "FL2005")
+    (str "W_TYPE_" (str-upper (str-replace (get issue :code) "-" "_")))
+    (get issue :kind) file (get issue :line) nil (get issue :message)
+    "함수 signature와 인자 타입을 확인하세요."))
+
+(defn fl-native-check-ast-result [nodes file]
+  (let [metadata (fl-native-check-metadata nodes)
+        types (fl-native-check-types nodes)
+        diagnostics (concat (concat
+                      (map (fn [warning] (fl-native-check-meta-diagnostic warning file))
+                           (get metadata "metaMissing"))
+                      (map (fn [warning] (fl-native-check-effect-diagnostic warning file))
+                           (get metadata "effectsWarn")))
+                      (map (fn [issue] (fl-native-check-type-diagnostic issue file))
+                           (concat (get types :errors) (get types :warnings))))
+        errors (filter (fn [diagnostic] (= (get diagnostic :severity) "error")) diagnostics)]
+    {:payload {:schema "freelang.diagnostic.v1"
+               :status (if (> (length errors) 0) "error"
+                         (if (> (length diagnostics) 0) "warning" "ok"))
+               :file file :diagnostics diagnostics}
+     :metadata metadata :types types :syntax-ok true}))
+
+(defn fl-native-check-lexical-error [message file]
+  (fl-native-check-diagnostic "FL1002" "E_LEXER" "error" file nil nil message nil))
+
+(defn fl-native-check-token-error [tokens file]
+  (loop [i 0]
+    (if (>= i (length tokens)) nil
+      (let [token (get tokens i) kind (get token :kind) value (get token :value)
+            next (get tokens (+ i 1))
+            deref? (= value "@")
+            valid-deref (and deref?
+                            (includes-item ["Symbol" "Number"] (get next :kind))
+                            (= (get token :line) (get next :line))
+                            (= (+ (get token :col) 1) (get next :col)))]
+        (if (and (= kind "Unknown") (not valid-deref))
+          (fl-native-check-lexical-error
+            (str (if deref? "Expected atom name after @"
+                   (str "Unexpected character '" value "'"))
+                 " at line " (get token :line) ", col " (get token :col)) file)
+          (recur (+ i 1)))))))
+
+(defn fl-native-check-guard-error [syntax file]
+  (if (= (get syntax :code) "SYNTAX_STRING")
+    (fl-native-check-lexical-error
+      (str "Unterminated string at line " (get syntax :line)
+           ", col " (get syntax :column)) file)
+    (fl-native-check-diagnostic "FL1001" "E_PARSE_UNEXPECTED_TOKEN" "error"
+      file (get syntax :line) (get syntax :column) (get syntax :message) nil)))
+
+(define fl-native-check-block-types ["FUNC" "INTENT" "PROMPT" "PIPE" "AGENT" "LOAD" "RULE" "MODULE" "TYPECLASS" "INSTANCE" "SERVER" "ROUTE" "MIDDLEWARE" "WEBSOCKET" "ERROR-HANDLER" "PAGE" "COMPONENT" "FORM" "SERVICE" "CONTROLLER" "GUARD" "MODEL" "QUERY" "MIGRATION" "REPOSITORY" "DATABASE" "CACHE" "CACHED" "KAFKA" "PRODUCER" "CONSUMER" "QUEUE" "RABBITMQ" "JWT" "OAUTH" "DOCKERFILE" "DOCKER-COMPOSE" "K8S-DEPLOYMENT" "K8S-SERVICE" "K8S-INGRESS" "AWS" "AWS-S3" "AWS-LAMBDA" "AWS-RDS" "AWS-SQS" "GCP" "GCP-CLOUD-RUN" "GCP-BIGQUERY" "AZURE" "AZURE-FUNCTION" "AZURE-COSMOS" "API"])
+
+;; Token grammar preflight keeps the permissive legacy parser from turning
+;; malformed expressions into accepted source. Frames are linked, so nesting
+;; does not copy the complete pending stack for each token.
+(define fl-native-check-closes {"LParen" "RParen" "HashParen" "RParen"
+                               "LBracket" "RBracket" "LBrace" "RBrace"})
+(define fl-native-check-close-text {"RParen" ")" "RBracket" "]" "RBrace" "}"})
+
+(defn fl-native-check-stack-hint [frame]
+  (loop [current frame reversed nil closings nil]
+    (if (nil? current)
+      (let [lines (loop [node reversed chunks nil]
+                    (if (nil? node) (token-chunks-finish chunks)
+                      (let [entry (get node :value) token (get entry :token)]
+                        (recur (get node :rest)
+                          (token-chunk-add chunks
+                            [(str "  [" (get entry :depth) "] '"
+                                  (get entry :open-text) "' at line "
+                                  (get token :line) ":" (get token :col))])))))]
+        (str "미닫힘 괄호 스택 (깊이: " (get frame :depth) "):\n"
+             (str-join "\n" lines)
+             "\n\n필요한 닫힘 괄호 시퀀스: "
+             (str-join "" (token-chunks-finish closings))
+             "\n\n다음 토큰을 예상: '" (get frame :close-text) "'"))
+      (recur (get current :rest) {:value current :rest reversed}
+             (token-chunk-add closings [(get current :close-text)])))))
+
+(defn fl-native-check-parse-error [message token frame file]
+  (let [code (cond
+               [(or (str-includes message "Expected") (str-includes message "Unexpected"))
+                "E_PARSE_UNEXPECTED_TOKEN"]
+               [(str-includes message "Unterminated") "E_PARSE_UNCLOSED_PAREN"]
+               [true "E_PARSE_SYNTAX_ERROR"])
+        base-hint (if (str-includes message "Expected operator")
+                    "S-expression의 첫 요소는 함수명이어야 합니다: (함수명 인자...)" nil)
+        stack? (and (not (nil? frame))
+                    (or (= (get token :kind) "EOF")
+                        (str-includes message "Expected R")
+                        (str-includes message "Unexpected")))
+        stack-hint (if stack? (fl-native-check-stack-hint frame) nil)
+        hint (if (nil? stack-hint) base-hint
+               (if (nil? base-hint) stack-hint (str base-hint "\n\n" stack-hint)))
+        line (get token :line) column (get token :col)]
+    (fl-native-check-diagnostic "FL1001" code "error" file line column
+      (str "[" code "] [" line ":" column "] " message
+           (if (nil? hint) "" (str "\n  힌트: " hint))) hint)))
+
+(defn fl-native-check-eof [source]
+  (let [lines (str-split source "\n")]
+    {:kind "EOF" :line (length lines) :col (+ 1 (length (last lines)))}))
+
+(defn fl-native-check-frame-for [token following rest]
+  (let [kind (get token :kind) close (get fl-native-check-closes kind)]
+    {:token token :rest rest :close close
+     :open-text (if (= kind "HashParen") "(" (get token :value))
+     :close-text (get fl-native-check-close-text close)
+     :depth (+ 1 (or (get rest :depth) 0))
+     :phase (cond
+              [(= kind "LParen") "operator"]
+              [(= kind "LBrace") "map-key"]
+              [(and (= kind "LBracket") (= (get following :kind) "Symbol")
+                    (includes-item fl-native-check-block-types (get following :value))) "block-type"]
+              [true "values"])}))
+
+(defn fl-native-check-value-frame [frame]
+  (cond
+    [(= (get frame :phase) "map-value") (assoc frame :phase "map-key")]
+    [(= (get frame :phase) "operator") (assoc frame :phase "values")]
+    [(= (get frame :phase) "block-values") (assoc frame :has-values true)]
+    [true frame]))
+
+(defn fl-native-check-shape-error [tokens source file]
+  (let [eof (fl-native-check-eof source) size (length tokens)]
+    (loop [i 0 frame nil]
+      (let [token (if (>= i size) eof (get tokens i))
+            kind (get token :kind) phase (get frame :phase)
+            close? (includes-item ["RParen" "RBracket" "RBrace"] kind)
+            open? (not (nil? (get fl-native-check-closes kind)))
+            deref? (and (= kind "Unknown") (= (get token :value) "@"))]
+        (cond
+          [(>= i size)
+           (if (nil? frame) nil
+             (fl-native-check-parse-error
+               (cond
+                 [(= phase "map-key") "Map key must be :keyword or \"string\""]
+                 [(= phase "block-field") "Expected keyword field (starting with :), got EOF"]
+                 [true "Unexpected token: EOF"]) eof frame file))]
+          [(and (= phase "operator")
+                (not (or (includes-item ["Symbol" "Variable" "LParen"] kind) deref?)))
+           (fl-native-check-parse-error
+             (str "Expected operator (symbol or keyword) in S-expression, got " kind)
+             token frame file)]
+          [(and (= phase "operator") (includes-item ["Symbol" "Variable"] kind))
+           (recur (+ i 1) (assoc frame :phase "values"))]
+          [(= phase "map-key")
+           (cond
+             [(= kind "RBrace") (recur (+ i 1) (get frame :rest))]
+             [(not (includes-item ["Keyword" "String"] kind))
+              (fl-native-check-parse-error "Map key must be :keyword or \"string\"" token frame file)]
+             [(and (= kind "Keyword") (= (get token :value) ""))
+              (fl-native-check-parse-error "Expected key after ':' in map literal"
+                (or (get tokens (+ i 1)) eof) frame file)]
+             [true (recur (+ i 1) (assoc frame :phase "map-value"))])]
+          [(and (= phase "map-value") close?)
+           (fl-native-check-parse-error (str "Unexpected token: " kind) token frame file)]
+          [(= phase "block-type")
+           (recur (+ i 1) (assoc frame :phase "block-name" :block-type (get token :value)))]
+          [(= phase "block-name")
+           (cond
+             [(and (= (get frame :block-type) "FUNC") (= kind "Keyword"))
+              (recur i (assoc frame :phase "block-field"))]
+             [(not (= kind "Symbol"))
+              (fl-native-check-parse-error (str "Expected block name (symbol), got " kind) token frame file)]
+             [true (recur (+ i 1) (assoc frame :phase "block-field"))])]
+          [(and (includes-item ["block-field" "block-values"] phase) (= kind "Keyword"))
+           (if (and (= phase "block-values") (not (get frame :has-values)))
+             (fl-native-check-parse-error
+               (str "Expected at least one value for keyword " (get frame :field))
+               (get frame :field-token) frame file)
+             (recur (+ i 1) (assoc frame :phase "block-values" :field (get token :value)
+                                  :field-token token :has-values false)))]
+          [(and (= phase "block-field") (not (= kind "RBracket")))
+           (fl-native-check-parse-error
+             (str "Expected keyword field (starting with :), got " kind) token frame file)]
+          [(and (= phase "block-values") (= kind "RBracket") (not (get frame :has-values)))
+           (fl-native-check-parse-error
+             (str "Expected at least one value for keyword " (get frame :field))
+             (get frame :field-token) frame file)]
+          [(and (nil? frame) (not (or (includes-item ["LParen" "LBracket" "HashParen"] kind) deref?)))
+           (fl-native-check-parse-error
+             (str "Expected block or S-expression, got " kind) token nil file)]
+          [close?
+           (if (= kind (get frame :close))
+             (recur (+ i 1) (get frame :rest))
+             (fl-native-check-parse-error (str "Unexpected token: " kind) token frame file))]
+          [open?
+           (recur (+ i 1)
+             (fl-native-check-frame-for token (get tokens (+ i 1))
+                                       (fl-native-check-value-frame frame)))]
+          [true
+           (recur (+ i (if deref? 2 1)) (fl-native-check-value-frame frame))])))))
+
+
+(defn fl-native-check-source [source file]
+  ;; Preflight is necessary because the legacy parser accepts missing closes.
+  ;; Keep parser/renderer differences explicit until the reference corpus
+  ;; and complete structural validation are integrated.
+  (let [syntax (fl-native-syntax-guard source)
+        tokens (lex source)
+        lexical (fl-native-check-token-error tokens file)
+        diagnostic (if (not (nil? lexical)) lexical
+                     (if (= (get syntax :code) "SYNTAX_STRING")
+                       (fl-native-check-guard-error syntax file)
+                       (fl-native-check-shape-error tokens source file)))]
+    (if (not (nil? diagnostic))
+      {:payload (fl-native-check-error-result diagnostic) :syntax-ok false}
+      (fl-native-check-ast-result (parse tokens) file))))
