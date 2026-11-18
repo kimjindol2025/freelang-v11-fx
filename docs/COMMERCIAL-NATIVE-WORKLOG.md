@@ -479,3 +479,29 @@ FreeLang modules. A fresh Native generation from those final bytes matched
 the recorded Stage 4 C exactly, exit 0 (38.75 s, 1,515,944 KiB). Its full
 source manifest was unchanged and its trace contained zero Node executions.
 Receipt: native-check-final-source.i3wziqo8.
+
+## Native AST and island boundary checkpoint
+
+The new --parse-json interchange, separate island-h/island-mount browser
+boundary and fresh bootstrap are documented in NATIVE-AST-INTERCHANGE.md.
+Stage 2 = 3 = 4 exact C SHA-256 is
+23ce0a1c2c08b0fb2283c2204ae727a4a61e0c4af190d741401da02534bf4466;
+compiler ELF SHA-256 is
+352cac840529249a5fd22e2c127e20467250f5cc55d80bedcdcf71c9189ec0f7.
+Generation took 38.43 / 37.76 s with 1,527,452 / 1,528,424 KiB peak RSS.
+The older fixed seed first rejected the new JSON alias at Stage 1; using the
+existing supported spelling fixed the build without changing the seed.
+
+Fresh AST coverage passed 18/18, including eight real island files after
+five malformed required-attribute entries in two frontend files were fixed.
+Bodies and load targets were not executed/read. Existing browser generation
+passed 7/7, reproducibility 7/7 and compiler rejections 10/10.
+Fresh core passed frontend 71/71, CLI 22/22, FX 11/11, checker 32/32 plus
+defaults and DB cases 7/13/36/40; Native execution traces contain no Node.
+
+Browser execution is NOT_RUN: Browser/Playwright were unavailable, Chrome
+bridge connection failed and a capped private Chrome startup exited 133.
+No memory limit was changed. The frontend's initial Native generation
+inventory is 2/8, with six explicit missing-feature failures. This is not a
+completed frontend migration, a passing physical UI or DB commercial approval.
+The full DB gate remains NOT_RERUN and checkpoint fault recovery remains HOLD.

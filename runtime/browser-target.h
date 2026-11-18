@@ -76,7 +76,8 @@ static const char *bj_builtin(const char*op){
   "browser-attribute","jcore-dom-attribute","browser-set-attribute!","jcore-dom-set-attribute",
   "browser-set-hidden!","jcore-dom-hidden","browser-focus!","jcore-dom-focus",
   "browser-after!","jcore-after","browser-cancel!","jcore-cancel",
-  "browser-http!","jcore-http","browser-json-parse","jcore-json-parse",NULL};
+  "browser-http!","jcore-http","browser-json-parse","jcore-json-parse",
+  "island-h","jcore-island-h","island-mount","jcore-island-mount",NULL};
  for(unsigned i=0;pairs[i];i+=2)if(!strcmp(op,pairs[i]))return pairs[i+1];return NULL;
 }
 static void bj_core_ref(BJ*b,const char*name){
@@ -164,7 +165,7 @@ static int bj_host(BJ*b,const char*op,FLValue args){
  }
  if(!strcmp(op,"j-host-abort-new")){if(n)bj_fail(b,"host abort constructor arity");bj_out(b,"new AbortController()");return 1;}
  const char *call=NULL;unsigned arity=0;
- const char *calls[]={"j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1",NULL};
+ const char *calls[]={"j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1","j-host-dom-text","document.createTextNode","1","j-host-console-error","console.error","1",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}
  if(call){if(n!=arity)bj_fail(b,"host call arity");bj_out(b,call);bj_out(b,"(");bj_args(b,args,0);bj_out(b,")");return 1;}
  const char *method=NULL;unsigned argc=0;

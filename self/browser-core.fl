@@ -409,3 +409,109 @@
                   failed)
                 (catch error (failed error)))))) 0))
         token))))
+
+;; Island DOM boundary. The existing restricted browser-* APIs retain their
+;; contracts; the frontend's h form has a separate, explicit HTML surface.
+(define jcore-island-tags
+  {"aside" true "header" true "footer" true "main" true "nav" true "form" true
+   "h1" true "h4" true "h5" true "h6" true "style" true "small" true "b" true "i" true
+   "table" true "thead" true "tbody" true "tfoot" true "tr" true "td" true "th" true
+   "select" true "option" true "fieldset" true "legend" true "details" true "summary" true})
+(define jcore-island-attributes
+  {"for" true "name" true "value" true "placeholder" true "autocomplete" true "inputmode" true
+   "loading" true "maxlength" true "minlength" true "min" true "max" true "step" true
+   "pattern" true "required" true "disabled" true "readonly" true "multiple" true "selected" true
+   "checked" true "style" true "target" true "rel" true "download" true "method" true
+   "action" true "rows" true "cols" true "colspan" true "rowspan" true "scope" true})
+
+(defn jcore-island-attribute? [name]
+  (if (j-host-not (j-host-eq (j-host-type name) "string")) false
+    (if (j-host-or (j-host-own? jcore-attributes name) (j-host-own? jcore-island-attributes name)) true
+      (if (j-host-and
+            (j-host-or (j-host-eq (j-host-substring name 0 5) "data-")
+                       (j-host-eq (j-host-substring name 0 5) "aria-"))
+            (j-host-lt 5 (j-host-len name)))
+        (loop [index 5]
+          (if (j-host-lt index (j-host-len name))
+            (let [char (j-host-at name index)]
+              (if (j-host-or
+                    (j-host-or (j-host-and (j-host-gte char "a") (j-host-gte "z" char))
+                               (j-host-and (j-host-gte char "0") (j-host-gte "9" char)))
+                    (j-host-eq char "-"))
+                (recur (j-host-add index 1)) false)) true)) false))))
+
+(defn jcore-island-append [parent child]
+  (if (j-host-nullish? child) nil
+    (if (j-host-array? child)
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len child))
+          (do (jcore-island-append parent (j-host-at child index))
+              (recur (j-host-add index 1))) nil))
+      (if (j-host-element? child) (do (j-host-dom-append! parent child) nil)
+        (let [text (jcore-string child)]
+          (if (j-host-eq text "") nil
+            (do (j-host-dom-append! parent (j-host-dom-text text)) nil)))))))
+
+(defn jcore-island-h [args]
+  (let [tag (j-host-at args 0) attributes (j-host-at args 1) children (j-host-at args 2)]
+    (if (j-host-not
+          (j-host-and (j-host-eq (j-host-len args) 3)
+            (j-host-and (j-host-eq (j-host-type tag) "string")
+              (j-host-and (j-host-or (j-host-own? jcore-tags tag) (j-host-own? jcore-island-tags tag))
+                (j-host-and
+                  (j-host-or (j-host-nullish? attributes)
+                    (j-host-and (j-host-eq (j-host-type attributes) "object") (j-host-plain? attributes)))
+                  (j-host-array? children))))))
+      (throw "island-h: allowed tag, attribute map and child array required") nil)
+    (let [element (j-host-dom-create tag)
+          names (if (j-host-nullish? attributes) [] (j-host-keys attributes))]
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len names))
+          (let [original (j-host-at names index) key (jcore-key original)
+                value (j-host-at attributes original)]
+            (do
+              (if (j-host-eq key "checked")
+                (if (j-host-and value (j-host-not (j-host-eq value "")))
+                  (j-host-set! element "checked" true) nil)
+                (if (j-host-eq (j-host-substring key 0 3) "on-")
+                  (jcore-on [element (j-host-substring key 3 (j-host-len key)) value])
+                  (if (jcore-island-attribute? key)
+                    (if (j-host-or (j-host-nullish? value) (j-host-eq value "")) nil
+                      (j-host-dom-set-attribute! element key
+                        (jcore-dom-url element key (jcore-string value))))
+                    (throw "island-h: attribute rejected"))))
+              (recur (j-host-add index 1)))) nil))
+      (jcore-island-append element children)
+      element)))
+
+(defn jcore-island-update [root render state]
+  (if (j-host-at state 0) (do (j-host-set! state 1 true) nil)
+    (do
+      (j-host-set! state 0 true)
+      (try
+        (loop []
+          (j-host-set! state 1 false)
+          (let [result (render (j-host-at state 2))]
+            (j-host-dom-clear! root)
+            (jcore-island-append root result)
+            (if (j-host-at state 1) (recur) nil)))
+        (catch error
+          (let [message (if (j-host-and (j-host-not (j-host-nullish? error))
+                           (j-host-eq (j-host-type (j-host-at error "message")) "string"))
+                          (j-host-at error "message") (j-host-string error))]
+            (j-host-console-error (j-host-add "[Island Error] " message))
+            (j-host-dom-set-text! root (j-host-add "[Island Error] " message))
+            (j-host-dom-set-attribute! root "data-island-error" "true")))
+        (finally (j-host-set! state 0 false))))))
+
+(defn jcore-island-mount [args]
+  (let [id (j-host-at args 0) render (j-host-at args 1)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-len args) 2)
+          (j-host-and (j-host-eq (j-host-type id) "string")
+                      (j-host-eq (j-host-type render) "function"))))
+      (throw "island-mount: id and render function required") nil)
+    (let [root (j-host-dom-by-id id)]
+      (if (j-host-nullish? root) nil
+        (let [state [false false nil]
+              update (fn [] (jcore-island-update root render state))]
+          (do (j-host-set! state 2 update) (update) update))))))

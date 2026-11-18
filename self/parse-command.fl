@@ -1,0 +1,25 @@
+;; Parsed source interchange for Native frontend tools. No loads or execution.
+;; Raw node fields are versioned by freelang.ast.v1, not the old debug printer.
+(defn fl-native-parse-json-source [source file]
+  (let [syntax (fl-native-syntax-guard source)
+        tokens (lex source)
+        lexical (fl-native-check-token-error tokens file)
+        diagnostic (if (not (nil? lexical)) lexical
+                     (if (= (get syntax :code) "SYNTAX_STRING")
+                       (fl-native-check-guard-error syntax file)
+                       (fl-native-check-shape-error tokens source file)))]
+    (if (not (nil? diagnostic))
+      (fl-native-check-error-result diagnostic)
+      {:schema "freelang.ast.v1" :status "ok" :file file :nodes (parse tokens)})))
+
+(defn fl-native-parse-json-command [args]
+  (if (not (= (length args) 1))
+    (do (fl_stderr_write "Usage: --parse-json <file>\n") (process-exit 2))
+    (let [input (get args 0)
+          file (fl-native-check-absolute-path input)
+          read (fl_file_read_result file)
+          payload (if (get read :ok)
+                    (fl-native-parse-json-source (get read :data) file)
+                    (fl-native-check-error-result (fl-native-check-read-error read file input)))]
+      (println (json-stringify payload))
+      (if (= (get payload :status) "ok") nil (process-exit 1)))))

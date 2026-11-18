@@ -3076,6 +3076,8 @@
         [(= (get $rest 0) "--browser-js") (browser-emit $rest)]
         [(= (get $rest 0) "--check")
          (fl-native-check-command (slice $rest 1 (length $rest)))]
+        [(= (get $rest 0) "--parse-json")
+         (fl-native-parse-json-command (slice $rest 1 (length $rest)))]
         [true (cgc-run-positional $rest)]))))
 
 (load "syntax-guard.fl")
@@ -3083,5 +3085,6 @@
 (load "check-types.fl")
 (load "check-source.fl")
 (load "check-command.fl")
+(load "parse-command.fl")
 
 (cgc-run (cli-args))
