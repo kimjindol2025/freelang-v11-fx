@@ -106,7 +106,17 @@ FLValue fl_v11_http(FLValue name,FLValue argv){
   FLValue query=vh_get(a,"query");if(n<2)return query;FLValue value=fl_map_get(query,b);return value.tag==FL_VECTOR?fl_vec_get(value,fl_int(0)):value;
  }
  if(!strcmp(op,"server-json")){
-  int code=vh_number(a,0);int is_status=(a.tag==FL_INT||a.tag==FL_FLOAT)&&code>=100&&code<600;return vh_json_response(is_status?code:200,is_status?b:a);
+  /* Preserve the existing status-first form; also honor body/status callers. */
+  int code=vh_number(a,0);
+  int is_status=(a.tag==FL_INT||a.tag==FL_FLOAT)&&code>=100&&code<600;
+  if(is_status)return vh_json_response(code,b);
+  if(n<2)return vh_json_response(200,a);
+  if(b.tag!=FL_INT&&b.tag!=FL_FLOAT)
+   return vh_error("server_json: status must be an integer from 100 to 599");
+  double status=b.tag==FL_INT?(double)b.i:b.f;
+  if(!isfinite(status)||floor(status)!=status||status<100||status>599)
+   return vh_error("server_json: status must be an integer from 100 to 599");
+  return vh_json_response((int)status,a);
  }
  if(!strcmp(op,"server-html"))return vh_response(n>1&&(b.tag==FL_INT||b.tag==FL_FLOAT)?vh_number(b,0):200,"text/html; charset=utf-8",a);
  if(!strcmp(op,"server-text"))return vh_response(200,"text/plain",a);

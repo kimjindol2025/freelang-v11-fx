@@ -624,3 +624,33 @@ FX 11/11, checker 32/32 plus defaults, primitive contracts and DB95
 Existing tests, runners, expected values, timeouts, JS and seed are unchanged.
 Full DB95 and checkpoint recovery remain unfinished. Commercial readiness
 HOLD; deployment NO. Host paths/owners: <가림>.
+
+## Native JSON response status checkpoint
+
+The real application's unapproved terminal request produced the right denial
+body with the wrong wire status, HTTP 200. server_json now honors the current
+body/status convention while retaining existing status-first calls and their
+precedence. Explicit payload-first status values outside the supported
+integer range throw rather than silently yield a success response.
+
+Receipt native-json-status.swfvh1d9 passes 25 rows: 15 constructors,
+7 invalid statuses, real HTTP 400/201 and owned-server cleanup. The private
+baseline reproduced the old wrong status. An initial probe misread a raw
+structured body; its harness correction is recorded without changing the
+expected values or any repository test. The expanded V8 application probe
+confirmed the denial's HTTP 400, then exposed a separate frontend redaction
+call-site argument-order defect. Its failure is retained.
+
+Fresh bootstrap native-json-fixedpoint.q68kbcsj has Stage 2 = 3 = 4 C SHA
+c1f48e888960f21679278d4e90ce0d2e05d3e51bbfecefafcd212819905458fa.
+ELF SHA is c8c6a0e691ddec4c4a9e0626d2b7c17d0d7f0450c40fb1847f4c1b13ff854f67.
+Generation 38.88 / 36.88 s; peak RSS 1,526,500 / 1,528,988 KiB. The 2 GiB
+cap and seed are unchanged. Seed SHA is
+0101cb63a86f20b93451f70b88a0b577f9548ded0a8b328ebdeedb7e8e4fd767.
+Fresh core native-json-core.wcpd3881 passes frontend 71/71, CLI 22/22,
+FX 11/11, checker 32/32 plus defaults and original DB95 7/13/36/40.
+Source manifests match and collected Native exec traces contain no Node.
+See NATIVE-JSON-STATUS.md for the current contract and failure provenance.
+Protected tests, runners, timeouts, expected values, JS and seed were not
+changed. DB95 full validation/recovery remains unfinished; commercial HOLD,
+deployment NO. Host paths/owners: <가림>.
