@@ -673,7 +673,7 @@
 (define jcore-html-forbidden {"SCRIPT" true "STYLE" true "IFRAME" true "OBJECT" true "EMBED" true
   "LINK" true "META" true "BASE" true "FRAME" true "FRAMESET" true "APPLET" true "TEMPLATE" true})
 (define jcore-html-style-properties {"width" true "max-width" true "height" true "margin-left" true "margin-right" true
-  "display" true "grid-template-columns" true "gap" true "outline" true "text-align" true "color" true
+  "display" true "grid-template-columns" true "gap" true "row-gap" true "column-gap" true "outline" true "text-align" true "color" true
   "font-size" true "font-weight" true "font-style" true "text-decoration" true "white-space" true
   "object-fit" true "vertical-align" true})
 (defn jcore-html-style-safe? [node]
