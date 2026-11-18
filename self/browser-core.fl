@@ -4,9 +4,15 @@
 (define jcore-listeners (j-host-weak-map-new))
 (define jcore-timers (j-host-weak-map-new))
 (define jcore-requests (j-host-weak-map-new))
+(define jcore-uploads (j-host-weak-map-new))
+(define jcore-opaques (j-host-weak-new))
+(define jcore-parsed-nodes (j-host-weak-map-new))
+(define jcore-parsed-tokens (j-host-weak-map-new))
+(define jcore-rich-ranges (j-host-weak-map-new))
 
 (defn jcore-task? [value]
-  (j-host-or (j-host-weak-has jcore-timers value) (j-host-weak-has jcore-requests value)))
+  (or (j-host-weak-has jcore-timers value) (j-host-weak-has jcore-requests value)
+      (j-host-weak-has jcore-uploads value)))
 
 (defn jcore-arg [args index] (j-host-at args index))
 (defn jcore-atom? [value] (j-host-weak-has jcore-atoms value))
@@ -66,7 +72,8 @@
   (if (j-host-eq left right) true
     (if (j-host-or (j-host-nullish? left) (j-host-nullish? right)) false
       (if (j-host-not (j-host-eq (j-host-type left) (j-host-type right))) false
-        (if (j-host-or (j-host-or (jcore-atom? left) (jcore-atom? right))
+        (if (j-host-or (or (jcore-atom? left) (jcore-atom? right)
+                          (j-host-weak-has jcore-opaques left) (j-host-weak-has jcore-opaques right))
                       (j-host-or
                         (j-host-or (j-host-weak-has jcore-listeners left) (j-host-weak-has jcore-listeners right))
                         (j-host-or (jcore-task? left) (jcore-task? right)))) false
@@ -238,9 +245,15 @@
           (if (j-host-at state 0) false
             (let [controller (j-host-at state 4)]
               (do (jcore-http-release state) (j-host-abort controller) true))))
-        (throw "browser-cancel!: one task handle required")))))
+        (if (j-host-weak-has jcore-uploads token)
+          (let [state (j-host-weak-get jcore-uploads token)]
+            (if (j-host-at state 0) false
+              (let [xhr (j-host-at state 3)]
+                (do (jcore-upload-release state) (j-host-abort xhr) true))))
+          (throw "browser-cancel!: one task handle required"))))))
 
 (defn jcore-event-name? [name]
+  (or (j-host-own? {"submit" true "drop" true "mousedown" true "mouseup" true} name)
   (j-host-or (j-host-eq name "input")
     (j-host-or (j-host-eq name "change")
       (j-host-or (j-host-eq name "click")
@@ -249,7 +262,7 @@
             (j-host-or (j-host-eq name "compositionstart")
               (j-host-or (j-host-eq name "compositionend")
                 (j-host-or (j-host-eq name "paste")
-                  (j-host-or (j-host-eq name "focus") (j-host-eq name "blur")))))))))))
+                  (j-host-or (j-host-eq name "focus") (j-host-eq name "blur"))))))))))))
 (defn jcore-on [args]
   (let [element (j-host-at args 0) name (j-host-at args 1) callback (j-host-at args 2)]
     (if (j-host-and (j-host-eq (j-host-len args) 3)
@@ -269,26 +282,30 @@
       (throw "browser-off!: one listener token required"))))
 (defn jcore-event [args]
   (let [event (j-host-at args 0)]
-    (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-event? event)) event
+    (if (and (j-host-eq (j-host-len args) 1)
+             (try (do (j-host-event-type event) true) (catch error false))) event
       (throw "browser event: one Event required"))))
 (defn jcore-event-target [args]
   (let [target (j-host-at (jcore-event args) "target")]
     (if (j-host-element? target) target nil)))
 (defn jcore-event-key [args]
   (let [event (jcore-event args)]
-    (if (j-host-keyboard? event) (j-host-at event "key") nil)))
+    (try (j-host-keyboard-key event) (catch error nil))))
 (defn jcore-prevent-default [args]
   (do (j-host-prevent-default! (jcore-event args)) nil))
 
 (define jcore-tags {"div" true "section" true "article" true "p" true "span" true
   "strong" true "em" true "u" true "s" true "blockquote" true "pre" true "code" true
   "h2" true "h3" true "ul" true "ol" true "li" true "hr" true "br" true "a" true
-  "img" true "figure" true "figcaption" true "label" true "button" true "input" true "textarea" true})
+  "img" true "figure" true "figcaption" true "label" true "button" true "input" true "textarea" true
+  "select" true "option" true "progress" true})
 (define jcore-attributes {"id" true "class" true "title" true "alt" true "width" true
   "height" true "role" true "aria-label" true "aria-expanded" true "tabindex" true
-  "contenteditable" true "type" true "accept" true "data-block-id" true "href" true "src" true})
+  "contenteditable" true "type" true "accept" true "data-block-id" true "href" true "src" true
+  "name" true "value" true "checked" true "disabled" true "open" true "srcset" true "sizes" true "max" true})
 (defn jcore-attribute-name? [name]
-  (j-host-and (j-host-eq (j-host-type name) "string") (j-host-own? jcore-attributes name)))
+  (and (j-host-eq (j-host-type name) "string")
+       (or (j-host-own? jcore-attributes name) (jcore-data-attribute? name))))
 (defn jcore-element-args? [args count]
   (if (j-host-eq (j-host-len args) count)
     (loop [index 0]
@@ -320,19 +337,22 @@
   (if (jcore-element-args? args 1) (j-host-array-from (j-host-at (j-host-at args 0) "children"))
     (throw "browser-children: one element required")))
 (defn jcore-dom-attribute [args]
-  (let [element (j-host-at args 0) name (j-host-at args 1)]
+  (let [element (jcore-inspect-node (j-host-at args 0)) name (j-host-at args 1)]
     (if (j-host-and (j-host-eq (j-host-len args) 2)
           (j-host-and (j-host-element? element)
             (j-host-or (jcore-attribute-name? name) (j-host-eq name "hidden"))))
       (j-host-dom-attribute element name) (throw "browser-attribute: element and allowed attribute required"))))
 (defn jcore-dom-url [element name value]
+  (if (j-host-eq name "srcset")
+    (if (and (j-host-eq (j-host-at element "tagName") "IMG") (jcore-srcset-safe? value)) value
+      (throw "browser URL: protocol or image origin rejected"))
   (if (j-host-or (j-host-eq name "href") (j-host-eq name "src"))
     (if (j-host-eq (j-host-at element "tagName") (if (j-host-eq name "src") "IMG" "A"))
       (let [url (j-host-url value) protocol (j-host-at url "protocol")]
         (if (j-host-and (j-host-or (j-host-eq protocol "http:") (j-host-eq protocol "https:"))
               (j-host-or (j-host-eq name "href") (j-host-eq (j-host-at url "origin") (j-host-origin))))
           (j-host-at url "href") (throw "browser URL: protocol or image origin rejected")))
-      (throw "browser URL: attribute requires its link or image element")) value))
+      (throw "browser URL: attribute requires its link or image element")) value)))
 (defn jcore-dom-set-attribute [args]
   (let [element (j-host-at args 0) name (j-host-at args 1) value (j-host-at args 2)]
     (if (j-host-and (j-host-eq (j-host-len args) 3)
@@ -520,3 +540,380 @@
                 (j-host-or (j-host-eq start end)
                            (j-host-eq (j-host-at applied "direction") direction))))) nil
         (throw "browser-selection: selection not applied")))))
+
+;; Inert HTML is inspected through unforgeable references, never live elements.
+(defn jcore-inspect-node [value]
+  (if (j-host-weak-has jcore-parsed-nodes value) (j-host-weak-get jcore-parsed-nodes value) value))
+(defn jcore-wrap-node [node]
+  (if (j-host-nullish? node) nil
+    (if (j-host-weak-has jcore-parsed-tokens node) (j-host-weak-get jcore-parsed-tokens node)
+      (let [token []]
+        (do (j-host-weak-add jcore-opaques token)
+            (j-host-weak-set! jcore-parsed-nodes token node)
+            (j-host-weak-set! jcore-parsed-tokens node token) token)))))
+(defn jcore-data-attribute? [name]
+  (and (j-host-eq (j-host-type name) "string")
+    (or (j-host-eq (j-host-substring name 0 5) "data-")
+        (j-host-eq (j-host-substring name 0 5) "aria-"))
+    (j-host-lt 5 (j-host-len name))
+    (loop [index 5]
+      (if (j-host-lt index (j-host-len name))
+        (if (j-host-includes "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-" (j-host-at name index))
+          (recur (j-host-add index 1)) false) true))))
+(defn jcore-query-scope [value]
+  (if (j-host-nullish? value) (j-host-document)
+    (let [node (jcore-inspect-node value)]
+      (if (or (j-host-element? node) (and (j-host-weak-has jcore-parsed-nodes value) (j-host-fragment? node))) node
+        (throw "browser-query: element or inert scope required")))))
+(defn jcore-query-run [args many]
+  (if (j-host-not (and (j-host-eq (j-host-len args) 2) (j-host-eq (j-host-type (j-host-at args 1)) "string")))
+    (throw "browser-query: scope and selector required") nil)
+  (let [value (j-host-at args 0) scope (jcore-query-scope value) selector (j-host-at args 1)
+        parsed (j-host-weak-has jcore-parsed-nodes value)]
+    (try
+      (if many
+        (let [nodes (j-host-array-from (j-host-query-all scope selector)) result []]
+          (loop [index 0]
+            (if (j-host-lt index (j-host-len nodes))
+              (do (j-host-push! result (if parsed (jcore-wrap-node (j-host-at nodes index)) (j-host-at nodes index)))
+                  (recur (j-host-add index 1))) result)))
+        (let [node (j-host-query scope selector)] (if parsed (jcore-wrap-node node) node)))
+      (catch error (throw "browser-query: invalid selector")))))
+(defn jcore-query [args] (jcore-query-run args false))
+(defn jcore-query-all [args] (jcore-query-run args true))
+(defn jcore-node-arg [args]
+  (let [node (jcore-inspect-node (j-host-at args 0))]
+    (if (and (j-host-eq (j-host-len args) 1) (j-host-node? node)) node
+      (throw "browser-node: one node or inert reference required"))))
+(defn jcore-child-nodes [args]
+  (let [value (j-host-at args 0) node (jcore-node-arg args)
+        nodes (j-host-array-from (j-host-at node "childNodes")) result []]
+    (loop [index 0]
+      (if (j-host-lt index (j-host-len nodes))
+        (do (j-host-push! result (if (j-host-weak-has jcore-parsed-nodes value)
+              (jcore-wrap-node (j-host-at nodes index)) (j-host-at nodes index)))
+            (recur (j-host-add index 1))) result))))
+(defn jcore-node-info [args]
+  (let [node (jcore-node-arg args) kind (j-host-at node "nodeType") element (j-host-element? node)]
+    {"kind" (if (j-host-eq kind 3) "text" (if element "element" (if (j-host-eq kind 11) "fragment" "other")))
+     "tag" (if element (j-host-lower (j-host-at node "localName")) nil)
+     "text" (if (j-host-nullish? (j-host-at node "textContent")) "" (j-host-at node "textContent"))
+     "attributes" (if element (j-host-len (j-host-at node "attributes")) 0)}))
+(defn jcore-has-attribute [args]
+  (let [node (jcore-inspect-node (j-host-at args 0)) name (j-host-at args 1)]
+    (if (and (j-host-eq (j-host-len args) 2) (j-host-element? node)
+             (or (jcore-attribute-name? name) (j-host-eq name "hidden")))
+      (j-host-has-attribute node name) (throw "browser-has-attribute?: element and allowed attribute required"))))
+(defn jcore-remove-attribute [args]
+  (let [node (j-host-at args 0) name (j-host-at args 1)]
+    (if (and (j-host-eq (j-host-len args) 2) (j-host-element? node)
+             (or (jcore-attribute-name? name) (j-host-eq name "hidden")))
+      (do (j-host-remove-attribute! node name) nil) (throw "browser-remove-attribute!: element and allowed attribute required"))))
+(define jcore-layout-properties {"width" "width" "maxWidth" "max-width" "height" "height"
+  "marginLeft" "margin-left" "marginRight" "margin-right" "display" "display"
+  "gridTemplateColumns" "grid-template-columns" "gap" "gap" "outline" "outline"})
+(defn jcore-set-style [args]
+  (let [node (j-host-at args 0) property (j-host-at args 1) value (j-host-at args 2)]
+    (if (and (j-host-eq (j-host-len args) 3) (j-host-element? node)
+             (j-host-eq (j-host-type property) "string") (j-host-own? jcore-layout-properties property)
+             (j-host-eq (j-host-type value) "string")
+             (or (j-host-eq value "") (j-host-css-supports (j-host-at jcore-layout-properties property) value)))
+      (do (j-host-set! (j-host-at node "style") property value) nil)
+      (throw "browser-set-style!: layout property and valid value required"))))
+(defn jcore-set-disabled [args]
+  (let [node (j-host-at args 0) value (j-host-at args 1)]
+    (if (and (j-host-eq (j-host-len args) 2) (j-host-element? node)
+             (j-host-own? {"BUTTON" true "INPUT" true "TEXTAREA" true "SELECT" true "OPTION" true} (j-host-at node "tagName"))
+             (j-host-eq (j-host-type value) "boolean"))
+      (do (j-host-set! node "disabled" value) nil) (throw "browser-set-disabled!: control and boolean required"))))
+(defn jcore-checked [args]
+  (let [node (j-host-at args 0)]
+    (if (and (j-host-eq (j-host-len args) 1) (j-host-element? node) (j-host-eq (j-host-at node "tagName") "INPUT")
+             (or (j-host-eq (j-host-at node "type") "checkbox") (j-host-eq (j-host-at node "type") "radio")))
+      (j-host-eq (j-host-at node "checked") true) (throw "browser-checked?: checkbox or radio required"))))
+(defn jcore-match-run [args closest]
+  (let [node (jcore-inspect-node (j-host-at args 0)) selector (j-host-at args 1)]
+    (if (j-host-not (and (j-host-eq (j-host-len args) 2) (j-host-element? node) (j-host-eq (j-host-type selector) "string")))
+      (throw "browser-match: element and selector required") nil)
+    (try
+      (if closest
+        (let [found (j-host-closest node selector)]
+          (if (j-host-weak-has jcore-parsed-nodes (j-host-at args 0)) (jcore-wrap-node found) found))
+        (j-host-matches node selector))
+      (catch error (throw "browser-match: invalid selector")))))
+(defn jcore-matches [args] (jcore-match-run args false))
+(defn jcore-closest [args] (jcore-match-run args true))
+(defn jcore-contains [args]
+  (let [parent (jcore-inspect-node (j-host-at args 0)) child (jcore-inspect-node (j-host-at args 1))]
+    (if (and (j-host-eq (j-host-len args) 2) (j-host-node? parent) (j-host-node? child))
+      (j-host-dom-contains parent child) (throw "browser-contains?: two nodes required"))))
+(defn jcore-outer-html [args]
+  (let [node (jcore-node-arg args)]
+    (if (j-host-element? node) (j-host-at node "outerHTML") (throw "browser-outer-html: element required"))))
+(defn jcore-html-fragment [text]
+  (let [template (j-host-dom-create "template")]
+    (do (j-host-set! template "innerHTML" text) (j-host-at template "content"))))
+(defn jcore-parse-html [args]
+  (if (and (j-host-eq (j-host-len args) 1) (j-host-eq (j-host-type (j-host-at args 0)) "string"))
+    (jcore-wrap-node (jcore-html-fragment (j-host-at args 0))) (throw "browser-parse-html: one string required")))
+(defn jcore-http-url? [value own]
+  (try
+    (let [url (j-host-url value) protocol (j-host-at url "protocol")]
+      (and (or (j-host-eq protocol "http:") (j-host-eq protocol "https:"))
+           (or (j-host-not own) (j-host-eq (j-host-at url "origin") (j-host-origin)))))
+    (catch error false)))
+(defn jcore-srcset-safe? [value]
+  (let [candidates (j-host-split value ",")]
+    (loop [index 0]
+      (if (j-host-lt index (j-host-len candidates))
+        (let [part (j-host-trim (j-host-at candidates index))
+              pieces (j-host-split part " ") first (j-host-at pieces 0)]
+          (if (and (j-host-lt 0 (j-host-len first)) (jcore-http-url? first true))
+            (recur (j-host-add index 1)) false)) true))))
+(define jcore-html-forbidden {"SCRIPT" true "STYLE" true "IFRAME" true "OBJECT" true "EMBED" true
+  "LINK" true "META" true "BASE" true "FRAME" true "FRAMESET" true "APPLET" true "TEMPLATE" true})
+(define jcore-html-style-properties {"width" true "max-width" true "height" true "margin-left" true "margin-right" true
+  "display" true "grid-template-columns" true "gap" true "outline" true "text-align" true "color" true
+  "font-size" true "font-weight" true "font-style" true "text-decoration" true "white-space" true
+  "object-fit" true "vertical-align" true})
+(defn jcore-html-style-safe? [node]
+  (let [style (j-host-at node "style")]
+    (loop [index 0]
+      (if (j-host-lt index (j-host-len style))
+        (let [property (j-host-at style index)]
+          (if (and (j-host-own? jcore-html-style-properties property)
+                   (j-host-css-supports property (j-host-style-value style property)))
+            (recur (j-host-add index 1)) false)) true))))
+(defn jcore-html-safe? [node]
+  (let [kind (j-host-at node "nodeType") element (j-host-element? node)]
+    (and
+      (or (j-host-eq kind 3) (j-host-eq kind 8) (j-host-eq kind 11)
+        (and element (j-host-eq (j-host-at node "namespaceURI") "http://www.w3.org/1999/xhtml")
+          (j-host-not (j-host-own? jcore-html-forbidden (j-host-at node "tagName")))
+          (let [attributes (j-host-array-from (j-host-at node "attributes"))]
+            (loop [index 0]
+              (if (j-host-lt index (j-host-len attributes))
+                (let [attribute (j-host-at attributes index) name (j-host-lower (j-host-at attribute "name"))
+                      value (j-host-at attribute "value")]
+                  (if (and (j-host-not (j-host-eq (j-host-substring name 0 2) "on"))
+                           (j-host-not (j-host-eq name "srcdoc"))
+                           (if (j-host-own? {"href" true "src" true "poster" true "action" true "formaction" true "background" true "xlink:href" true} name)
+                             (jcore-http-url? value (j-host-not (j-host-eq name "href")))
+                             (if (j-host-eq name "srcset") (jcore-srcset-safe? value)
+                               (if (j-host-eq name "style") (jcore-html-style-safe? node) true))))
+                    (recur (j-host-add index 1)) false)) true)))))
+      (let [children (j-host-array-from (j-host-at node "childNodes"))]
+        (loop [index 0]
+          (if (j-host-lt index (j-host-len children))
+            (if (jcore-html-safe? (j-host-at children index)) (recur (j-host-add index 1)) false) true))))))
+(defn jcore-replace-html [args]
+  (let [node (j-host-at args 0) text (j-host-at args 1)]
+    (if (j-host-not (and (j-host-eq (j-host-len args) 2) (j-host-element? node)
+                  (j-host-eq (j-host-at node "namespaceURI") "http://www.w3.org/1999/xhtml")
+                  (j-host-not (j-host-own? jcore-html-forbidden (j-host-at node "tagName")))
+                  (j-host-eq (j-host-type text) "string")))
+      (throw "browser-replace-html!: element and string required") nil)
+    (let [fragment (jcore-html-fragment text)]
+      (if (jcore-html-safe? fragment)
+        (do (j-host-dom-clear! node) (j-host-dom-append! node fragment) nil)
+        (throw "browser HTML: executable markup rejected")))))
+
+;; Rich selection retains DOM ranges; plain selection keeps UTF-16 offsets.
+(defn jcore-dispatch-input [args]
+  (if (jcore-element-args? args 1)
+    (do (j-host-dispatch! (j-host-at args 0) (j-host-event-new "input" {"bubbles" true})) nil)
+    (throw "browser-dispatch-input!: one element required")))
+(defn jcore-set-range-text [args]
+  (let [element (jcore-selection-element args 2 2) value (j-host-at args 1)]
+    (if (j-host-not (and (j-host-input? element) (j-host-eq (j-host-type value) "string")))
+      (throw "browser-set-range-text!: selectable input and string required") nil)
+    (jcore-selection-input-check element)
+    (j-host-replace-text! element value (j-host-at element "selectionStart") (j-host-at element "selectionEnd") "end") nil))
+(defn jcore-selection-save [args]
+  (let [root (jcore-selection-element args 1 1) selection (j-host-selection)]
+    (if (and (j-host-not (j-host-nullish? selection)) (j-host-lt 0 (j-host-at selection "rangeCount"))
+             (j-host-dom-contains root (j-host-at selection "anchorNode"))
+             (j-host-dom-contains root (j-host-at selection "focusNode")))
+      (let [range (j-host-range-clone (j-host-selection-range selection 0)) token []]
+        (j-host-weak-add jcore-opaques token)
+        (j-host-weak-set! jcore-rich-ranges token [root range (j-host-at range "startContainer") (j-host-at range "endContainer")]) token) nil)))
+(defn jcore-selection-apply [range]
+  (let [selection (j-host-selection)]
+    (if (j-host-nullish? selection) (throw "browser-selection: selection unavailable")
+      (do (j-host-selection-clear! selection) (j-host-selection-add! selection range) nil))))
+(defn jcore-selection-restore [args]
+  (let [root (jcore-selection-element args 2 2) token (j-host-at args 1)]
+    (if (and (j-host-not (j-host-nullish? token))
+             (or (j-host-not (j-host-weak-has jcore-rich-ranges token))
+                 (j-host-not (j-host-eq root (j-host-at (j-host-weak-get jcore-rich-ranges token) 0)))))
+      (throw "browser-selection: range token belongs to another root") nil)
+    (j-host-dom-focus! root)
+    (let [record (if (j-host-nullish? token) nil (j-host-weak-get jcore-rich-ranges token))
+          saved (if (j-host-nullish? record) nil (j-host-at record 1))
+          retained (and (j-host-not (j-host-nullish? saved))
+                        (j-host-dom-contains root (j-host-at record 2))
+                        (j-host-dom-contains root (j-host-at record 3))
+                        (j-host-dom-contains root (j-host-at saved "startContainer"))
+                        (j-host-dom-contains root (j-host-at saved "endContainer")))
+          range (if retained saved (j-host-range))]
+      (if retained nil (do (j-host-range-select! range root) (j-host-range-collapse! range false)))
+      (jcore-selection-apply range))))
+(defn jcore-selection-node [args]
+  (let [root (jcore-selection-element args 2 2) node (j-host-at args 1)]
+    (if (j-host-not (and (j-host-node? node) (j-host-not (j-host-eq root node)) (j-host-dom-contains root node)))
+      (throw "browser-selection-node!: child of connected root required") nil)
+    (let [range (j-host-range)]
+      (j-host-dom-focus! root) (j-host-range-node! range node) (jcore-selection-apply range))))
+(define jcore-commands {"bold" true "italic" true "undo" true "redo" true
+  "insertUnorderedList" true "insertOrderedList" true "insertText" true "insertHTML" true "createLink" true "formatBlock" true})
+(defn jcore-exec [args]
+  (let [root (jcore-selection-element args 3 3) command (j-host-at args 1) value (j-host-at args 2)]
+    (if (j-host-not (and (j-host-eq (j-host-at root "isContentEditable") true)
+             (j-host-eq (j-host-type command) "string") (j-host-own? jcore-commands command)
+             (or (j-host-nullish? value) (j-host-eq (j-host-type value) "string"))))
+      (throw "browser-exec!: editable root, allowed command and string or nil required") nil)
+    (if (j-host-own? {"insertText" true "insertHTML" true "createLink" true "formatBlock" true} command)
+      (if (j-host-not (j-host-eq (j-host-type value) "string")) (throw "browser-exec!: command requires a string") nil) nil)
+    (if (j-host-eq command "insertHTML")
+      (if (jcore-html-safe? (jcore-html-fragment value)) nil (throw "browser HTML: executable markup rejected")) nil)
+    (if (and (j-host-eq command "createLink") (j-host-not (jcore-http-url? value false)))
+      (throw "browser URL: protocol or image origin rejected") nil)
+    (if (and (j-host-eq command "formatBlock")
+             (j-host-not (j-host-own? {"p" true "h2" true "h3" true "blockquote" true "pre" true} value)))
+      (throw "browser-exec!: unsupported block") nil)
+    (let [selection (j-host-selection)]
+      (if (and (j-host-not (j-host-nullish? selection))
+               (j-host-dom-contains root (j-host-at selection "anchorNode"))
+               (j-host-dom-contains root (j-host-at selection "focusNode")))
+        (j-host-command command false value) false))))
+(defn jcore-document-on [args]
+  (let [name (j-host-at args 0) callback (j-host-at args 1)]
+    (if (and (j-host-eq (j-host-len args) 2) (j-host-eq name "selectionchange") (j-host-eq (j-host-type callback) "function"))
+      (let [target (j-host-document) token [] listener (fn [event] (callback event))]
+        (j-host-dom-on! target name listener)
+        (j-host-weak-set! jcore-listeners token [target name listener true]) token)
+      (throw "browser-document-on!: selectionchange and function required"))))
+(defn jcore-event-modifiers [args]
+  (let [event (jcore-event args)]
+    {"ctrl" (j-host-eq (j-host-at event "ctrlKey") true) "meta" (j-host-eq (j-host-at event "metaKey") true)}))
+(defn jcore-event-clipboard-text [args]
+  (if (j-host-not (j-host-eq (j-host-len args) 1)) (throw "browser clipboard: ClipboardEvent required") nil)
+  (try
+    (let [data (j-host-clipboard-data (j-host-at args 0))]
+      (if (j-host-nullish? data) (throw "browser clipboard: ClipboardEvent required") (j-host-clipboard-text data "text/plain")))
+    (catch error (throw "browser clipboard: ClipboardEvent required"))))
+(defn jcore-before-unload [args]
+  (let [callback (j-host-at args 0)]
+    (if (j-host-not (and (j-host-eq (j-host-len args) 1) (j-host-eq (j-host-type callback) "function")))
+      (throw "browser-before-unload!: predicate function required") nil)
+    (let [target (j-host-window) token [] listener (fn [event]
+          (let [dirty (callback)]
+            (if (j-host-not (j-host-eq (j-host-type dirty) "boolean"))
+              (throw "browser-before-unload!: predicate must return boolean") nil)
+            (if dirty (do (j-host-prevent-default! event) (j-host-set! event "returnValue" "")) nil)))]
+      (j-host-dom-on! target "beforeunload" listener)
+      (j-host-weak-set! jcore-listeners token [target "beforeunload" listener true]) token)))
+(defn jcore-prompt [args]
+  (if (and (j-host-eq (j-host-len args) 2) (j-host-eq (j-host-type (j-host-at args 0)) "string")
+           (j-host-eq (j-host-type (j-host-at args 1)) "string"))
+    (j-host-prompt (j-host-at args 0) (j-host-at args 1)) (throw "browser-prompt: message and initial string required")))
+(defn jcore-url-info [args]
+  (let [size (j-host-len args) value (j-host-at args 0) relative (if (j-host-eq size 2) (j-host-at args 1) false)]
+    (if (j-host-not (and (or (j-host-eq size 1) (j-host-eq size 2))
+             (j-host-eq (j-host-type value) "string") (j-host-eq (j-host-type relative) "boolean")))
+      (throw "browser URL: absolute http/https URL required") nil)
+    (try
+      (let [url (if relative (j-host-url value) (j-host-url-absolute value)) protocol (j-host-at url "protocol")]
+        (if (or (j-host-eq protocol "http:") (j-host-eq protocol "https:"))
+          {"href" (j-host-at url "href") "protocol" protocol "pathname" (j-host-at url "pathname") "origin" (j-host-at url "origin")}
+          (throw "browser URL: absolute http/https URL required")))
+      (catch error (throw "browser URL: absolute http/https URL required")))))
+(defn jcore-uri-run [args link]
+  (if (j-host-not (and (j-host-eq (j-host-len args) 1) (j-host-eq (j-host-type (j-host-at args 0)) "string")))
+    (throw "browser URI: valid string required") nil)
+  (try (if link (j-host-uri-link (j-host-at args 0)) (j-host-uri-component (j-host-at args 0)))
+    (catch error (throw "browser URI: valid string required"))))
+(defn jcore-uri-encode [args] (jcore-uri-run args false))
+(defn jcore-uri-link-encode [args] (jcore-uri-run args true))
+(defn jcore-real-file? [value]
+  (try (do (j-host-file-name value) true) (catch error false)))
+(defn jcore-file [args]
+  (let [input (j-host-at args 0)]
+    (if (and (j-host-eq (j-host-len args) 1) (j-host-element? input)
+             (j-host-eq (j-host-at input "tagName") "INPUT") (j-host-eq (j-host-at input "type") "file"))
+      (let [file (j-host-at (j-host-at input "files") 0)] (if (j-host-nullish? file) nil file))
+      (throw "browser-file: file input required"))))
+(defn jcore-file-info [args]
+  (let [file (j-host-at args 0)]
+    (if (and (j-host-eq (j-host-len args) 1) (jcore-real-file? file))
+      {"name" (j-host-file-name file) "type" (j-host-at file "type") "size" (j-host-at file "size")}
+      (throw "browser-file-info: File required"))))
+
+;; Upload shares task cancellation, but clears XHR closures before abort/delivery.
+(defn jcore-upload-release [state]
+  (j-host-set! state 0 true)
+  (j-host-timer-clear (j-host-at state 4))
+  (let [xhr (j-host-at state 3)]
+    (if (j-host-nullish? xhr) nil
+      (do (j-host-set! xhr "onload" nil) (j-host-set! xhr "onerror" nil)
+          (j-host-set! xhr "ontimeout" nil) (j-host-set! xhr "onabort" nil)
+          (j-host-set! (j-host-at xhr "upload") "onprogress" nil))))
+  (j-host-set! state 1 nil) (j-host-set! state 2 nil) (j-host-set! state 3 nil) (j-host-set! state 4 nil))
+(defn jcore-upload [args]
+  (let [url (j-host-at args 0) options (j-host-at args 1) fields (j-host-at args 2)
+        file (j-host-at args 3) callback (j-host-at args 4) progress (j-host-at args 5)]
+    (if (j-host-not (and (j-host-eq (j-host-len args) 6) (j-host-eq (j-host-type url) "string")
+             (j-host-not (j-host-nullish? options)) (j-host-plain? options)
+             (j-host-not (j-host-nullish? fields)) (j-host-plain? fields)
+             (jcore-real-file? file) (j-host-eq (j-host-type callback) "function") (j-host-eq (j-host-type progress) "function")))
+      (throw "browser-upload!: invalid arguments") nil)
+    (let [delay (if (j-host-own? options "timeout") (j-host-at options "timeout") 0)
+          file-field (j-host-at options "file-field") keys (j-host-keys fields) option-keys (j-host-keys options)]
+      (if (j-host-not (and (j-host-integer? delay) (j-host-gte delay 0) (j-host-lt delay 2147483648)
+               (j-host-eq (j-host-type file-field) "string") (j-host-lt 0 (j-host-len file-field))
+               (j-host-not (j-host-own? fields file-field))
+               (loop [index 0]
+                 (if (j-host-lt index (j-host-len option-keys))
+                   (if (j-host-own? {"file-field" true "timeout" true} (j-host-at option-keys index)) (recur (j-host-add index 1)) false) true))
+               (loop [index 0]
+                 (if (j-host-lt index (j-host-len keys))
+                   (if (j-host-eq (j-host-type (j-host-at fields (j-host-at keys index))) "string") (recur (j-host-add index 1)) false) true))))
+        (throw "browser-upload!: invalid arguments") nil)
+      (let [parsed (try (j-host-url url) (catch error (throw "browser-upload!: same-origin URL required")))]
+        (if (j-host-not (and (or (j-host-eq (j-host-at parsed "protocol") "http:") (j-host-eq (j-host-at parsed "protocol") "https:"))
+                 (j-host-eq (j-host-at parsed "origin") (j-host-origin))
+                 (j-host-eq (j-host-at parsed "username") "") (j-host-eq (j-host-at parsed "password") "")))
+          (throw "browser-upload!: same-origin URL required") nil)
+        (let [xhr (j-host-xhr-new) token [] state [false callback progress xhr nil]
+              finish (fn [result]
+                (if (j-host-at state 0) nil
+                  (let [deliver (j-host-at state 1)] (jcore-upload-release state) (j-host-call deliver [result]))))]
+          (j-host-weak-set! jcore-uploads token state)
+          (j-host-set! state 4 (j-host-timer-set (fn []
+            (if (j-host-at state 0) nil
+              (do
+                (j-host-set! state 4 nil)
+                (try
+                  (let [data (j-host-form-new)]
+                    (loop [index 0]
+                      (if (j-host-lt index (j-host-len keys))
+                        (let [key (j-host-at keys index)]
+                          (j-host-form-set! data key (j-host-at fields key)) (recur (j-host-add index 1))) nil))
+                    (j-host-form-set! data file-field file)
+                    (j-host-xhr-open! xhr "POST" (j-host-at parsed "href") true)
+                    (j-host-set! xhr "timeout" delay)
+                    (j-host-set! xhr "onload" (fn []
+                      (let [status (j-host-at xhr "status") ok (and (j-host-gte status 200) (j-host-lt status 300))]
+                        (finish {"ok" ok "status" status "body" (j-host-at xhr "responseText") "error" (if ok nil "http")}))))
+                    (j-host-set! xhr "onerror" (fn [] (finish {"ok" false "status" 0 "body" "" "error" "network"})))
+                    (j-host-set! xhr "onabort" (fn [] (finish {"ok" false "status" 0 "body" "" "error" "network"})))
+                    (j-host-set! xhr "ontimeout" (fn [] (finish {"ok" false "status" 0 "body" "" "error" "timeout"})))
+                    (j-host-set! (j-host-at xhr "upload") "onprogress" (fn [event]
+                      (if (j-host-at state 0) nil
+                        (try (j-host-call (j-host-at state 2)
+                          [{"loaded" (j-host-at event "loaded") "total" (j-host-at event "total")
+                            "length-computable" (j-host-eq (j-host-at event "lengthComputable") true)}])
+                          (catch error (do (jcore-upload-release state) (j-host-abort xhr) (throw error)))))))
+                    (j-host-xhr-send! xhr data))
+                  (catch error (finish {"ok" false "status" 0 "body" "" "error" "network"})))))) 0))
+          token)))))

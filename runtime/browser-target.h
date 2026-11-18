@@ -79,7 +79,20 @@ static const char *bj_builtin(const char*op){
   "browser-after!","jcore-after","browser-cancel!","jcore-cancel",
   "browser-http!","jcore-http","browser-json-parse","jcore-json-parse",
   "browser-storage-read","jcore-storage-read","browser-storage-write!","jcore-storage-write",
-  "browser-storage-remove!","jcore-storage-remove",NULL};
+  "browser-storage-remove!","jcore-storage-remove",
+  "browser-query","jcore-query","browser-query-all","jcore-query-all",
+  "browser-child-nodes","jcore-child-nodes","browser-node-info","jcore-node-info",
+  "browser-has-attribute?","jcore-has-attribute","browser-remove-attribute!","jcore-remove-attribute",
+  "browser-set-style!","jcore-set-style","browser-set-disabled!","jcore-set-disabled","browser-checked?","jcore-checked",
+  "browser-matches?","jcore-matches","browser-closest","jcore-closest","browser-contains?","jcore-contains",
+  "browser-outer-html","jcore-outer-html","browser-parse-html","jcore-parse-html","browser-replace-html!","jcore-replace-html",
+  "browser-dispatch-input!","jcore-dispatch-input","browser-set-range-text!","jcore-set-range-text",
+  "browser-selection-save","jcore-selection-save","browser-selection-restore!","jcore-selection-restore","browser-selection-node!","jcore-selection-node",
+  "browser-exec!","jcore-exec","browser-document-on!","jcore-document-on",
+  "browser-event-modifiers","jcore-event-modifiers","browser-event-clipboard-text","jcore-event-clipboard-text",
+  "browser-before-unload!","jcore-before-unload","browser-prompt","jcore-prompt",
+  "browser-url-info","jcore-url-info","browser-uri-encode","jcore-uri-encode","browser-uri-link-encode","jcore-uri-link-encode",
+  "browser-file","jcore-file","browser-file-info","jcore-file-info","browser-upload!","jcore-upload",NULL};
  for(unsigned i=0;pairs[i];i+=2)if(!strcmp(op,pairs[i]))return pairs[i+1];return NULL;
 }
 static void bj_core_ref(BJ*b,const char*name){
@@ -145,7 +158,16 @@ static int bj_host(BJ*b,const char*op,FLValue args){
  if(!strcmp(op,"j-host-input?")){
   if(n!=1)bj_fail(b,"host input arity");
   bj_out(b,"((");bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLInputElement)||(");
-  bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLTextAreaElement))");return 1;
+  bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLTextAreaElement)||(");
+  bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLSelectElement))");return 1;
+ }
+ const char *instance_types[]={"j-host-node?","Node","j-host-fragment?","DocumentFragment",NULL};
+ for(unsigned i=0;instance_types[i];i+=2)if(!strcmp(op,instance_types[i])){
+  if(n!=1)bj_fail(b,"host instance arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b," instanceof ");bj_out(b,instance_types[i+1]);bj_out(b,")");return 1;
+ }
+ const char *brand_getters[]={"j-host-file-name","File","name","j-host-clipboard-data","ClipboardEvent","clipboardData","j-host-event-type","Event","type","j-host-keyboard-key","KeyboardEvent","key",NULL};
+ for(unsigned i=0;brand_getters[i];i+=3)if(!strcmp(op,brand_getters[i])){
+  if(n!=1)bj_fail(b,"host branded getter arity");bj_out(b,"Object.getOwnPropertyDescriptor(");bj_out(b,brand_getters[i+1]);bj_out(b,".prototype,\"");bj_out(b,brand_getters[i+2]);bj_out(b,"\").get.call(");bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;
  }
  if(!strcmp(op,"j-host-event?")||!strcmp(op,"j-host-keyboard?")){
   if(n!=1)bj_fail(b,"host event arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));
@@ -166,14 +188,29 @@ static int bj_host(BJ*b,const char*op,FLValue args){
   bj_out(b,set?"globalThis.setTimeout(":"globalThis.clearTimeout(");bj_args(b,args,0);bj_out(b,")");return 1;
  }
  if(!strcmp(op,"j-host-abort-new")){if(n)bj_fail(b,"host abort constructor arity");bj_out(b,"new AbortController()");return 1;}
+ if(!strcmp(op,"j-host-xhr-new")||!strcmp(op,"j-host-form-new")){
+  if(n)bj_fail(b,"host upload constructor arity");bj_out(b,!strcmp(op,"j-host-xhr-new")?"new XMLHttpRequest()":"new FormData()");return 1;
+ }
+ if(!strcmp(op,"j-host-event-new")){if(n!=2)bj_fail(b,"host event constructor arity");bj_out(b,"new Event(");bj_args(b,args,0);bj_out(b,")");return 1;}
+ if(!strcmp(op,"j-host-url-absolute")){if(n!=1)bj_fail(b,"host absolute URL arity");bj_out(b,"new URL(");bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;}
+ if(!strcmp(op,"j-host-document")||!strcmp(op,"j-host-window")){
+  if(n)bj_fail(b,"host document/window arity");bj_out(b,!strcmp(op,"j-host-document")?"document":"globalThis");return 1;
+ }
  if(!strcmp(op,"j-host-storage")){if(n)bj_fail(b,"host storage accessor arity");bj_out(b,"globalThis.localStorage");return 1;}
  if(!strcmp(op,"j-host-text-walker")){if(n!=1)bj_fail(b,"host text walker arity");bj_out(b,"document.createTreeWalker(");bj_expr(b,bj_at(args,0));bj_out(b,",4)");return 1;}
  const char *call=NULL;unsigned arity=0;
- const char *calls[]={"j-host-selection","globalThis.getSelection","0","j-host-range","document.createRange","0","j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1",NULL};
+ const char *calls[]={"j-host-selection","globalThis.getSelection","0","j-host-range","document.createRange","0","j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1",
+ "j-host-css-supports","CSS.supports","2","j-host-command","document.execCommand","3","j-host-prompt","globalThis.prompt","2","j-host-uri-component","encodeURIComponent","1","j-host-uri-link","encodeURI","1",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}
  if(call){if(n!=arity)bj_fail(b,"host call arity");bj_out(b,call);bj_out(b,"(");bj_args(b,args,0);bj_out(b,")");return 1;}
  const char *method=NULL;unsigned argc=0;
  const char *methods[]={
+  "j-host-query","querySelector","1","j-host-query-all","querySelectorAll","1","j-host-has-attribute","hasAttribute","1","j-host-remove-attribute!","removeAttribute","1",
+  "j-host-matches","matches","1","j-host-closest","closest","1","j-host-lower","toLowerCase","0","j-host-trim","trim","0","j-host-split","split","1","j-host-includes","includes","1",
+  "j-host-style-value","getPropertyValue","1",
+  "j-host-range-clone","cloneRange","0","j-host-range-node!","selectNode","1","j-host-range-collapse!","collapse","1","j-host-selection-clear!","removeAllRanges","0","j-host-selection-add!","addRange","1",
+  "j-host-replace-text!","setRangeText","4","j-host-dispatch!","dispatchEvent","1","j-host-clipboard-text","getData","1",
+  "j-host-xhr-open!","open","3","j-host-xhr-send!","send","1","j-host-form-set!","set","2",
   "j-host-dom-contains","contains","1","j-host-select-range!","setSelectionRange","3","j-host-range-select!","selectNodeContents","1","j-host-range-end!","setEnd","2","j-host-range-text","toString","0","j-host-selection-range","getRangeAt","1","j-host-selection-set!","setBaseAndExtent","4","j-host-walker-next","nextNode","0",
   "j-host-storage-read","getItem","1","j-host-storage-write!","setItem","2","j-host-storage-remove!","removeItem","1",
   "j-host-then","then","2","j-host-response-text","text","0","j-host-abort","abort","0","j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0","j-host-dom-append!","appendChild","1","j-host-dom-before!","insertBefore","2","j-host-dom-remove!","remove","0","j-host-dom-clear!","replaceChildren","0","j-host-dom-attribute","getAttribute","1","j-host-dom-set-attribute!","setAttribute","2","j-host-dom-focus!","focus","0",NULL};
