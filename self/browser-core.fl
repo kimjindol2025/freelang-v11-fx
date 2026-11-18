@@ -764,6 +764,18 @@
       (throw "browser-selection-node!: child of connected root required") nil)
     (let [range (j-host-range)]
       (j-host-dom-focus! root) (j-host-range-node! range node) (jcore-selection-apply range))))
+(defn jcore-selection-state [args]
+  (let [root (jcore-selection-element args 1 1)]
+    (if (j-host-input? root)
+      (let [selected (jcore-selection-read args)]
+        {"collapsed" (j-host-eq (j-host-at selected "start") (j-host-at selected "end"))
+         "text" (j-host-at selected "text")})
+      (let [selection (j-host-selection)]
+        (if (and (j-host-not (j-host-nullish? selection)) (j-host-lt 0 (j-host-at selection "rangeCount"))
+                 (j-host-dom-contains root (j-host-at selection "anchorNode"))
+                 (j-host-dom-contains root (j-host-at selection "focusNode")))
+          {"collapsed" (j-host-eq (j-host-at selection "isCollapsed") true)
+           "text" (j-host-range-text (j-host-selection-range selection 0))} nil)))))
 (define jcore-commands {"bold" true "italic" true "undo" true "redo" true
   "insertUnorderedList" true "insertOrderedList" true "insertText" true "insertHTML" true "createLink" true "formatBlock" true})
 (defn jcore-exec [args]

@@ -88,6 +88,7 @@ static const char *bj_builtin(const char*op){
   "browser-outer-html","jcore-outer-html","browser-parse-html","jcore-parse-html","browser-replace-html!","jcore-replace-html",
   "browser-dispatch-input!","jcore-dispatch-input","browser-set-range-text!","jcore-set-range-text",
   "browser-selection-save","jcore-selection-save","browser-selection-restore!","jcore-selection-restore","browser-selection-node!","jcore-selection-node",
+  "browser-selection-state","jcore-selection-state",
   "browser-exec!","jcore-exec","browser-document-on!","jcore-document-on",
   "browser-event-modifiers","jcore-event-modifiers","browser-event-clipboard-text","jcore-event-clipboard-text",
   "browser-before-unload!","jcore-before-unload","browser-prompt","jcore-prompt",
