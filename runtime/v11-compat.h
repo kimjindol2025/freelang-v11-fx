@@ -1011,6 +1011,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         }
         return t_js_string(value);
     }
+    if(IS("shell-capture"))return fl_shell_capture(ARG(0));
     if(IS("shell-exec")||IS("shell-exec-result")){
         FLValue result=fl_shell_exec_result(ARG(0).tag==FL_NIL?fl_str_val(""):ARG(0));
         if(IS("shell-exec")){

@@ -175,6 +175,7 @@ FLValue fl_function_alias(FLValue name);
 FLValue fl_v11_has(FLValue name);
 FLValue fl_v11_builtin(FLValue name, FLValue argv);
 FLValue fl_shell_exec_result(FLValue command);
+FLValue fl_shell_capture(FLValue command);
 FLValue fl_v11_tty(FLValue name, FLValue argv);
 FLValue fl_v11_file(FLValue name, FLValue argv);
 FLValue fl_v11_fd(FLValue name, FLValue argv);

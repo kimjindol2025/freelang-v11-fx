@@ -564,3 +564,31 @@ new Native web path has generated nine route handlers, eight browser modules
 and a linked Native server without Node; full HTTP/browser acceptance is
 tracked separately. DB95 checkpoint recovery and the full DB gate remain
 unfinished. Commercial readiness HOLD.
+
+## Bounded Native shell_capture checkpoint
+
+The real Native web Git API exposed a missing shell_capture operation.
+The runtime now implements the existing three-field stdout/stderr/code
+contract with the original 30-second budget, UTF-8 normalization and bounded
+stream capture. Owned child-group cancellation also covers the final wait
+after stdout/stderr EOF. The old shell-exec-result profile is preserved.
+Seventeen private contract checks passed, including both real 30-second
+cancellation cases, quoted/UTF-8 output and the legacy result shape.
+
+Fresh current-runtime bootstrap native-shell-fixedpoint.3gcxm52h has
+Stage 2 = 3 = 4 C SHA
+c1f48e888960f21679278d4e90ce0d2e05d3e51bbfecefafcd212819905458fa.
+ELF SHA is d4f80c5ca59f67187a205db4ed9a4578f12b832d08fb336cfa78f9203ed6db42.
+Generation 40.29 / 39.97 s misses the 40-second target once; no timing-only
+retry was made. Peak RSS 1,528,984 / 1,528,352 KiB remained under the unchanged
+2 GiB cap. Seed SHA stayed
+0101cb63a86f20b93451f70b88a0b577f9548ded0a8b328ebdeedb7e8e4fd767.
+
+Fresh core native-shell-core.jn7p3ky4 passed frontend 71/71, CLI 22/22,
+FX 11/11, checker 32/32 plus defaults and original DB95 7/13/36/40. Collected
+Native exec traces contain no Node-family execution. Source manifests match
+before/after. See NATIVE-SHELL-CAPTURE.md for contract and cleanup limits.
+The official older-seed protected verifier, browser interactions and full
+DB95 commercial gate are not replaced by these checks. Default Node/dev
+migration, dependency packaging and DB checkpoint recovery remain unfinished.
+Commercial readiness HOLD; deployment NO. Host paths/owners: <가림>.

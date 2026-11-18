@@ -25,5 +25,5 @@ static const char *const v11_ops[] = {
 "tcp-server-raw","tcp-server-tls","tcp-write","tcp-drop","tcp-server-stop","tcp-server-running?","tcp-client-free-port","tcp-client-open","tcp-client-write","tcp-client-read-line","tcp-client-close","fl-error-drain","fl-error-queue-size",
 "regex_match","regex_match_i","regex_find","regex_find_all","regex_replace","regex_replace_first","regex_split",
 "file_read","file_write","file_append","file_copy","file_delete","file_exists","file_is_file","file_size","dir_create","dir_list",
-"shell-exec","shell-exec-result","str-replace-all",
+"shell-exec","shell-exec-result","shell-capture","str-replace-all",
 "tty-raw-enter!","tty-raw-leave!","tty-read-byte","char-from-code","tty-run",NULL};

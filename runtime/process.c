@@ -12,6 +12,8 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <spawn.h>
+#include <time.h>
+#include <limits.h>
 
 /* Match the retained spawnSync contract: separate UTF-8 output streams,
  * EOF on stdin, a one-MiB limit per stream, and -1 for spawn/signal failures. */
@@ -49,17 +51,27 @@ static FLValue shell_output(const char *data, size_t size) {
     s->data[size] = 0;
     return (FLValue){.tag=FL_STRING,.obj=(FLObject *)s};
 }
-FLValue fl_shell_exec_result(FLValue command) {
+static int64_t shell_monotonic_ms(void) {
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now)) return -1;
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+static void shell_cancel(pid_t child, int grouped, int signal_number) {
+    if (child > 0) (void)kill(grouped ? -child : child, signal_number);
+}
+static FLValue shell_exec_result(FLValue command, int timeout_ms, int failure_status) {
     FLValue text = fl_v11_utf8_string(command);
     FLString *cmd = (FLString *)text.obj;
     if (memchr(cmd->data, 0, cmd->len))
         fl_throw(fl_make_error("TypeError", "shell command must not contain null bytes"));
-    int pipes[2][2] = {{-1,-1},{-1,-1}}, input = -1, status = -1;
-    int failed = 0, overflow = 0, killed = 0;
+    int pipes[2][2] = {{-1,-1},{-1,-1}}, input = -1, status = failure_status;
+    int failed = 0, overflow = 0, killed = 0, timed_out = 0;
+    int64_t deadline = 0;
     pid_t child = -1;
     FLShellCapture capture[2] = {{0},{0}};
     posix_spawn_file_actions_t actions;
-    int actions_ready = 0;
+    posix_spawnattr_t attributes;
+    int actions_ready = 0, attributes_ready = 0;
     for (int i = 0; i < 2; i++) {
         if (pipe2(pipes[i], O_CLOEXEC) < 0) goto finish;
         for (int j = 0; j < 2; j++) {
@@ -78,45 +90,87 @@ FLValue fl_shell_exec_result(FLValue command) {
     for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++)
         if (posix_spawn_file_actions_addclose(&actions, pipes[i][j])) goto finish;
     if (posix_spawn_file_actions_addclose(&actions, input)) goto finish;
+    if (timeout_ms > 0) {
+        if (posix_spawnattr_init(&attributes)) goto finish;
+        attributes_ready = 1;
+        if (posix_spawnattr_setpgroup(&attributes, 0) ||
+            posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP)) goto finish;
+        int64_t now = shell_monotonic_ms();
+        if (now < 0) goto finish;
+        deadline = now + timeout_ms;
+    }
     char *argv[] = {"sh", "-c", cmd->data, NULL};
-    if (posix_spawnp(&child, "sh", &actions, NULL, argv, environ)) { child = -1; goto finish; }
+    if (posix_spawnp(&child, "sh", &actions,
+            attributes_ready ? &attributes : NULL, argv, environ)) { child = -1; goto finish; }
     close(input); input = -1;
     close(pipes[0][1]); pipes[0][1] = -1;
     close(pipes[1][1]); pipes[1][1] = -1;
     while (pipes[0][0] >= 0 || pipes[1][0] >= 0) {
         struct pollfd ready[2] = {{pipes[0][0],POLLIN,0},{pipes[1][0],POLLIN,0}};
-        int result;
-        do { result = poll(ready, 2, -1); } while (result < 0 && errno == EINTR);
+        int wait_ms = -1;
+        if (timeout_ms > 0) {
+            int64_t now = shell_monotonic_ms();
+            if (now < 0) { failed = 1; break; }
+            int64_t remaining = deadline - now;
+            if (remaining <= 0) { timed_out = 1; break; }
+            wait_ms = remaining > INT_MAX ? INT_MAX : (int)remaining;
+        }
+        int result = poll(ready, 2, wait_ms);
+        if (result < 0 && errno == EINTR) continue;
         if (result < 0) { failed = 1; break; }
+        if (result == 0) { timed_out = 1; break; }
         for (int i = 0; i < 2; i++) {
             if (pipes[i][0] < 0 || !ready[i].revents) continue;
             char buffer[8192];
             for (;;) {
+                if (timeout_ms > 0) {
+                    int64_t now = shell_monotonic_ms();
+                    if (now < 0) { failed = 1; break; }
+                    if (now >= deadline) { timed_out = 1; break; }
+                }
                 ssize_t n = read(pipes[i][0], buffer, sizeof buffer);
                 if (n > 0) {
                     if (shell_capture_add(&capture[i], buffer, (size_t)n, &overflow)) { failed = 1; break; }
-                    if (overflow && !killed) { (void)kill(child, SIGTERM); killed = 1; }
+                    if (overflow && !killed) { shell_cancel(child, timeout_ms > 0, timeout_ms > 0 ? SIGKILL : SIGTERM); killed = 1; }
                     if (overflow) break;
                 } else if (!n) { close(pipes[i][0]); pipes[i][0] = -1; break; }
                 else if (errno == EINTR) continue;
                 else if (errno == EAGAIN || errno == EWOULDBLOCK) break;
                 else { failed = 1; break; }
             }
-            if (failed || overflow) break;
+            if (failed || overflow || timed_out) break;
         }
-        if (failed || overflow) break;
+        if (failed || overflow || timed_out) break;
     }
 finish:
     if (actions_ready) posix_spawn_file_actions_destroy(&actions);
+    if (attributes_ready) posix_spawnattr_destroy(&attributes);
     if (input >= 0) close(input);
     for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++)
         if (pipes[i][j] >= 0) close(pipes[i][j]);
     if (child > 0) {
-        if (failed) (void)kill(child, SIGKILL);
+        if (failed || (timeout_ms > 0 && (overflow || timed_out)))
+            shell_cancel(child, timeout_ms > 0, SIGKILL);
         int wait_status;
         pid_t waited;
-        do { waited = waitpid(child, &wait_status, 0); } while (waited < 0 && errno == EINTR);
-        if (waited == child && !failed && !overflow && WIFEXITED(wait_status)) status = WEXITSTATUS(wait_status);
+        if (timeout_ms > 0 && !failed && !overflow && !timed_out) {
+            for (;;) {
+                waited = waitpid(child, &wait_status, WNOHANG);
+                if (waited == child || (waited < 0 && errno != EINTR)) break;
+                int64_t now = shell_monotonic_ms();
+                if (now < 0 || now >= deadline) {
+                    if (now < 0) failed = 1; else timed_out = 1;
+                    shell_cancel(child, 1, SIGKILL);
+                    do { waited = waitpid(child, &wait_status, 0); } while (waited < 0 && errno == EINTR);
+                    break;
+                }
+                int delay = deadline - now < 10 ? (int)(deadline - now) : 10;
+                (void)poll(NULL, 0, delay);
+            }
+        } else {
+            do { waited = waitpid(child, &wait_status, 0); } while (waited < 0 && errno == EINTR);
+        }
+        if (waited == child && !failed && !overflow && !timed_out && WIFEXITED(wait_status)) status = WEXITSTATUS(wait_status);
     }
     FLValue output = shell_output(capture[0].data, capture[0].used);
     FLValue errors = shell_output(capture[1].data, capture[1].used);
@@ -127,6 +181,21 @@ finish:
         fl_str_val("stderr"), fl_v11_utf8_string(errors),
         fl_str_val("exit"), fl_int(status), fl_str_val("ok"), fl_bool(status == 0)};
     return fl_map_from_pairs(values, 4);
+}
+
+FLValue fl_shell_exec_result(FLValue command) {
+    return shell_exec_result(command, 0, -1);
+}
+/* shell_capture retains the module's 30-second budget and three-field result.
+ * Cancellation kills only the process group created for this invocation. */
+FLValue fl_shell_capture(FLValue command) {
+    if (command.tag != FL_STRING || !command.obj)
+        fl_throw(fl_make_error("TypeError", "shell_capture: string command required"));
+    FLValue captured = shell_exec_result(command, 30000, 1);
+    FLValue pairs[] = {fl_str_val("stdout"), fl_map_get(captured, fl_str_val("stdout")),
+        fl_str_val("stderr"), fl_map_get(captured, fl_str_val("stderr")),
+        fl_str_val("code"), fl_map_get(captured, fl_str_val("exit"))};
+    return fl_map_from_pairs(pairs, 3);
 }
 
 /* Legacy generated C shares the language handler's validation and cleanup. */

@@ -276,5 +276,6 @@ static const char *const fl_native_names[] = {
     "while", "with-atom-lock", "ws-close", "ws-conn-id",
     "ws-recv", "ws-send", "ws_close", "ws_conn_id",
     "ws_recv", "ws_send", "zip", "zip-with",
+    "fl_shell_capture", "fl-shell-capture", "fl_shell_exec_result", "fl-shell-exec-result",
     NULL
 };
