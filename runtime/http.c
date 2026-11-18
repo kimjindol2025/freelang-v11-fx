@@ -843,7 +843,18 @@ static void pool_shutdown(int timeout_sec) {
    server_start — 메인 루프 (스레드 풀)
 ─────────────────────────────────────────── */
 
+/* Optional per-process bind selection; no resolver or persistent config. */
+static struct in_addr http_listener_address(void) {
+    const char *host = getenv("FL_HTTP_HOST");
+    struct in_addr address;
+    address.s_addr = htonl(INADDR_ANY);
+    if (host && inet_pton(AF_INET, host, &address) != 1)
+        fl_throw(fl_str_val("server_start: FL_HTTP_HOST must be an IPv4 address"));
+    return address;
+}
+
 FLValue server_start(FLValue port_val) {
+    struct in_addr bind_address = http_listener_address();
     form_recover_startup();
     /* 수리(2026-06-14): 이전엔 FL_INT가 아니면 조용히 8080으로 떨어져
      * (server_start (str-to-num env))·(server_start (floor x)) 가 무력화됐다(트랩 #9,
@@ -874,7 +885,7 @@ FLValue server_start(FLValue port_val) {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_addr        = bind_address;
     addr.sin_port        = htons((uint16_t)port);
 
     if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -884,7 +895,7 @@ FLValue server_start(FLValue port_val) {
     }
 
     listen(server_fd, 512);   /* backlog 증가 */
-    fprintf(stderr, "[http] 서버 시작: http://0.0.0.0:%d\n", port);
+    fprintf(stderr, "[http] 서버 시작: http://%s:%d\n", inet_ntoa(bind_address), port);
     fl_debug_banner("fl-app", port);
 
     /* ── accept 루프 ── */
@@ -1171,6 +1182,7 @@ FLValue fl_http_get(FLValue url_v) {
 
 /* server_start_tls(port, cert_path, key_path) */
 FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
+    struct in_addr bind_address = http_listener_address();
     form_recover_startup();
     int port = 8443;
     if      (port_val.tag == FL_INT)   port = (int)port_val.i;
@@ -1208,7 +1220,7 @@ FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_addr        = bind_address;
     addr.sin_port        = htons((uint16_t)port);
 
     if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -1217,7 +1229,7 @@ FLValue server_start_tls(FLValue port_val, FLValue cert_val, FLValue key_val) {
     }
     g_server_fd = server_fd;
     listen(server_fd, 128);
-    fprintf(stderr, "[tls] HTTPS 서버 시작: https://0.0.0.0:%d\n", port);
+    fprintf(stderr, "[tls] HTTPS 서버 시작: https://%s:%d\n", inet_ntoa(bind_address), port);
 
     /* accept 루프 */
     while (!g_pool.shutdown) {

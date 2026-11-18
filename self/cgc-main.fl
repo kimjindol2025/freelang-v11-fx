@@ -962,8 +962,7 @@
          (str "(__fl_throw_line=" (to-string $line) ", fl_v11_throw(" $expr-c "), fl_nil())")
          (str "(fl_v11_throw(" $expr-c "), fl_nil())")))]
     [true
-     (do (println (str "[CGC-ERR] unsupported IR kind=" (get $n :kind) " line=" (get $n :line)))
-         "fl_nil()")]))
+     (throw (str "[CGC-ERR] unsupported IR kind=" (get $n :kind) " line=" (get $n :line)))]))
 
 ;; ── 리터럴 ──
 
@@ -1028,8 +1027,7 @@
                                       (str "fl_fn_global(__fl_wrap_" $cn ", 0, NULL)")
                                       $cn))))])]
     [true
-     (do (println (str "[CGC-ERR] unsupported literal type=" (get $n :type) " line=" (get $n :line)))
-         "fl_nil()")])))
+     (throw (str "[CGC-ERR] unsupported literal type=" (get $n :type) " line=" (get $n :line)))])))
 
 ;; ── block (FUNC/Array/Map) ──
 
@@ -1040,8 +1038,7 @@
     [(= $t "Array") (cgc-array-block $n)]
     [(= $t "Map")   (cgc-map-block $n)]
     [true
-     (do (println (str "[CGC-ERR] unsupported block type=" $t " line=" (get $n :line)))
-         "fl_nil()")])))
+     (throw (str "[CGC-ERR] unsupported block type=" $t " line=" (get $n :line)))])))
 
 (defn cgc-func-block [$n]
   (let [[$name (c-name (get $n :name))]
@@ -2840,9 +2837,8 @@
     true
     (loop [$i 0]
       (if (>= $i (length $nodes)) true
-        (do
-          (ir-chk (get $nodes $i))
-          (recur (+ $i 1)))))))
+        (if (ir-chk (get $nodes $i))
+          (recur (+ $i 1)) false)))))
 
 ;; ── S27 entry point ──────────────────────────────────────────────────────────
 ;; 경로에서 디렉토리 부분 추출 ("a/b/c.fl" → "a/b/")
@@ -3004,7 +3000,7 @@
               [$base-dir (path-dir $input)]
               [$raw      (parse (lex $src))]
               [$nodes    (expand-loads $raw $base-dir)]
-              [$_v      (ir-validate $nodes)]
+              [$_v      (if (ir-validate $nodes) true (throw "[compiler] invalid IR"))]
               [$c-code   (generate-c $nodes)]]
           (file-write $output $c-code)
           (println (str "Compiled " $input " -> " $output))))))))

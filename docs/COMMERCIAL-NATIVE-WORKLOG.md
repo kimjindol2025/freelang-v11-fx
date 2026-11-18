@@ -536,3 +536,31 @@ cap; DOM, HTTP, forms, focus and complete application behavior are NOT_RUN.
 Full Native web/default migration and official dependency packaging remain.
 Full DB95 71 is NOT_RERUN, with the recorded 51 PASS / 20 FAIL baseline and
 checkpoint fault recovery blocker. Commercial readiness HOLD; deployment NO.
+
+## Compiler error propagation and explicit Native HTTP binding
+
+Unsupported IR generation now throws instead of producing a nil placeholder;
+the validator propagates failure and the command checks it before writing C.
+Private CLI controls reject malformed input/imports while preserving existing
+output. HTTP/TLS accepts process-local FL_HTTP_HOST selection; invalid values
+are rejected before startup effects. A real loopback health response passes,
+and a bind observer verifies the compatibility default without an actual
+non-loopback listener.
+
+Final strict-preflight bootstrap receipt native-web-fixedpoint-v3.umdne80t
+has Stage 2 = 3 = 4 C SHA
+c1f48e888960f21679278d4e90ce0d2e05d3e51bbfecefafcd212819905458fa.
+ELF SHA is 5fe1a1cf642c5fd244abe18a9d013979e7a6ed522940973afa764c6a8a0022a7.
+Generation took 39.68 / 37.80 seconds and 1,524,352 / 1,530,188 KiB peak RSS.
+Seed and 2 GiB cap are unchanged. An initial delimiter error was rejected
+by strict preflight even though the permissive compiler reached a fixed
+point; that earlier source receipt is not accepted.
+
+Fresh core native-web-core.1t1ve_e_ passes frontend 71/71, CLI 22/22, FX
+11/11, checker 32/32 plus defaults and DB95 7/13/36/40. No Node execution is
+observed in collected core traces. See NATIVE-COMPILER-HTTP-SAFETY.md for the
+boundary controls and remaining syntax/TLS/packaging limits. The frontend's
+new Native web path has generated nine route handlers, eight browser modules
+and a linked Native server without Node; full HTTP/browser acceptance is
+tracked separately. DB95 checkpoint recovery and the full DB gate remain
+unfinished. Commercial readiness HOLD.
