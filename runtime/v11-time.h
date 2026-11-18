@@ -152,12 +152,45 @@ static FLValue vt_format(FLValue stamp,FLValue format){
     return result;
 }
 
+/* toISOString uses UTC and millisecond precision regardless of process TZ. */
+static FLValue vt_iso_now(struct timespec now){
+    int64_t seconds=(int64_t)now.tv_sec;
+    int millis=(int)(now.tv_nsec/1000000);
+    if(seconds < -8640000000000LL || seconds > 8640000000000LL ||
+       (seconds == 8640000000000LL && millis > 0)){
+        fl_throw(fl_make_error("RangeError","now_iso: time outside ISO range"));
+        return fl_nil();
+    }
+    struct tm date;
+    if(!gmtime_r(&now.tv_sec,&date)){
+        fl_throw(fl_make_error("RangeError","now_iso: UTC conversion failed"));
+        return fl_nil();
+    }
+    int year=date.tm_year+1900;
+    char text[40];
+    int size;
+    if(year>=0 && year<=9999)
+        size=snprintf(text,sizeof text,"%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+            year,date.tm_mon+1,date.tm_mday,date.tm_hour,date.tm_min,date.tm_sec,millis);
+    else
+        size=snprintf(text,sizeof text,"%c%06d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+            year<0?'-':'+',year<0?-year:year,date.tm_mon+1,date.tm_mday,
+            date.tm_hour,date.tm_min,date.tm_sec,millis);
+    if(size<0 || (size_t)size>=sizeof text){
+        fl_throw(fl_make_error("RangeError","now_iso: ISO formatting failed"));
+        return fl_nil();
+    }
+    return fl_str_val(text);
+}
+
 static FLValue v11_time(const char *op,FLValue argv){
     FLVector*a=(FLVector*)argv.obj;
     FLValue x=a->len?a->data[0]:fl_nil(),y=a->len>1?a->data[1]:fl_nil();
     if(!strcmp(op,"date-parse"))return vt_parse(x);
     if(!strcmp(op,"format-date"))return vt_format(x,y);
     struct timespec now;
-    if(clock_gettime(CLOCK_REALTIME,&now))fl_throw(fl_str_val("now_ms: clock failure"));
+    if(clock_gettime(CLOCK_REALTIME,&now))
+        fl_throw(fl_str_val(!strcmp(op,"now-iso")?"now_iso: clock failure":"now_ms: clock failure"));
+    if(!strcmp(op,"now-iso"))return vt_iso_now(now);
     return fl_int((int64_t)now.tv_sec*1000+now.tv_nsec/1000000);
 }

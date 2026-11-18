@@ -84,6 +84,10 @@ FLValue fl_v11_http(FLValue name,FLValue argv){
   FLValue headers=vh_set(fl_map_new(),"Location",location);if(!strcmp(op,"server-redirect-cookie"))headers=vh_set(headers,"Set-Cookie",b);
   return vh_set(vh_response(302,"text/plain",fl_str_val("")),"headers",headers);
  }
+ if(!strcmp(op,"server-req-client-ip")){
+  if(a.tag!=FL_MAP)return vh_error("server_req_client_ip: request map required");
+  FLValue ip=vh_get(a,"remote_ip");return fl_v11_truthy(ip)?ip:fl_str_val("unknown");
+ }
  if(!strcmp(op,"server-req-cookie")){
   FLValue header=vh_get(vh_get(a,"headers"),"cookie");if(header.tag!=FL_STRING)return fl_nil();FLString*s=(FLString*)header.obj;size_t at=0;
   while(at<=s->len){size_t end=at;while(end<s->len&&s->data[end]!=';')end++;size_t equal=at;while(equal<end&&s->data[equal]!='=')equal++;

@@ -592,3 +592,35 @@ The official older-seed protected verifier, browser interactions and full
 DB95 commercial gate are not replaced by these checks. Default Node/dev
 migration, dependency packaging and DB checkpoint recovery remain unfinished.
 Commercial readiness HOLD; deployment NO. Host paths/owners: <가림>.
+
+## Native UTC time and socket-peer checkpoint
+
+A literal-call audit after the first successful Native web read path found
+now_iso and server_req_client_ip still unresolved. Both missing operations
+were reproduced with private FreeLang programs before changing runtime code.
+The runtime now returns real CLOCK_REALTIME as UTC ISO text with millisecond
+precision and exposes the existing socket peer through a compatible request
+field/accessor. Forwarding headers, body and query fields do not override the
+socket-derived address. Missing request-map fields retain the existing
+unknown result; invalid request types fail explicitly.
+
+Private receipt native-time-peer.g_b0tvv0 passes 28 rows covering precise
+clock values, UTC/TZ independence, extended/range dates, clock errors, aliases,
+first-class/lexical calls and eight concurrent loopback HTTP requests with
+spoofed IP inputs. No host clock was changed. See NATIVE-TIME-PEER.md.
+
+Fresh actual bootstrap native-time-peer-fixedpoint.wzi4egiu preserves
+Stage 2 = 3 = 4 C SHA
+c1f48e888960f21679278d4e90ce0d2e05d3e51bbfecefafcd212819905458fa.
+ELF SHA is 509425939227c07cefdbf907f7f56c97b0f47289401c021269de0eb219f9b9ae.
+Generation 38.93 / 39.40 s; peak RSS 1,527,172 / 1,525,868 KiB, with the
+unchanged 2 GiB cap. Earlier receipts, including the prior 40.29-second miss,
+are retained. Seed before/after is
+0101cb63a86f20b93451f70b88a0b577f9548ded0a8b328ebdeedb7e8e4fd767.
+
+Fresh core native-time-peer-core.8u77cz_p passes frontend 71/71, CLI 22/22,
+FX 11/11, checker 32/32 plus defaults, primitive contracts and DB95
+7/13/36/40. Source manifests match and Native exec audits contain no Node.
+Existing tests, runners, expected values, timeouts, JS and seed are unchanged.
+Full DB95 and checkpoint recovery remain unfinished. Commercial readiness
+HOLD; deployment NO. Host paths/owners: <가림>.

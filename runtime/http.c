@@ -444,7 +444,9 @@ static FLValue make_req_map(HttpRequest*hr,FLValue params,FormContext*form,int c
     req=vh_set(req,"method",fl_str_val(hr->method));req=vh_set(req,"path",fl_str_val(hr->path));req=vh_set(req,"query",parse_query(hr->query_str));
     req=vh_set(req,"params",params);req=vh_set(req,"headers",headers);req=vh_set(req,"body",body);
     req=vh_set(req,"fields",form->fields);req=vh_set(req,"files",form->values);
-    req=vh_set(req,"peer-address",socket_peer_address(client_fd));return req;
+    FLValue peer=socket_peer_address(client_fd);
+    req=vh_set(req,"peer-address",peer);
+    req=vh_set(req,"remote_ip",peer);return req;
 }
 
 /* ───────────────────────────────────────────
