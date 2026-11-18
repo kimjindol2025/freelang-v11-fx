@@ -13,7 +13,7 @@ static const char *const v11_ops[] = {
 "env-get","env-or","error-message","process-exit","uuid-short",
 "fd-open","fd-write","fd-read","fd-fsync","fd-close","fd-seek","fd-flush",
 "bytes-count","bytes-slice","fd-create","fd-write-bytes","fd-read-bytes","fd-sync-parent","fd-truncate",
-"fd-open-with-parent",
+"fd-open-with-parent","fd-publish",
 "file-sha256-result","file_sha256_result",
 "json-parse","json-str","json-stringify","auth-sha256",
 "buf-concat","buf-len","buf-read-str","buf-read-u8","buf-slice","buf-str","buf-u8","sleep-ms","buf-to-binary","buf-from-binary","file_mtime",

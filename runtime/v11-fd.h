@@ -1,7 +1,10 @@
 /* C11: synthetic handles, shared by threads; C10 validates every path component. */
 #include <pthread.h>
 #include <math.h>
-typedef struct VFd {int64_t id;int fd;int parent;char mode;struct VFd*next;} VFd;
+typedef struct VFd {
+    int64_t id;int fd;int parent;char mode;struct VFd*next;
+    int publishable;char leaf[NAME_MAX+1];
+} VFd;
 static VFd*vfd_head;
 static int64_t vfd_next=1000;
 static pthread_mutex_t vfd_lock=PTHREAD_MUTEX_INITIALIZER;
@@ -24,7 +27,7 @@ FLValue fl_v11_fd(FLValue name,FLValue argv){
     int creating=!strcmp(op,"fd-create");
     int retaining=!strcmp(op,"fd-open-with-parent");
     if(((creating||!strcmp(op,"fd-sync-parent"))&&v->len!=1)||
-       ((retaining||!strcmp(op,"fd-write-bytes")||!strcmp(op,"fd-read-bytes")||!strcmp(op,"fd-truncate"))&&v->len!=2))return vfd_error(op,EINVAL);
+       ((retaining||!strcmp(op,"fd-write-bytes")||!strcmp(op,"fd-read-bytes")||!strcmp(op,"fd-truncate")||!strcmp(op,"fd-publish"))&&v->len!=2))return vfd_error(op,EINVAL);
     if(creating||retaining||!strcmp(op,"fd-open")){
         char mode='w';
         if(!creating){
@@ -53,7 +56,9 @@ FLValue fl_v11_fd(FLValue name,FLValue argv){
         if(!entry){close(fd);if(parent>=0)close(parent);return vfd_error(op,ENOMEM);}
         pthread_mutex_lock(&vfd_lock);
         if(vfd_next==INT64_MAX){pthread_mutex_unlock(&vfd_lock);free(entry);close(fd);if(parent>=0)close(parent);return vfd_error(op,EMFILE);}
-        *entry=(VFd){vfd_next++,fd,parent,mode,vfd_head};vfd_head=entry;
+        *entry=(VFd){.id=vfd_next++,.fd=fd,.parent=parent,.mode=mode,.next=vfd_head,.publishable=creating};
+        if(creating)memcpy(entry->leaf,leaf,strlen(leaf)+1);
+        vfd_head=entry;
         int64_t id=entry->id;
         pthread_mutex_unlock(&vfd_lock);
         return fl_int(id);
@@ -96,6 +101,41 @@ FLValue fl_v11_fd(FLValue name,FLValue argv){
         else if(vfd_sync(entry->parent))err=errno;
         pthread_mutex_unlock(&vfd_lock);
         return err?vfd_error(op,err):fl_bool(true);
+    }
+    if(!strcmp(op,"fd-publish")){
+        /* Publish only an exclusively created, still-owned candidate. Both
+         * names are resolved by checked directory fds in the same directory.
+         * A successful rename disables all later writes through this handle,
+         * including when the following directory sync reports an error. */
+        int dest=-1,published=0;
+        char target[NAME_MAX+1];
+        struct stat source,current,fromdir,todir,existing;
+        if(!entry->publishable||entry->parent<0)err=EPERM;
+        if(!err){dest=vf_parent(value,0,target);if(dest<0)err=errno;}
+        if(!err&&(fstat(entry->parent,&fromdir)||fstat(dest,&todir)))err=errno;
+        if(!err&&(fromdir.st_dev!=todir.st_dev||fromdir.st_ino!=todir.st_ino))err=EXDEV;
+        if(!err&&!strcmp(entry->leaf,target))err=EINVAL;
+        if(!err&&fstat(fd,&source))err=errno;
+        if(!err&&(!S_ISREG(source.st_mode)||source.st_nlink!=1))err=EINVAL;
+        if(!err&&(source.st_size<0||(uint64_t)source.st_size>FL_FILE_IO_MAX_BYTES))err=EFBIG;
+        if(!err&&fstatat(entry->parent,entry->leaf,&current,AT_SYMLINK_NOFOLLOW))err=errno;
+        if(!err&&(!S_ISREG(current.st_mode)||current.st_dev!=source.st_dev||current.st_ino!=source.st_ino))err=EINVAL;
+        if(!err){
+            if(!fstatat(dest,target,&existing,AT_SYMLINK_NOFOLLOW)){
+                if(S_ISLNK(existing.st_mode))err=ELOOP;
+                else if(!S_ISREG(existing.st_mode))err=EINVAL;
+                else if(existing.st_dev==source.st_dev&&existing.st_ino==source.st_ino)err=EINVAL;
+            }else if(errno!=ENOENT)err=errno;
+        }
+        if(!err&&vfd_sync(fd))err=errno;
+        if(!err&&renameat(entry->parent,entry->leaf,dest,target))err=errno;
+        else if(!err){
+            published=1;entry->publishable=0;entry->mode='r';
+            if(vfd_sync(dest))err=errno;
+        }
+        if(dest>=0&&close(dest)&&!err)err=errno;
+        pthread_mutex_unlock(&vfd_lock);
+        return err?vfd_error(published?"fd-publish-after-rename":op,err):fl_bool(true);
     }
     if(truncating){
         if(entry->mode=='r')err=EBADF;
