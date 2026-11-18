@@ -1228,6 +1228,11 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         free(v.p);
         return r;
     }
+    if(IS("str-join-lines")){
+        if(ARG(0).tag!=FL_VECTOR){fl_throw(fl_make_error("TypeError","str_join_lines: array required"));return fl_nil();}
+        FLValue lines[2]={ARG(0),fl_str_val("\n")};
+        return fl_v11_builtin(fl_str_val("str-join"),fl_vec_from(lines,2));
+    }
     if(IS("str-join")||IS("join")){
         FLValue vec=ARG(0),sep=ARG(1);
         if(vec.tag==FL_STRING&&sep.tag==FL_VECTOR){
