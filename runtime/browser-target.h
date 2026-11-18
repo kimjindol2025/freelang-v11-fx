@@ -77,7 +77,19 @@ static const char *bj_builtin(const char*op){
   "browser-set-hidden!","jcore-dom-hidden","browser-focus!","jcore-dom-focus",
   "browser-after!","jcore-after","browser-cancel!","jcore-cancel",
   "browser-http!","jcore-http","browser-json-parse","jcore-json-parse",
-  "island-h","jcore-island-h","island-mount","jcore-island-mount",NULL};
+  "island-h","jcore-island-h","island-mount","jcore-island-mount",
+  "island-value","jcore-island-value","island-attribute","jcore-island-attribute",
+  "island-form-reset!","jcore-island-form-reset","island-number","jcore-island-number",
+  "island-regex-test","jcore-island-regex-test","island-navigate!","jcore-island-navigate",
+  "island-confirm","jcore-island-confirm","island-str","jcore-island-str",
+  "island-join","jcore-island-join","island-trim","jcore-island-trim",
+  "island-contains","jcore-island-contains","island-count","jcore-island-count",
+  "island-split","jcore-island-split","island-regex-split","jcore-island-regex-split",
+  "island-assoc","jcore-island-assoc","island-merge","jcore-island-merge",
+  "island-dissoc","jcore-island-dissoc","island-keys","jcore-island-keys",
+  "island-json-merge","jcore-island-json-merge",
+  "island-fetch","jcore-island-fetch","island-fetch-post","jcore-island-fetch-post",
+  "island-fetch-delete","jcore-island-fetch-delete","island-fetch-result","jcore-island-fetch-result",NULL};
  for(unsigned i=0;pairs[i];i+=2)if(!strcmp(op,pairs[i]))return pairs[i+1];return NULL;
 }
 static void bj_core_ref(BJ*b,const char*name){
@@ -145,6 +157,44 @@ static int bj_host(BJ*b,const char*op,FLValue args){
   bj_out(b,"((");bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLInputElement)||(");
   bj_expr(b,bj_at(args,0));bj_out(b," instanceof HTMLTextAreaElement))");return 1;
  }
+ if(!strcmp(op,"j-host-select?")){
+  if(n!=1)bj_fail(b,"host select arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));
+  bj_out(b," instanceof HTMLSelectElement)");return 1;
+ }
+ if(!strcmp(op,"j-host-own-set!")){
+  if(n!=3)bj_fail(b,"host own property arity");
+  bj_out(b,"Object.defineProperty(");bj_expr(b,bj_at(args,0));bj_out(b,",");
+  bj_expr(b,bj_at(args,1));bj_out(b,",{value:");bj_expr(b,bj_at(args,2));
+  bj_out(b,",writable:true,enumerable:true,configurable:true})");return 1;
+ }
+ if(!strcmp(op,"j-host-delete!")){
+  if(n!=2)bj_fail(b,"host delete arity");bj_out(b,"(delete (");bj_expr(b,bj_at(args,0));
+  bj_out(b,")[");bj_expr(b,bj_at(args,1));bj_out(b,"])");return 1;
+ }
+ if(!strcmp(op,"j-host-form-reset")){
+  if(n!=1)bj_fail(b,"host form reset arity");bj_out(b,"HTMLFormElement.prototype.reset.call(");
+  bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;
+ }
+ if(!strcmp(op,"j-host-regex-test")){
+  if(n!=3)bj_fail(b,"host regex test arity");bj_out(b,"(new RegExp(");bj_expr(b,bj_at(args,0));
+  bj_out(b,",");bj_expr(b,bj_at(args,2));bj_out(b,")).test(");bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;
+ }
+ if(!strcmp(op,"j-host-regex-split")){
+  if(n!=2)bj_fail(b,"host regex split arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));
+  bj_out(b,").split(new RegExp(");bj_expr(b,bj_at(args,1));bj_out(b,"))");return 1;
+ }
+ if(!strcmp(op,"j-host-location-assign")){
+  if(n!=1)bj_fail(b,"host navigation arity");bj_out(b,"globalThis.location.assign(");
+  bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;
+ }
+ if(!strcmp(op,"j-host-confirm")){
+  if(n!=1)bj_fail(b,"host confirm arity");bj_out(b,"globalThis.confirm(");
+  bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;
+ }
+ if(!strcmp(op,"j-host-weak-delete")){
+  if(n!=2)bj_fail(b,"host weak delete arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));
+  bj_out(b,").delete(");bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;
+ }
  if(!strcmp(op,"j-host-event?")||!strcmp(op,"j-host-keyboard?")){
   if(n!=1)bj_fail(b,"host event arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));
   bj_out(b,!strcmp(op,"j-host-event?")?" instanceof Event)":" instanceof KeyboardEvent)");return 1;
@@ -165,11 +215,11 @@ static int bj_host(BJ*b,const char*op,FLValue args){
  }
  if(!strcmp(op,"j-host-abort-new")){if(n)bj_fail(b,"host abort constructor arity");bj_out(b,"new AbortController()");return 1;}
  const char *call=NULL;unsigned arity=0;
- const char *calls[]={"j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1","j-host-dom-text","document.createTextNode","1","j-host-console-error","console.error","1",NULL};
+ const char *calls[]={"j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1","j-host-dom-text","document.createTextNode","1","j-host-console-error","console.error","1","j-host-number","Number","1","j-host-json-stringify","JSON.stringify","1",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}
  if(call){if(n!=arity)bj_fail(b,"host call arity");bj_out(b,call);bj_out(b,"(");bj_args(b,args,0);bj_out(b,")");return 1;}
  const char *method=NULL;unsigned argc=0;
- const char *methods[]={"j-host-then","then","2","j-host-response-text","text","0","j-host-abort","abort","0","j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0","j-host-dom-append!","appendChild","1","j-host-dom-before!","insertBefore","2","j-host-dom-remove!","remove","0","j-host-dom-clear!","replaceChildren","0","j-host-dom-attribute","getAttribute","1","j-host-dom-set-attribute!","setAttribute","2","j-host-dom-focus!","focus","0",NULL};
+ const char *methods[]={"j-host-then","then","2","j-host-response-text","text","0","j-host-abort","abort","0","j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0","j-host-dom-append!","appendChild","1","j-host-dom-before!","insertBefore","2","j-host-dom-remove!","remove","0","j-host-dom-clear!","replaceChildren","0","j-host-dom-attribute","getAttribute","1","j-host-dom-set-attribute!","setAttribute","2","j-host-dom-focus!","focus","0","j-host-trim","trim","0","j-host-includes","includes","1","j-host-split","split","1","j-host-index-of","indexOf","2",NULL};
  for(unsigned i=0;methods[i];i+=3)if(!strcmp(op,methods[i])){method=methods[i+1];argc=(unsigned)atoi(methods[i+2]);}
  if(method){if(n!=argc+1)bj_fail(b,"host method arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,").");bj_out(b,method);bj_out(b,"(");bj_args(b,args,1);bj_out(b,")");return 1;}
  if(!strcmp(op,"j-host-call")){if(n!=2)bj_fail(b,"host apply arity");bj_out(b,"Reflect.apply(");bj_expr(b,bj_at(args,0));bj_out(b,",null,");bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;}
@@ -228,7 +278,8 @@ static void bj_expr(BJ*b,FLValue n){
  if(!strcmp(op,"--apply--")||!strcmp(raw,"__apply__")){if(!bj_len(args))bj_fail(b,"empty apply");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,")(");bj_args(b,args,1);bj_out(b,")");return;}
  if(bj_host(b,op,args))return;
  const char*core=bj_builtin(op);if(core){bj_core_ref(b,core);bj_out(b,"(");bj_array(b,args);bj_out(b,")");return;}
- bj_fail(b,"unsupported operation");
+ char message[192];snprintf(message,sizeof(message),"unsupported operation: %.127s",raw);
+ bj_fail(b,message);
 }
 FLValue fl_compiler_browser_generate(FLValue user,FLValue parse_source){
  BJ b={0};b.names=fl_map_new();

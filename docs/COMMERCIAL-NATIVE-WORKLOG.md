@@ -505,3 +505,34 @@ No memory limit was changed. The frontend's initial Native generation
 inventory is 2/8, with six explicit missing-feature failures. This is not a
 completed frontend migration, a passing physical UI or DB commercial approval.
 The full DB gate remains NOT_RERUN and checkpoint fault recovery remains HOLD.
+
+## Native island connector checkpoint
+
+All eight real client modules now generate through the Native AST/frontend/
+browser pipeline. Fixed grammar host calls support the FreeLang request,
+form, string and immutable-map kernel. A malformed frontend index if was
+corrected by parentheses only; all 7,135 AST nodes/operations/literals remain.
+No authored JS, seed, protected runner, existing test or expected value changed.
+
+Fresh bootstrap Stage 2 = 3 = 4 retains C SHA
+23ce0a1c2c08b0fb2283c2204ae727a4a61e0c4af190d741401da02534bf4466.
+ELF SHA is 80b5d9e911eb71fd5d298b8516b73ae09f3838c96f7c0ddee27f0c4e8b35b9e8.
+Elapsed generation 40.42 / 40.13 s missed the existing 40-second target;
+peak RSS 1,525,712 / 1,529,112 KiB stayed within the unchanged 2 GiB cap.
+No timing-only rerun was used.
+
+Current evidence: 26 frontend controls, eight real generation cases,
+seven string round trips, three rejected AST inputs and 38 Native pure-kernel
+model checks pass. Original browser scenarios generate reproducibly 7/7 and
+reject forbidden inputs 10/10. Fresh core passes frontend 71/71, CLI 22/22,
+FX 11/11, checker 32/32 plus defaults and DB95 7/13/36/40. No Node-family
+execution was observed in collected Native traces. The failed diagnostic
+models and their host/fixture corrections are retained in the linked report;
+they are not physical browser proof.
+
+See NATIVE-AST-INTERCHANGE.md and the frontend NATIVE-ISLAND-COMPILER.md for
+contracts, receipt IDs and limits. Browser startup remains blocked under the
+cap; DOM, HTTP, forms, focus and complete application behavior are NOT_RUN.
+Full Native web/default migration and official dependency packaging remain.
+Full DB95 71 is NOT_RERUN, with the recorded 51 PASS / 20 FAIL baseline and
+checkpoint fault recovery blocker. Commercial readiness HOLD; deployment NO.

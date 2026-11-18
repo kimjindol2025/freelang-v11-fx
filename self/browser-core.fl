@@ -515,3 +515,285 @@
         (let [state [false false nil]
               update (fn [] (jcore-island-update root render state))]
           (do (j-host-set! state 2 update) (update) update))))))
+
+(defn jcore-island-value [args]
+  (let [element (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1)
+          (j-host-or (j-host-input? element) (j-host-select? element)))
+      (j-host-at element "value") (throw "island-value: input, textarea or select required"))))
+(defn jcore-island-attribute [args]
+  (let [element (j-host-at args 0) name (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+          (j-host-and (j-host-element? element) (jcore-island-attribute? name)))
+      (j-host-dom-attribute element name)
+      (throw "island-attribute: element and allowed attribute required"))))
+(defn jcore-island-form-reset [args]
+  (let [element (j-host-at args 0)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1)
+          (j-host-and (j-host-element? element) (j-host-eq (j-host-at element "tagName") "FORM")))
+      (do (j-host-form-reset element) nil) (throw "island-form-reset!: form required"))))
+(defn jcore-island-number [args]
+  (let [value (j-host-at args 0) type (j-host-type value)]
+    (if (j-host-and (j-host-eq (j-host-len args) 1)
+          (j-host-or (j-host-nullish? value)
+            (j-host-or (j-host-eq type "string") (j-host-or (j-host-eq type "number") (j-host-eq type "boolean")))))
+      (j-host-number value) (throw "island-number: one primitive required"))))
+(defn jcore-island-regex-test [args]
+  (let [pattern (j-host-at args 0) text (j-host-at args 1)
+        flags (if (j-host-eq (j-host-len args) 3) (j-host-at args 2) "")]
+    (if (j-host-and
+          (j-host-or (j-host-eq (j-host-len args) 2) (j-host-eq (j-host-len args) 3))
+          (j-host-and (j-host-eq (j-host-type pattern) "string")
+            (j-host-and (j-host-eq (j-host-type text) "string")
+              (j-host-and (j-host-eq (j-host-type flags) "string") (j-host-lt (j-host-len pattern) 8193)))))
+      (j-host-regex-test pattern text flags)
+      (throw "island-regex-test: pattern, text and optional flags required"))))
+(defn jcore-island-navigate [args]
+  (let [value (j-host-at args 0)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-len args) 1) (j-host-eq (j-host-type value) "string")))
+      (throw "island-navigate!: one URL string required") nil)
+    (let [url (j-host-url value)]
+      (if (j-host-and
+            (j-host-or (j-host-eq (j-host-at url "protocol") "http:") (j-host-eq (j-host-at url "protocol") "https:"))
+            (j-host-and (j-host-eq (j-host-at url "username") "") (j-host-eq (j-host-at url "password") "")))
+        (do (j-host-location-assign (j-host-at url "href")) nil)
+        (throw "island-navigate!: HTTP(S) URL without credentials required")))))
+(defn jcore-island-confirm [args]
+  (if (j-host-and (j-host-eq (j-host-len args) 1) (j-host-eq (j-host-type (j-host-at args 0)) "string"))
+    (j-host-confirm (j-host-at args 0)) (throw "island-confirm: one string required")))
+
+(defn jcore-island-flat-parts [value parts]
+  (if (j-host-nullish? value) nil
+    (if (j-host-array? value)
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len value))
+          (do (jcore-island-flat-parts (j-host-at value index) parts) (recur (j-host-add index 1))) nil))
+      (do (j-host-push! parts (if (j-host-element? value) value (jcore-string value))) nil))))
+(defn jcore-island-has-node? [values]
+  (loop [index 0]
+    (if (j-host-lt index (j-host-len values))
+      (let [item (j-host-at values index)]
+        (if (j-host-or (j-host-element? item)
+              (j-host-and (j-host-array? item) (jcore-island-has-node? item)))
+          true (recur (j-host-add index 1)))) false)))
+(defn jcore-island-str [args]
+  (let [parts []]
+    (jcore-island-flat-parts args parts)
+    (if (jcore-island-has-node? parts) parts
+      (loop [index 0 result ""]
+        (if (j-host-lt index (j-host-len parts))
+          (recur (j-host-add index 1) (j-host-add result (j-host-at parts index))) result)))))
+(defn jcore-island-text-value [value]
+  (if (j-host-nullish? value) "" (jcore-string value)))
+(defn jcore-island-join [args]
+  (let [first (j-host-at args 0) second (j-host-at args 1)
+        values (if (j-host-array? first) first second)
+        separator (jcore-island-text-value (if (j-host-array? first) second first))]
+    (if (j-host-not
+          (j-host-and (j-host-lt 0 (j-host-len args))
+            (j-host-and (j-host-lt (j-host-len args) 3) (j-host-array? values))))
+      (throw "island-join: array and optional separator required") nil)
+    (if (jcore-island-has-node? values)
+      (let [parts []]
+        (loop [index 0]
+          (if (j-host-lt index (j-host-len values))
+            (do (if (j-host-eq index 0) nil (j-host-push! parts separator))
+                (jcore-island-flat-parts (j-host-at values index) parts)
+                (recur (j-host-add index 1))) parts)))
+      (loop [index 0 result ""]
+        (if (j-host-lt index (j-host-len values))
+          (recur (j-host-add index 1)
+            (j-host-add (j-host-add result (if (j-host-eq index 0) "" separator))
+              (jcore-island-text-value (j-host-at values index)))) result)))))
+(defn jcore-island-trim [args]
+  (if (j-host-eq (j-host-len args) 1) (j-host-trim (jcore-island-text-value (j-host-at args 0)))
+    (throw "island-trim: one value required")))
+(defn jcore-island-contains [args]
+  (if (j-host-eq (j-host-len args) 2)
+    (j-host-includes (jcore-island-text-value (j-host-at args 0)) (jcore-island-text-value (j-host-at args 1)))
+    (throw "island-contains: text and needle required")))
+(defn jcore-island-count [args]
+  (if (j-host-not (j-host-eq (j-host-len args) 2)) (throw "island-count: text and needle required") nil)
+  (let [text (jcore-island-text-value (j-host-at args 0))
+        needle (jcore-island-text-value (j-host-at args 1))]
+    (if (j-host-eq needle "") 0
+      (loop [start 0 count 0]
+        (let [next (j-host-index-of text needle start)]
+          (if (j-host-lt next 0) count
+            (recur (j-host-add next (j-host-len needle)) (j-host-add count 1))))))))
+(defn jcore-island-split [args]
+  (let [text (jcore-island-text-value (j-host-at args 0)) separator (j-host-at args 1)]
+    (if (j-host-eq (j-host-len args) 1) [text]
+      (if (j-host-and (j-host-eq (j-host-len args) 2) (j-host-eq (j-host-type separator) "string"))
+        (j-host-split text separator) (throw "island-split: text and optional string separator required")))))
+(defn jcore-island-regex-split [args]
+  (let [text (jcore-island-text-value (j-host-at args 0)) pattern (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+          (j-host-and (j-host-eq (j-host-type pattern) "string") (j-host-lt (j-host-len pattern) 8193)))
+      (j-host-regex-split text pattern) (throw "island-regex-split: text and pattern required"))))
+
+(defn jcore-island-copy [value]
+  (if (j-host-nullish? value) {}
+    (if (j-host-and (j-host-eq (j-host-type value) "object")
+          (j-host-and (j-host-not (jcore-atom? value))
+            (j-host-and (j-host-not (jcore-task? value))
+              (j-host-or (j-host-array? value) (j-host-plain? value)))))
+      (let [result {} names (j-host-keys value)]
+        (loop [index 0]
+          (if (j-host-lt index (j-host-len names))
+            (let [key (j-host-at names index)]
+              (do (j-host-own-set! result key (j-host-at value key)) (recur (j-host-add index 1)))) result)))
+      (throw "island map: map or array required"))))
+(defn jcore-island-assoc [args]
+  (if (j-host-eq (j-host-len args) 0) (throw "island-assoc: source required") nil)
+  (let [result (jcore-island-copy (j-host-at args 0))]
+    (loop [index 1]
+      (if (j-host-lt index (j-host-len args))
+        (if (j-host-lt (j-host-add index 1) (j-host-len args))
+          (do (j-host-own-set! result (jcore-key (j-host-at args index)) (j-host-at args (j-host-add index 1)))
+              (recur (j-host-add index 2)))
+          (throw "island-assoc: key/value pair required")) result))))
+(defn jcore-island-merge [args]
+  (let [result {}]
+    (loop [index 0]
+      (if (j-host-lt index (j-host-len args))
+        (let [source (jcore-island-copy (j-host-at args index)) names (j-host-keys source)]
+          (loop [at 0]
+            (if (j-host-lt at (j-host-len names))
+              (let [key (j-host-at names at)]
+                (do (j-host-own-set! result key (j-host-at source key)) (recur (j-host-add at 1)))) nil))
+          (recur (j-host-add index 1))) result))))
+(defn jcore-island-json-merge [args]
+  (if (j-host-not (j-host-eq (j-host-len args) 2))
+    (throw "island-json-merge: two sources required") nil)
+  (jcore-island-merge
+    [(if (j-host-eq (j-host-type (j-host-at args 0)) "string")
+       (j-host-json-parse (j-host-at args 0)) (j-host-at args 0))
+     (if (j-host-eq (j-host-type (j-host-at args 1)) "string")
+       (j-host-json-parse (j-host-at args 1)) (j-host-at args 1))]))
+(defn jcore-island-dissoc [args]
+  (if (j-host-eq (j-host-len args) 0) (throw "island-dissoc: source required") nil)
+  (let [result (jcore-island-copy (j-host-at args 0))]
+    (loop [index 1]
+      (if (j-host-lt index (j-host-len args))
+        (do (j-host-delete! result (jcore-key (j-host-at args index))) (recur (j-host-add index 1))) result))))
+(defn jcore-island-keys [args]
+  (if (j-host-eq (j-host-len args) 1) (j-host-keys (jcore-island-copy (j-host-at args 0)))
+    (throw "island-keys: one source required")))
+
+;; JSON requests are distinct from the older raw browser-http! API. No new
+;; timeout is imposed. Cancellation shares that API's owned request handles.
+(define jcore-island-methods {"GET" true "POST" true "PUT" true "PATCH" true "DELETE" true "HEAD" true "OPTIONS" true})
+(defn jcore-island-json-value? [value active depth]
+  (if (j-host-lt 512 depth) false
+    (let [type (j-host-type value)]
+      (if (j-host-or (j-host-nullish? value)
+            (j-host-or (j-host-eq type "string") (j-host-or (j-host-eq type "number") (j-host-eq type "boolean"))))
+        true
+        (if (j-host-and (j-host-eq type "object")
+              (j-host-and (j-host-not (jcore-atom? value))
+                (j-host-and (j-host-not (jcore-task? value))
+                  (j-host-and (j-host-not (j-host-weak-has jcore-listeners value))
+                    (j-host-or (j-host-array? value) (j-host-plain? value))))))
+          (if (j-host-weak-has active value) false
+            (let [names (j-host-keys value)]
+              (j-host-weak-add active value)
+              (let [valid (loop [index 0]
+                             (if (j-host-lt index (j-host-len names))
+                               (if (jcore-island-json-value? (j-host-at value (j-host-at names index))
+                                                            active (j-host-add depth 1))
+                                 (recur (j-host-add index 1)) false) true))]
+                (j-host-weak-delete active value)
+                valid))) false)))))
+(defn jcore-island-request [method url body headers callback result-mode]
+  (if (j-host-not
+        (j-host-and (j-host-eq (j-host-type method) "string")
+          (j-host-and (j-host-own? jcore-island-methods method)
+            (j-host-and (j-host-eq (j-host-type url) "string")
+              (j-host-and (j-host-eq (j-host-type callback) "function")
+                (j-host-or (j-host-nullish? headers)
+                  (j-host-and (j-host-eq (j-host-type headers) "object") (j-host-plain? headers))))))))
+    (throw "island request: method, URL, headers map and callback required") nil)
+  (let [parsed (j-host-url url)
+        no-body (j-host-or (j-host-eq method "GET") (j-host-eq method "HEAD"))]
+    (if (j-host-or no-body (jcore-island-json-value? body (j-host-weak-new) 0)) nil
+      (throw "island request: acyclic JSON data within nesting limit required"))
+    (if (j-host-not
+          (j-host-and
+            (j-host-or (j-host-eq (j-host-at parsed "protocol") "http:") (j-host-eq (j-host-at parsed "protocol") "https:"))
+            (j-host-and (j-host-eq (j-host-at parsed "username") "") (j-host-eq (j-host-at parsed "password") ""))))
+      (throw "island request: HTTP(S) URL without credentials required") nil)
+    (let [request-headers {"Accept" "application/json"}
+          supplied (if (j-host-nullish? headers) {} headers)
+          names (j-host-keys supplied)
+          encoded (if no-body nil (j-host-json-stringify (if (j-host-nullish? body) {} body)))]
+      (if no-body nil (j-host-own-set! request-headers "Content-Type" "application/json"))
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len names))
+          (let [key (j-host-at names index) value (j-host-at supplied key)]
+            (if (j-host-not (j-host-eq (j-host-type value) "string"))
+              (throw "island request: header values must be strings") nil)
+            (j-host-own-set! request-headers key value)
+            (recur (j-host-add index 1))) nil))
+      (let [token [] state [false nil callback nil (j-host-abort-new)]
+            finish (fn [result]
+              (if (j-host-at state 0) nil
+                (let [deliver (j-host-at state 2)]
+                  (jcore-http-release state)
+                  (if (j-host-or result-mode (j-host-at result "ok"))
+                    (try
+                      (j-host-call deliver [(if result-mode result (j-host-at result "data"))])
+                      (catch error (j-host-console-error "[Island callback] callback threw")))
+                    (j-host-console-error "[Island request] request failed")))))
+            failed (fn [error]
+              (finish {"ok" false "status" 0 "data" {"error" "요청을 완료하지 못했습니다."} "error" "network"}))]
+        (j-host-weak-set! jcore-requests token state)
+        (j-host-set! state 3 (j-host-timer-set (fn []
+          (if (j-host-at state 0) nil
+            (do
+              (j-host-set! state 3 nil)
+              (try
+                (j-host-then
+                  (j-host-fetch (j-host-at parsed "href")
+                    {"method" method "headers" request-headers "body" encoded
+                     "signal" (j-host-at (j-host-at state 4) "signal")})
+                  (fn [response]
+                    (try
+                      (j-host-then (j-host-response-text response)
+                        (fn [text]
+                          (let [decoded
+                            (try
+                              {"ok" true "data"
+                                (if (j-host-and (j-host-eq text "")
+                                      (j-host-or (j-host-eq method "HEAD")
+                                        (j-host-or (j-host-eq (j-host-at response "status") 204)
+                                                   (j-host-eq (j-host-at response "status") 205))))
+                                  {} (j-host-json-parse text))}
+                              (catch error {"ok" false "data" {"error" "서버 응답을 해석하지 못했습니다."}}))]
+                            (finish {"ok" (j-host-and (j-host-at response "ok") (j-host-at decoded "ok"))
+                                     "status" (j-host-at response "status") "data" (j-host-at decoded "data")
+                                     "error" (if (j-host-at decoded "ok")
+                                               (if (j-host-at response "ok") nil "http") "json")}))) failed)
+                      (catch error (failed error))))
+                  failed)
+                (catch error (failed error)))))) 0))
+        token))))
+(defn jcore-island-fetch [args]
+  (if (j-host-eq (j-host-len args) 2)
+    (jcore-island-request "GET" (j-host-at args 0) nil {} (j-host-at args 1) false)
+    (if (j-host-eq (j-host-len args) 5)
+      (jcore-island-request (j-host-at args 0) (j-host-at args 1) (j-host-at args 2)
+                            (j-host-at args 3) (j-host-at args 4) true)
+      (throw "island-fetch: URL/callback or method/URL/body/headers/callback required"))))
+(defn jcore-island-fetch-post [args]
+  (if (j-host-eq (j-host-len args) 3)
+    (jcore-island-request "POST" (j-host-at args 0) (j-host-at args 1) {} (j-host-at args 2) false)
+    (throw "island-fetch-post: URL, body and callback required")))
+(defn jcore-island-fetch-delete [args]
+  (if (j-host-eq (j-host-len args) 2)
+    (jcore-island-request "DELETE" (j-host-at args 0) nil {} (j-host-at args 1) false)
+    (throw "island-fetch-delete: URL and callback required")))
+(defn jcore-island-fetch-result [args]
+  (if (j-host-eq (j-host-len args) 4)
+    (jcore-island-request (j-host-at args 0) (j-host-at args 1) (j-host-at args 2) {} (j-host-at args 3) true)
+    (throw "island-fetch-result: method, URL, body and callback required")))
