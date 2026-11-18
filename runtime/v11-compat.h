@@ -708,11 +708,46 @@ static void t_op_name(FLValue name,char out[80]){
     out[i]=0;
 }
 
-FLValue fl_v11_has(FLValue name){
+/* Index immutable names without changing the scalar opcodes captured by closures.
+ * Slots store index+1; duplicate names retain the first entry, as before.
+ * No request values or arena pointers survive a lookup. */
+enum { T_OP_INDEX_CAPACITY=2*NEL(v11_ops)+1 };
+static size_t t_op_slots[T_OP_INDEX_CAPACITY];
+static pthread_once_t t_op_once=PTHREAD_ONCE_INIT;
+
+static size_t t_op_hash(const char *name){
+    uint32_t hash=2166136261u;
+    for(const unsigned char *p=(const unsigned char*)name;*p;p++)
+        hash=(hash^*p)*16777619u;
+    return hash%T_OP_INDEX_CAPACITY;
+}
+
+static void t_op_index_init(void){
+    for(size_t i=0;v11_ops[i];i++){
+        size_t slot=t_op_hash(v11_ops[i]);
+        while(t_op_slots[slot]){
+            if(!strcmp(v11_ops[t_op_slots[slot]-1],v11_ops[i]))break;
+            slot=(slot+1)%T_OP_INDEX_CAPACITY;
+        }
+        if(!t_op_slots[slot])t_op_slots[slot]=i+1;
+    }
+}
+
+static size_t t_op_index(FLValue name){
     char op[80];
     t_op_name(name,op);
-    for(size_t i=0;v11_ops[i];i++)if(!strcmp(op,v11_ops[i]))return fl_bool(true);
-    return fl_bool(false);
+    pthread_once(&t_op_once,t_op_index_init);
+    size_t slot=t_op_hash(op);
+    while(t_op_slots[slot]){
+        size_t index=t_op_slots[slot]-1;
+        if(!strcmp(op,v11_ops[index]))return index;
+        slot=(slot+1)%T_OP_INDEX_CAPACITY;
+    }
+    return SIZE_MAX;
+}
+
+FLValue fl_v11_has(FLValue name){
+    return fl_bool(t_op_index(name)!=SIZE_MAX);
 }
 
 /* Capture only a scalar opcode so a callback cannot retain request-arena text. */
@@ -721,9 +756,8 @@ static FLValue v11_fn_call(FLClosure*s,int n,FLValue*a){
 }
 
 FLValue fl_v11_fn(FLValue name){
-    char op[80];
-    t_op_name(name,op);
-    for(size_t i=0;v11_ops[i];i++)if(!strcmp(op,v11_ops[i])){
+    size_t i=t_op_index(name);
+    if(i!=SIZE_MAX){
         FLValue index=fl_int(i);
         return fl_fn_new(v11_fn_call,1,&index);
     }

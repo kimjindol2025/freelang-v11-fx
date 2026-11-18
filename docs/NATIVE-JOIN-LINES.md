@@ -42,7 +42,7 @@ unchanged seed and compares the generated stages. Existing approved private
 curl 8.9.1 is connected only by process environment, with its header/library
 hashes checked. Packaging remains pending; no package was installed.
 
-## Performance remains open
+## Performance at this milestone
 
 The two final standard generations took 39.14 and 42.36 seconds, with peak
 RSS 1,528,792 and 1,526,048 KiB. Memory remained below the limit; the latter
@@ -57,3 +57,8 @@ operator list linearly. This is evidence for a lookup-index optimization,
 not a claim that its cost alone explains the elapsed-time miss. Profiling
 uses the already-installed tool; no download/install or privileged change
 was performed. Full Node removal and commercial DB readiness remain open.
+
+A subsequent measured lookup-index change passes the same time criterion with
+34.08 and 35.95 seconds while preserving generated C bytes. See
+NATIVE-OP-LOOKUP.md for the new compiler, contracts and regression receipts.
+The earlier failure and instrumented diagnostic above remain historical evidence.
