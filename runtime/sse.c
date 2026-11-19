@@ -1,6 +1,7 @@
-/* Server-Sent Events. HTTP owns the socket; SSE owns the handler lifetime. */
+/* Server-Sent Events. HTTP explicitly transfers streamed socket ownership. */
 #define _GNU_SOURCE
 #include "runtime.h"
+#include "internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <limits.h>
+#include <unistd.h>
 
 typedef struct SSEConn {
     int fd, closed;
@@ -24,25 +26,6 @@ static SSEConn* connections;
 static int64_t next_connection_id;
 static int connections_stopping;
 
-void sse_server_start(void) {
-    pthread_mutex_lock(&connections_mutex);
-    connections_stopping = 0;
-    pthread_mutex_unlock(&connections_mutex);
-}
-
-void sse_server_shutdown(void) {
-    pthread_mutex_lock(&connections_mutex);
-    connections_stopping = 1;
-    for (SSEConn* c = connections; c; c = c->next) {
-        /* Wake a pending writer before waiting for its per-connection lock. */
-        shutdown(c->fd, SHUT_RDWR);
-        pthread_mutex_lock(&c->mutex);
-        c->closed = 1;
-        pthread_mutex_unlock(&c->mutex);
-    }
-    pthread_mutex_unlock(&connections_mutex);
-}
-
 #define MAX_SSE_ROUTES 16
 typedef FLValue (*SSEHandlerFn)(FLValue conn);
 typedef struct {
@@ -53,6 +36,53 @@ typedef struct {
 static SSERoute g_sse_routes[MAX_SSE_ROUTES];
 static int g_n_sse_routes;
 static pthread_mutex_t routes_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* Streams cannot occupy every ordinary HTTP worker: broadcasts and health
+ * requests must still be processed while the browser connections stay open.
+ * This limit retains the old HTTP pool's maximum simultaneous stream count. */
+#define MAX_SSE_TASKS 256
+typedef struct SSETask {
+    int fd;
+    SSERoute* route;
+    struct SSETask* next;
+} SSETask;
+static pthread_mutex_t tasks_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t tasks_drained = PTHREAD_COND_INITIALIZER;
+static SSETask* tasks;
+static unsigned task_count;
+static int tasks_stopping;
+
+void sse_server_start(void) {
+    pthread_mutex_lock(&tasks_mutex);
+    tasks_stopping = 0;
+    pthread_mutex_unlock(&tasks_mutex);
+    pthread_mutex_lock(&connections_mutex);
+    connections_stopping = 0;
+    pthread_mutex_unlock(&connections_mutex);
+}
+
+void sse_server_shutdown(void) {
+    /* Include tasks that have not entered their language handler yet. */
+    pthread_mutex_lock(&tasks_mutex);
+    tasks_stopping = 1;
+    for (SSETask* task = tasks; task; task = task->next)
+        if (task->fd >= 0) shutdown(task->fd, SHUT_RDWR);
+    pthread_mutex_unlock(&tasks_mutex);
+    pthread_mutex_lock(&connections_mutex);
+    connections_stopping = 1;
+    for (SSEConn* c = connections; c; c = c->next) {
+        shutdown(c->fd, SHUT_RDWR);
+        pthread_mutex_lock(&c->mutex);
+        c->closed = 1;
+        pthread_mutex_unlock(&c->mutex);
+    }
+    pthread_mutex_unlock(&connections_mutex);
+    /* Do not allow process/GC shutdown to race a stream's final cleanup.
+     * As with an ordinary HTTP worker, handlers must cooperate with shutdown. */
+    pthread_mutex_lock(&tasks_mutex);
+    while (task_count) pthread_cond_wait(&tasks_drained, &tasks_mutex);
+    pthread_mutex_unlock(&tasks_mutex);
+}
 
 static const char* sse_strval(FLValue v) {
     return v.tag == FL_STRING && v.obj ? ((FLString*)v.obj)->data : "";
@@ -244,7 +274,7 @@ int sse_is_sse_request(const char* raw) {
     return strcasestr(raw, "text/event-stream") != NULL;
 }
 
-int sse_handle_request(int fd, const char* raw, int raw_len) {
+static SSERoute* sse_match_request(const char* raw, int raw_len) {
     const char* end = raw + raw_len;
     const char* p = raw;
     while (p < end && *p != ' ') p++;
@@ -260,7 +290,10 @@ int sse_handle_request(int fd, const char* raw, int raw_len) {
         }
     }
     pthread_mutex_unlock(&routes_mutex);
-    if (!matched) return 0;
+    return matched;
+}
+
+static int sse_execute_request(int fd, SSERoute* matched) {
     SSEConn* c = sse_connection_new(fd);
     if (!c) {
         sse_do_error(fd); return 1;
@@ -293,6 +326,69 @@ int sse_handle_request(int fd, const char* raw, int raw_len) {
     }
     sse_connection_finish(c);
     fl_arena_end();
-    /* handle_connection closes fd exactly once on its ordinary exit path. */
+    /* The synchronous caller or the explicit async owner closes fd once. */
     return 1;
+}
+
+
+int sse_handle_request(int fd, const char* raw, int raw_len) {
+    SSERoute* route = sse_match_request(raw, raw_len);
+    return route ? sse_execute_request(fd, route) : FL_SSE_NO_ROUTE;
+}
+
+static void* sse_task_run(void* argument) {
+    SSETask* task = argument;
+    sse_execute_request(task->fd, task->route);
+    /* Serialize close with shutdown so a reused descriptor is never stopped. */
+    pthread_mutex_lock(&tasks_mutex);
+    close(task->fd);
+    task->fd = -1;
+    pthread_mutex_unlock(&tasks_mutex);
+    fl_thread_lifetime_end();
+    pthread_mutex_lock(&tasks_mutex);
+    SSETask** slot = &tasks;
+    while (*slot && *slot != task) slot = &(*slot)->next;
+    if (*slot) *slot = task->next;
+    free(task);
+    if (--task_count == 0) pthread_cond_broadcast(&tasks_drained);
+    pthread_mutex_unlock(&tasks_mutex);
+    return NULL;
+}
+
+static int sse_unavailable(int fd) {
+    static const char response[] = "HTTP/1.1 503 Service Unavailable\r\n"
+        "Content-Length: 0\r\nConnection: close\r\nRetry-After: 1\r\n\r\n";
+    sse_send_all(fd, response, sizeof(response) - 1);
+    return FL_SSE_DONE; /* Caller still owns this descriptor. */
+}
+
+int sse_handle_request_async(int fd, const char* raw, int raw_len) {
+    SSERoute* route = sse_match_request(raw, raw_len);
+    if (!route) return FL_SSE_NO_ROUTE;
+    SSETask* task = calloc(1, sizeof(*task));
+    if (!task) return sse_unavailable(fd);
+    task->fd = fd;
+    task->route = route;
+    pthread_attr_t attributes;
+    int code = pthread_attr_init(&attributes);
+    if (code) { free(task); return sse_unavailable(fd); }
+    code = pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
+    if (code) { pthread_attr_destroy(&attributes); free(task); return sse_unavailable(fd); }
+    pthread_mutex_lock(&tasks_mutex);
+    if (tasks_stopping || task_count >= MAX_SSE_TASKS) {
+        pthread_mutex_unlock(&tasks_mutex);
+        pthread_attr_destroy(&attributes);
+        free(task);
+        return sse_unavailable(fd);
+    }
+    task->next = tasks;
+    tasks = task;
+    task_count++;
+    pthread_t thread;
+    code = pthread_create(&thread, &attributes, sse_task_run, task);
+    if (code) { tasks = task->next; task_count--; }
+    pthread_mutex_unlock(&tasks_mutex);
+    pthread_attr_destroy(&attributes);
+    if (code) { free(task); return sse_unavailable(fd); }
+    return FL_SSE_ASYNC; /* The stream task now owns fd, including its close. */
 }

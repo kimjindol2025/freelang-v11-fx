@@ -492,6 +492,9 @@ FLValue sse_close(FLValue conn);
 FLValue sse_alive(FLValue conn);
 int sse_is_sse_request(const char* raw);
 int sse_handle_request(int fd, const char* raw, int raw_len);
+/* Async dispatch returns NO_ROUTE, DONE (caller closes), or ASYNC (fd transferred). */
+enum { FL_SSE_NO_ROUTE = 0, FL_SSE_DONE = 1, FL_SSE_ASYNC = 2 };
+int sse_handle_request_async(int fd, const char* raw, int raw_len);
 void sse_server_start(void);
 void sse_server_shutdown(void);
 

@@ -1,9 +1,22 @@
 ;; Browser-target support logic is FreeLang, not a handwritten JS runtime.
 ;; j-host-* are compiler-only primitive IR operations; user modules cannot call them.
-(define jcore-atoms (j-host-weak-new))
-(define jcore-listeners (j-host-weak-map-new))
-(define jcore-timers (j-host-weak-map-new))
-(define jcore-requests (j-host-weak-map-new))
+;; Generated modules share capabilities and island state within one document.
+;; An array here avoids depending on string/map helpers before their definitions.
+(define jcore-shared
+  (let [global (j-host-global) current (j-host-at global "__fl_native_runtime")]
+    (if (j-host-nullish? current)
+      (let [created [1 (j-host-weak-new) (j-host-weak-map-new)
+                      (j-host-weak-map-new) (j-host-weak-map-new)
+                      [{} []] {} [false nil nil nil (j-host-weak-new)] {}]]
+        (j-host-set! global "__fl_native_runtime" created)
+        created)
+      (if (j-host-and (j-host-array? current)
+            (j-host-and (j-host-eq (j-host-len current) 9) (j-host-eq (j-host-at current 0) 1)))
+        current (throw "Native browser runtime version conflict")))))
+(define jcore-atoms (j-host-at jcore-shared 1))
+(define jcore-listeners (j-host-at jcore-shared 2))
+(define jcore-timers (j-host-at jcore-shared 3))
+(define jcore-requests (j-host-at jcore-shared 4))
 
 (defn jcore-task? [value]
   (j-host-or (j-host-weak-has jcore-timers value) (j-host-weak-has jcore-requests value)))
@@ -499,6 +512,8 @@
           (let [message (if (j-host-and (j-host-not (j-host-nullish? error))
                            (j-host-eq (j-host-type (j-host-at error "message")) "string"))
                           (j-host-at error "message") (j-host-string error))]
+            (jcore-island-dev-report {"type" "island" "message" message
+                                      "source" (j-host-at root "id") "phase" "render"})
             (j-host-console-error (j-host-add "[Island Error] " message))
             (j-host-dom-set-text! root (j-host-add "[Island Error] " message))
             (j-host-dom-set-attribute! root "data-island-error" "true")))
@@ -515,6 +530,55 @@
         (let [state [false false nil]
               update (fn [] (jcore-island-update root render state))]
           (do (j-host-set! state 2 update) (update) update))))))
+
+;; Shared island state and subscriptions retain the browser store contract.
+;; Replacing the subscriber array keeps in-flight notification order stable.
+(define jcore-island-store (j-host-at jcore-shared 5))
+(defn jcore-island-get-store [args]
+  (if (j-host-lt 1 (j-host-len args))
+    (throw "island-get-store: optional key required") nil)
+  (let [value (j-host-at jcore-island-store 0) key (j-host-at args 0)]
+    (if (j-host-not key) value (jcore-get [value (jcore-key key)]))))
+(defn jcore-island-watch-store [args]
+  (let [callback (j-host-at args 0)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-len args) 1)
+                               (j-host-eq (j-host-type callback) "function")))
+      (throw "island-watch-store: one callback required") nil)
+    (j-host-set! jcore-island-store 1
+      (j-host-concat (j-host-at jcore-island-store 1) [callback]))
+    (fn []
+      (let [current (j-host-at jcore-island-store 1) remaining []]
+        (loop [index 0]
+          (if (j-host-lt index (j-host-len current))
+            (do (if (j-host-eq (j-host-at current index) callback) nil
+                  (j-host-push! remaining (j-host-at current index)))
+                (recur (j-host-add index 1))) nil))
+        (j-host-set! jcore-island-store 1 remaining)
+        nil))))
+(defn jcore-island-dispatch [args]
+  (if (j-host-not (j-host-or (j-host-eq (j-host-len args) 1)
+                            (j-host-eq (j-host-len args) 2)))
+    (throw "island-dispatch: map or key/value required") nil)
+  (let [previous (j-host-at jcore-island-store 0) key (j-host-at args 0)
+        next (if (j-host-eq (j-host-type key) "object")
+               (jcore-island-merge [previous key])
+               (jcore-island-assoc [previous key (j-host-at args 1)]))
+        listeners (j-host-at jcore-island-store 1)]
+    (j-host-set! jcore-island-store 0 next)
+    (loop [index 0]
+      (if (j-host-lt index (j-host-len listeners))
+        (do (j-host-call (j-host-at listeners index) [previous next key])
+            (recur (j-host-add index 1))) nil))))
+(defn jcore-island-mount-reactive [args]
+  (let [keys (j-host-at args 2)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-len args) 3)
+                   (j-host-or (j-host-nullish? keys) (j-host-array? keys))))
+      (throw "island-mount-reactive: id, render function and key array required") nil)
+    (let [update (jcore-island-mount [(j-host-at args 0) (j-host-at args 1)])]
+      (if (j-host-nullish? update) nil
+        (do (jcore-island-watch-store [(fn [previous next changed]
+              (if (j-host-or (j-host-nullish? keys) (j-host-includes keys changed))
+                (update) nil))]) nil)))))
 
 (defn jcore-island-value [args]
   (let [element (j-host-at args 0)]
@@ -797,3 +861,170 @@
   (if (j-host-eq (j-host-len args) 4)
     (jcore-island-request (j-host-at args 0) (j-host-at args 1) (j-host-at args 2) {} (j-host-at args 3) true)
     (throw "island-fetch-result: method, URL, body and callback required")))
+
+;; Development reload snapshots are consumed once, before an island mounts.
+(defn jcore-island-hmr-restore [args]
+  (if (j-host-not (j-host-eq (j-host-len args) 0))
+    (throw "island-hmr-restore!: no arguments required") nil)
+  (let [state (j-host-at jcore-shared 7)]
+    (if (j-host-at state 0) nil
+      (do
+        (j-host-set! state 0 true)
+        (try
+          (let [storage (j-host-session-storage)
+                raw (j-host-storage-get storage "__fl_hmr")]
+            (if (j-host-nullish? raw) nil
+              (do
+                (j-host-storage-remove! storage "__fl_hmr")
+                (let [snapshot (j-host-json-parse raw)]
+                  (if (j-host-and (j-host-not (j-host-nullish? snapshot))
+                                 (j-host-eq (j-host-type snapshot) "object"))
+                    (let [store (j-host-at snapshot "store") islands (j-host-at snapshot "islands")]
+                      (if (j-host-and (j-host-not (j-host-nullish? store))
+                                     (j-host-eq (j-host-type store) "object"))
+                        (j-host-set! jcore-island-store 0
+                          (jcore-island-merge [(j-host-at jcore-island-store 0) store])) nil)
+                      (if (j-host-and (j-host-not (j-host-nullish? islands))
+                                     (j-host-eq (j-host-type islands) "object"))
+                        (j-host-set! state 1 islands) nil)) nil)))))
+          (catch error nil))))))
+(defn jcore-island-hmr-legacy-key [source]
+  (let [parts (j-host-split source "-")
+        joined (loop [index 0 value ""]
+                 (if (j-host-lt index (j-host-len parts))
+                   (recur (j-host-add index 1)
+                     (j-host-add (j-host-add value (if (j-host-eq index 0) "" "_"))
+                                 (j-host-at parts index))) value))
+        size (j-host-len joined) last (j-host-at joined (j-host-sub size 1))]
+    (if (j-host-eq last "?") (j-host-add (j-host-substring joined 0 (j-host-sub size 1)) "_q")
+      (if (j-host-eq last "!") (j-host-add (j-host-substring joined 0 (j-host-sub size 1)) "_bang") joined))))
+(defn jcore-island-hmr-atom [args]
+  (let [id (j-host-at args 0) name (j-host-at args 1) initialize (j-host-at args 2)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-len args) 3)
+          (j-host-and (j-host-eq (j-host-type id) "string")
+            (j-host-and (j-host-eq (j-host-type name) "string")
+                        (j-host-eq (j-host-type initialize) "function")))))
+      (throw "island-hmr-atom: island id, state name and initializer required") nil)
+    (jcore-island-hmr-restore [])
+    (let [pending (j-host-at (j-host-at jcore-shared 7) 1)
+          row (jcore-get [pending id]) legacy (jcore-island-hmr-legacy-key name)
+          saved (j-host-and (j-host-not (j-host-nullish? row))
+                   (j-host-and (j-host-eq (j-host-type row) "object")
+                     (j-host-or (j-host-own? row name) (j-host-own? row legacy))))
+          value (if saved (jcore-atom [(j-host-at row (if (j-host-own? row name) name legacy))])
+                    (j-host-call initialize []))]
+      (if (jcore-atom? value) value (throw "island-hmr-atom: initializer must return an atom")))))
+(defn jcore-island-hmr-register [args]
+  (let [id (j-host-at args 0) atoms (j-host-at args 1)]
+    (if (j-host-and (j-host-eq (j-host-len args) 2)
+          (j-host-and (j-host-eq (j-host-type id) "string")
+            (j-host-and (j-host-not (j-host-nullish? atoms))
+              (j-host-and (j-host-eq (j-host-type atoms) "object") (j-host-plain? atoms)))))
+      (do (j-host-own-set! (j-host-at jcore-shared 6) id atoms) nil)
+      (throw "island-hmr-register!: island id and state map required"))))
+(defn jcore-island-hmr-snapshot [args]
+  (if (j-host-not (j-host-eq (j-host-len args) 0))
+    (throw "island-hmr-snapshot: no arguments required") nil)
+  (let [registry (j-host-at jcore-shared 6) ids (j-host-keys registry) islands {}]
+    (loop [index 0]
+      (if (j-host-lt index (j-host-len ids))
+        (let [id (j-host-at ids index) atoms (j-host-at registry id)
+              names (j-host-keys atoms) row {}]
+          (loop [at 0]
+            (if (j-host-lt at (j-host-len names))
+              (let [name (j-host-at names at) atom (j-host-at atoms name)]
+                (j-host-own-set! row name
+                  (if (jcore-atom? atom) (jcore-deref [atom])
+                    (if (j-host-and (j-host-not (j-host-nullish? atom))
+                          (j-host-and (j-host-eq (j-host-type atom) "object") (j-host-own? atom "v")))
+                      (j-host-at atom "v") atom)))
+                (recur (j-host-add at 1))) nil))
+          (j-host-own-set! islands id row)
+          (recur (j-host-add index 1))) nil))
+    {"store" (jcore-island-copy (j-host-at jcore-island-store 0)) "islands" islands}))
+(defn jcore-island-hmr-save [args]
+  (if (j-host-not (j-host-eq (j-host-len args) 0))
+    (throw "island-hmr-save!: no arguments required") nil)
+  (try
+    (do (j-host-storage-set! (j-host-session-storage) "__fl_hmr"
+          (j-host-json-stringify (jcore-island-hmr-snapshot []))) true)
+    (catch error false)))
+(defn jcore-island-dev-reload []
+  (jcore-island-hmr-save [])
+  (j-host-location-reload))
+(defn jcore-island-dev-css []
+  (let [links (j-host-array-from (j-host-dom-query-all "link[rel=stylesheet]"))
+        seen (j-host-at (j-host-at jcore-shared 7) 4) refreshed [0]]
+    (loop [index 0]
+      (if (j-host-lt index (j-host-len links))
+        (let [link (j-host-at links index) url (j-host-url (j-host-at link "href"))]
+          (if (j-host-eq (j-host-at url "origin") (j-host-origin))
+            (do
+              (if (j-host-weak-has seen link) nil
+                (do (j-host-weak-add seen link)
+                    (j-host-dom-on! link "error" (fn [event] (jcore-island-dev-reload)))))
+              (j-host-url-query-set! (j-host-at url "searchParams") "_fl_dev" (j-host-string (j-host-now)))
+              (j-host-set! link "href" (j-host-at url "href"))
+              (j-host-set! refreshed 0 (j-host-add (j-host-at refreshed 0) 1))) nil)
+          (recur (j-host-add index 1))) nil))
+    (if (j-host-eq (j-host-at refreshed 0) 0) (jcore-island-dev-reload) nil)))
+(defn jcore-island-dev-report [entry]
+  (let [base (j-host-at (j-host-at jcore-shared 7) 3)]
+    (if (j-host-nullish? base) nil
+      (try
+        (do (j-host-then
+              (j-host-fetch (j-host-add base "/~errors")
+                {"method" "POST" "headers" {"Content-Type" "application/json"}
+                 "body" (j-host-json-stringify entry)})
+              (fn [response] nil) (fn [error] nil)) nil)
+        (catch error nil)))))
+(defn jcore-island-dev-connect [args]
+  (let [port (j-host-at args 0) state (j-host-at jcore-shared 7)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-len args) 1)
+          (j-host-and (j-host-integer? port) (j-host-and (j-host-lt 0 port) (j-host-lt port 65536)))))
+      (throw "island-dev-connect!: port 1..65535 required") nil)
+    (if (j-host-not (j-host-nullish? (j-host-at state 2))) nil
+      (let [base (j-host-add (j-host-add (j-host-add (j-host-location-protocol) "//")
+                              (j-host-location-hostname)) (j-host-add ":" (j-host-string port)))
+            source (j-host-event-source (j-host-add base "/~hmr"))]
+        (j-host-set! state 2 source)
+        (j-host-set! state 3 base)
+        (j-host-dom-on! source "message" (fn [event]
+          (let [message (j-host-at event "data")]
+            (if (j-host-eq message "css-reload") (jcore-island-dev-css)
+              (if (j-host-or (j-host-eq message "soft-reload") (j-host-eq message "reload"))
+                (jcore-island-dev-reload) nil)))))
+        (j-host-dom-on! (j-host-global) "error" (fn [event]
+          (jcore-island-dev-report {"type" "error" "message" (j-host-at event "message")
+                                   "source" (j-host-at event "filename") "line" (j-host-at event "lineno")})))
+        (j-host-dom-on! (j-host-global) "unhandledrejection" (fn [event]
+          (let [reason (j-host-at event "reason")]
+            (jcore-island-dev-report {"type" "error" "message"
+              (if (j-host-and (j-host-not (j-host-nullish? reason))
+                    (j-host-eq (j-host-type (j-host-at reason "message")) "string"))
+                (j-host-at reason "message") (j-host-string reason))}))))
+        nil))))
+
+;; Preserve the public inspection hooks used by development clients. Every
+;; generated module refers to the same document state, even across IIFEs.
+(jcore-island-hmr-restore [])
+(let [global (j-host-global) previous (j-host-at global "_fl")
+      api (if (j-host-nullish? previous) (j-host-at jcore-shared 8) previous)]
+  (if (j-host-not (j-host-and (j-host-eq (j-host-type api) "object") (j-host-plain? api)))
+    (throw "Native island API namespace conflict") nil)
+  (j-host-own-set! api "get_store" (fn [key] (jcore-island-get-store [key])))
+  (j-host-own-set! api "dispatch" (fn [key value] (jcore-island-dispatch [key value])))
+  (j-host-own-set! api "watch_store" (fn [callback] (jcore-island-watch-store [callback])))
+  (j-host-own-set! api "hmr_register" (fn [id atoms] (jcore-island-hmr-register [id atoms])))
+  (j-host-own-set! api "hmr_snapshot" (fn [] (jcore-island-hmr-snapshot [])))
+  (let [previous-store (j-host-at api "_store")
+        store (if (j-host-nullish? previous-store) {} previous-store)]
+    (if (j-host-not (j-host-and (j-host-eq (j-host-type store) "object") (j-host-plain? store)))
+      (throw "Native island store namespace conflict") nil)
+    (j-host-property! store "v"
+      {"configurable" true "enumerable" true
+       "get" (fn [] (j-host-at jcore-island-store 0))
+       "set" (fn [value] (j-host-set! jcore-island-store 0 (jcore-island-copy value)))})
+    (j-host-own-set! api "_store" store))
+  (j-host-set! jcore-shared 8 api)
+  (j-host-set! global "_fl" api))

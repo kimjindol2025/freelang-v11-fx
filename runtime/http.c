@@ -33,6 +33,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <math.h>
+#include <stdatomic.h>
 
 /* ───────────────────────────────────────────
    내부 타입
@@ -48,6 +49,9 @@
 #define MAX_HEADER_TOTAL    32768       /* 헤더 총합 최대 → 431 */
 #define MAX_BODY_SIZE       (64*1024*1024) /* Includes multipart framing. */
 static size_t g_body_limit=MAX_BODY_SIZE;
+/* Idle receive waits must observe server shutdown without shortening the
+ * existing request/header/body deadlines or cancelling a running handler. */
+static _Atomic int http_stopping;
 #define HEADER_RECV_TIMEOUT 10          /* 헤더 완성 타임아웃 (초) */
 #define MAX_CONNECTIONS     512         /* 동시 연결 한도 → 503 */
 
@@ -549,8 +553,10 @@ static void* handle_connection(void* arg) {
 
         /* ── 2a. SSE 감지 (WS보다 먼저 체크) ── */
         if (wants_sse) {
-            if (!sse_handle_request(client_fd, raw, total))
+            int handled = sse_handle_request_async(client_fd, raw, total);
+            if (handled == FL_SSE_NO_ROUTE)
                 goto normal_http;   /* 등록된 라우트 없으면 일반 HTTP */
+            if (handled == FL_SSE_ASYNC) client_fd = -1; /* Explicit fd handoff. */
             break;  /* SSE는 keep-alive 루프 탈출 */
         }
 
@@ -656,7 +662,7 @@ static void* handle_connection(void* arg) {
 
     free(raw);
     if (http_ssl) SSL_shutdown(http_ssl);
-    close(client_fd);
+    if (client_fd >= 0) close(client_fd);
     return NULL;
 }
 
@@ -764,6 +770,7 @@ static void* worker_loop(void* arg) {
 /* ── SIGTERM/SIGINT 핸들러 ── */
 static void handle_shutdown_signal(int sig) {
     (void)sig;
+    atomic_store_explicit(&http_stopping, 1, memory_order_relaxed);
     fl_log(1, "http", "shutdown 신호 수신 — graceful 종료 시작");
     g_pool.shutdown = 1;
     /* accept 루프 깨우기 */
@@ -778,6 +785,7 @@ static void handle_shutdown_signal(int sig) {
 
 /* ── 스레드 풀 초기화 ── */
 static int pool_init(void) {
+    atomic_store_explicit(&http_stopping, 0, memory_order_relaxed);
     sse_server_start();
     /* 워커 수 결정 */
     int n = POOL_DEFAULT_WORKERS;
@@ -821,6 +829,7 @@ static int pool_init(void) {
 static void pool_shutdown(int timeout_sec) {
     fprintf(stderr, "[http] graceful shutdown (최대 %ds 대기)...\n", timeout_sec);
 
+    atomic_store_explicit(&http_stopping, 1, memory_order_relaxed);
     sse_server_shutdown();
 
     pthread_mutex_lock(&g_pool.lock);

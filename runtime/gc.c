@@ -118,6 +118,9 @@ int fl_thread_lifetime_begin(void){
     if(thread_key_error||pthread_setspecific(thread_key,(void*)1))return 0;
     thread_watched=1;return 1;
 }
+void fl_thread_lifetime_end(void){
+    if(thread_watched&&!thread_cleaning)thread_cleanup(NULL);
+}
 int fl_arena_active(void){return g_arena!=NULL;}
 static void arena_clean(Arena*arena){
     if(arena)fl_borrow_release_to(arena->borrow_mark);

@@ -78,6 +78,11 @@ static const char *bj_builtin(const char*op){
   "browser-after!","jcore-after","browser-cancel!","jcore-cancel",
   "browser-http!","jcore-http","browser-json-parse","jcore-json-parse",
   "island-h","jcore-island-h","island-mount","jcore-island-mount",
+  "island-get-store","jcore-island-get-store","island-dispatch","jcore-island-dispatch",
+  "island-watch-store","jcore-island-watch-store","island-mount-reactive","jcore-island-mount-reactive",
+  "island-hmr-restore!","jcore-island-hmr-restore","island-hmr-atom","jcore-island-hmr-atom",
+  "island-hmr-register!","jcore-island-hmr-register","island-hmr-snapshot","jcore-island-hmr-snapshot",
+  "island-hmr-save!","jcore-island-hmr-save","island-dev-connect!","jcore-island-dev-connect",
   "island-value","jcore-island-value","island-attribute","jcore-island-attribute",
   "island-form-reset!","jcore-island-form-reset","island-number","jcore-island-number",
   "island-regex-test","jcore-island-regex-test","island-navigate!","jcore-island-navigate",
@@ -137,6 +142,15 @@ static void bj_logic(BJ*b,FLValue args,unsigned index,int is_or){
 }
 static int bj_host(BJ*b,const char*op,FLValue args){
  unsigned n=bj_len(args);const char *symbol=NULL;
+ const char *properties[]={"j-host-global","globalThis","j-host-session-storage","globalThis.sessionStorage",
+  "j-host-location-reload","globalThis.location.reload()","j-host-location-protocol","location.protocol",
+  "j-host-location-hostname","location.hostname","j-host-now","Date.now()",NULL};
+ for(unsigned i=0;properties[i];i+=2)if(!strcmp(op,properties[i])){
+  if(n)bj_fail(b,"host global property arity");bj_out(b,properties[i+1]);return 1;
+ }
+ if(!strcmp(op,"j-host-event-source")){
+  if(n!=1)bj_fail(b,"host EventSource arity");bj_out(b,"new EventSource(");bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;
+ }
  const char *binary[]={"j-host-eq","===","j-host-lt","<","j-host-gte",">=","j-host-add","+","j-host-sub","-","j-host-mul","*","j-host-div","/","j-host-and","&&","j-host-or","||",NULL};
  for(unsigned i=0;binary[i];i+=2)if(!strcmp(op,binary[i]))symbol=binary[i+1];
  if(symbol){if(n!=2)bj_fail(b,"host binary arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,symbol);bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;}
@@ -215,11 +229,11 @@ static int bj_host(BJ*b,const char*op,FLValue args){
  }
  if(!strcmp(op,"j-host-abort-new")){if(n)bj_fail(b,"host abort constructor arity");bj_out(b,"new AbortController()");return 1;}
  const char *call=NULL;unsigned arity=0;
- const char *calls[]={"j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1","j-host-dom-text","document.createTextNode","1","j-host-console-error","console.error","1","j-host-number","Number","1","j-host-json-stringify","JSON.stringify","1",NULL};
+ const char *calls[]={"j-host-fetch","globalThis.fetch","2","j-host-json-parse","JSON.parse","1","j-host-array?","Array.isArray","1","j-host-own?","Object.hasOwn","2","j-host-keys","Object.keys","1","j-host-integer?","Number.isInteger","1","j-host-string","String","1","j-host-dom-by-id","document.getElementById","1","j-host-dom-create","document.createElement","1","j-host-array-from","Array.from","1","j-host-dom-text","document.createTextNode","1","j-host-console-error","console.error","1","j-host-number","Number","1","j-host-json-stringify","JSON.stringify","1","j-host-dom-query-all","document.querySelectorAll","1","j-host-property!","Object.defineProperty","3",NULL};
  for(unsigned i=0;calls[i];i+=3)if(!strcmp(op,calls[i])){call=calls[i+1];arity=(unsigned)atoi(calls[i+2]);}
  if(call){if(n!=arity)bj_fail(b,"host call arity");bj_out(b,call);bj_out(b,"(");bj_args(b,args,0);bj_out(b,")");return 1;}
  const char *method=NULL;unsigned argc=0;
- const char *methods[]={"j-host-then","then","2","j-host-response-text","text","0","j-host-abort","abort","0","j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0","j-host-dom-append!","appendChild","1","j-host-dom-before!","insertBefore","2","j-host-dom-remove!","remove","0","j-host-dom-clear!","replaceChildren","0","j-host-dom-attribute","getAttribute","1","j-host-dom-set-attribute!","setAttribute","2","j-host-dom-focus!","focus","0","j-host-trim","trim","0","j-host-includes","includes","1","j-host-split","split","1","j-host-index-of","indexOf","2",NULL};
+ const char *methods[]={"j-host-then","then","2","j-host-response-text","text","0","j-host-abort","abort","0","j-host-weak-has","has","1","j-host-weak-add","add","1","j-host-weak-get","get","1","j-host-weak-set!","set","2","j-host-copy","slice","0","j-host-slice","slice","1","j-host-concat","concat","1","j-host-push!","push","1","j-host-substring","substring","2","j-host-dom-on!","addEventListener","2","j-host-dom-off!","removeEventListener","2","j-host-prevent-default!","preventDefault","0","j-host-dom-append!","appendChild","1","j-host-dom-before!","insertBefore","2","j-host-dom-remove!","remove","0","j-host-dom-clear!","replaceChildren","0","j-host-dom-attribute","getAttribute","1","j-host-dom-set-attribute!","setAttribute","2","j-host-dom-focus!","focus","0","j-host-trim","trim","0","j-host-includes","includes","1","j-host-split","split","1","j-host-index-of","indexOf","2","j-host-storage-get","getItem","1","j-host-storage-set!","setItem","2","j-host-storage-remove!","removeItem","1","j-host-url-query-set!","set","2",NULL};
  for(unsigned i=0;methods[i];i+=3)if(!strcmp(op,methods[i])){method=methods[i+1];argc=(unsigned)atoi(methods[i+2]);}
  if(method){if(n!=argc+1)bj_fail(b,"host method arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,").");bj_out(b,method);bj_out(b,"(");bj_args(b,args,1);bj_out(b,")");return 1;}
  if(!strcmp(op,"j-host-call")){if(n!=2)bj_fail(b,"host apply arity");bj_out(b,"Reflect.apply(");bj_expr(b,bj_at(args,0));bj_out(b,",null,");bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;}

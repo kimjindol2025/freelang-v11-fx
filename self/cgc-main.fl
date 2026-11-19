@@ -559,6 +559,9 @@
      (r-pair (p-advance $p) (make-variable $v $line))]
     [(= $k "Keyword")
      (r-pair (p-advance $p) (make-keyword $v $line))]
+    [(or (= $k "RParen") (= $k "RBracket") (= $k "RBrace"))
+     (throw (str "[E_PARSE_UNEXPECTED_TOKEN] unexpected closing delimiter at line "
+                 $line ", col " (get $t :col)))]
     [true (r-pair (p-advance $p) (make-literal "unknown" $v $line))])))
 
 ;; ── #() 단축 fn: % 심볼을 $__pct__ 로 치환
@@ -708,11 +711,18 @@
          (r-pair (parse-consume-rparen $p2)
                  (make-sexpr $op $rest $line))])))))
 
+(defn parse-close-error [$p $expected]
+  (let [[$token (p-peek $p)]
+        [$where (if (null? $token) (last (get $p :tokens)) $token)]]
+    (throw (str "[E_PARSE_UNEXPECTED_TOKEN] expected " $expected " before "
+                (if (null? $token) "EOF" (get $token :kind))
+                " at line " (get $where :line) ", col " (get $where :col)))))
+
 (defn parse-consume-rparen [$p]
   (let [[$t (p-peek $p)]]
   (if (and (not (null? $t)) (= (get $t :kind) "RParen"))
     (p-advance $p)
-    $p)))
+    (parse-close-error $p ")"))))
 
 ;; args 수집 (재귀): RParen 만나면 중단
 (defn parse-args [$p $acc]
@@ -758,7 +768,7 @@
   (let [[$t (p-peek $p)]]
   (if (and (not (null? $t)) (= (get $t :kind) "RBracket"))
     (p-advance $p)
-    $p)))
+    (parse-close-error $p "]"))))
 
 ;; [TYPE name? :k v :k v ...]  Named block (FUNC/ROUTE/PAGE 등)
 (defn parse-named-block [$p $line]
@@ -802,7 +812,7 @@
   (let [[$t (p-peek $p)]]
   (if (and (not (null? $t)) (= (get $t :kind) "RBrace"))
     (p-advance $p)
-    $p)))
+    (parse-close-error $p "}"))))
 
 ;; ── 40/44 공개 API: parse(tokens) → ast list
 

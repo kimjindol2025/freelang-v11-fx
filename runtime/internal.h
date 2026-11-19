@@ -2,6 +2,8 @@
 #define FREELANG_RUNTIME_INTERNAL_H
 
 #include "runtime.h"
+/* End an explicitly owned host thread before reporting that it has drained. */
+void fl_thread_lifetime_end(void);
 #include <pthread.h>
 typedef struct FLAtom {
     FLVector vector;

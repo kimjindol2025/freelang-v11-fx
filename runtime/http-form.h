@@ -191,8 +191,14 @@ static int form_receive(int fd, char **raw_out) {
         if (remaining<=0) { result=form_fail(408,"UPLOAD_TIMEOUT"); break; }
         if (!http_ssl || !SSL_pending(http_ssl)) {
             struct pollfd wait={.fd=fd,.events=events};
-            int ready=poll(&wait,1,(int)(remaining*1000)+1);
+            int wait_ms=(int)(remaining*1000)+1;
+            if (!got && wait_ms>100) wait_ms=100;
+            int ready=poll(&wait,1,wait_ms);
             if (ready<0 && errno==EINTR) continue;
+            if (!ready && !got) {
+                if (atomic_load_explicit(&http_stopping,memory_order_relaxed)) { result=0; break; }
+                continue; /* The same monotonic header deadline still applies. */
+            }
             if (!ready) { result=form_fail(408,"UPLOAD_TIMEOUT"); break; }
             if (ready<0) { result=form_fail(400,"INCOMPLETE_BODY"); break; }
         }

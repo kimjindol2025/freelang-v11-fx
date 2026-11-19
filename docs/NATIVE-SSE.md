@@ -5,18 +5,24 @@ HTTP handlers before trying a legacy exported C symbol. Captured closures and
 names registered before their definitions work. A missing named handler returns
 HTTP 500 before a streaming header is sent.
 
-HTTP retains ownership of the socket and closes it after the handler returns.
+For an HTTP stream, HTTP transfers the socket explicitly to a tracked SSE task.
+The task closes it after the handler returns, completes its Native thread/arena
+cleanup and then reports that it has drained. Ordinary HTTP workers remain
+available for health requests and broadcasts while streams stay open. The
+synchronous C entry retains its caller-owned descriptor contract.
 SSE connections use process-local monotonic lifetime IDs with synchronized
 lookup, sending and release. A close makes subsequent alive/send calls false.
 Shutdown closes the transport direction and makes polling handlers leave before
-HTTP joins its workers. Route entries are prepared before publication under a
-mutex. The existing 16-route limit remains.
+HTTP joins its workers. Stream tasks are bounded at 256; stopping, exhausted
+capacity and thread-creation failures return 503 without transferring ownership.
+Route entries are prepared before publication under a mutex. The existing
+16-route limit remains.
 
 Each send emits one complete event, including an empty event, arbitrary-length
 payloads and multiple data lines. CRLF, CR and LF split lines consistently.
 Short successful writes and EINTR continue until the frame has been sent; a
 transport failure marks the connection closed. Closed handles are removed after
-the handler finishes, before HTTP can reuse the descriptor.
+the handler finishes, before its owner closes and can reuse the descriptor.
 
 The compiler adapts server_sse, sse_send, sse_close and sse_alive (including their
 hyphen aliases) to ordinary function values when they are passed as data.
@@ -24,7 +30,7 @@ The same signature adaptation covers fn?, used to inspect these values.
 Wrappers check arity and leave the native operator table and closure ordinals
 unchanged. Lexical function bindings keep their existing behavior.
 
-## Verification
+## Earlier accepted SDK verification
 
 Paths/owners: <가림>. Receipt: native-sse-firstclass-20261120.
 The fresh compiler and full runtime were built from the unchanged seed. All
@@ -75,3 +81,54 @@ application memory/throughput bound is not established by these scoped checks.
 Native development supervision, browser HMR/state restoration, headless island
 execution, all-app acceptance and DB commercial qualification remain open.
 Commercial status stays HOLD. No production deployment was performed.
+
+## Subsequent lifecycle checks
+
+The stream handoff above corrects a reproduced starvation defect: two retained
+open streams with FL_WORKERS=2 prevented ordinary health and broadcast requests
+from completing. The isolated current-runtime candidate passes 34/34 controls
+with eight open streams and two HTTP workers, including delivery, connection
+cleanup, and thread/file-descriptor drain. The unchanged 74 SSE, 83 development
+API, 7 function-value plus 5 language and 19 C/concurrent-route controls pass too.
+
+A separate ordinary HTTP keep-alive connection also prevented shutdown within
+the existing three-second observation bound. Empty receive waits now observe
+the stop flag at most 100 ms apart; the existing monotonic header/body deadlines
+remain unchanged. Buffered requests and running handlers can complete. The
+combined candidate passes 56/56 lifecycle controls covering one/eight idle
+connections, a running handler, an accepted queued request and partial headers,
+then passes the same stream/API regression controls above. TLS handshakes and
+noncooperative user handlers are outside these lifecycle receipts.
+
+Receipts are native-sse-capacity-20261120 and native-http-idle-20261120.
+The new coherent seed-to-Stage4/runtime/core/SDK verification passed as
+native-dev-coherent-20261120. Its additional checks repeat the 34 capacity and
+56 HTTP lifecycle controls on the newly packaged SDK. The older SDK hashes
+above do not identify this current checkpoint. No protected assertion, source
+fixture, deadline, runner or seed was edited.
+
+## Current coherent checkpoint
+
+[Machine-readable evidence](evidence/native-dev-coherent-20261120.json) records
+the exact compiled-source changes and distinct acceptance scopes.
+
+- Stage2 = Stage3 = Stage4 C SHA-256:
+  26f07fec1123c4b7bd396b68fd6272a7d9882e513e70f747d03fe206fe13d2c0.
+- Stage-3 compiler ELF: 16f1772378b93765dea9bd1c6149e48130324667db730bf98d5090627d131586.
+- Fresh runtime archive: 4d3140faaa9623c9d11a7d263ae956774c4d88828c53cfda68771f3e46d4473b.
+- Stage2/3 generation: 29.88/29.31 seconds, RSS 1545824/1545804 KiB;
+  unchanged 40-second/1.6-GiB bounds and 2-GiB process cap pass.
+- Fresh original core, CLI, checker, SSE/API/function/C-route and watcher
+  regressions pass. The canonical tracked frontend cohort is 71/71; the actual
+  working-tree cohort is separately 80/80, preserving its existing extra suite.
+- One stream remained open for 180 seconds with periodic ordinary HTTP:
+  41/41 checks, warm RSS growth 216 KiB, open FD growth 0 and normal shutdown.
+  This is a measured scoped observation, not a general lifetime/load bound.
+- The relocated SDK passes real default common/Provider/page entries,
+  library resolution, exact self-generated C and manifest tamper/restore checks.
+
+Actual Chrome HMR/store/CSS/error behavior passes 23 functional controls;
+screenshot and pointer hit-testing remain unverified. Development supervision,
+complete diagnostics/metadata, headless execution, deployment migration, actual
+application flows and whole DB commercial qualification are still required.
+Commercial HOLD, deployment NO, overall goal active.
