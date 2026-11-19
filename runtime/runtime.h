@@ -492,6 +492,8 @@ FLValue sse_close(FLValue conn);
 FLValue sse_alive(FLValue conn);
 int sse_is_sse_request(const char* raw);
 int sse_handle_request(int fd, const char* raw, int raw_len);
+void sse_server_start(void);
+void sse_server_shutdown(void);
 
 /* ── aliases.c — cgc-bin 생성 함수 bridge ── */
 /* 환경 */

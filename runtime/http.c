@@ -778,6 +778,7 @@ static void handle_shutdown_signal(int sig) {
 
 /* ── 스레드 풀 초기화 ── */
 static int pool_init(void) {
+    sse_server_start();
     /* 워커 수 결정 */
     int n = POOL_DEFAULT_WORKERS;
     const char* env_w = getenv("FL_WORKERS");
@@ -819,6 +820,8 @@ static int pool_init(void) {
 /* ── 스레드 풀 종료 (graceful) ── */
 static void pool_shutdown(int timeout_sec) {
     fprintf(stderr, "[http] graceful shutdown (최대 %ds 대기)...\n", timeout_sec);
+
+    sse_server_shutdown();
 
     pthread_mutex_lock(&g_pool.lock);
     g_pool.shutdown = 1;

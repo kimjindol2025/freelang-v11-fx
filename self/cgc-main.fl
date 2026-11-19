@@ -967,10 +967,36 @@
 ;; ── 리터럴 ──
 
 ;; 연산자 심볼 → first-class 함수 래퍼 (HOF 인자: (map + list), (reduce + list 0) 등)
+(defn cgc-native-callback [$symbol]
+  ;; These public host functions have C signatures, not FLValue globals.
+  ;; Adapt the signature without changing the registered native opcode ABI.
+  (let [[$target (c-name $symbol)]
+        [$arity (if (includes-item ["server_sse" "sse_send"] $target) 2 1)]
+        [$prefix (str "__fl_host_callback_" $target)]
+        [$wrapper (loop [$index 0 $name $prefix]
+                    (if (or (includes-item @known-defns-atom $name)
+                            (includes-item @known-fncall-targets-atom $name))
+                      (recur (+ $index 1) (str $prefix "_" (+ $index 1))) $name))]
+        [$forward (str "static FLValue " $wrapper "(FLClosure*, int, FLValue*);")]
+        [$definition
+          (str "static FLValue " $wrapper "(FLClosure* self, int argc, FLValue* argv) {\n"
+               "    (void)self;\n"
+               "    if (argc != " $arity ") { fl_throw(fl_str_val(\"" $target
+                 ": expected " $arity (if (= $arity 1) " argument" " arguments")
+                 "\")); return fl_nil(); }\n"
+               "    return " $target "(" (cgc-wrapper-call-args (repeat $arity nil) 0 "") ");\n}")]]
+    (if (includes-item @global-decls-atom $forward) nil
+      (do (swap! global-decls-atom append $forward)
+          (swap! wrapper-defs-atom append $definition)))
+    (str "fl_fn_new(" $wrapper ", 0, NULL)")))
+
 (defn cgc-op-wrapper [$sym]
   (if (fl_v11_has $sym)
     (str "fl_v11_fn(fl_str_val(\"" (c-esc $sym) "\"))")
   (cond
+    [(includes-item ["fn?" "server_sse" "server-sse" "sse_send" "sse-send"
+                     "sse_close" "sse-close" "sse_alive" "sse-alive"] $sym)
+     (cgc-native-callback $sym)]
     [(includes-item ["assoc" "dissoc" "conj" "push" "update" "get" "append" "concat"] $sym)
      (str "fl_builtin_fn(fl_str_val(\"" (c-esc $sym) "\"))")]
     [(= $sym "+")  "fl_fn_new(__fl_op_add_w, 0, NULL)"]
