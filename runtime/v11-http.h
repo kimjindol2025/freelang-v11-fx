@@ -4,6 +4,8 @@
 #include <ctype.h>
 static Route vh_middlewares[MAX_ROUTES];
 static int vh_nmiddlewares;
+/* Set only by the accepted socket, never by Forwarded/body/query data. */
+static __thread char vh_client_ip[INET6_ADDRSTRLEN];
 static FLValue vh_get(FLValue v,const char*k){return fl_map_get(v,fl_str_val(k));}
 static FLValue vh_set(FLValue v,const char*k,FLValue x){return fl_map_set(v,fl_str_val(k),x);}
 static FLValue vh_error(const char*why){fl_throw(fl_make_error("TypeError",why));return fl_nil();}
@@ -83,6 +85,10 @@ FLValue fl_v11_http(FLValue name,FLValue argv){
   }
   FLValue headers=vh_set(fl_map_new(),"Location",location);if(!strcmp(op,"server-redirect-cookie"))headers=vh_set(headers,"Set-Cookie",b);
   return vh_set(vh_response(302,"text/plain",fl_str_val("")),"headers",headers);
+ }
+ if(!strcmp(op,"server-req-client-ip")){
+  if(n!=1||a.tag!=FL_MAP||!vh_client_ip[0])return vh_error("server_req_client_ip: active HTTP request required");
+  return fl_str_val(vh_client_ip);
  }
  if(!strcmp(op,"server-req-cookie")){
   FLValue header=vh_get(vh_get(a,"headers"),"cookie");if(header.tag!=FL_STRING)return fl_nil();FLString*s=(FLString*)header.obj;size_t at=0;

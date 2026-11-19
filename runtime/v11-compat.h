@@ -790,6 +790,8 @@ static FLValue t_replace_all(FLValue input,FLValue pattern,FLValue replacement){
 #include "v11-error.h"
 #include "v11-json.h"
 #include "v11-auth.h"
+#include "v11-shop-crypto.h"
+extern FLValue fl_shell_exec_result(FLValue command);
 #include "v11-feed.h"
 
 FLValue fl_v11_to_number(FLValue value){return t_numeric(value)?fl_float(t_double(value)):t_parse(value,0);}
@@ -816,6 +818,11 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
 #define IS(s) (!strcmp(op,s))
 #define ARG(i) ((size_t)(i)<n?a[i]:fl_nil())
     if(IS("identity"))return ARG(0);
+    if(IS("random-bytes")||IS("hash-eq")||IS("hmac-sha256")||IS("now-iso"))return fl_v11_shop_crypto(fl_str_val(op),argv);
+    if(IS("shell-exec-result")){
+        if(n!=1||ARG(0).tag!=FL_STRING){fl_throw(fl_make_error("TypeError","shell-exec-result requires one command string"));return fl_nil();}
+        return fl_shell_exec_result(ARG(0));
+    }
     if(IS("file-sha256-result")||IS("file_sha256_result")){
         if(n!=1){fl_throw(fl_make_error("TypeError","file-sha256-result: exactly one argument required"));return fl_nil();}
         return fl_file_sha256_result(ARG(0));
@@ -847,7 +854,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     }
     if(IS("json-parse"))return vj_parse(ARG(0));
     if(IS("json-str")||IS("json-stringify"))return vj_stringify(ARG(0));
-    if(IS("auth-sha256")){
+    if(IS("auth-sha256")||IS("sha256")){
         if(ARG(0).tag!=FL_STRING)fl_throw(fl_make_error("TypeError","auth_sha256: string required"));
         TUnits text=t_units(ARG(0));TBuffer bytes={0};t_encode(&bytes,text.p,text.n,1);free(text.p);
         return sha256(t_finish(&bytes));
@@ -858,7 +865,7 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
     if(IS("set-timeout")||IS("schedule-at")||IS("await-result")||IS("fl-yield"))return fl_v11_timer(fl_str_val(op),argv);
     if(!strncmp(op,"tcp-",4)||IS("fl-error-drain")||IS("fl-error-queue-size"))return fl_v11_io(fl_str_val(op),argv);
     if(IS("rss-feed")||IS("sitemap-xml"))return vf_feed(op,argv);
-    if(!strncmp(op,"fd-",3)){
+    if(!strncmp(op,"fd-",3)||IS("dir-fsync")||IS("dir-private")){
         FLValue args=argv;
         if(IS("fd-write")&&ARG(1).tag==FL_STRING){
             TUnits text=t_units(ARG(1));TBuffer bytes={0};t_encode(&bytes,text.p,text.n,1);free(text.p);

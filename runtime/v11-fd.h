@@ -1,7 +1,7 @@
 /* C11: synthetic handles, shared by threads; C10 validates every path component. */
 #include <pthread.h>
 #include <math.h>
-typedef struct VFd {int64_t id;int fd;int parent;char mode;struct VFd*next;} VFd;
+typedef struct VFd {int64_t id;int fd;int parent;char mode;int publishable;char leaf[NAME_MAX+1];struct VFd*next;} VFd;
 static VFd*vfd_head;
 static int64_t vfd_next=1000;
 static pthread_mutex_t vfd_lock=PTHREAD_MUTEX_INITIALIZER;
@@ -21,6 +21,35 @@ static int vfd_sync(int fd){int rc;do{rc=fsync(fd);}while(rc<0&&errno==EINTR);re
 FLValue fl_v11_fd(FLValue name,FLValue argv){
     const char*op=_strval(name);FLVector*v=(FLVector*)argv.obj;
     FLValue arg=v->len?v->data[0]:fl_nil(),value=v->len>1?v->data[1]:fl_nil();
+    if(!strcmp(op,"dir-private")){
+        if(v->len!=1)return vfd_error(op,EINVAL);
+        char leaf[NAME_MAX+1];int parent=vf_parent(arg,0,leaf);
+        if(parent<0)return vfd_error(op,errno);
+        int err=0;
+        if(mkdirat(parent,leaf,0700)&&errno!=EEXIST)err=errno;
+        int fd=err?-1:openat(parent,leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+        if(!err&&fd<0)err=errno;
+        close(parent);
+        if(fd>=0){
+            struct stat st;
+            if(fstat(fd,&st))err=errno;
+            else if(st.st_uid!=geteuid())err=EACCES;
+            else if(fchmod(fd,0700))err=errno;
+            if(close(fd)&&!err)err=errno;
+        }
+        return err?vfd_error(op,err):fl_bool(true);
+    }
+    if(!strcmp(op,"dir-fsync")){
+        if(v->len!=1)return vfd_error(op,EINVAL);
+        char leaf[NAME_MAX+1];int parent=vf_parent(arg,0,leaf);
+        if(parent<0)return vfd_error(op,errno);
+        int fd=openat(parent,leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC),err=errno;
+        close(parent);
+        if(fd<0)return vfd_error(op,err);
+        err=vfd_sync(fd)?errno:0;
+        if(close(fd)&&!err)err=errno;
+        return err?vfd_error(op,err):fl_bool(true);
+    }
     int creating=!strcmp(op,"fd-create");
     int retaining=!strcmp(op,"fd-open-with-parent");
     if(((creating||!strcmp(op,"fd-sync-parent"))&&v->len!=1)||
@@ -53,7 +82,9 @@ FLValue fl_v11_fd(FLValue name,FLValue argv){
         if(!entry){close(fd);if(parent>=0)close(parent);return vfd_error(op,ENOMEM);}
         pthread_mutex_lock(&vfd_lock);
         if(vfd_next==INT64_MAX){pthread_mutex_unlock(&vfd_lock);free(entry);close(fd);if(parent>=0)close(parent);return vfd_error(op,EMFILE);}
-        *entry=(VFd){vfd_next++,fd,parent,mode,vfd_head};vfd_head=entry;
+        *entry=(VFd){.id=vfd_next++,.fd=fd,.parent=parent,.mode=mode,.publishable=creating,.next=vfd_head};
+        if(creating)memcpy(entry->leaf,leaf,strlen(leaf)+1);
+        vfd_head=entry;
         int64_t id=entry->id;
         pthread_mutex_unlock(&vfd_lock);
         return fl_int(id);
@@ -83,6 +114,36 @@ FLValue fl_v11_fd(FLValue name,FLValue argv){
         /* Linux closes the descriptor even on EINTR; never retry a reused fd. */
         if(close(fd))err=errno;
         if(parent>=0&&close(parent)&&!err)err=errno;
+        pthread_mutex_unlock(&vfd_lock);
+        return err?vfd_error(op,err):fl_bool(true);
+    }
+    if(!strcmp(op,"fd-publish")){
+        /* Only a fresh exclusive file in the retained directory can be published.
+         * The directory must be private to trusted writers (same-UID attacks are
+         * outside this API boundary); rename never follows the destination leaf. */
+        char target[NAME_MAX+1];int other=-1;
+        struct stat original,parent,target_parent,named,destination;
+        if(v->len!=2||!entry->publishable||entry->parent<0)err=EINVAL;
+        else if((other=vf_parent(value,0,target))<0)err=errno;
+        else if(fstat(entry->parent,&parent)||fstat(other,&target_parent))err=errno;
+        else if(parent.st_dev!=target_parent.st_dev||parent.st_ino!=target_parent.st_ino)err=EXDEV;
+        else if(parent.st_uid!=geteuid()||(parent.st_mode&0077)!=0)err=EACCES;
+        else if(!strcmp(target,entry->leaf)||!strcmp(target,".")||!strcmp(target,".."))err=EINVAL;
+        else if(fstat(fd,&original)||fstatat(entry->parent,entry->leaf,&named,AT_SYMLINK_NOFOLLOW))err=errno;
+        else if(!S_ISREG(named.st_mode)||original.st_dev!=named.st_dev||original.st_ino!=named.st_ino||original.st_nlink!=1)err=ESTALE;
+        else if((original.st_mode&0777)!=0600||original.st_uid!=geteuid())err=EACCES;
+        else if(fstatat(entry->parent,target,&destination,AT_SYMLINK_NOFOLLOW)==0){
+            if(!S_ISREG(destination.st_mode))err=EACCES;
+        }else if(errno!=ENOENT)err=errno;
+        if(other>=0)close(other);
+        if(!err&&vfd_sync(fd))err=errno;
+        if(!err){
+            if(renameat(entry->parent,entry->leaf,entry->parent,target))err=errno;
+            else {
+                entry->publishable=0;
+                if(vfd_sync(entry->parent))err=errno;
+            }
+        }
         pthread_mutex_unlock(&vfd_lock);
         return err?vfd_error(op,err):fl_bool(true);
     }

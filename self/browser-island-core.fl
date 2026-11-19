@@ -1,0 +1,267 @@
+;; Native Island compatibility for the seven commerce pages.
+;; Algorithmic behavior is FreeLang. i-host-* are compiler-private fixed
+;; browser primitives; raw JavaScript, eval and arbitrary property calls are
+;; deliberately absent. Existing browser-* contracts remain unchanged.
+(define iscore-owners (j-host-weak-map-new))
+(define iscore-current [nil])
+
+(defn iscore-exact [args count message]
+  (if (j-host-eq (j-host-len args) count) nil (throw message)))
+(defn iscore-render [record]
+  (if (j-host-at record 4) nil
+    (if (j-host-eq (j-host-at (j-host-at record 0) "isConnected") false)
+      (j-host-set! record 4 true)
+      (let [previous (j-host-at iscore-current 0)]
+        (do
+          (j-host-set! iscore-current 0 record)
+          (j-host-set! record 3 true)
+          (try
+            (let [node (j-host-call (j-host-at record 1) [])]
+              (do (j-host-dom-clear! (j-host-at record 0))
+                  (iscore-child (j-host-at record 0) node)))
+            (finally
+              (j-host-set! record 3 false)
+              (j-host-set! iscore-current 0 previous))))))))
+(defn iscore-dirty [value]
+  (if (j-host-weak-has iscore-owners value)
+    (let [record (j-host-weak-get iscore-owners value)]
+      (if (j-host-or (j-host-at record 2) (j-host-at record 4)) nil
+        (do
+          (j-host-set! record 2 true)
+          (j-host-timer-set (fn []
+            (do (j-host-set! record 2 false)
+                (iscore-render record))) 0)))) nil))
+(defn iscore-atom [args]
+  (let [value (jcore-atom args) owner (j-host-at iscore-current 0)]
+    (do (if (j-host-nullish? owner) nil (j-host-weak-set! iscore-owners value owner)) value)))
+(defn iscore-reset [args]
+  (let [result (jcore-reset args)]
+    (do (iscore-dirty (j-host-at args 0)) result)))
+(defn iscore-swap [args]
+  (let [result (jcore-swap args)]
+    (do (iscore-dirty (j-host-at args 0)) result)))
+(defn iscore-mount [args]
+  (do
+    (iscore-exact args 2 "Island mount: id and factory required")
+    (let [id (j-host-at args 0) factory (j-host-at args 1)
+          root (j-host-dom-by-id id) previous (j-host-at iscore-current 0)]
+      (if (j-host-and (j-host-element? root) (j-host-eq (j-host-type factory) "function"))
+        (let [record [root nil false false false]]
+          (do
+            (j-host-set! iscore-current 0 record)
+            (try
+              (let [render (factory)]
+                (if (j-host-eq (j-host-type render) "function")
+                  (j-host-set! record 1 render)
+                  (throw "Island factory must return render function")))
+              (finally (j-host-set! iscore-current 0 previous)))
+            (iscore-render record)
+            nil))
+        (throw "Island mount: missing root or factory")))))
+
+(define iscore-tags {"div" true "section" true "article" true "p" true "span" true
+  "strong" true "em" true "h2" true "h3" true "ul" true "ol" true "li" true
+  "br" true "hr" true "a" true "img" true "label" true "button" true
+  "input" true "textarea" true "form" true})
+(define iscore-attributes {"id" true "class" true "title" true "alt" true
+  "width" true "height" true "role" true "aria-label" true "aria-expanded" true
+  "tabindex" true "type" true "href" true "src" true "for" true "name" true
+  "value" true "placeholder" true "autocomplete" true "inputmode" true
+  "maxlength" true "minlength" true "min" true "max" true "step" true
+  "pattern" true "required" true "disabled" true "checked" true "loading" true})
+(define iscore-events {"on-click" "click" "on-input" "input"
+  "on-change" "change" "on-submit" "submit"})
+(defn iscore-url [value]
+  (if (j-host-eq (j-host-type value) "string")
+    (let [url (j-host-url value) protocol (j-host-at url "protocol")]
+      (if (j-host-and
+            (j-host-or (j-host-eq protocol "http:") (j-host-eq protocol "https:"))
+            (j-host-and (j-host-eq (j-host-at url "origin") (j-host-origin))
+              (j-host-and (j-host-eq (j-host-at url "username") "")
+                          (j-host-eq (j-host-at url "password") ""))))
+        url (throw "Island URL must be same-origin HTTP(S) without credentials")))
+    (throw "Island URL must be a string")))
+(defn iscore-child [parent child]
+  (if (j-host-nullish? child) nil
+    (if (j-host-array? child)
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len child))
+          (do (iscore-child parent (j-host-at child index))
+              (recur (j-host-add index 1))) nil))
+      (if (i-host-node? child)
+        (do (j-host-dom-append! parent child) nil)
+        (if (j-host-or (j-host-eq (j-host-type child) "string")
+              (j-host-or (j-host-eq (j-host-type child) "number")
+                          (j-host-eq (j-host-type child) "boolean")))
+          (do (j-host-dom-append! parent (i-host-text-new (jcore-string child))) nil)
+          (throw "Island child must be text, number, boolean, node, array or nil"))))))
+(defn iscore-h [args]
+  (let [tag (j-host-at args 0) attrs (j-host-at args 1)]
+    (if (j-host-not (j-host-and (j-host-gte (j-host-len args) 2)
+          (j-host-and (j-host-eq (j-host-type tag) "string")
+            (j-host-and (j-host-own? iscore-tags tag)
+              (j-host-and (j-host-not (j-host-nullish? attrs)) (j-host-plain? attrs))))))
+      (throw "Island h: allowed tag and attribute map required") nil)
+    (let [element (j-host-dom-create tag) names (j-host-keys attrs)]
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len names))
+          (let [raw (j-host-at names index) name (jcore-key raw) value (j-host-at attrs raw)]
+            (do
+              (if (j-host-or (j-host-nullish? value) (j-host-eq value "")) nil
+                (if (j-host-own? iscore-events name)
+                  (if (j-host-eq (j-host-type value) "function")
+                    (j-host-dom-on! element (j-host-at iscore-events name) value)
+                    (throw "Island event handler must be a function"))
+                  (if (j-host-own? iscore-attributes name)
+                    (let [text (jcore-string value)
+                          safe (if (j-host-or (j-host-eq name "href") (j-host-eq name "src"))
+                                 (j-host-at (iscore-url text) "href") text)]
+                      (if (j-host-eq name "checked")
+                        (if value (j-host-set! element "checked" true) nil)
+                        (j-host-dom-set-attribute! element name safe)))
+                    (throw "Island attribute is not approved"))))
+              (recur (j-host-add index 1)))) nil))
+      (loop [index 2]
+        (if (j-host-lt index (j-host-len args))
+          (do (iscore-child element (j-host-at args index))
+              (recur (j-host-add index 1))) element)))))
+
+(defn iscore-by-id [args] (jcore-by-id args))
+(defn iscore-node-value [args] (jcore-value args))
+(defn iscore-node-text [args] (jcore-text args))
+(defn iscore-node-attribute [args]
+  (do
+    (iscore-exact args 2 "Island getAttribute requires element and name")
+    (let [element (j-host-at args 0) name (j-host-at args 1)]
+      (if (j-host-and (j-host-element? element)
+            (j-host-or (j-host-own? iscore-attributes name) (j-host-eq name "data-product-id")))
+        (j-host-dom-attribute element name) (throw "Island getAttribute is not approved")))))
+(defn iscore-json-parse [args] (jcore-json-parse args))
+(defn iscore-form-reset [args]
+  (do (iscore-exact args 1 "Island form reset requires one form")
+      (let [form (j-host-at args 0)]
+        (if (i-host-form? form) (do (i-host-form-reset form) nil) (throw "Island form required")))))
+(defn iscore-form-submit [args]
+  (do (iscore-exact args 1 "Island form submit requires one form")
+      (let [form (j-host-at args 0)]
+        (if (i-host-form? form)
+          (let [target (iscore-url (j-host-at form "action"))]
+            (if (j-host-and (j-host-eq (i-host-lower (j-host-at form "method")) "post")
+                           (j-host-eq (j-host-at target "pathname") "/api/admin/logout"))
+              (do (i-host-form-submit form) nil)
+              (throw "Island form submission is limited to administrator logout")))
+          (throw "Island form required")))))
+(defn iscore-number [args]
+  (do (iscore-exact args 1 "Island Number requires one value") (i-host-number (j-host-at args 0))))
+(defn iscore-str-trim [args]
+  (do (iscore-exact args 1 "Island str-trim requires one value") (i-host-trim (jcore-string (j-host-at args 0)))))
+(defn iscore-includes [args]
+  (do (iscore-exact args 2 "Island includes requires two strings")
+    (if (j-host-and (j-host-eq (j-host-type (j-host-at args 0)) "string")
+                    (j-host-eq (j-host-type (j-host-at args 1)) "string"))
+      (i-host-includes (j-host-at args 0) (j-host-at args 1))
+      (throw "Island includes requires two strings"))))
+(defn iscore-regex-test [args]
+  (do (iscore-exact args 2 "Island regex requires pattern and value")
+    (let [pattern (j-host-at args 0) value (j-host-at args 1)]
+      (if (j-host-and (j-host-eq (j-host-type value) "string")
+            (j-host-or (j-host-eq pattern "^/public/[A-Za-z0-9._/-]+$")
+                       (j-host-eq pattern "^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$")))
+        (i-host-regex-test pattern value) (throw "Island regex is not approved")))))
+(defn iscore-random-uuid [args]
+  (do (iscore-exact args 0 "Island randomUUID takes no arguments") (i-host-random-uuid)))
+(defn iscore-navigate [args]
+  (do (iscore-exact args 1 "Island navigate requires one URL")
+    (let [target (iscore-url (j-host-at args 0))]
+      (if (j-host-eq (j-host-at target "pathname") "/order/done")
+        (do (i-host-navigate (j-host-at target "href")) nil)
+        (throw "Island navigation is limited to the order receipt")))))
+(defn iscore-assoc [args]
+  (do (iscore-exact args 3 "Island assoc requires map, key and value")
+    (let [source (j-host-at args 0) key (jcore-key (j-host-at args 1))
+          result {} names (j-host-keys source)]
+      (if (j-host-plain? source) nil (throw "Island assoc requires a plain map"))
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len names))
+          (let [name (j-host-at names index)]
+            (do (i-host-own-set! result name (j-host-at source name)) (recur (j-host-add index 1))))
+          (do (i-host-own-set! result key (j-host-at args 2)) result))))))
+(defn iscore-push [args]
+  (do (iscore-exact args 2 "Island push requires array and value")
+    (let [source (j-host-at args 0)]
+      (if (j-host-array? source)
+        (let [copy (j-host-copy source)] (do (j-host-push! copy (j-host-at args 1)) copy))
+        (throw "Island push requires an array")))))
+(defn iscore-first [args]
+  (do (iscore-exact args 1 "Island first requires one array")
+    (if (j-host-nullish? (j-host-at args 0)) nil (get (j-host-at args 0) 0))))
+(defn iscore-not [args]
+  (do (iscore-exact args 1 "Island not arity") (j-host-not (j-host-at args 0))))
+(defn iscore-greater [args]
+  (do (iscore-exact args 2 "Island > arity") (j-host-lt (j-host-at args 1) (j-host-at args 0))))
+(defn iscore-less-equal [args]
+  (do (iscore-exact args 2 "Island <= arity") (j-host-gte (j-host-at args 1) (j-host-at args 0))))
+(defn iscore-greater-equal [args]
+  (do (iscore-exact args 2 "Island >= arity") (j-host-gte (j-host-at args 0) (j-host-at args 1))))
+
+;; JSON request compatibility is separate from the existing GET/POST browser
+;; HTTP contract. Its peer, credentials and redirects are constrained here.
+(defn iscore-headers [headers]
+  (if (j-host-and (j-host-not (j-host-nullish? headers)) (j-host-plain? headers))
+    (let [out {"Accept" "application/json" "Content-Type" "application/json"}
+          names (j-host-keys headers)]
+      (loop [index 0]
+        (if (j-host-lt index (j-host-len names))
+          (let [key (j-host-at names index) value (j-host-at headers key)]
+            (if (j-host-and (j-host-eq (i-host-lower key) "x-admin-password")
+                  (j-host-and (j-host-eq (j-host-type value) "string")
+                    (j-host-and (j-host-not (i-host-includes value "\r"))
+                                (j-host-not (i-host-includes value "\n")))))
+              (do (j-host-set! out "X-Admin-Password" value) (recur (j-host-add index 1)))
+              (throw "Island request header is not approved"))) out)))
+    (throw "Island request headers must be a plain map")))
+(defn iscore-fetch [args]
+  (do (iscore-exact args 5 "Island fetch requires method, URL, body, headers and callback")
+    (let [method (j-host-at args 0) target (iscore-url (j-host-at args 1))
+          body (j-host-at args 2) headers (iscore-headers (j-host-at args 3))
+          callback (j-host-at args 4)]
+      (if (j-host-and (j-host-or (j-host-eq method "GET")
+                          (j-host-or (j-host-eq method "POST") (j-host-eq method "PUT")))
+                      (j-host-eq (j-host-type callback) "function")) nil
+        (throw "Island fetch method or callback is invalid"))
+      (let [controller (j-host-abort-new) state [false nil]
+            finish (fn [result]
+              (if (j-host-at state 0) nil
+                (do (j-host-set! state 0 true)
+                    (j-host-timer-clear (j-host-at state 1))
+                    (callback result))))
+            failed (fn [ignored]
+              (finish {"ok" false "status" 0 "data" {"error" "요청을 완료하지 못했습니다."}}))]
+        (j-host-set! state 1 (j-host-timer-set (fn []
+          (do (j-host-abort controller) (failed nil))) 30000))
+        (try
+          (j-host-then
+            (j-host-fetch (j-host-at target "href")
+              {"method" method "headers" headers "credentials" "same-origin" "redirect" "error"
+               "body" (if (j-host-eq method "GET") nil
+                        (i-host-json-stringify (if (j-host-nullish? body) {} body)))
+               "signal" (j-host-at controller "signal")})
+            (fn [response]
+              (j-host-then (j-host-response-text response)
+                (fn [text]
+                  (let [data (try (j-host-json-parse text) (catch ignored {}))]
+                    (finish {"ok" (j-host-at response "ok") "status" (j-host-at response "status") "data" data})))
+                failed))
+            failed)
+          (catch ignored (failed nil)))
+        nil))))
+(defn iscore-fetch-post [args]
+  (do (iscore-exact args 3 "Island fetch-post requires URL, body and callback")
+    (let [callback (j-host-at args 2)]
+      (if (j-host-eq (j-host-type callback) "function") nil
+        (throw "Island fetch-post callback must be a function"))
+      (iscore-fetch ["POST" (j-host-at args 0) (j-host-at args 1) {}
+        (fn [response]
+          (if (get response "ok")
+            (callback (get response "data"))
+            (throw "Island POST request failed")))]))))

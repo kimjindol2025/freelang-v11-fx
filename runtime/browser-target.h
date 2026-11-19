@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <math.h>
 #include "browser-core-data.h"
+#include "browser-island-core-data.h"
 typedef struct {char *code;size_t len,cap;unsigned serial;FLValue names;} BJ;
 typedef struct BJLoop {FLValue names;struct BJLoop *parent;} BJLoop;
 static void bj_fail(BJ*b,const char*reason){
@@ -34,6 +35,7 @@ static void bj_op(FLValue value,char out[128]){
 static int bj_reserved(FLValue name){
  const char*s=bj_text(name);char normalized[128];bj_op(name,normalized);
  return bj_prefix(s,"__fl")||bj_prefix(normalized,"jcore-")||bj_prefix(normalized,"j-host-")||
+  bj_prefix(normalized,"iscore-")||bj_prefix(normalized,"i-host-")||bj_prefix(normalized,"island-core-")||
   bj_prefix(normalized,"fl-compiler-")||!strcmp(normalized,"fl-register-named-fn");
 }
 static void bj_validate_user(BJ*b,FLValue n,unsigned depth){
@@ -60,6 +62,16 @@ static void bj_ident(BJ*b,FLValue name){
 }
 static const char *bj_builtin(const char*op){
  static const char *const pairs[]={
+  "island-core-mount","iscore-mount","island-core-h","iscore-h",
+  "island-core-atom","iscore-atom","island-core-reset","iscore-reset","island-core-swap","iscore-swap",
+  "island-core-fetch","iscore-fetch","island-core-fetch-post","iscore-fetch-post",
+  "island-core-by-id","iscore-by-id","island-core-node-value","iscore-node-value","island-core-node-text","iscore-node-text",
+  "island-core-node-attribute","iscore-node-attribute","island-core-json-parse","iscore-json-parse",
+  "island-core-form-reset","iscore-form-reset","island-core-form-submit","iscore-form-submit",
+  "island-core-number","iscore-number","island-core-str-trim","iscore-str-trim","island-core-includes","iscore-includes",
+  "island-core-regex-test","iscore-regex-test","island-core-random-uuid","iscore-random-uuid","island-core-navigate","iscore-navigate",
+  "island-core-assoc","iscore-assoc","island-core-push","iscore-push","island-core-first","iscore-first",
+  "island-core-not","iscore-not","island-core-greater","iscore-greater","island-core-less-equal","iscore-less-equal","island-core-greater-equal","iscore-greater-equal",
   "+","jcore-add","-","jcore-sub","*","jcore-mul","/","jcore-div",
   "=","jcore-equal","eq","jcore-equal","<","jcore-less",
   "str","jcore-str","html-escape","jcore-html-escape","get","jcore-get","length","jcore-length","count","jcore-length",
@@ -94,6 +106,102 @@ static void bj_array(BJ*b,FLValue args){bj_out(b,"[");bj_args(b,args,0);bj_out(b
 static FLValue bj_body(FLValue args,unsigned start){
  FLValue body=fl_vec_new();for(unsigned i=start;i<bj_len(args);i++)body=fl_vec_push(body,bj_at(args,i));return rb_call("do",body);
 }
+/* Only the seven commerce Island dialects use this compatibility lowering.
+ * Validate the original module first, so compiler-private primitives cannot be
+ * smuggled into user input. The ordinary browser-* target is unchanged. */
+static FLValue bi_lower(BJ*,FLValue,int,unsigned*);
+static FLValue bi_literal(const char*value){
+ FLValue n=rb_set(rb_set(fl_map_new(),"kind",fl_str_val("literal")),"type",fl_str_val("string"));
+ return rb_set(n,"value",fl_str_val(value));
+}
+static FLValue bi_array(FLValue items){
+ return rb_with_items(rb_set(rb_set(fl_map_new(),"kind",fl_str_val("block")),"type",fl_str_val("Array")),items);
+}
+static FLValue bi_fn(FLValue body){
+ FLValue a[2]={bi_array(fl_vec_new()),body};return rb_call("fn",fl_vec_from(a,2));
+}
+static int bi_symbol(FLValue node,const char*name){return bj_is(rb_name(node),name);}
+static int bi_string(FLValue node){return bj_is(rb_get(node,"kind"),"literal")&&bj_is(rb_get(node,"type"),"string");}
+static FLValue bi_call(BJ*b,const char*name,FLValue args,unsigned skip,unsigned*serial){
+ FLValue out=fl_vec_new();for(unsigned i=skip;i<bj_len(args);i++)out=fl_vec_push(out,bi_lower(b,bj_at(args,i),1,serial));
+ return rb_call(name,out);
+}
+static FLValue bi_lower(BJ*b,FLValue node,int inside,unsigned*serial){
+ if(node.tag==FL_VECTOR){FLValue out=fl_vec_new();for(unsigned i=0;i<bj_len(node);i++)out=fl_vec_push(out,bi_lower(b,bj_at(node,i),inside,serial));return out;}
+ if(node.tag!=FL_MAP)return node;
+ if(bj_is(rb_get(node,"kind"),"sexpr")){
+  const char*op=bj_text(rb_get(node,"op"));FLValue args=rb_get(node,"args");unsigned n=bj_len(args);
+  if(!strcmp(op,"island")){
+   if(inside||n!=3)bj_fail(b,"Island requires a name, empty options and one outer let");
+   const char*name=bj_text(rb_name(bj_at(args,0)));size_t length=strlen(name);
+   if(!length||length>64)bj_fail(b,"invalid Island name");
+   char id[96]="island-";size_t used=7;
+   for(size_t i=0;i<length;i++){unsigned char c=(unsigned char)name[i];
+    if(!((c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_'))bj_fail(b,"invalid Island name");
+    id[used++]=(char)tolower(c);
+   }
+   snprintf(id+used,sizeof(id)-used,"-%u",(*serial)++);
+   FLValue options=bj_at(args,1),body=bj_at(args,2);
+   if(!bj_is(rb_get(options,"kind"),"block")||!bj_is(rb_get(options,"type"),"Array")||bj_len(bj_items(options)))bj_fail(b,"Island options currently require []");
+   if(!bj_is(rb_get(body,"kind"),"sexpr")||!bj_is(rb_get(body,"op"),"let"))bj_fail(b,"Island requires an outer let");
+   FLValue bindings=rb_get(body,"args");if(bj_len(bindings)<2)bj_fail(b,"Island let body is empty");
+   FLValue render=fl_vec_new();for(unsigned i=1;i<bj_len(bindings);i++)render=fl_vec_push(render,bi_lower(b,bj_at(bindings,i),1,serial));
+   FLValue setup[2]={bi_lower(b,bj_at(bindings,0),1,serial),bi_fn(rb_call("do",render))};
+   FLValue mount[2]={bi_literal(id),bi_fn(rb_call("let",fl_vec_from(setup,2)))};
+   return rb_call("island-core-mount",fl_vec_from(mount,2));
+  }
+  if(inside){
+   static const char*renames[]={
+    "h","island-core-h","atom","island-core-atom","reset!","island-core-reset","swap!","island-core-swap",
+    "fetch!","island-core-fetch","fetch-post!","island-core-fetch-post","assoc","island-core-assoc","push","island-core-push",
+    "first","island-core-first","not","island-core-not",">","island-core-greater","<=","island-core-less-equal",">=","island-core-greater-equal",
+    "Number","island-core-number","str-trim","island-core-str-trim",NULL};
+   for(unsigned i=0;renames[i];i+=2)if(!strcmp(op,renames[i]))return bi_call(b,renames[i+1],args,0,serial);
+   if(!strcmp(op,".getElementById")){
+    if(n!=2||!bi_symbol(bj_at(args,0),"document"))bj_fail(b,"only document.getElementById is allowed");
+    return bi_call(b,"island-core-by-id",args,1,serial);
+   }
+   if(!strcmp(op,".parse")){
+    if(n!=2||!bi_symbol(bj_at(args,0),"JSON"))bj_fail(b,"only JSON.parse is allowed");
+    return bi_call(b,"island-core-json-parse",args,1,serial);
+   }
+   if(!strcmp(op,".randomUUID")){
+    if(n!=1||!bi_symbol(bj_at(args,0),"crypto"))bj_fail(b,"only crypto.randomUUID is allowed");
+    return rb_call("island-core-random-uuid",fl_vec_new());
+   }
+   if(!strcmp(op,".assign")){
+    FLValue location=bj_at(args,0),la=rb_get(location,"args");
+    if(n!=2||!bj_is(rb_get(location,"op"),".-location")||bj_len(la)!=1||!bi_symbol(bj_at(la,0),"window"))bj_fail(b,"only window.location.assign is allowed");
+    return bi_call(b,"island-core-navigate",args,1,serial);
+   }
+   if(!strcmp(op,".test")){
+    FLValue expression=bj_at(args,0),ra=rb_get(expression,"args");
+    if(n!=2||!bj_is(rb_get(expression,"op"),"RegExp")||bj_len(ra)!=1||!bi_string(bj_at(ra,0)))bj_fail(b,"Island RegExp requires an approved literal pattern");
+    const char*pattern=bj_text(rb_get(bj_at(ra,0),"value"));
+    if(strcmp(pattern,"^/public/[A-Za-z0-9._/-]+$")&&strcmp(pattern,"^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$"))bj_fail(b,"Island RegExp pattern is not approved");
+    FLValue a[2]={bj_at(ra,0),bi_lower(b,bj_at(args,1),1,serial)};return rb_call("island-core-regex-test",fl_vec_from(a,2));
+   }
+   static const char*interop[]={".-value","island-core-node-value","1",".-textContent","island-core-node-text","1",
+    ".getAttribute","island-core-node-attribute","2",".reset","island-core-form-reset","1",".submit","island-core-form-submit","1",
+    ".includes","island-core-includes","2",NULL};
+   for(unsigned i=0;interop[i];i+=3)if(!strcmp(op,interop[i])){if(n!=(unsigned)atoi(interop[i+2]))bj_fail(b,"Island interop arity");return bi_call(b,interop[i+1],args,0,serial);}
+   if(op[0]=='.'||!strcmp(op,"RegExp"))bj_fail(b,"unsupported Island interop");
+  }
+ }
+ FLMap*map=(FLMap*)node.obj;FLValue out=node;
+ for(unsigned i=0;i<map->len;i++){
+  FLValue value=map->entries[i].val;
+  if(value.tag==FL_MAP||value.tag==FL_VECTOR)value=bi_lower(b,value,inside,serial);
+  out=fl_map_set(out,map->entries[i].key,value);
+ }
+ /* The existing Island parser pairs a trailing odd map key with undefined,
+  * which its emitter represents as null. Preserve that Island-only behavior. */
+ if(inside&&bj_is(rb_get(out,"kind"),"block")&&bj_is(rb_get(out,"type"),"Map")&&(bj_len(bj_items(out))%2)){
+  FLValue nil=rb_set(rb_set(fl_map_new(),"kind",fl_str_val("literal")),"type",fl_str_val("nil"));
+  out=rb_with_items(out,fl_vec_push(bj_items(out),nil));
+ }
+ return out;
+}
 static void bj_bindings(BJ*b,FLValue block,FLValue *names){
  if(!bj_is(rb_get(block,"kind"),"block")||!bj_is(rb_get(block,"type"),"Array"))bj_fail(b,"binding vector required");
  FLValue items=bj_items(block);unsigned length=bj_len(items);int nested=length&&bj_is(rb_get(bj_at(items,0),"kind"),"block");
@@ -127,6 +235,35 @@ static void bj_logic(BJ*b,FLValue args,unsigned index,int is_or){
 }
 static int bj_host(BJ*b,const char*op,FLValue args){
  unsigned n=bj_len(args);const char *symbol=NULL;
+ if(!strcmp(op,"i-host-node?")||!strcmp(op,"i-host-form?")){
+  if(n!=1)bj_fail(b,"Island host type arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));
+  bj_out(b,!strcmp(op,"i-host-node?")?" instanceof Node)":" instanceof HTMLFormElement)");return 1;
+ }
+ if(!strcmp(op,"i-host-random-uuid")){if(n)bj_fail(b,"Island UUID arity");bj_out(b,"globalThis.crypto.randomUUID()");return 1;}
+ if(!strcmp(op,"i-host-own-set!")){
+  if(n!=3)bj_fail(b,"Island own property arity");bj_out(b,"Object.defineProperty(");bj_expr(b,bj_at(args,0));
+  bj_out(b,",");bj_expr(b,bj_at(args,1));bj_out(b,",{value:");bj_expr(b,bj_at(args,2));
+  bj_out(b,",writable:true,enumerable:true,configurable:true})");return 1;
+ }
+ if(!strcmp(op,"i-host-regex-test")){
+  if(n!=2)bj_fail(b,"Island regex arity");bj_out(b,"(new RegExp(");bj_expr(b,bj_at(args,0));bj_out(b,")).test(");bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;
+ }
+ const char*icalls[]={"i-host-text-new","document.createTextNode","1","i-host-json-stringify","JSON.stringify","1",
+  "i-host-number","Number","1","i-host-navigate","globalThis.location.assign","1",NULL};
+ for(unsigned i=0;icalls[i];i+=3)if(!strcmp(op,icalls[i])){
+  if(n!=(unsigned)atoi(icalls[i+2]))bj_fail(b,"Island host call arity");
+  bj_out(b,icalls[i+1]);bj_out(b,"(");bj_args(b,args,0);bj_out(b,")");return 1;
+ }
+ const char*imethods[]={"i-host-trim","trim","0","i-host-lower","toLowerCase","0","i-host-includes","includes","1",NULL};
+ for(unsigned i=0;imethods[i];i+=3)if(!strcmp(op,imethods[i])){
+  if(n!=(unsigned)atoi(imethods[i+2])+1)bj_fail(b,"Island host method arity");
+  bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,").");bj_out(b,imethods[i+1]);bj_out(b,"(");bj_args(b,args,1);bj_out(b,")");return 1;
+ }
+ if(!strcmp(op,"i-host-form-reset")||!strcmp(op,"i-host-form-submit")){
+  if(n!=1)bj_fail(b,"Island form arity");
+  bj_out(b,!strcmp(op,"i-host-form-reset")?"HTMLFormElement.prototype.reset.call(":"HTMLFormElement.prototype.submit.call(");
+  bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;
+ }
  const char *binary[]={"j-host-eq","===","j-host-lt","<","j-host-gte",">=","j-host-add","+","j-host-sub","-","j-host-mul","*","j-host-div","/","j-host-and","&&","j-host-or","||",NULL};
  for(unsigned i=0;binary[i];i+=2)if(!strcmp(op,binary[i]))symbol=binary[i+1];
  if(symbol){if(n!=2)bj_fail(b,"host binary arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,symbol);bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;}
@@ -246,6 +383,11 @@ FLValue fl_compiler_browser_generate(FLValue user,FLValue parse_source){
  char source[sizeof fl_browser_core+1];memcpy(source,fl_browser_core,sizeof fl_browser_core);source[sizeof fl_browser_core]=0;
  FLValue core_source=fl_str_val(source);
  FLValue all=fl_fn_call(parse_source,1,&core_source);if(all.tag!=FL_VECTOR)bj_fail(&b,"support source parse failed");
+ char island_source[sizeof fl_browser_island_core+1];memcpy(island_source,fl_browser_island_core,sizeof fl_browser_island_core);island_source[sizeof fl_browser_island_core]=0;
+ FLValue island_text=fl_str_val(island_source),island_nodes=fl_fn_call(parse_source,1,&island_text);
+ if(island_nodes.tag!=FL_VECTOR)bj_fail(&b,"Island support source parse failed");
+ for(unsigned i=0;i<bj_len(island_nodes);i++)all=fl_vec_push(all,bj_at(island_nodes,i));
+ unsigned island_serial=0;user=bi_lower(&b,user,0,&island_serial);
  for(unsigned i=0;i<bj_len(user);i++)all=fl_vec_push(all,bj_at(user,i));
  FLValue nodes=fl_compiler_bindings(all),globals=fl_map_new();
  for(unsigned i=0;i<bj_len(nodes);i++){
@@ -254,6 +396,7 @@ FLValue fl_compiler_browser_generate(FLValue user,FLValue parse_source){
   if(bj_is(op,"fl_register_named_fn")){FLValue name=rb_get(bj_at(args,0),"value"),target=rb_name(bj_at(args,1));b.names=fl_map_set(b.names,name,target);}
  }
  bj_out(&b,"// FreeLang browser core SHA-256: ");bj_out(&b,fl_browser_core_sha256);
+ bj_out(&b,"\n// FreeLang Island core SHA-256: ");bj_out(&b,fl_browser_island_core_sha256);
  bj_out(&b,"\n\"use strict\";\n(()=>{\n");
  FLValue keys=fl_map_keys(globals);for(unsigned i=0;i<bj_len(keys);i++){bj_out(&b,"let ");bj_ident(&b,bj_at(keys,i));bj_out(&b,"=null;\n");}
  for(unsigned i=0;i<bj_len(nodes);i++){bj_expr(&b,bj_at(nodes,i));bj_out(&b,";\n");}

@@ -428,7 +428,8 @@ static FLValue make_req_map(HttpRequest*hr,FLValue params,FormContext*form){
     FLValue req=fl_map_new();
     req=vh_set(req,"method",fl_str_val(hr->method));req=vh_set(req,"path",fl_str_val(hr->path));req=vh_set(req,"query",parse_query(hr->query_str));
     req=vh_set(req,"params",params);req=vh_set(req,"headers",headers);req=vh_set(req,"body",body);
-    req=vh_set(req,"fields",form->fields);req=vh_set(req,"files",form->values);return req;
+    req=vh_set(req,"fields",form->fields);req=vh_set(req,"files",form->values);
+    req=vh_set(req,"__fl_peer_ip",fl_str_val(vh_client_ip));return req;
 }
 
 /* ───────────────────────────────────────────
@@ -490,6 +491,13 @@ static void* handle_connection(void* arg) {
     ConnArg* ca = (ConnArg*)arg;
     int client_fd = ca->fd;
     free(ca);
+    vh_client_ip[0]=0;
+    struct sockaddr_storage peer;socklen_t peer_size=sizeof peer;
+    if(getpeername(client_fd,(struct sockaddr*)&peer,&peer_size)==0){
+        const void *address=peer.ss_family==AF_INET?(const void*)&((struct sockaddr_in*)&peer)->sin_addr:
+                            peer.ss_family==AF_INET6?(const void*)&((struct sockaddr_in6*)&peer)->sin6_addr:NULL;
+        if(address&&!inet_ntop(peer.ss_family,address,vh_client_ip,sizeof vh_client_ip))vh_client_ip[0]=0;
+    }
 
     /* TCP_NODELAY: Nagle 비활성화
      * 헤더+바디를 2번 send() 할 때 Nagle+DelayedACK로 40ms 지연 방지
@@ -639,6 +647,7 @@ static void* handle_connection(void* arg) {
     free(raw);
     if (http_ssl) SSL_shutdown(http_ssl);
     close(client_fd);
+    vh_client_ip[0]=0;
     return NULL;
 }
 
