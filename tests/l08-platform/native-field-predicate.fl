@@ -1,0 +1,38 @@
+(define available (try (= (native-try-some-field-eq [] "" nil) false) (catch [error] false)))
+(if (not (= available (= (env-get "EXPECT_NATIVE_FIELD") "true"))) (throw "PREDICATE_AVAILABILITY") nil)
+(define cases [
+ ["empty" [] "k" nil false true]
+ ["found-string" [{"k" "a"} {"k" "b"}] "k" "b" true true]
+ ["absent-string" [{"k" "a"}] "k" "b" false true]
+ ["typed-string-number" [{"k" "1"}] "k" 1 false true]
+ ["typed-number-string" [{"k" 1}] "k" "1" false true]
+ ["bool-num" [{"k" true}] "k" 1 false true]
+ ["same-bool" [{"k" false}] "k" false true true]
+ ["nil-value" [{"k" nil}] "k" nil true true]
+ ["missing-value" [{}] "k" nil true true]
+ ["missing-non-nil" [{}] "k" 2 false true]
+ ["int-float" [{"k" 2}] "k" 2.0 true true]
+ ["negative-zero" [{"k" 0}] "k" -0.0 true true]
+ ["unicode" [{"열😀" "한😀"}] "열😀" "한😀" true true]
+ ["nul-key" [{"k\x00x" "a"}] "k\x00x" "a" true true]
+ ["nul-value-equal" [{"k" "a\x00b"}] "k" "a\x00b" true true]
+ ["nul-value-different" [{"k" "a\x00b"}] "k" "a\x00c" false true]
+ ["colon-fallback" [{"k" 1}] ":k" 1 true false]
+ ["non-map-first" [7 {"k" 1}] "k" 1 true false]
+ ["match-before-non-map" [{"k" 1} 7] "k" 1 true true]
+ ["non-map-unmatched" [{"k" 2} 7] "k" 1 false false]
+ ["vector-target-fallback" [{"k" [1 2]}] "k" [1 2] true false]
+ ["map-target-fallback" [{"k" {"a" 1}}] "k" {"a" 1} true false]
+ ["numeric-key-fallback" [{"1" "a"}] 1 "a" true false]
+ ["non-vector-fallback" nil "k" 1 false false]
+])
+(doseq [case cases]
+ (let [label (get case 0) rows (get case 1) key (get case 2) value (get case 3)
+       expected (get case 4) supported (get case 5)
+       reference (any? (fn [row] (= (get row key) value)) rows)
+       native (if available (native-try-some-field-eq rows key value) nil)
+       combined (if (nil? native) reference native)]
+  (if (not (= reference expected)) (throw (str "REFERENCE_" label)) nil)
+  (if (and available (not (= (not (nil? native)) supported))) (throw (str "SUPPORT_" label)) nil)
+  (if (not (= combined reference)) (throw (str "PREDICATE_" label)) nil)))
+(println (str "NATIVE_FIELD_PREDICATE_RESULT " (json_str {"ok" true "cases" (count cases) "available" available})))

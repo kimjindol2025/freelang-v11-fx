@@ -1,0 +1,82 @@
+{
+  "schema": "fx-native-field-predicate-contract/1",
+  "date_local": "2026-11-21 Asia/Seoul",
+  "status": "SCOPED_CONTRACT_TEST_PASS",
+  "source_fx_commit": "d8dc4c63adcfe2ac3f7d7edf69f890407c2dd4da",
+  "source_sha256": "84f522b21796b01a563fed3b3e04e9f525c278aaadcadf26f850f06fb9449083",
+  "strict_parse": "ok",
+  "generated_c_sha256": "9cb79049ddb2e4bb03b5a7015db6d3017223025006d29863d7fbab8f4dcf1f36",
+  "same_generated_c_for_both_runtimes": true,
+  "qualification": "Paired freshly compiled twenty-C-source runtime archives; not matched-SDK/full-service acceptance",
+  "runtime_suites": [
+    {
+      "label": "baseline",
+      "result": {
+        "ok": true,
+        "cases": 24,
+        "available": false
+      },
+      "runtime_archive_sha256": "5e29503d37bcafad430b66dea95140f3b55ba65d9068c98c6cb23bc3ea4f0a17",
+      "stdout_sha256": "02cfb14c34f3d0c8fc409bb79993b9a0f406f278e3034524cfa897820f48d892",
+      "stderr_bytes": 0
+    },
+    {
+      "label": "candidate",
+      "result": {
+        "ok": true,
+        "cases": 24,
+        "available": true
+      },
+      "runtime_archive_sha256": "70cd68fa66c13fc453c99c2e1a1e537524972930af3531cea61a98b4805374c4",
+      "stdout_sha256": "54c3984965bbd5d9388048b16f2dc7f64a9e5ce1aadfdbffd3ffb02aca5e713e",
+      "stderr_bytes": 0
+    }
+  ],
+  "per_suite_runtime_seconds": 120,
+  "address_space_bytes": 2147483648,
+  "contract": [
+    "real availability probe",
+    "scalar compatibility equality matches original get/= callback",
+    "normalized plain-string keys and raw fallback",
+    "input-order short circuit",
+    "unsupported inputs request callback fallback",
+    "no SQL/schema policy or I/O"
+  ],
+  "enclosing_private_profile": {
+    "status": "FAIL_UNEXPECTED139_FIRST_CANDIDATE_SECOND_STOPPED",
+    "raw_recoveries": "baseline 1 124 120018\nbaseline 2 124 120016\ncandidate 1 139 82688\n",
+    "interpretation": "Both 24-case suites passed before separate large-WAL recovery failed; whole profile is not PASS",
+    "exec_audit": {
+      "traceSha256": "35bd1609476fabe28f1695d6e268a267539cf2c44db958d6d610d0ee2ee15cca",
+      "decodedExecs": 139,
+      "resumedExecsJoined": 0,
+      "allTerminalExecStatusesParsed": true,
+      "successfulNodeFamilyExecs": 0,
+      "failedNodeFamilyAttempts": 0,
+      "successfulPythonExecs": 0,
+      "allowedPrivateControllerPythonExecs": 0,
+      "successfulBasenameCounts": {
+        "ar": 2,
+        "as": 44,
+        "bash": 1,
+        "bwrap": 1,
+        "cc1": 44,
+        "collect2": 4,
+        "date": 7,
+        "flc": 2,
+        "gcc": 6,
+        "grep": 2,
+        "ld": 4,
+        "mkdir": 2,
+        "predicate-bin": 2,
+        "reader-bin": 4,
+        "timeout": 14
+      }
+    },
+    "receipt_sha256": "1ca16068f13f263cc67a4b7edb425ac2287dcaafd41e002f86e65b3eef20288f"
+  },
+  "runtime_candidate_applied": false,
+  "existing_tests_goldens_bounds_changed": false,
+  "commercial": "HOLD",
+  "deployment": "NO"
+}
