@@ -35,7 +35,7 @@ done
 
 gcc -O2 -w -I "$RUNTIME_DIR" -o "$OUTPUT" \
   "$ROOT_DIR/bootstrap/stage0.c" "${RUNTIME_SRCS[@]}" \
-  -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl
+  -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto
 
 [[ -x "$OUTPUT" ]]
 echo "STAGE0_C_BUILD=PASS"
