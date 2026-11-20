@@ -1513,9 +1513,27 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         double start=n==1?0:t_double(t_parse(ARG(0),0));
         double end=t_double(t_parse(ARG(n==1?0:1),0));
         double step=n>2?t_double(t_parse(ARG(2),0)):1;
-        FLValue r=fl_vec_new();
-        for(double i=start;step>0?i<end:step<0&&i>end;i+=step)r=fl_vec_push(r,fl_float(i));
-        return r;
+        /* This vector is unpublished until return. Geometric arena growth
+         * retains linear storage instead of every immutable prefix. Keep
+         * repeated double addition, including its rounding and empty cases. */
+        FLVector *r=fl_arena_alloc(sizeof(*r));
+        if(!r)fl_throw(fl_str_val("range allocation failed"));
+        *r=(FLVector){.base={.type=FL_VECTOR,.rc=1}};
+        for(double i=start;step>0?i<end:step<0&&i>end;i+=step){
+            if(r->len==UINT32_MAX)fl_throw(fl_str_val("range result too large"));
+            if(r->len==r->cap){
+                uint32_t capacity=r->cap
+                    ?(r->cap>UINT32_MAX/2?UINT32_MAX:r->cap*2):16;
+                if((size_t)capacity>SIZE_MAX/sizeof(*r->data))
+                    fl_throw(fl_str_val("range result too large"));
+                FLValue *next=fl_arena_alloc((size_t)capacity*sizeof(*next));
+                if(!next)fl_throw(fl_str_val("range allocation failed"));
+                if(r->len)memcpy(next,r->data,(size_t)r->len*sizeof(*next));
+                r->data=next;r->cap=capacity;
+            }
+            r->data[r->len++]=fl_float(i);
+        }
+        return(FLValue){.tag=FL_VECTOR,.obj=(FLObject*)r};
     }
     if(IS("map"))return fl_map_fn(ARG(0),ARG(1));
     if(IS("filter")){

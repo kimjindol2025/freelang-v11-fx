@@ -14,6 +14,8 @@
 #include <spawn.h>
 #include <time.h>
 #include <limits.h>
+#include <sys/socket.h>
+#include "process-input.h"
 
 /* Match the retained spawnSync contract: separate UTF-8 output streams,
  * EOF on stdin, a one-MiB limit per stream, and -1 for spawn/signal failures. */
@@ -89,6 +91,179 @@ static void shell_http_cancel(pid_t child) {
      * still pins this group; finish cleanup before reaping it below. */
     shell_cancel(child, 1, SIGKILL);
 }
+
+void fl_process_input_release(FLProcessInputResult *result) {
+    if (!result) return;
+    free(result->out.data); free(result->err.data);
+    memset(result, 0, sizeof(*result)); result->exit_code = -1;
+}
+
+static int input_capture_add(FLShellCapture *capture, const char *data,
+                             size_t size, size_t limit, int *overflow) {
+    size_t available = limit - capture->used;
+    if (size > available) { size = available; *overflow = 1; }
+    if (!size) return 0;
+    size_t needed = capture->used + size + 1;
+    if (needed > capture->capacity) {
+        size_t capacity = capture->capacity ? capture->capacity : 4096;
+        while (capacity < needed) {
+            if (capacity > (limit + 1) / 2) { capacity = limit + 1; break; }
+            capacity *= 2;
+        }
+        if (capacity > limit + 1) capacity = limit + 1;
+        char *next = realloc(capture->data, capacity);
+        if (!next) return -1;
+        capture->data = next; capture->capacity = capacity;
+    }
+    memcpy(capture->data + capture->used, data, size);
+    capture->used += size; capture->data[capture->used] = 0;
+    return 0;
+}
+
+int fl_process_input(const char *const argv[], const void *input, size_t size,
+                     int64_t timeout_ms, size_t output_limit,
+                     FLProcessInputResult *result) {
+    if (!result) return -1;
+    memset(result, 0, sizeof(*result)); result->exit_code = -1;
+    if (!argv || !argv[0] || argv[0][0] != '/' || (!input && size) ||
+        timeout_ms < 1 || output_limit == SIZE_MAX) {
+        result->io_error = EINVAL; return -1;
+    }
+    int input_pair[2] = {-1,-1}, pipes[2][2] = {{-1,-1},{-1,-1}};
+    size_t sent = 0;
+    FLShellCapture capture[2] = {{0},{0}};
+    pid_t child = -1;
+    posix_spawn_file_actions_t actions;
+    posix_spawnattr_t attributes;
+    int actions_ready = 0, attributes_ready = 0;
+    int64_t started = shell_monotonic_ms(), deadline;
+    if (started < 0) { result->io_error = EIO; return -1; }
+    deadline = timeout_ms > INT64_MAX - started ? INT64_MAX : started + timeout_ms;
+    if (fl_http_process_cancel_requested && fl_http_process_cancel_requested()) {
+        result->cancelled = 1; return -1;
+    }
+    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, input_pair)) {
+        result->io_error = errno; goto finish_input;
+    }
+    for (int j = 0; j < 2; j++) {
+        input_pair[j] = shell_private_fd(input_pair[j]);
+        if (input_pair[j] < 0) { result->io_error = errno; goto finish_input; }
+    }
+    for (int i = 0; i < 2; i++) {
+        if (pipe2(pipes[i], O_CLOEXEC)) { result->io_error = errno; goto finish_input; }
+        for (int j = 0; j < 2; j++) {
+            pipes[i][j] = shell_private_fd(pipes[i][j]);
+            if (pipes[i][j] < 0) { result->io_error = errno; goto finish_input; }
+        }
+    }
+    int nonblocking[] = {input_pair[0], pipes[0][0], pipes[1][0]};
+    for (size_t i = 0; i < sizeof(nonblocking)/sizeof(nonblocking[0]); i++) {
+        int flags = fcntl(nonblocking[i], F_GETFL);
+        if (flags < 0 || fcntl(nonblocking[i], F_SETFL, flags | O_NONBLOCK)) {
+            result->io_error = errno; goto finish_input;
+        }
+    }
+    int error = posix_spawn_file_actions_init(&actions);
+    if (error) { result->io_error = error; goto finish_input; }
+    actions_ready = 1;
+    if ((error = posix_spawn_file_actions_adddup2(&actions, input_pair[1], STDIN_FILENO)) ||
+        (error = posix_spawn_file_actions_adddup2(&actions, pipes[0][1], STDOUT_FILENO)) ||
+        (error = posix_spawn_file_actions_adddup2(&actions, pipes[1][1], STDERR_FILENO)) ||
+        (error = posix_spawn_file_actions_addclosefrom_np(&actions, STDERR_FILENO + 1))) {
+        result->io_error = error; goto finish_input;
+    }
+    error = posix_spawnattr_init(&attributes);
+    if (error) { result->io_error = error; goto finish_input; }
+    attributes_ready = 1;
+    if ((error = posix_spawnattr_setpgroup(&attributes, 0)) ||
+        (error = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP))) {
+        result->io_error = error; goto finish_input;
+    }
+    error = posix_spawn(&child, argv[0], &actions, &attributes, (char *const *)argv, environ);
+    if (error) { child = -1; result->spawn_error = error; goto finish_input; }
+    close(input_pair[1]); input_pair[1] = -1;
+    for (int i = 0; i < 2; i++) { close(pipes[i][1]); pipes[i][1] = -1; }
+    if (!size) { close(input_pair[0]); input_pair[0] = -1; }
+    for (;;) {
+        if (fl_http_process_cancel_requested && fl_http_process_cancel_requested()) {
+            result->cancelled = 1; break;
+        }
+        int64_t now = shell_monotonic_ms();
+        if (now < 0) { result->io_error = EIO; break; }
+        if (now >= deadline) { result->timed_out = 1; break; }
+        siginfo_t observed;
+        if (!shell_child_owned(child, &observed)) { result->io_error = ECHILD; break; }
+        if (observed.si_pid && pipes[0][0] < 0 && pipes[1][0] < 0) {
+            if (sent != size) result->io_error = EPIPE;
+            break;
+        }
+        struct pollfd ready[3] = {{input_pair[0],POLLOUT,0},
+            {pipes[0][0],POLLIN,0},{pipes[1][0],POLLIN,0}};
+        int delay = deadline - now < 100 ? (int)(deadline - now) : 100;
+        int polled = poll(ready, 3, delay);
+        if (polled < 0 && errno == EINTR) continue;
+        if (polled < 0) { result->io_error = errno; break; }
+        /* Drain both streams fairly; deadline/cancellation are checked between
+         * bounded chunks even when a child continuously fills one pipe. */
+        for (int i = 0; i < 2; i++) if (pipes[i][0] >= 0 && ready[i+1].revents) {
+            if (ready[i+1].revents & POLLNVAL) { result->io_error = EBADF; break; }
+            for (int chunks = 0; chunks < 8; chunks++) {
+                char bytes[8192];
+                ssize_t count = read(pipes[i][0], bytes, sizeof bytes);
+                if (count > 0) {
+                    if (input_capture_add(&capture[i], bytes, (size_t)count,
+                            output_limit - capture[1-i].used, &result->overflow)) {
+                        result->io_error = ENOMEM; break;
+                    }
+                    if (result->overflow) break;
+                } else if (!count) { close(pipes[i][0]); pipes[i][0] = -1; break; }
+                else if (errno == EINTR) continue;
+                else if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                else { result->io_error = errno; break; }
+            }
+            if (result->io_error || result->overflow) break;
+        }
+        if (result->io_error || result->overflow) break;
+        if (input_pair[0] >= 0 && ready[0].revents) {
+            size_t count = size - sent;
+            if (count > 65536) count = 65536;
+            ssize_t written = send(input_pair[0], (const char *)input + sent, count, MSG_NOSIGNAL);
+            if (written > 0) {
+                sent += (size_t)written;
+                if (sent == size) { close(input_pair[0]); input_pair[0] = -1; }
+            } else if (written < 0 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+                result->io_error = errno; break;
+            } else if (!written) { result->io_error = EPIPE; break; }
+        }
+    }
+finish_input:
+    if (actions_ready) posix_spawn_file_actions_destroy(&actions);
+    if (attributes_ready) posix_spawnattr_destroy(&attributes);
+    for (int i = 0; i < 2; i++) {
+        if (input_pair[i] >= 0) close(input_pair[i]);
+        for (int j = 0; j < 2; j++) if (pipes[i][j] >= 0) close(pipes[i][j]);
+    }
+    if (child > 0) {
+        siginfo_t observed;
+        if (shell_child_owned(child, &observed)) {
+            if (result->cancelled) shell_http_cancel(child);
+            else shell_cancel(child, 1, SIGKILL);
+            /* WNOWAIT above pins the child's PID and group through cleanup. */
+            int status;
+            pid_t waited;
+            do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
+            if (waited == child) {
+                if (WIFEXITED(status)) result->exit_code = WEXITSTATUS(status);
+                else if (WIFSIGNALED(status)) result->signal_number = WTERMSIG(status);
+            } else result->io_error = ECHILD;
+        } else result->io_error = ECHILD;
+    }
+    result->out = (FLProcessBytes){capture[0].data, capture[0].used};
+    result->err = (FLProcessBytes){capture[1].data, capture[1].used};
+    return result->spawn_error || result->io_error || result->timed_out ||
+        result->overflow || result->cancelled || result->signal_number ? -1 : 0;
+}
+
 static FLValue shell_exec_result(FLValue command, int timeout_ms, int failure_status) {
     FLValue text = fl_v11_utf8_string(command);
     FLString *cmd = (FLString *)text.obj;

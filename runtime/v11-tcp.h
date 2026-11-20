@@ -9,6 +9,8 @@
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include "process-input.h"
+#include "tcp-request-frame.h"
 #define VT_SERVERS 16
 #define VT_CLIENTS 512
 #define VT_CLOSES 1024
@@ -205,8 +207,49 @@ static FLValue vt_outbound_read_line(FLVector*args){
 static FLValue vt_outbound_close(FLVector*args){
  if(args->len<1||args->data[0].tag!=FL_INT)return fl_bool(false);int fd=(int)args->data[0].i;pthread_once(&vt_once,vt_init);pthread_mutex_lock(&vt_mutex);int slot=-1;for(int i=0;i<VT_CLIENTS;i++)if(vt_outbound[i]==fd){slot=i;break;}if(slot>=0)vt_outbound[slot]=-1;pthread_mutex_unlock(&vt_mutex);if(slot<0)return fl_bool(false);return fl_bool(close(fd)==0);
 }
+static FLValue vt_send(FLVector *args) {
+ FLValue host_value=vt_string(args->len?args->data[0]:fl_nil(),"localhost");
+ FLValue line_value=vt_string(args->len>2?args->data[2]:fl_nil(),"");
+ FLString *host=(FLString*)host_value.obj,*line=(FLString*)line_value.obj;
+ FLValue port_value=fl_v11_to_number(args->len>1&&args->data[1].tag!=FL_NIL?args->data[1]:fl_int(30390));
+ FLValue timeout_value=fl_v11_to_number(args->len>3&&args->data[3].tag!=FL_NIL?args->data[3]:fl_int(3000));
+ double port=port_value.f,timeout=timeout_value.f,outer=timeout+500;
+ /* The enclosing spawn validates timeout+500 as a non-negative integer;
+  * Socket#setTimeout separately accepts non-negative finite durations. */
+ if(!isfinite(port)||floor(port)!=port||port<0||port>65535||
+    !isfinite(timeout)||timeout<0||!isfinite(outer)||floor(outer)!=outer)return fl_nil();
+ const char *configured=getenv("FREELANG_NATIVE_TCP_REQUEST");
+ char *owned_helper=NULL;
+ if(!configured||!*configured){
+  const char *sdk=getenv("FREELANG_NATIVE_SDK_ROOT");
+  if(!sdk||sdk[0]!='/')return fl_nil();
+  size_t length=strlen(sdk),suffix=sizeof("/bin/fl-tcp-request-native");
+  if(length>SIZE_MAX-suffix)return fl_nil();
+  owned_helper=malloc(length+suffix);if(!owned_helper)return fl_nil();
+  memcpy(owned_helper,sdk,length);memcpy(owned_helper+length,"/bin/fl-tcp-request-native",suffix);configured=owned_helper;
+ }
+ if(configured[0]!='/'){free(owned_helper);return fl_nil();}
+ size_t total=FL_TCP_FRAME_SIZE+(size_t)host->len+(size_t)line->len;
+ if(total<host->len||total<line->len){free(owned_helper);return fl_nil();}
+ unsigned char *frame=malloc(total);if(!frame){free(owned_helper);return fl_nil();}
+ memcpy(frame,FL_TCP_FRAME_MAGIC,8);fl_tcp_frame_u32(frame+8,host->len);
+ fl_tcp_frame_u32(frame+12,line->len);fl_tcp_frame_u32(frame+16,(uint32_t)port);
+ fl_tcp_frame_u64(frame+20,timeout>INT_MAX?INT_MAX:(uint64_t)timeout);
+ memcpy(frame+FL_TCP_FRAME_SIZE,host->data,host->len);
+ memcpy(frame+FL_TCP_FRAME_SIZE+host->len,line->data,line->len);
+ const char *argv[]={configured,NULL};FLProcessInputResult captured;
+ int64_t budget=outer>=(double)INT64_MAX?INT64_MAX:(int64_t)outer;
+ int status=fl_process_input(argv,frame,total,budget,1024u*1024u,&captured);
+ free(frame);free(owned_helper);
+ FLValue result=fl_nil();
+ if(!status&&captured.exit_code==0&&captured.out.size)
+  result=fl_strn_val(captured.out.data,captured.out.size);
+ fl_process_input_release(&captured);
+ return result;
+}
 FLValue fl_v11_io(FLValue name,FLValue argv){
  const char*op=vt_bytes(name);FLVector*args=(FLVector*)argv.obj;size_t n=args->len;FLValue a=n?args->data[0]:fl_nil(),b=n>1?args->data[1]:fl_nil();
+ if(!strcmp(op,"tcp-send"))return vt_send(args);
  if(!strcmp(op,"tcp-client-free-port"))return vt_outbound_free_port();
  if(!strcmp(op,"tcp-client-open"))return vt_outbound_open(args);
  if(!strcmp(op,"tcp-client-write"))return vt_outbound_write(args);
