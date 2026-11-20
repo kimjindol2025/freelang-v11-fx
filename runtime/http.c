@@ -82,6 +82,12 @@ static int     g_nroutes = 0;
 /* ── 현재 요청 context (per-thread 확장 가능하나 단순 구현은 전역) ── */
 static __thread FLValue g_current_req;
 
+/* Private process-boundary hook. CLI work outside an HTTP request is unaffected. */
+int fl_http_process_cancel_requested(void) {
+    return g_current_req.tag == FL_MAP &&
+           atomic_load_explicit(&http_stopping, memory_order_relaxed);
+}
+
 /* ───────────────────────────────────────────
    내부 헬퍼
 ─────────────────────────────────────────── */

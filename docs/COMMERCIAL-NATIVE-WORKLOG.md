@@ -674,3 +674,29 @@ Node-family executions. See [NATIVE-HTTP-KEEPALIVE.md](NATIVE-HTTP-KEEPALIVE.md)
 and its exact evidence. Original failures remain retained. TLS pressure,
 default development/deployment, full DSL and latest whole DB95 acceptance are
 still open. Overall goal ACTIVE; commercial HOLD; production NOT_RUN.
+
+## Bounded commands during orderly HTTP shutdown
+
+An actual default-development API request exposed a separate shutdown defect:
+the application's TERM signal did not reach `shell_capture`'s own child group.
+The new optional request-context hook lets the bounded command observe HTTP
+shutdown, stop its own group and return a truthful failure before its handler
+finishes. CLI work outside HTTP and the unbounded legacy operation retain their
+behavior. No existing budget, expected output or protected runner changed.
+
+Receipt `native-http-process-cancel-20261120` passes the original shell contract
+17/17, request cancellation 30/30, concurrent cancellation 12/12, pressure
+129/129, HTTP shutdown 56/56, SSE capacity 34/34, tracked frontend 71/71 plus
+Provider 9, actual frontend 80/80 plus Provider 9, Git CLI 22/22 and FX 11/11.
+Headless HTTP 53/53, gate 21/21 and existing selection/cache/CSP controls pass.
+Final default-development lifecycle 13/13, literal paths 16/16, guards 17/17,
+pending-command stop 8/8, full actual default app 9/9 and Chrome Git/HMR 25/25
+pass with the matching fresh SDK. All 86 collected traces fully decode 13,362
+executions with zero Node-family execution.
+
+Fresh seed-to-Stage4 retains canonical C `a562273ff556348581688d27f780dfb7486dcac572d671a17ace04715c8808e5`.
+Relocated SDK self-generation takes 31.97 seconds and 1,556,608 KiB RSS within
+the original gates. See [the process contract](NATIVE-HTTP-PROCESS-CANCEL.md)
+and exact evidence. Original failures remain retained. Deployment, full DSL,
+authenticated remote Git and latest whole DB95 safety/operations remain open;
+goal ACTIVE, commercial HOLD, production NOT_RUN.

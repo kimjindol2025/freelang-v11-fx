@@ -79,3 +79,15 @@ the existing Native gate; it is not a full DB commercial result.
 The web builder and Git API integration are tracked by the frontend's
 NATIVE-WEB-BUILDER.md. Actual browser execution and full DB95 acceptance remain
 unfinished; commercial readiness is HOLD.
+
+## Orderly HTTP shutdown
+
+The later `native-http-process-cancel-20261120` checkpoint adds cancellation
+only while bounded `shell_capture` runs on the thread of a stopping HTTP
+request. It retains the original 17-case contract, 30-second deadline and output
+limits. New request controls pass 30/30, concurrent shutdown 12/12, and the
+default development supervisor exits normally within three seconds while a
+command is pending. Commands outside an HTTP request, including CLI work after
+the server returns, retain their previous behavior. See
+[NATIVE-HTTP-PROCESS-CANCEL.md](NATIVE-HTTP-PROCESS-CANCEL.md) and its evidence.
+Abrupt owner death and the unbounded legacy operation remain unqualified.

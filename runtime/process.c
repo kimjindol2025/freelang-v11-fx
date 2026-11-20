@@ -59,19 +59,50 @@ static int64_t shell_monotonic_ms(void) {
 static void shell_cancel(pid_t child, int grouped, int signal_number) {
     if (child > 0) (void)kill(grouped ? -child : child, signal_number);
 }
+/* Optional when this object is linked without the HTTP server. */
+extern int fl_http_process_cancel_requested(void) __attribute__((weak));
+static int shell_http_cancel_requested(int timeout_ms) {
+    return timeout_ms > 0 && fl_http_process_cancel_requested &&
+           fl_http_process_cancel_requested();
+}
+static int shell_child_owned(pid_t child, siginfo_t *info) {
+    int result;
+    memset(info, 0, sizeof(*info));
+    do { result = waitid(P_PID, (id_t)child, info, WEXITED | WNOHANG | WNOWAIT); }
+    while (result < 0 && errno == EINTR);
+    return result == 0;
+}
+static void shell_http_cancel(pid_t child) {
+    siginfo_t info;
+    if (!shell_child_owned(child, &info)) return;
+    /* Keep the direct child unreaped while signalling its own group. This
+     * prevents a completed leader's PID/group from being reused underneath us. */
+    shell_cancel(child, 1, SIGTERM);
+    int64_t started = shell_monotonic_ms();
+    while (started >= 0) {
+        int64_t now = shell_monotonic_ms();
+        if (now < 0 || now - started >= 200) break;
+        (void)poll(NULL, 0, 10);
+        if (!shell_child_owned(child, &info)) return;
+    }
+    /* Descendants can outlive a leader that handled TERM. The unreaped child
+     * still pins this group; finish cleanup before reaping it below. */
+    shell_cancel(child, 1, SIGKILL);
+}
 static FLValue shell_exec_result(FLValue command, int timeout_ms, int failure_status) {
     FLValue text = fl_v11_utf8_string(command);
     FLString *cmd = (FLString *)text.obj;
     if (memchr(cmd->data, 0, cmd->len))
         fl_throw(fl_make_error("TypeError", "shell command must not contain null bytes"));
     int pipes[2][2] = {{-1,-1},{-1,-1}}, input = -1, status = failure_status;
-    int failed = 0, overflow = 0, killed = 0, timed_out = 0;
+    int failed = 0, overflow = 0, killed = 0, timed_out = 0, cancelled = 0;
     int64_t deadline = 0;
     pid_t child = -1;
     FLShellCapture capture[2] = {{0},{0}};
     posix_spawn_file_actions_t actions;
     posix_spawnattr_t attributes;
     int actions_ready = 0, attributes_ready = 0;
+    if (shell_http_cancel_requested(timeout_ms)) { cancelled = 1; goto finish; }
     for (int i = 0; i < 2; i++) {
         if (pipe2(pipes[i], O_CLOEXEC) < 0) goto finish;
         for (int j = 0; j < 2; j++) {
@@ -106,6 +137,7 @@ static FLValue shell_exec_result(FLValue command, int timeout_ms, int failure_st
     close(pipes[0][1]); pipes[0][1] = -1;
     close(pipes[1][1]); pipes[1][1] = -1;
     while (pipes[0][0] >= 0 || pipes[1][0] >= 0) {
+        if (shell_http_cancel_requested(timeout_ms)) { cancelled = 1; break; }
         struct pollfd ready[2] = {{pipes[0][0],POLLIN,0},{pipes[1][0],POLLIN,0}};
         int wait_ms = -1;
         if (timeout_ms > 0) {
@@ -114,15 +146,20 @@ static FLValue shell_exec_result(FLValue command, int timeout_ms, int failure_st
             int64_t remaining = deadline - now;
             if (remaining <= 0) { timed_out = 1; break; }
             wait_ms = remaining > INT_MAX ? INT_MAX : (int)remaining;
+            if (wait_ms > 100) wait_ms = 100;
         }
         int result = poll(ready, 2, wait_ms);
         if (result < 0 && errno == EINTR) continue;
         if (result < 0) { failed = 1; break; }
-        if (result == 0) { timed_out = 1; break; }
+        if (result == 0) {
+            if (timeout_ms > 0) continue; /* Same deadline; also observe HTTP stop. */
+            timed_out = 1; break;
+        }
         for (int i = 0; i < 2; i++) {
             if (pipes[i][0] < 0 || !ready[i].revents) continue;
             char buffer[8192];
             for (;;) {
+                if (shell_http_cancel_requested(timeout_ms)) { cancelled = 1; break; }
                 if (timeout_ms > 0) {
                     int64_t now = shell_monotonic_ms();
                     if (now < 0) { failed = 1; break; }
@@ -138,9 +175,9 @@ static FLValue shell_exec_result(FLValue command, int timeout_ms, int failure_st
                 else if (errno == EAGAIN || errno == EWOULDBLOCK) break;
                 else { failed = 1; break; }
             }
-            if (failed || overflow || timed_out) break;
+            if (failed || overflow || timed_out || cancelled) break;
         }
-        if (failed || overflow || timed_out) break;
+        if (failed || overflow || timed_out || cancelled) break;
     }
 finish:
     if (actions_ready) posix_spawn_file_actions_destroy(&actions);
@@ -149,14 +186,21 @@ finish:
     for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++)
         if (pipes[i][j] >= 0) close(pipes[i][j]);
     if (child > 0) {
+        if (cancelled) shell_http_cancel(child);
         if (failed || (timeout_ms > 0 && (overflow || timed_out)))
             shell_cancel(child, timeout_ms > 0, SIGKILL);
         int wait_status;
         pid_t waited;
-        if (timeout_ms > 0 && !failed && !overflow && !timed_out) {
+        if (timeout_ms > 0 && !failed && !overflow && !timed_out && !cancelled) {
             for (;;) {
                 waited = waitpid(child, &wait_status, WNOHANG);
                 if (waited == child || (waited < 0 && errno != EINTR)) break;
+                if (shell_http_cancel_requested(timeout_ms)) {
+                    cancelled = 1;
+                    shell_http_cancel(child);
+                    do { waited = waitpid(child, &wait_status, 0); } while (waited < 0 && errno == EINTR);
+                    break;
+                }
                 int64_t now = shell_monotonic_ms();
                 if (now < 0 || now >= deadline) {
                     if (now < 0) failed = 1; else timed_out = 1;
@@ -170,7 +214,7 @@ finish:
         } else {
             do { waited = waitpid(child, &wait_status, 0); } while (waited < 0 && errno == EINTR);
         }
-        if (waited == child && !failed && !overflow && !timed_out && WIFEXITED(wait_status)) status = WEXITSTATUS(wait_status);
+        if (waited == child && !failed && !overflow && !timed_out && !cancelled && WIFEXITED(wait_status)) status = WEXITSTATUS(wait_status);
     }
     FLValue output = shell_output(capture[0].data, capture[0].used);
     FLValue errors = shell_output(capture[1].data, capture[1].used);
