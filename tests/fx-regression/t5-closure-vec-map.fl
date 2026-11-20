@@ -1,0 +1,3 @@
+(defn make-list [y] (fn [] [{:k y} {:k (+ y 1)}]))
+(define l (make-list 10))
+(println (str "closure-vec=" (get (get (l) 0) "k") "," (get (get (l) 1) "k")))

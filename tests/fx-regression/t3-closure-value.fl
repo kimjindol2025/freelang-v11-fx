@@ -1,0 +1,3 @@
+(defn make-holder [y] (fn [] {:k y}))
+(define h (make-holder 7))
+(println (str "closure-value=" (get (h) "k")))

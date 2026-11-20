@@ -1,0 +1,7 @@
+(define a (atom []))
+(swap! a conj 1)
+(swap! a conj 2)
+(println (str "vec=" (deref a)))
+(define c (atom 0))
+(swap! c (fn [v] (+ v 1)))
+(println (str "cnt=" (deref c)))

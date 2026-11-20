@@ -1,0 +1,3 @@
+(defn keyer [k] (fn [] {k 1}))
+(define f (keyer "z"))
+(println (str "map-key=" (get (f) "z")))

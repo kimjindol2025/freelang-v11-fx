@@ -1,0 +1,2 @@
+(println "COMMON_EXECUTED")
+(define shared-value 99)

@@ -1,0 +1,4 @@
+(load "./common.fl")
+(load "common.fl")
+(load "./sub/../common.fl")
+(println (str "shared=" shared-value))
