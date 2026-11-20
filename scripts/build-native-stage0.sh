@@ -33,7 +33,7 @@ for required in "$ROOT_DIR/bootstrap/stage0.c" "$RUNTIME_DIR/runtime.h" "${RUNTI
   [[ -f "$required" ]] || { echo "REQUIRED_PATH=FAIL:$required" >&2; exit 1; }
 done
 
-gcc -O2 -w -I "$RUNTIME_DIR" -o "$OUTPUT" \
+gcc -O2 -Werror=implicit-function-declaration -Werror=incompatible-pointer-types -I "$RUNTIME_DIR" -o "$OUTPUT" \
   "$ROOT_DIR/bootstrap/stage0.c" "${RUNTIME_SRCS[@]}" \
   -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto
 

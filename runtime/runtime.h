@@ -822,4 +822,9 @@ FLValue pdf_img_obj(FLValue img, FLValue obj_id);
 
 FLValue ufl_str_indent(FLValue a0, FLValue a1);
 FLValue str_indent(FLValue a0, FLValue a1);
+/* D2 native ABI contract — see runtime/aliases.c */
+FLValue json_str(FLValue value);
+FLValue str_lines(FLValue value);
+FLValue arr_flatten(FLValue vec);
+FLValue error_message(FLValue err);
 /* FL:USER_SECTION:END */

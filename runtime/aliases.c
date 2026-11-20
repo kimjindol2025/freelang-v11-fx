@@ -1955,3 +1955,53 @@ FLValue fl_builtin_fn(FLValue name) {
     if(!strcmp(s,"get"))return fl_fn_new(builtin_get,0,NULL);
     return fl_nil();
 }
+
+/* ── D2 native ABI contract additions (FAIL status: gate still 71/71 FAIL) ──
+ * json_str   : FL string -> FL string. Delegates to fl_json_stringify.
+ *              Unlike legacy JS json_str (v11 toSerializable), fx keeps
+ *              JSON.stringify semantics: own keys, no prototype fields.
+ * str_lines  : FL string -> FLVec<string>, split on '\n', trailing empty
+ *              segment PRESERVED (required by WAL recovery recovery-lines).
+ * arr_flatten: FLVec<FLVec> -> FLVec, one level (identical to flatten()).
+ * error_message: FL error/string -> FL string, never hides a thrown error.
+ */
+FLValue json_str(FLValue value) {
+    return fl_json_stringify(value);
+}
+
+FLValue str_lines(FLValue value) {
+    FLValue out = fl_vec_new();
+    if (value.tag != FL_STRING || !value.obj) return out;
+    const char* s = ((FLString*)value.obj)->data;
+    if (!s) return out;
+    const char* start = s;
+    for (const char* p = s;; ++p) {
+        if (*p == '\n' || *p == '\0') {
+            /* copy [start,p) into an owned FL string */
+            size_t n = (size_t)(p - start);
+            char* buf = (char*)malloc(n + 1);
+            if (!buf) fl_throw(fl_str_val("str_lines: out of memory"));
+            memcpy(buf, start, n);
+            buf[n] = '\0';
+            out = fl_vec_push(out, fl_str_val(buf));
+            free(buf);
+            if (*p == '\0') break;
+            start = p + 1;
+        }
+    }
+    return out;
+}
+
+FLValue arr_flatten(FLValue vec) {
+    return flatten(vec);
+}
+
+FLValue error_message(FLValue err) {
+    if (err.tag == FL_STRING && err.obj)
+        return err;
+    if (err.tag == FL_MAP) {
+        FLValue msg = fl_map_get(err, fl_str_val("message"));
+        if (msg.tag == FL_STRING && msg.obj) return msg;
+    }
+    return fl_str_val("unknown error");
+}

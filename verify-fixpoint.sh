@@ -130,7 +130,7 @@ build_c() {
   local log="$TMP_DIR/${label}.log"
   if ! gcc -O2 -w -I "$RUNTIME_DIR" -o "$output" "$source" \
       "${RUNTIME_SRCS[@]}" \
-      -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl \
+      -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto \
       >"$log" 2>&1; then
     echo "${label}=FAIL"
     echo "--- ${label} diagnostics ---" >&2
@@ -148,7 +148,7 @@ build_app_c() {
   local log="$TMP_DIR/${label}.log"
   if ! gcc -O2 -w -I "$RUNTIME_DIR" -o "$output" "$source" \
       "${APP_RUNTIME_SRCS[@]}" \
-      -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl \
+      -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto \
       >"$log" 2>&1; then
     echo "${label}=FAIL"
     echo "--- ${label} diagnostics ---" >&2
@@ -197,7 +197,7 @@ if gcc -O2 -w -I "$RUNTIME_DIR" -o "$TMP_DIR/missing-user-fns-bin" \
     "$RUNTIME_DIR/gc.c" "$RUNTIME_DIR/http.c" "$RUNTIME_DIR/websocket.c" \
     "$RUNTIME_DIR/sqlite.c" "$RUNTIME_DIR/mariadb.c" "$RUNTIME_DIR/debug.c" \
     "$RUNTIME_DIR/http_client.c" "$RUNTIME_DIR/regex.c" "$RUNTIME_DIR/smtp.c" \
-    "$RUNTIME_DIR/sse.c" -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto -lcurl \
+    "$RUNTIME_DIR/sse.c" -lm -lpthread -ldl -lsqlite3 -lssl -lcrypto \
     >"$MISSING_LOG" 2>&1; then
   echo "MISSING_USER_FNS_NEGATIVE_TEST=UNEXPECTED_PASS"
   exit 1
