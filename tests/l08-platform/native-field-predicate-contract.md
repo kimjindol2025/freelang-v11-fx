@@ -1,10 +1,11 @@
 # Optional Native field-predicate compatibility
 
 `native-field-predicate.fl` is the unchanged 24-case source exercised against
-the accepted runtime and a separate candidate runtime. Both suites pass. This
-commit archives the test, its two expected outputs and its scoped evidence.
-The current product runtime uses the callback fallback; the optional primitive
-implementation remains in the private candidate until its broader qualification.
+the accepted runtime and a separate candidate runtime. Both suites pass. The earlier
+contract commit archived the test, its two expected outputs and scoped evidence.
+The product runtime now supplies the optional primitive after the separate
+SDK, DB, frontend and actual-app qualification recorded below. Older runtimes
+continue to use the callback fallback.
 
 The test probes availability instead of assuming a capability flag. For each
 case, the reference is the original `any?` callback using `get` and `=`. A
@@ -36,3 +37,14 @@ exit 139. That failure is retained and the whole profile is not PASS. These
 24-case results establish the recorded collection contract only; they do not
 qualify DB recovery, the complete SDK/frontend, production or commercial use.
 Existing tests, expected outputs and default test selections are preserved.
+
+
+The later qualification retains the earlier failed profile and supplies six
+fresh complete-data cold recoveries with an all-index verifier, the unchanged
+52/19 diagnostic, 349 existing storage/commit-health checks, the full five-minute
+load, frontend/default/SSE controls, three real standard-client SQL requests,
+and a relocated actual app with 20 desktop local Git/DOM/console controls.
+See [qualified evidence](../../docs/evidence/native-field-predicate-qualified-20261121.json).
+This implementation changes only the generic scalar collection predicate;
+it contains no DB policy and does not fix the separate general `range` builder.
+Commercial status remains HOLD; production activation is NO.

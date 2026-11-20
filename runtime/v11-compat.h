@@ -1527,6 +1527,29 @@ FLValue fl_v11_builtin(FLValue name,FLValue argv){
         return r;
     }
     if(IS("reduce"))return fl_reduce_fn(ARG(0),ARG(1),ARG(2));
+    /* Optional scalar field predicate: nil requests the caller's generic
+       path. No SQL/schema policy lives here. The fast path has the same
+       compatibility equality and normalized plain-key lookup as the native callback. */
+    if(IS("native-try-some-field-eq")){
+        FLValue rows=ARG(0),key=ARG(1),value=ARG(2);
+        if(n!=3||rows.tag!=FL_VECTOR||!rows.obj||
+           rows.obj->type==FL_MANAGED_ATOM||
+           __atomic_load_n(&rows.obj->rc,__ATOMIC_RELAXED)==0xFF||
+           key.tag!=FL_STRING||!key.obj||
+           (((FLString*)key.obj)->len&&((FLString*)key.obj)->data[0]==':')||
+           !(value.tag==FL_NIL||value.tag==FL_BOOL||value.tag==FL_INT||
+             value.tag==FL_FLOAT||value.tag==FL_STRING))return fl_nil();
+        FLValue normalized=t_key(key);
+        FLVector*items=(FLVector*)rows.obj;
+        for(uint32_t i=0;i<items->len;i++){
+            FLValue row=items->data[i];
+            if(row.tag!=FL_MAP||!row.obj)return fl_nil();
+            FLValue field=fl_truthy(fl_map_has(row,normalized))
+                ?fl_map_get(row,normalized):fl_map_get(row,key);
+            if(t_equal(field,value,1))return fl_bool(true);
+        }
+        return fl_bool(false);
+    }
     if(IS("any?")||IS("every?")){
         FLValue v=ARG(1);
         if(v.tag!=FL_VECTOR)return fl_bool(IS("every?"));

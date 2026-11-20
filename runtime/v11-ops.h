@@ -8,7 +8,7 @@ static const char *const v11_ops[] = {
 "str-trim","str-upper","str-lower","str-to-upper","str-to-lower","str-encode-uri","str-decode-uri","html-escape",
 "arr-flatten","arr-unique","arr-sort-by","arr-sort-by-desc","append","conj","concat","obj-merge","merge",
 "assoc","dissoc","keys","vals","first","last","rest","take","drop","reverse","range","flatten-1",
-"map","filter","reduce","any?","every?","integer?","float?","type-of",
+"map","filter","reduce","any?","every?","native-try-some-field-eq","integer?","float?","type-of",
 "date-parse","now-ms","now-iso","format-date",
 "env-get","env-or","error-message","process-exit","uuid-short",
 "fd-open","fd-write","fd-read","fd-fsync","fd-close","fd-seek","fd-flush",
