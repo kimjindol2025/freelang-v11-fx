@@ -1,0 +1,271 @@
+{
+  "date": "2026-11-20",
+  "goalStatus": "ACTIVE",
+  "commercial": "HOLD",
+  "productionDeployment": "NOT_RUN",
+  "sdk": {
+    "manifestSha256": "e5e3b82e55cb298f967c09cd703ffe8bb930866266a7da80b73eb1b0e35b2468",
+    "runtimeSha256": "0af1c706a52c01f7c6da4fc8855ce8b8fbaf4634978252986a6d4c3cb84bdf2d",
+    "elf": {
+      "flc": "c57658961273b995a36958e6bc706caa1d9a2155b7fe4fd40ba2eeadc1352b15",
+      "fl-git": "f085577d6339d94fab04bc790f1f6fabcee14fb57dc187d9a5e734470ed5348a",
+      "fl-tui": "7d0c7fda9edd1c1fd6e50b7df0631fc65aeb1747d8cdf669398b5533073cec9d",
+      "fl-check": "37283930c17d5143b88a31f6599423d4948f77bbad5acc0f62c7db8056a65efc",
+      "flp-compile": "00a6636549c9c8c66517190eb32f25099a3d794c893cec4c5fed86fa147df85b",
+      "fl-front-build": "52c1b5648344ab63a7a3b85c6a963656b78011b398e0fc4dffc4b27ef650e429",
+      "fl-style-compile": "a7bdf2e5373a02977f30b327c5576a544b4929412bbed00bb3c6c076740ebd5d",
+      "fl-island-compile": "102214249f309aa464a078036648b88566c193dd1b51c2be23fdb6f6794f786b",
+      "fl-dev-server": "a6a01dce30004c286f02a699bec096cdc41f1b629f13ab05bd96ee08b3294732",
+      "fl-dev-watch": "38606ae80ac7d8c8191c8769c4d4bda5d924001226bc11227794ee4d9f02a4fe",
+      "fl-dev-control": "8d708371a944649a6cbd3906b62a7f04eba7fe5830524b62e1adf56284586a65",
+      "fl-front-fix": "0f381edfe5aa64f5c22c2352cf26bbc855595c83405f6229a0436445c555ed83",
+      "fl-island-headless": "32f0d790efe7b0d5dfd02976debd263cfdd46a3467403f9f1d65c699156133d9",
+      "fl-dev-watch-host": "f86888c5715d6093331a610cfe525994954cf72a8e7700d5e0f591ba17d4b5e8",
+      "fl-source-transaction": "20a8f6660c66a4d714524119e29f88080d4a3c8105302b947f7bdb6f9228fb54",
+      "fl-js-engine": "b31919e02fcaec778d61b63aaba1ecfc042784dfa36a1b0c5159ac49074a26b5"
+    }
+  },
+  "preservation": {
+    "foreignFiles": 4,
+    "foreignHashesUnchanged": true,
+    "protectedTestsAssertionsExpectedOutputsRunnersBoundsChanged": false,
+    "seedRegenerated": false,
+    "dbChanged": false,
+    "productHandwrittenJavaScriptOrPythonAdded": false,
+    "qualifiedProcessHostObjectByteIdentical": true
+  },
+  "traceAudit": {
+    "traceFiles": 49,
+    "decodedExecs": 8199,
+    "nodeFamilyExecs": 0,
+    "pathsDecodedAsFilesystemBytes": true
+  },
+  "bounds": {
+    "addressSpaceBytes": 2147483648,
+    "sharedHeavyLock": true,
+    "readinessAndStopSeconds": 3,
+    "httpRequestSeconds": 3,
+    "preparedEngineMilliseconds": 2000,
+    "parseGenerateSeconds": 15,
+    "selfGenerationSeconds": 40,
+    "selfRSSGiB": 1.6,
+    "changed": false
+  },
+  "schema": "native-http-pressure-evidence/1",
+  "change": "Release only completed idle plain-HTTP keep-alive connections when all configured workers are busy and another connection is queued; preserve active and fresh requests.",
+  "sourceSha256": {
+    "runtime/http.c": "f983610c7835510c626451fcaf05e11468adb0447a1e7ba31851b314435f4851",
+    "runtime/http-form.h": "f697c006d0f0b5cbba64af16587df189c7e447a99362e5d376a8544fbeaa1f86"
+  },
+  "runtimeObjects": {
+    "same": [
+      "aliases.o",
+      "cgc-bridge.o",
+      "collection.o",
+      "debug.o",
+      "error.o",
+      "gc.o",
+      "http_client.o",
+      "io.o",
+      "json.o",
+      "mariadb.o",
+      "math.o",
+      "process.o",
+      "raw_tcp.o",
+      "regex.o",
+      "smtp.o",
+      "sqlite.o",
+      "sse.o",
+      "user-fns.o",
+      "websocket.o"
+    ],
+    "changed": [
+      "core.o",
+      "http.o"
+    ],
+    "archiveSha256": "0af1c706a52c01f7c6da4fc8855ce8b8fbaf4634978252986a6d4c3cb84bdf2d"
+  },
+  "coreObject": {
+    "textByteIdentical": true,
+    "changedSections": [
+      {
+        "section": ".rela.text",
+        "oldSize": 49296,
+        "newSize": 49296
+      },
+      {
+        "section": ".rodata.str1.8",
+        "oldSize": 2544,
+        "newSize": 2528
+      }
+    ]
+  },
+  "canonical": {
+    "unchangedSeedSha256": "0101cb63a86f20b93451f70b88a0b577f9548ded0a8b328ebdeedb7e8e4fd767",
+    "canonicalCSha256": "a562273ff556348581688d27f780dfb7486dcac572d671a17ace04715c8808e5",
+    "stage2Equals3Equals4": true,
+    "runtimeArchiveSha256": "0af1c706a52c01f7c6da4fc8855ce8b8fbaf4634978252986a6d4c3cb84bdf2d",
+    "measurements": [
+      {
+        "step": "stage0_TO_stage1",
+        "seconds": 1.69,
+        "rssKiB": 391932
+      },
+      {
+        "step": "stage1_TO_stage2",
+        "seconds": 1.61,
+        "rssKiB": 940180
+      },
+      {
+        "step": "stage2_TO_stage3",
+        "seconds": 30.17,
+        "rssKiB": 1558640
+      },
+      {
+        "step": "stage3_TO_stage4",
+        "seconds": 30.28,
+        "rssKiB": 1557064
+      }
+    ],
+    "limits": {
+      "seconds": 40,
+      "rssGiB": 1.6,
+      "addressSpaceBytes": 2147483648
+    }
+  },
+  "relocatedCompiler": {
+    "seconds": 30.81,
+    "rssKiB": 1559604,
+    "exit": 0,
+    "canonicalCIdentical": true,
+    "limits": {
+      "seconds": 40,
+      "rssGiB": 1.6,
+      "addressSpaceBytes": 2147483648
+    }
+  },
+  "verification": {
+    "originalPressure": "FAIL retained: two completed idle connections occupy both workers; third health request exceeds unchanged3s",
+    "matchingRuntimePressure": {
+      "passed": 4,
+      "total": 4,
+      "thirdHealthSeconds": 0.10013654100475833
+    },
+    "rawSocketPressure": {
+      "controls": 129,
+      "passed": 129,
+      "workers": 2,
+      "requestSeconds": 3,
+      "keepaliveMaximumRequests": 100,
+      "headerAndBodyBoundsChanged": false
+    },
+    "httpShutdown": {
+      "passed": 56,
+      "total": 56,
+      "samples": [
+        {
+          "mode": "one-idle",
+          "elapsed_seconds": 0.11399781300133327,
+          "exit": 0
+        },
+        {
+          "mode": "eight-idle",
+          "elapsed_seconds": 0.11400448800122831,
+          "exit": 0
+        },
+        {
+          "mode": "inflight",
+          "elapsed_seconds": 0.5901938820024952,
+          "exit": 0
+        },
+        {
+          "mode": "queued",
+          "elapsed_seconds": 0.6799348659988027,
+          "exit": 0
+        },
+        {
+          "mode": "partial",
+          "elapsed_seconds": 0.10212298099941108,
+          "exit": 0
+        }
+      ]
+    },
+    "sseCapacity": {
+      "passed": 34,
+      "total": 34,
+      "workers": 2,
+      "retainedSSE": 8
+    },
+    "trackedCommon": {
+      "passed": 71,
+      "total": 71,
+      "separateProvider": 9
+    },
+    "actualCommon": {
+      "passed": 80,
+      "total": 80,
+      "separateProvider": 9
+    },
+    "gitCLI": {
+      "passed": 22,
+      "total": 22
+    },
+    "fxRegressions": {
+      "passed": 11,
+      "total": 11
+    },
+    "headlessHTTP": {
+      "controls": 53,
+      "passed": 53,
+      "actualAppSha256": "78bb9c77ed0b7973c39339eb0306b95cb9bd5a7b579e582c2eac1c5c8733c9f3",
+      "actualAppBytes": 95749,
+      "retainedSSE": 8,
+      "workers": 2,
+      "requestDeadlineSeconds": 3,
+      "engineDeadlineMilliseconds": 2000,
+      "commercial": "HOLD"
+    },
+    "headlessBuildGate": {
+      "controls": 21,
+      "passed": 21,
+      "successfulTestCases": 7,
+      "intentionalExpectationFailures": 9,
+      "malformedFileFailure": 1,
+      "buildGate": "executed",
+      "commercial": "HOLD"
+    },
+    "headlessOriginalCLI": {
+      "passed": 10,
+      "total": 10
+    },
+    "headlessSelection": {
+      "controls": 16,
+      "passed": 16,
+      "actualAppColdSeconds": 14.337120616997709,
+      "perPhaseBoundsChanged": false,
+      "commercial": "HOLD"
+    },
+    "headlessPreparedCache": {
+      "prepareSeconds": 2.7044026250005118,
+      "warmSeconds": 0.17340205299842637,
+      "selectedInvalidIsolation": true,
+      "fullTypedData": true,
+      "allFailure": true,
+      "unknownSelection": true,
+      "staleSourceRejected": true
+    },
+    "actualBrowser": {
+      "passed": 25,
+      "total": 25,
+      "sdk": "final fresh coherent SDK"
+    }
+  },
+  "notQualified": [
+    "TLS pressure",
+    "Abrupt process-owner death/cancellation",
+    "Full DSL compatibility",
+    "Default development/deployment migration",
+    "Authenticated remote Git UI flows",
+    "Latest whole DB95 safety/recovery/concurrency/load/operations"
+  ]
+}

@@ -277,6 +277,7 @@ typedef struct {
     char content_type[256];
 } HttpRequest;
 
+static int http_pool_has_waiter(void);
 #include "http-form.h"
 
 /* Node querystring semantics: raw path, forgiving UTF-8 query decoding. */
@@ -532,7 +533,7 @@ static void* handle_connection(void* arg) {
         /* ── 1. 요청 수신 ── */
         free(raw); raw = NULL;
         http_error = NULL;
-        int total = form_receive(client_fd, &raw);
+        int total = form_receive(client_fd, &raw, req_count > 0);
         if (total < 0) {
             char body[96], response[512];
             snprintf(body,sizeof body,"{\"error\":\"%s\"}",http_error ? http_error : "UPLOAD_IO_FAILED");
@@ -706,6 +707,16 @@ static struct {
     volatile int    shutdown;    /* 1 = graceful shutdown 시작 */
     volatile int    active;      /* 현재 처리 중인 연결 수 */
 } g_pool;
+
+/* Completed keep-alive connections must not hold every worker while new
+ * connections wait. The reader checks this only before any next-request byte. */
+static int http_pool_has_waiter(void) {
+    pthread_mutex_lock(&g_pool.lock);
+    int waiting = !g_pool.shutdown && g_pool.queue_len > 0 &&
+                  g_pool.active >= g_pool.n_workers;
+    pthread_mutex_unlock(&g_pool.lock);
+    return waiting;
+}
 
 static volatile int g_server_fd = -1;  /* SIGTERM에서 close용 */
 

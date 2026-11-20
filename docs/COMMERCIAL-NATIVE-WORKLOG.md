@@ -654,3 +654,23 @@ See NATIVE-JSON-STATUS.md for the current contract and failure provenance.
 Protected tests, runners, timeouts, expected values, JS and seed were not
 changed. DB95 full validation/recovery remains unfinished; commercial HOLD,
 deployment NO. Host paths/owners: <가림>.
+
+## Completed idle HTTP connections and queued work
+
+Receipt `native-http-pressure-20261120` fixes the independently reproduced
+two-worker starvation of browser asset requests. Only completed idle plain-HTTP
+connections yield under queue pressure, before any next-request byte. Fresh and
+partial requests retain their behavior and all limits remain unchanged.
+Raw-socket pressure controls pass 129/129, original HTTP shutdown 56/56, SSE
+capacity 34/34, tracked frontend 71/71 plus Provider 9, actual frontend 80/80
+plus Provider 9, Git CLI 22/22 and FX 11/11. Headless HTTP 53/53 and build-gate
+21/21 pass with the same fresh SDK; final actual Chrome controls pass 25/25.
+
+All runtime objects and seed-to-Stage4 were rebuilt. Canonical Stage 2/3/4 C
+remains `a562273ff556348581688d27f780dfb7486dcac572d671a17ace04715c8808e5`.
+Relocated SDK generation takes 30.81 seconds and 1,559,604 KiB RSS within the
+unchanged 40-second/1.6-GiB gates. All 49 collected product traces contain zero
+Node-family executions. See [NATIVE-HTTP-KEEPALIVE.md](NATIVE-HTTP-KEEPALIVE.md)
+and its exact evidence. Original failures remain retained. TLS pressure,
+default development/deployment, full DSL and latest whole DB95 acceptance are
+still open. Overall goal ACTIVE; commercial HOLD; production NOT_RUN.

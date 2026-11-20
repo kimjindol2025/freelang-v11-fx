@@ -176,7 +176,7 @@ static int form_headers(char *raw, size_t len, HttpRequest *hr, size_t *offset) 
 }
 
 /* Read exactly one bounded request; never dispatch a partial declared body. */
-static int form_receive(int fd, char **raw_out) {
+static int form_receive(int fd, char **raw_out, int reusable) {
     size_t cap=MAX_HEADER_TOTAL+1, got=0, offset=0, target=0;
     char *raw=malloc(cap); if (!raw) return form_fail(500,"UPLOAD_IO_FAILED");
     int flags=fcntl(fd,F_GETFL);
@@ -197,6 +197,15 @@ static int form_receive(int fd, char **raw_out) {
             if (ready<0 && errno==EINTR) continue;
             if (!ready && !got) {
                 if (atomic_load_explicit(&http_stopping,memory_order_relaxed)) { result=0; break; }
+                if (reusable && !http_ssl && http_pool_has_waiter()) {
+                    /* Preserve newly arrived data if it raced the idle poll.
+                     * No request byte is consumed or active request cancelled. */
+                    char next;
+                    ssize_t peek=recv(fd,&next,1,MSG_PEEK|MSG_DONTWAIT);
+                    if (!peek || (peek<0 && (errno==EAGAIN || errno==EWOULDBLOCK))) {
+                        result=0; break;
+                    }
+                }
                 continue; /* The same monotonic header deadline still applies. */
             }
             if (!ready) { result=form_fail(408,"UPLOAD_TIMEOUT"); break; }
