@@ -119,13 +119,14 @@ static void bj_bindings(BJ*b,FLValue block,FLValue *names){
   if(names)*names=fl_vec_push(*names,name);
  }
 }
-static void bj_function(BJ*b,FLValue args,unsigned offset){
+static void bj_function_mode(BJ*b,FLValue args,unsigned offset,int raw){
  FLValue block=bj_at(args,offset);
  if(!bj_is(rb_get(block,"kind"),"block")||!bj_is(rb_get(block,"type"),"Array"))bj_fail(b,"function parameter vector required");
  FLValue parameters=bj_items(bj_at(args,offset));bj_out(b,"function(");
- for(unsigned i=0;i<bj_len(parameters);i++){if(i)bj_out(b,",");bj_ident(b,rb_name(bj_at(parameters,i)));bj_out(b,"=null");}
+ for(unsigned i=0;i<bj_len(parameters);i++){if(i)bj_out(b,",");bj_ident(b,rb_name(bj_at(parameters,i)));if(!raw)bj_out(b,"=null");}
  bj_out(b,"){\nreturn ");bj_expr(b,bj_body(args,offset+1));bj_out(b,";\n}");
 }
+static void bj_function(BJ*b,FLValue args,unsigned offset){bj_function_mode(b,args,offset,0);}
 static void bj_try(BJ*b,FLValue n,BJLoop*loop){
  bj_out(b,"try{\n");bj_tail(b,rb_get(n,"body"),loop);bj_out(b,"}\n");
  FLValue clause=rb_get(n,"catch"),last=rb_get(n,"finally");
@@ -142,7 +143,9 @@ static void bj_logic(BJ*b,FLValue args,unsigned index,int is_or){
 }
 static int bj_host(BJ*b,const char*op,FLValue args){
  unsigned n=bj_len(args);const char *symbol=NULL;
- const char *properties[]={"j-host-global","globalThis","j-host-session-storage","globalThis.sessionStorage",
+ const char *properties[]={"j-host-global","globalThis","j-host-this","this",
+  "j-host-arguments","Array.from(arguments)","j-host-undefined","void 0",
+  "j-host-session-storage","globalThis.sessionStorage",
   "j-host-location-reload","globalThis.location.reload()","j-host-location-protocol","location.protocol",
   "j-host-location-hostname","location.hostname","j-host-now","Date.now()",NULL};
  for(unsigned i=0;properties[i];i+=2)if(!strcmp(op,properties[i])){
@@ -151,12 +154,21 @@ static int bj_host(BJ*b,const char*op,FLValue args){
  if(!strcmp(op,"j-host-event-source")){
   if(n!=1)bj_fail(b,"host EventSource arity");bj_out(b,"new EventSource(");bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;
  }
- const char *binary[]={"j-host-eq","===","j-host-lt","<","j-host-gte",">=","j-host-add","+","j-host-sub","-","j-host-mul","*","j-host-div","/","j-host-and","&&","j-host-or","||",NULL};
+ if(!strcmp(op,"j-host-raw-fn")){
+  FLValue function=bj_at(args,0);
+  if(n!=1||!bj_is(rb_get(function,"kind"),"sexpr")||!bj_is(rb_get(function,"op"),"fn"))
+   bj_fail(b,"host raw function requires one function literal");
+  bj_out(b,"(");bj_function_mode(b,rb_get(function,"args"),0,1);bj_out(b,")");return 1;
+ }
+ const char *binary[]={"j-host-eq","===","j-host-neq","!==","j-host-lt","<","j-host-gt",">",
+  "j-host-lte","<=","j-host-gte",">=","j-host-add","+","j-host-sub","-","j-host-mul","*",
+  "j-host-div","/","j-host-mod","%","j-host-instance?"," instanceof ","j-host-and","&&","j-host-or","||",NULL};
  for(unsigned i=0;binary[i];i+=2)if(!strcmp(op,binary[i]))symbol=binary[i+1];
  if(symbol){if(n!=2)bj_fail(b,"host binary arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,symbol);bj_expr(b,bj_at(args,1));bj_out(b,")");return 1;}
  const char *unary=!strcmp(op,"j-host-not")?"!":!strcmp(op,"j-host-neg")?"-":!strcmp(op,"j-host-type")?"typeof ":NULL;
  if(unary){if(n!=1)bj_fail(b,"host unary arity");bj_out(b,"(");bj_out(b,unary);bj_expr(b,bj_at(args,0));bj_out(b,")");return 1;}
  if(!strcmp(op,"j-host-nullish?")){if(n!=1)bj_fail(b,"host nullish arity");bj_out(b,"(");bj_expr(b,bj_at(args,0));bj_out(b,"==null)");return 1;}
+ if(!strcmp(op,"j-host-spread")){if(n!=1)bj_fail(b,"host spread arity");bj_out(b,"[...");bj_expr(b,bj_at(args,0));bj_out(b,"]");return 1;}
  if(!strcmp(op,"j-host-at")||!strcmp(op,"j-host-set!")){
   int set=!strcmp(op,"j-host-set!");if(n!=(set?3u:2u))bj_fail(b,"host access arity");
   bj_out(b,"((");bj_expr(b,bj_at(args,0));bj_out(b,")[");bj_expr(b,bj_at(args,1));bj_out(b,"]");if(set){bj_out(b,"=");bj_expr(b,bj_at(args,2));}bj_out(b,")");return 1;
