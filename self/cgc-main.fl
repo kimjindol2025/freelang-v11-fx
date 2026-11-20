@@ -3075,7 +3075,7 @@
       (emit $cur "Number" $text $line $col)
       (recur (advance $cur) (str $text (peek $cur))))))
 
-(defn browser-emit [$argv]
+(defn browser-emit-with-support [$argv $support-nodes]
   (if (not (= (length $argv) 3))
     (throw "compiler: --browser-js requires input.fl and output.js")
     (let [[$input (get $argv 1)]
@@ -3091,11 +3091,31 @@
           [$_read-check (if (get $read "ok") nil (throw "compiler: browser input read failed"))]
           [$_reset (reset! loaded-paths-atom (list (fl_compiler_realpath $input)))]
           [$nodes (expand-loads (parse (lex (get $read "data"))) (path-dir $input))]
-          [$generated (fl_compiler_browser_generate $nodes (fn [$text] (parse (lex $text))))]
+          [$generated (fl_compiler_browser_generate $nodes
+                        (fn [$text] (concat (parse (lex $text)) $support-nodes)))]
           [$written (fl_file_write_result $output $generated)]]
       (if (get $written "ok")
         (println (str "Compiled browser " $input " -> " $output))
         (throw "compiler: browser output write failed")))))
+
+(defn browser-emit [$argv]
+  (browser-emit-with-support $argv []))
+
+;; Explicit compiler runtime input, separate from the user program. This keeps
+;; browser target user validation intact while allowing a FreeLang host adapter.
+(defn browser-runtime-emit [$argv]
+  (if (not (= (length $argv) 4))
+    (throw "compiler: --browser-runtime-js requires runtime.fl, input.fl and output.js")
+    (let [[$support (get $argv 1)] [$input (get $argv 2)] [$output (get $argv 3)]
+          [$_support-output
+            (if (and (not (nil? (fl_compiler_realpath $output)))
+                     (= (fl_compiler_realpath $support) (fl_compiler_realpath $output)))
+              (throw "compiler: runtime input and output must differ") nil)]
+          [$read (fl_file_read_result $support)]
+          [$_read-check (if (get $read "ok") nil (throw "compiler: browser runtime read failed"))]
+          [$_reset (reset! loaded-paths-atom (list (fl_compiler_realpath $support)))]
+          [$support-nodes (expand-loads (parse (lex (get $read "data"))) (path-dir $support))]]
+      (browser-emit-with-support (list "--browser-js" $input $output) $support-nodes))))
 
 (defn cgc-run [$argv]
   (loop [$rest $argv]
@@ -3106,6 +3126,7 @@
             (recur (slice $rest 2 (length $rest)))))
       (cond
         [(= (get $rest 0) "--browser-js") (browser-emit $rest)]
+        [(= (get $rest 0) "--browser-runtime-js") (browser-runtime-emit $rest)]
         [(= (get $rest 0) "--check")
          (fl-native-check-command (slice $rest 1 (length $rest)))]
         [(= (get $rest 0) "--parse-json")
